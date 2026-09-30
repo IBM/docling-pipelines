@@ -38,5 +38,39 @@ export default defineConfig(() => ({
         changeOrigin: true
       }
     }
-  }
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./tests/setup.ts'],
+    css: false,
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@components': path.resolve(__dirname, './src/components'),
+      '@pages': path.resolve(__dirname, './src/pages'),
+      '@hooks': path.resolve(__dirname, './src/hooks'),
+      '@contexts': path.resolve(__dirname, './src/contexts'),
+      '@types': path.resolve(__dirname, './src/types'),
+      '@config': path.resolve(__dirname, './src/config'),
+    },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'lcov'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/main.tsx',
+        'src/vite-env.d.ts',
+        'src/**/*.d.ts',
+        'src/**/*.module.scss',
+        'src/types/**',
+        'src/data/**',
+        'src/lib/sampleFlowNodes.json',
+      ],
+      // Global thresholds are not enforced here — coverage for the full app
+      // would always fail until 100% of source files have tests.
+      // Per-file 80% line coverage is enforced per-PR via
+      // scripts/check_pr_coverage_frontend.sh (reads lcov.info from this run).
+    },
+  },
 }))
