@@ -253,8 +253,14 @@ def mock_detect_pii_hap(payload: dict):
 
 @pytest.fixture
 def mock_pii_hap_service():
-    """Mock the PIIHAPService for all tests."""
-    with patch("docpipe.core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIHAPService") as mock_service_class:
+    """Mock the factory and PIIHAPService for all annotator tests."""
+    with (
+        patch(
+            "docpipe.core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPDetectionFactory.create",
+            return_value=MagicMock(),
+        ),
+        patch("docpipe.core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIHAPService") as mock_service_class,
+    ):
         mock_service = MagicMock()
         mock_service.detect_pii_hap.side_effect = mock_detect_pii_hap
         mock_service_class.return_value = mock_service

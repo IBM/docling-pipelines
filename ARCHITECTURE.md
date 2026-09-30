@@ -2642,21 +2642,21 @@ sequenceDiagram
 
 ### 10. PIIAndHAPAnnotator Hexagonal Architecture Pattern
 
-The PIIAndHAPAnnotator operator detects Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using shared common-infrastructure ports and adapters. WatsonX uses its native text-detection API, while LiteLLM uses prompt-based chat inference.
+The PIIAndHAPAnnotator operator detects Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using a decorator-based adapter registry. Each provider adapter self-registers with `PIIAndHAPDetectionFactory` and encapsulates its own detection path behind the unified `PIIAndHAPDetectionPort` interface.
 
 ```mermaid
 graph TB
 
     subgraph "Docling-pipelines Layer"
         PIIHAP[PIIAndHAPAnnotator]
+        FACTORY[PIIAndHAPDetectionFactory]
     end
 
-    subgraph "Service Architecture"
-        SERVICE[PIIHAPService<br/>Business Logic]
-        INFPORT[LLMInferencePort]
-        DETPORT[TextDetectionPort]
-        LITELLM[LiteLLMAdapter]
-        WATSONXDET[WatsonXAdapter<br/>text detection]
+    subgraph "Adapter Layer"
+        PORT[PIIAndHAPDetectionPort]
+        SERVICE[PIIHAPService<br/>thin wrapper]
+        WATSONXADAPTER[WatsonxPIIAndHAPAdapter<br/>wraps TextDetectionPort]
+        LITELLMADAPTER[LiteLLMPIIAndHAPAdapter<br/>wraps LLMInferencePort]
     end
 
     subgraph "External Services"
@@ -2664,21 +2664,21 @@ graph TB
         WATSONXAPI[WatsonX.ai /ml/v1/text/detection<br/>IBM Cloud]
     end
 
-    PIIHAP --> SERVICE
-    SERVICE --> INFPORT
-    SERVICE --> DETPORT
-    INFPORT --> LITELLM
-    DETPORT --> WATSONXDET
+    PIIHAP --> FACTORY
+    FACTORY --> PORT
+    PORT --> WATSONXADAPTER
+    PORT --> LITELLMADAPTER
+    PORT --> SERVICE
 
-    LITELLM --> LITELLMAPI
-    WATSONXDET --> WATSONXAPI
+    LITELLMADAPTER --> LITELLMAPI
+    WATSONXADAPTER --> WATSONXAPI
 
     style PIIHAP fill:#ffe1e1
+    style FACTORY fill:#ffe1e1
     style SERVICE fill:#fff4e1
-    style INFPORT fill:#fff4e1
-    style DETPORT fill:#fff4e1
-    style LITELLM fill:#e1ffe1
-    style WATSONXDET fill:#e1ffe1
+    style PORT fill:#fff4e1
+    style WATSONXADAPTER fill:#e1ffe1
+    style LITELLMADAPTER fill:#e1ffe1
 ```
 
 **Supported Providers:**
@@ -2752,9 +2752,8 @@ graph TB
    - Production deployment with WatsonX or LiteLLM
 
 4. **Extensibility**:
-   - Add new providers by extending the shared adapter and port infrastructure
-   - Reuse provider integrations across operators
-   - Keep operator-specific behavior isolated in `PIIHAPService`
+   - Add a new provider with a single file: create the adapter, decorate with `@register_pii_and_hap_detection_adapter`, and it is automatically discoverable
+   - Each adapter fully encapsulates its own detection path — no changes to `PIIHAPService` or the operator required
 
 **Use Cases:**
 
