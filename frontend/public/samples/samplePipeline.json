@@ -1,5 +1,43 @@
 [
   {
+    "id": "ad9dac49-7bac-495a-b552-ddec245e7295",
+    "type": "execution_node",
+    "op": "ingest_source",
+    "app_data": {
+      "react_nodes_data": {
+        "color": "#b28600",
+        "cardDescription": "Ingest"
+      },
+      "ui_data": {
+        "label": "Ingest data",
+        "image": "",
+        "x_pos": 41.6,
+        "y_pos": -45.3288,
+        "description": "Ingest documents from local and remote storage sources"
+      }
+    },
+    "outputs": [
+      {
+        "id": "ingest_source_outPort",
+        "app_data": {
+          "ui_data": {
+            "cardinality": { "min": 1, "max": 1 },
+            "label": "Output Port"
+          }
+        }
+      }
+    ],
+    "parameters": {
+      "provider": "filesystem",
+      "connection_params": { "paths": ["./sample_documents"] },
+      "credentials": {},
+      "max_files": 100,
+      "include_filter": null,
+      "exclude_filter": null,
+      "ignore_hidden_files": true
+    }
+  },
+  {
     "id": "a2dcf4f0-3d93-4c96-a189-5a9668a44566",
     "type": "execution_node",
     "op": "extract_operator",
@@ -245,44 +283,6 @@
         { "feature_name": "embeddings", "mapped_column_name": "vector_embeddings" }
       ],
       "add_sparse_vector": false
-    }
-  },
-  {
-    "id": "ad9dac49-7bac-495a-b552-ddec245e7295",
-    "type": "execution_node",
-    "op": "ingest_source",
-    "app_data": {
-      "react_nodes_data": {
-        "color": "#b28600",
-        "cardDescription": "Ingest"
-      },
-      "ui_data": {
-        "label": "Ingest data",
-        "image": "",
-        "x_pos": 41.6,
-        "y_pos": -45.3288,
-        "description": "Ingest documents from local and remote storage sources"
-      }
-    },
-    "outputs": [
-      {
-        "id": "ingest_source_outPort",
-        "app_data": {
-          "ui_data": {
-            "cardinality": { "min": 1, "max": 1 },
-            "label": "Output Port"
-          }
-        }
-      }
-    ],
-    "parameters": {
-      "provider": "filesystem",
-      "connection_params": { "paths": ["./sample_documents"] },
-      "credentials": {},
-      "max_files": 100,
-      "include_filter": null,
-      "exclude_filter": null,
-      "ignore_hidden_files": true
     }
   }
 ]
