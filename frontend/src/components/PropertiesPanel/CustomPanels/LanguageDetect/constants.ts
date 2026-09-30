@@ -5,7 +5,7 @@ export const LANGUAGE_DETECT_ATTR = {
 } as const;
 
 /**
- * User-friendly labels for every field in the IngestSource panel.
+ * User-friendly labels for every field in the LanguageDetect panel.
  */
 export const LANGUAGE_DETECT_LABEL = {
   LANGUAGE_PROVIDER: 'Language detection provider',
