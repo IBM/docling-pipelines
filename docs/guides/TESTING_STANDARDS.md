@@ -6,6 +6,8 @@ This document defines coverage requirements, test organisation, naming conventio
 
 ## Coverage Requirements
 
+### Backend (Python)
+
 | Scope | Threshold |
 |---|---|
 | Overall (unit tests) | 80% |
@@ -16,6 +18,29 @@ Coverage is enforced in CI via `--cov-fail-under=80`. Run locally with:
 
 ```bash
 pytest tests/unit/ --cov=src/docpipe --cov-report=term-missing
+```
+
+The per-PR gate (`scripts/check_pr_coverage.sh`) additionally checks every newly committed `src/docpipe/**/*.py` file individually against 80% line coverage.
+
+### Frontend (TypeScript / React)
+
+| Metric | Threshold |
+|---|---|
+| Lines | 80% |
+| Statements | 80% |
+| Functions | 80% |
+| Branches | 75% |
+
+Global thresholds are **not** set in `vite.config.ts` — enforcing them across the full app while the suite is being built would always fail. Instead, coverage is enforced **per newly committed file** via the PR gate script.
+
+The per-PR gate (`scripts/check_pr_coverage_frontend.sh`) checks every newly committed `frontend/src/**/*.{ts,tsx}` file individually against 80% line coverage, using the `lcov.info` report produced by `npm run test:coverage`.
+
+Run locally with:
+
+```bash
+cd frontend
+npm run test:coverage          # run suite + enforce all thresholds
+npm run test:coverage:check    # same, explicit alias
 ```
 
 ---
