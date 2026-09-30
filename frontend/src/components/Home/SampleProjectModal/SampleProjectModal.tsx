@@ -106,7 +106,7 @@ export function SampleProjectModal({
 
       // Fetch sample nodes from the public asset and stamp the vectordb index_name
       // so each sample flow gets a unique OpenSearch index.
-      const sampleRes = await fetch(`${import.meta.env.BASE_URL}samples/samplePipeline.json`);
+      const sampleRes = await fetch(`/ui/samples/samplePipeline.json`);
       const sampleFlowNodes = (await sampleRes.json()) as Record<string, unknown>[];
       const stampedNodes = structuredClone(sampleFlowNodes);
       const vectordbNode = stampedNodes.find((n) => n['op'] === 'vectordb');
