@@ -83,8 +83,16 @@ jobs:
       - name: Install Frontend Dependencies
         run: npm ci --prefix frontend
 
-      - name: Run Frontend Tests
-        run: npm run test --prefix frontend
+      - name: Run Frontend Tests with Coverage
+        run: npm run test:coverage --prefix frontend
+
+      - name: Upload Frontend Coverage Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage-report
+          path: frontend/coverage/
+          retention-days: 14
 
   test:
     name: Test Suite (Python ${{ matrix.python-version }})
