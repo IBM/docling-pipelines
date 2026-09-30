@@ -4,7 +4,7 @@
 
 // White title band — ~88px tall (Figma): no exact token; kept as px since it's a design spec value
 .titleZone {
-  background-color: $background; // white in light mode, dark in g100
+  background-color: $layer-01; // white
   height: $spacing-12;
   display: flex;
   align-items: center;
@@ -19,7 +19,7 @@
 
 // Grey content zone — fills all remaining viewport height
 .contentZone {
-  background-color: $layer-01;
+  background-color: $background;
   flex: 1; // takes remaining height since PageLayout fullBleed is a flex column
   position: relative;
   padding: $spacing-07; // 32px left/right breathing room on both states

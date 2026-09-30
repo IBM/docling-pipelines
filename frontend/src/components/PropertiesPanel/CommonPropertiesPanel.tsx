@@ -39,7 +39,6 @@ import { EdedupPanelBody } from './CustomPanels/Ededup/Ededup';
 import { EmbeddingsPanelBody } from './CustomPanels/Embeddings/Embeddings';
 import { EntityCurationPanelBody } from './CustomPanels/EntityCuration/EntityCuration';
 import { ExtractPanelBody } from './CustomPanels/Extract/Extract';
-import { IngestPanelBody } from './CustomPanels/Ingest/Ingest';
 import { IngestSourcePanelBody } from './CustomPanels/IngestSource/IngestSource';
 import { MergingPanelBody } from './CustomPanels/Merging/Merging';
 import { MlEnrichmentPanelBody } from './CustomPanels/MlEnrichment/MlEnrichment';
@@ -67,7 +66,6 @@ import type { OperatorFeature, OperatorMetadata } from '@/types';
 // TODO: Register additional operator panels here once their metadata is confirmed.
 // ---------------------------------------------------------------------------
 const OPERATOR_PANEL_MAP: Record<string, React.ComponentType<{ controller: any }>> = {
-  [NodeOperator.INGEST]: IngestPanelBody,
   [NodeOperator.INGEST_SOURCE]: IngestSourcePanelBody,
   [NodeOperator.EXTRACT]: ExtractPanelBody,
   [NodeOperator.CHUNKER]: ChunkerPanelBody,
