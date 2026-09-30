@@ -196,7 +196,7 @@ docker==7.2.0
     # via prefect
 doclang==0.7.3
     # via docling-core
-docling==2.127.0
+docling==2.130.0
     # via docling-pipelines
 docling-core==2.96.0
     # via
@@ -206,7 +206,7 @@ docling-ibm-models==4.0.3
     # via docling-slim
 docling-parse==7.21.0
     # via docling-slim
-docling-slim==2.127.0
+docling-slim==2.130.0
     # via docling
 docstring-parser==0.18.0
     # via cyclopts
