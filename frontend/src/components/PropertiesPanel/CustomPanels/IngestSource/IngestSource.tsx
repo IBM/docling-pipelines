@@ -34,6 +34,7 @@ import { JsonTextArea } from '@/components/common/JsonTextArea/JsonTextArea';
 import common from '../../CommonPropertiesPanel.module.scss';
 import { getRequiredParamValidator } from '@/utils/requiredParamValidation';
 import { RequiredParamTooltip } from '@/components/common';
+import { useProviderConfigDefaults } from '@/hooks/useProviderConfigDefaults';
 
 interface IngestSourcePanelBodyProps {
   controller: any;
@@ -112,6 +113,8 @@ export function IngestSourcePanelBody({
       ? connectionParamsRaw as Record<string, unknown>
       : {}
   );
+
+  useProviderConfigDefaults(controller, nodeAttributes);
 
   // ── Required field validator ──────────────────────────────────────────────
   const validate = getRequiredParamValidator(nodeAttributes);
