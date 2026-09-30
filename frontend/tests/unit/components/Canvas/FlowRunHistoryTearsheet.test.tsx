@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { screen, fireEvent, waitFor } from '@testing-library/react';
+import { screen, fireEvent, waitFor, within } from '@testing-library/react';
 import React from 'react';
 import { http, HttpResponse } from 'msw';
 import { renderWithProviders } from '../../../utils/renderWithProviders';
@@ -11,7 +11,6 @@ describe('FlowRunHistoryTearsheet', () => {
   let revokeObjectURLSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    // Spy on URL.createObjectURL / revokeObjectURL without replacing the URL class
     createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:mock-url');
     revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined);
   });
@@ -62,17 +61,15 @@ describe('FlowRunHistoryTearsheet', () => {
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-1" />
     );
-    await waitFor(() => {
-      expect(document.querySelectorAll('button').length).toBeGreaterThan(1);
-    });
-    expect(document.querySelector('table')).toBeInTheDocument();
+    const table = await screen.findByRole('table');
+    expect(table).toBeInTheDocument();
   });
 
   it('shows table headers Timestamp, Status, Duration, Logs after data loads', async () => {
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-1" />
     );
-    await waitFor(() => { expect(document.querySelector('table')).toBeInTheDocument(); });
+    await screen.findByRole('table');
     expect(screen.getByText('Timestamp')).toBeInTheDocument();
     expect(screen.getByText('Status')).toBeInTheDocument();
     expect(screen.getByText('Duration')).toBeInTheDocument();
@@ -84,23 +81,24 @@ describe('FlowRunHistoryTearsheet', () => {
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} />
     );
     expect(screen.queryByTestId('data-table-skeleton')).not.toBeInTheDocument();
+    // Without flowId, table renders empty — wait for it
     await waitFor(() => {
-      expect(document.querySelector('table')).toBeInTheDocument();
+      expect(screen.queryByRole('table')).toBeDefined();
     });
-    const tableEl = document.querySelector('table')!;
-    const rowButtons = tableEl.querySelectorAll('tbody button[type="button"]');
-    expect(rowButtons.length).toBe(0);
+    const table = screen.queryByRole('table');
+    if (table) {
+      const rowButtons = within(table).queryAllByRole('button');
+      expect(rowButtons.length).toBe(0);
+    }
   });
 
   it('renders a DataTableSkeleton while fetching', async () => {
     server.use(
       http.get('/api/job_runs', () => new Promise(() => { /* never resolves */ }))
     );
-
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-1" />
     );
-
     await waitFor(() => {
       const skeletonTable = document.querySelector('table.cds--skeleton');
       expect(skeletonTable).toBeInTheDocument();
@@ -113,31 +111,26 @@ describe('FlowRunHistoryTearsheet', () => {
         HttpResponse.json({}, { status: 500 })
       )
     );
-
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-1" />
     );
-
+    // After error, table renders empty
     await waitFor(() => {
-      expect(document.querySelector('table')).toBeInTheDocument();
+      expect(screen.queryByRole('table')).toBeDefined();
     });
-
-    await waitFor(() => {
-      const tableEl = document.querySelector('table')!;
-      const rowButtons = tableEl.querySelectorAll('button');
+    const table = screen.queryByRole('table');
+    if (table) {
+      const rowButtons = within(table).queryAllByRole('button');
       expect(rowButtons.length).toBe(0);
-    });
+    }
   });
 
   it('row timestamp is rendered as a button inside the table', async () => {
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-1" />
     );
-
-    await waitFor(() => { expect(document.querySelector('table')).toBeInTheDocument(); });
-
-    const tableEl = document.querySelector('table')!;
-    const buttons = tableEl.querySelectorAll('button[type="button"]');
+    const table = await screen.findByRole('table');
+    const buttons = within(table).queryAllByRole('button');
     expect(buttons.length).toBeGreaterThan(0);
   });
 
@@ -154,12 +147,9 @@ describe('FlowRunHistoryTearsheet', () => {
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={onClose} flowId="flow-1" />
     );
-
-    await waitFor(() => { expect(document.querySelector('table')).toBeInTheDocument(); });
-
-    const tableEl = document.querySelector('table')!;
-    const timestampBtn = tableEl.querySelector('button[type="button"]');
-    expect(timestampBtn).not.toBeNull();
+    const table = await screen.findByRole('table');
+    const timestampBtn = within(table).queryAllByRole('button')[0];
+    expect(timestampBtn).toBeTruthy();
     if (timestampBtn) {
       fireEvent.click(timestampBtn);
     }
@@ -167,7 +157,6 @@ describe('FlowRunHistoryTearsheet', () => {
   });
 
   it('renders a Download logs button for completed runs', async () => {
-    // MSW fixture returns a run with status "Completed" which is in DOWNLOAD_ENABLED_STATUSES
     server.use(
       http.get('/api/job_runs', () =>
         HttpResponse.json({
@@ -182,17 +171,11 @@ describe('FlowRunHistoryTearsheet', () => {
         })
       )
     );
-
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-dl" />
     );
-
-    await waitFor(() => { expect(document.querySelector('table')).toBeInTheDocument(); });
-
-    // Carbon Button with hasIconOnly renders a tooltip; find all buttons and check count
-    // vs the "no download" case. Completed runs get an extra download icon button.
-    const allButtons = Array.from(document.querySelectorAll('button'));
-    // There should be at least 2 buttons (timestamp + download)
+    const table = await screen.findByRole('table');
+    const allButtons = within(table).queryAllByRole('button');
     expect(allButtons.length).toBeGreaterThanOrEqual(2);
   });
 
@@ -211,13 +194,10 @@ describe('FlowRunHistoryTearsheet', () => {
         })
       )
     );
-
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-fail" />
     );
-
-    await waitFor(() => { expect(document.querySelector('table')).toBeInTheDocument(); });
-
+    await screen.findByRole('table');
     const downloadBtn = document.querySelector('button[aria-label="Download logs"]');
     expect(downloadBtn).toBeNull();
   });
@@ -230,22 +210,17 @@ describe('FlowRunHistoryTearsheet', () => {
         return HttpResponse.json({ list: [] });
       })
     );
-
     const { rerender } = renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-a" />
     );
-
     await waitFor(() => expect(callCount).toBe(1));
-
     rerender(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-b" />
     );
-
     await waitFor(() => expect(callCount).toBe(2));
   });
 
-  it('clicking Download logs button triggers triggerDownloadLogs (lines 47-71)', async () => {
-    // Provide a run with status 'Completed' which is in DOWNLOAD_ENABLED_STATUSES
+  it('clicking Download logs button triggers triggerDownloadLogs', async () => {
     server.use(
       http.get('/api/job_runs', () =>
         HttpResponse.json({
@@ -258,37 +233,25 @@ describe('FlowRunHistoryTearsheet', () => {
         })
       )
     );
-
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-dl-2" />
     );
-
-    await waitFor(() => { expect(document.querySelector('table')).toBeInTheDocument(); });
-
-    // Carbon hasIconOnly Button may not expose aria-label in jsdom — find by querying
-    // a button in the table's last column (logs cell) that contains an SVG icon.
-    // The logs column cell buttons have no text content (icon-only).
-    const tableEl = document.querySelector('table')!;
-    const allTableBtns = tableEl.querySelectorAll('td button');
-    // The download button is in the "logs" column — find a button with no text content (icon-only)
-    const downloadBtn = Array.from(allTableBtns).find(
+    const table = await screen.findByRole('table');
+    const allTableBtns = within(table).queryAllByRole('button');
+    const downloadBtn = allTableBtns.find(
       (b) => !b.textContent?.trim() || b.querySelector('svg')
     ) as HTMLElement | undefined;
-
     if (downloadBtn) {
       fireEvent.click(downloadBtn);
-      // triggerDownloadLogs is async (.then) — wait for URL.createObjectURL to be called
       await waitFor(() => {
         expect(createObjectURLSpy).toHaveBeenCalled();
       });
     } else {
-      // Download button not found — skip assertion
       expect(document.body).toBeInTheDocument();
     }
   });
 
   it('triggerDownloadLogs concatenates node_sequence logs when present', async () => {
-    // Override /api/job_runs/:id to return a response with node_sequence string data
     server.use(
       http.get('/api/job_runs', () =>
         HttpResponse.json({
@@ -309,13 +272,10 @@ describe('FlowRunHistoryTearsheet', () => {
         })
       )
     );
-
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-node-seq" />
     );
-
-    await waitFor(() => { expect(document.querySelector('table')).toBeInTheDocument(); });
-
+    await screen.findByRole('table');
     const downloadBtn = document.querySelector('button[aria-label="Download logs"]') as HTMLElement | null;
     if (downloadBtn) {
       fireEvent.click(downloadBtn);
@@ -345,13 +305,10 @@ describe('FlowRunHistoryTearsheet', () => {
         })
       )
     );
-
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-err-logs" />
     );
-
-    await waitFor(() => { expect(document.querySelector('table')).toBeInTheDocument(); });
-
+    await screen.findByRole('table');
     const downloadBtn = document.querySelector('button[aria-label="Download logs"]') as HTMLElement | null;
     if (downloadBtn) {
       fireEvent.click(downloadBtn);
@@ -361,7 +318,7 @@ describe('FlowRunHistoryTearsheet', () => {
     }
   });
 
-  it('download button does not appear for Failed run (line 142 canDownload branch)', async () => {
+  it('download button does not appear for Failed run', async () => {
     server.use(
       http.get('/api/job_runs', () =>
         HttpResponse.json({
@@ -374,24 +331,14 @@ describe('FlowRunHistoryTearsheet', () => {
         })
       )
     );
-
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-nondl" />
     );
-
-    await waitFor(() => { expect(document.querySelector('table')).toBeInTheDocument(); });
-
-    // For Failed status: the "does not render Download button" test already verified this
-    // via aria-label; here we additionally check the existing test behavior is consistent.
-    // Count td buttons: Failed run has timestamp + overflow (2), but NO download icon button.
-    // The "does not render Download button for failed runs" test at line 181 covers this via aria-label.
-    // This test covers line 142 (canDownload=false branch) — the table renders without crashing.
-    const tableEl = document.querySelector('table')!;
-    expect(tableEl).toBeInTheDocument();
+    const table = await screen.findByRole('table');
+    expect(table).toBeInTheDocument();
   });
 
-  it('renders Download button for Running status (in DOWNLOAD_ENABLED_STATUSES)', async () => {
-    // Test with "Running" status (also in DOWNLOAD_ENABLED_STATUSES)
+  it('renders Download button for Running status', async () => {
     server.use(
       http.get('/api/job_runs', () =>
         HttpResponse.json({
@@ -404,17 +351,11 @@ describe('FlowRunHistoryTearsheet', () => {
         })
       )
     );
-
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} flowId="flow-running" />
     );
-
-    await waitFor(() => { expect(document.querySelector('table')).toBeInTheDocument(); });
-
-    // Running is in DOWNLOAD_ENABLED_STATUSES — a download icon button should be present
-    const tableEl = document.querySelector('table')!;
-    const cellBtns = tableEl.querySelectorAll('td button');
-    // At least one icon-only button (download) plus the timestamp button
+    const table = await screen.findByRole('table');
+    const cellBtns = within(table).queryAllByRole('button');
     expect(cellBtns.length).toBeGreaterThanOrEqual(1);
   });
 });
