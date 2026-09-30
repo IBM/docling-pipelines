@@ -79,12 +79,14 @@ describe('FlowRunHistoryTearsheet', () => {
     expect(screen.getByText('Logs')).toBeInTheDocument();
   });
 
-  it('does NOT fetch when open=true but flowId is undefined', () => {
+  it('does NOT fetch when open=true but flowId is undefined', async () => {
     renderWithProviders(
       <FlowRunHistoryTearsheet open={true} onClose={vi.fn()} />
     );
     expect(screen.queryByTestId('data-table-skeleton')).not.toBeInTheDocument();
-    expect(document.querySelector('table')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(document.querySelector('table')).toBeInTheDocument();
+    });
     const tableEl = document.querySelector('table')!;
     const rowButtons = tableEl.querySelectorAll('tbody button[type="button"]');
     expect(rowButtons.length).toBe(0);
@@ -120,9 +122,11 @@ describe('FlowRunHistoryTearsheet', () => {
       expect(document.querySelector('table')).toBeInTheDocument();
     });
 
-    const tableEl = document.querySelector('table')!;
-    const rowButtons = tableEl.querySelectorAll('button');
-    expect(rowButtons.length).toBe(0);
+    await waitFor(() => {
+      const tableEl = document.querySelector('table')!;
+      const rowButtons = tableEl.querySelectorAll('button');
+      expect(rowButtons.length).toBe(0);
+    });
   });
 
   it('row timestamp is rendered as a button inside the table', async () => {
