@@ -197,12 +197,11 @@ Never import an `adapters/` class from `domain/` or `application/`. Domain ports
     ```
     Does the method read or write instance state (self.x)?
     ├── Yes → instance method  (def foo(self, ...))
-    └── No
-        ├── Does it need the class itself (cls) or class-level state?
-        │   ├── Yes → @classmethod  (def foo(cls, ...))
-        │   └── No → @staticmethod  (def foo(...))  ← default for pure helpers
-        └── Is it useful outside this class AND has no coupling to class internals?
-            └── Yes → module-level function; No → @staticmethod (keep it on the class)
+    └── No → does it need the class itself (cls) or class-level state?
+             ├── Yes → @classmethod  (def foo(cls, ...))
+             └── No → is it useful outside this class AND has no coupling to class internals?
+                       ├── Yes → module-level function
+                       └── No  → @staticmethod  (def foo(...))  ← default for pure helpers
     ```
 
     **Concrete rules:**
