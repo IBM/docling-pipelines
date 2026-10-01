@@ -90,7 +90,7 @@ dependencies = [
     "toml==0.10.2",
     "unicategories==0.1.2",
     "unicodedataplus==16.0.0.post1",
-    "urllib3==2.7.0",
+    "urllib3==2.8.0",
     "uvicorn[standard]==0.40.0",
 ]
 
