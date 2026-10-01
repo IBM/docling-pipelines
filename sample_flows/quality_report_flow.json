@@ -1,0 +1,29 @@
+{
+  "flow_name": "quality-report-flow",
+  "global_config": {
+    "doc_column": "content",
+    "storage": "in-memory",
+    "execute_type": "local",
+    "force_ingest": true,
+    "disable_validation": true
+  },
+  "flow": [
+    {
+      "name": "ingest",
+      "type": "ingest_source",
+      "config": {
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": ["./tests/fixtures/customer_support_docs"]
+        },
+        "include_filter": "txt"
+      }
+    },
+    {
+      "name": "quality",
+      "type": "noop",
+      "depends_on": ["ingest"],
+      "config": {}
+    }
+  ]
+}
