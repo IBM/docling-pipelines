@@ -474,7 +474,7 @@ langsmith==0.8.18
     #   langchain-core
 latex2mathml==3.81.1
     # via docling-core
-litellm==1.84.0
+litellm==1.88.6
     # via docling-pipelines
 loguru==0.7.3
     # via datatrove
@@ -805,7 +805,7 @@ pyiceberg==0.9.1
     # via docling-pipelines
 pyiceberg-core==0.7.0
     # via docling-pipelines
-pyjwt==2.14.0
+pyjwt==2.15.0
     # via
     #   docling-pipelines
     #   mcp
@@ -990,7 +990,7 @@ semchunk==3.2.5
     # via docling-core
 semver==3.1.0
     # via prefect
-sentence-transformers==5.4.1
+sentence-transformers==5.6.0
     # via docling-pipelines
 setuptools==83.0.0
     # via
@@ -1207,7 +1207,7 @@ unicodedataplus==16.0.0.post1
     # via docling-pipelines
 uritemplate==4.2.0
     # via google-api-python-client
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   botocore
     #   docker

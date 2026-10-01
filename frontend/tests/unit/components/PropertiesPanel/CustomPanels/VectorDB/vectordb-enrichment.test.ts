@@ -15,19 +15,20 @@ describe('vectordb-enrichment', () => {
     });
 
     it('returns a patched flow object', () => {
-      const result = buildVectorDBEnrichmentFlow(makePipelineFlow(), 'node-1', 'opensearch', '{"host":"localhost"}');
+      const result = buildVectorDBEnrichmentFlow(makePipelineFlow(), 'node-1', 'opensearch', { host: 'localhost' }, 'index_name');
       expect(result).toHaveProperty('pipelines');
     });
 
     it('normalises provider_config from string to object on each node', () => {
-      const result = buildVectorDBEnrichmentFlow(makePipelineFlow(), 'node-1', 'opensearch', '{"host":"localhost"}') as any;
+      const result = buildVectorDBEnrichmentFlow(makePipelineFlow(), 'node-1', 'opensearch', { host: 'localhost' }, 'index_name') as any;
+      // node-1's provider_config was a string '{"host":"localhost"}' — after patching it becomes an object
       const node = result.pipelines[0].nodes[0];
       expect(typeof node.parameters.provider_config).toBe('object');
     });
 
     it('does not mutate the original flow', () => {
       const original = makePipelineFlow();
-      buildVectorDBEnrichmentFlow(original, 'node-1', 'opensearch', '{"host":"h"}');
+      buildVectorDBEnrichmentFlow(original, 'node-1', 'opensearch', { host: 'h' }, 'index_name');
       expect(original.pipelines[0].nodes[0].parameters.provider_config).toBe('{"host":"localhost"}');
     });
   });

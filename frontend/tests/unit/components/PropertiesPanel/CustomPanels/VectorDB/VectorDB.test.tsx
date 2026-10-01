@@ -230,7 +230,7 @@ describe('VectorDBPanelBody', () => {
     }
   });
 
-  it('typing invalid JSON in advanced config textarea still calls updatePropertyValue with raw string', () => {
+  it('typing invalid JSON in advanced config textarea does NOT call updatePropertyValue (draft held in local state)', () => {
     const controller = makeController({
       getPropertyValue: vi.fn((p: { name: string }) => {
         if (p.name === 'provider') return 'opensearch';
@@ -241,8 +241,10 @@ describe('VectorDBPanelBody', () => {
     render(<VectorDBPanelBody controller={controller} />);
     const textarea = document.getElementById('vectordb-provider-config-textarea') as HTMLTextAreaElement | null;
     if (textarea) {
+      // Invalid JSON must NOT be written to provider_config — it is held in local
+      // advancedConfigDraft state only to avoid corrupting managed keys on next render.
       fireEvent.change(textarea, { target: { value: '{invalid' } });
-      expect(controller.updatePropertyValue).toHaveBeenCalled();
+      expect(controller.updatePropertyValue).not.toHaveBeenCalled();
     } else {
       expect(document.body).toBeInTheDocument();
     }
@@ -325,10 +327,11 @@ describe('VectorDBPanelBody', () => {
     const addBtn = addBtns.find((el) => el.tagName === 'BUTTON');
     if (addBtn) {
       fireEvent.click(addBtn);
-      // Error inline notification should appear with "valid JSON" text
-      const errorEl = screen.queryByText(/valid JSON/i);
-      if (errorEl) {
-        expect(errorEl).toBeInTheDocument();
+      // Error inline notification should appear — use queryAllByText because both the
+      // textarea's invalidText and the InlineNotification subtitle match /valid JSON/i.
+      const errorEls = screen.queryAllByText(/valid JSON/i);
+      if (errorEls.length > 0) {
+        expect(errorEls[0]).toBeInTheDocument();
       } else {
         expect(document.body).toBeInTheDocument();
       }
