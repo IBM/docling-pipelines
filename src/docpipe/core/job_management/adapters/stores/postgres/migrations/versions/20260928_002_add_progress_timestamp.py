@@ -37,7 +37,7 @@ def upgrade() -> None:
     if "progress_timestamp" not in columns:
         op.add_column(
             "job_run_stats",
-            sa.Column("progress_timestamp", sa.Integer(), nullable=False, server_default="0"),
+            sa.Column("progress_timestamp", sa.BigInteger(), nullable=False, server_default="0"),
             schema=schema_name,
         )
 
