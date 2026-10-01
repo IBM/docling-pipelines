@@ -61,7 +61,9 @@ class GoogleDriveSourceConfig(BaseModel):
         default_factory=list, description="List of glob patterns to exclude (e.g., ['*.tmp', 'Trash/*'])"
     )
 
-    max_file_size_mb: int | None = Field(None, description="Maximum file size in MB to process. None means no limit.")
+    max_file_size_mb: int | None = Field(
+        None, description="Maximum file size in MB to process. None means no limit.", ge=1
+    )
 
     # OAuth scopes
     scopes: list[str] = Field(
@@ -103,14 +105,6 @@ class GoogleDriveSourceConfig(BaseModel):
     def validate_extensions(cls, v: list[str]) -> list[str]:
         """Ensure extensions start with a dot."""
         return [ext if ext.startswith(".") else f".{ext}" for ext in v]
-
-    @field_validator("max_file_size_mb")
-    @classmethod
-    def validate_max_file_size(cls, v: int | None) -> int | None:
-        """Validate max file size is positive."""
-        if v is not None and v <= 0:
-            raise ValueError("max_file_size_mb must be positive")
-        return v
 
     def get_token_path(self) -> str:
         """Get the token path, using credentials directory if not specified."""
