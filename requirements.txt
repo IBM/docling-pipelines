@@ -1207,7 +1207,7 @@ unicodedataplus==16.0.0.post1
     # via docling-pipelines
 uritemplate==4.2.0
     # via google-api-python-client
-urllib3==2.7.0
+urllib3==2.8.0
     # via
     #   botocore
     #   docker

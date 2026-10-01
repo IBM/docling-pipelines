@@ -97,7 +97,7 @@ dependencies = [
     "transformers>=5.17,<5.18",
     "unicategories==0.1.2",
     "unicodedataplus==16.0.0.post1",
-    "urllib3==2.7.0",
+    "urllib3==2.8.0",
     "uvicorn[standard]==0.40.0",
     "mcp>=1.0,<2.0",
 ]
