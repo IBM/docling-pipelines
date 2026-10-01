@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { go } from '@/utils';
 import {
   Button,
+  IconButton,
   InlineLoading,
 } from '@carbon/react';
 import { View, Information, Renew as RenewIcon } from '@carbon/icons-react';
@@ -181,16 +182,16 @@ export function FlowDetail(): React.JSX.Element | null {
   // Cleanup fn restores null so the slot is empty when the page unmounts.
   useEffect(() => {
     setActions(
-      <Button
+      <IconButton
         kind="ghost"
         size="sm"
-        renderIcon={Information}
-        iconDescription="About flow"
-        hasIconOnly
-        tooltipPosition="bottom"
+        label="About flow"
+        align="bottom-end"
         isSelected={panelOpen}
         onClick={() => { setPanelOpen((prev) => !prev); }}
-      />
+      >
+        <Information size={16} />
+      </IconButton>
     );
     return () => { setActions(null); };
   }, [panelOpen, setActions]);

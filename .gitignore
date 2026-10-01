@@ -100,3 +100,6 @@ openspec/
 benchmarks/
 benchmark_results/
 benchmarks/execution_granularity/study.local.json
+
+# Frontend test coverage output
+frontend/coverage/

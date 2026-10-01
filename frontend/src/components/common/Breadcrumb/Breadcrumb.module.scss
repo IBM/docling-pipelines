@@ -9,7 +9,9 @@
   height: $spacing-08;
   background: $layer-01; // white in g10 — sits between the dark header and the gray canvas
   border-bottom: 1px solid $border-subtle-01;
-  overflow: hidden;
+  // overflow: visible so that icon-button tooltips (rendered in a popover layer)
+  // are not clipped by the bar boundary.
+  overflow: visible;
 }
 
 .actions {

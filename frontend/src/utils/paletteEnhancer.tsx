@@ -44,7 +44,6 @@ const logger = log4js.getLogger('paletteEnhancer');
  * @type {Record<string, React.ReactElement>}
  */
 const OPERATOR_ICON_MAP: Record<string, React.ReactElement> = {
-  [NodeOperator.INGEST]: <WorkspaceImport size={20} />,
   [NodeOperator.INGEST_SOURCE]: <WorkspaceImport size={20} />,
   [NodeOperator.EXTRACT]: <DocumentDownload size={20} />,
   [NodeOperator.CHUNKER]: <TextIndent size={20} />,
