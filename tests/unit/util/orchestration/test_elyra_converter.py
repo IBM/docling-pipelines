@@ -930,7 +930,7 @@ class TestElyraConverterInternalToElyra:
         """Known category returns description from CATEGORY_DESCRIPTIONS."""
         converter.metadata = {"vectordb": {"category": "VectorDB"}}
         desc = converter._get_operator_description(operator="vectordb")
-        assert desc == "Generate output"
+        assert desc == "Vector DB"
 
     def test_get_detailed_operator_description_from_metadata(self, *, converter):
         """Returns metadata description when present."""
