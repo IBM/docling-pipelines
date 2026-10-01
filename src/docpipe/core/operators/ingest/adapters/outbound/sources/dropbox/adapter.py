@@ -296,8 +296,11 @@ class DropboxSourceAdapter(DocumentSourcePort[DropboxSourceConfig]):
         if not source_id:
             raise ValueError("Missing source_id for Dropbox binary content fetch")
 
+        credentials = credentials or {}
+        connection_params = connection_params or {}
+
         config = self.build_config_from_operator_params(
-            connection_params={},
+            connection_params=connection_params,
             credentials=credentials,
         )
 

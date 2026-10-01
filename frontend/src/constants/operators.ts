@@ -47,8 +47,8 @@ export type OperatorCategoryType = typeof OperatorCategory[keyof typeof Operator
  * @constant
  */
 export const NodeOperator = {
-  /** Data ingestion from various sources */
-  INGEST: 'ingest_source',
+  /** Source ingestion (S3, IBM COS, SharePoint, OneDrive, Google Drive) */
+  INGEST_SOURCE: 'ingest_source',
 
   /** Text and entity extraction using Docling */
   EXTRACT: 'extract_operator',
@@ -76,9 +76,6 @@ export const NodeOperator = {
 
   /** SQL-based annotation filter */
   SQL_FILTER: 'sql_filter',
-
-  /** Source ingestion (S3, IBM COS, SharePoint, OneDrive, Google Drive) */
-  INGEST_SOURCE: 'ingest_source',
 
   /** Regex-based content redaction */
   REDACTION: 'redaction',

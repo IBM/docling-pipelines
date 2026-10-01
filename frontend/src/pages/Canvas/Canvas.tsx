@@ -335,19 +335,19 @@ export function Canvas(): React.JSX.Element {
       isRunMode ? null : (
         <>
           <IconButton
-            autoAlign
             kind="ghost"
             size="sm"
             label="Flow run history"
+            align="bottom-end"
             onClick={() => { setIsFlowRunHistoryOpen(true); }}
           >
             <Playlist size={16} />
           </IconButton>
           <IconButton
-            autoAlign
             kind="ghost"
             size="sm"
-            label="About this flow"
+            label="About flow"
+            align="bottom-end"
             onClick={() => { setIsAboutPanelOpen((prev) => !prev); }}
           >
             <Information size={16} />

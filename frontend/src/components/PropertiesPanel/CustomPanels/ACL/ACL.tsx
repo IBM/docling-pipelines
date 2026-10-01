@@ -8,7 +8,7 @@ import React from 'react';
 import { Toggle } from '@carbon/react';
 import type { OperatorFeature, OperatorMetadata } from '@/types';
 import { NodeOperator } from '@/constants/operators';
-import { ACL_ATTR as ATTR, ACL_LABEL as LABEL } from '@/constants/PropertiesPanels/aclConstants';
+import { ACL_ATTR as ATTR, ACL_LABEL as LABEL } from './constants';
 import { JsonTextArea } from '@/components/common/JsonTextArea/JsonTextArea';
 import { RequiredParamTooltip } from '@/components/common';
 import { getRequiredParamValidator } from '@/utils/requiredParamValidation';
