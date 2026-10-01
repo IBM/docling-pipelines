@@ -185,7 +185,7 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
 
         # Read model_name directly from provider_config
         self.model_name = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {}).get(
-            OperatorConstants.Config.MODEL_ID, "granite4"
+            OperatorConstants.Config.MODEL_ID
         )
 
         # Normalize expected_redactions to lowercase set for O(1) lookups
@@ -219,7 +219,7 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
         try:
             adapter = PIIAndHAPDetectionFactory.create(
                 self.provider,
-                model_id=self.model_name,
+                model_id=self.model_name or "",
                 provider_config=dict(self.provider_config),
             )
             service = PIIHAPService(adapter=adapter)
@@ -773,14 +773,23 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
 
         # Validate provider-specific requirements from provider_config
         if self.should_validate_field(field_value=self.provider_config):
-            if self.provider == PROVIDER_WATSONX:
-                required_keys = ["api_key", "url", "container_kind", "container_id"]
-                missing_keys = [key for key in required_keys if key not in self.provider_config]
-                if missing_keys:
-                    errors.append(
-                        f"WatsonX provider requires {', '.join(required_keys)} in provider_config. "
-                        f"Missing: {', '.join(missing_keys)}"
-                    )
+            if not self.provider_config:
+                errors.append(f"provider_config is required for provider '{self.provider}'")
+            elif not isinstance(self.provider_config, dict):
+                errors.append(f"provider_config must be a dictionary, got {type(self.provider_config).__name__}")
+            else:
+                model_id = self.provider_config.get(OperatorConstants.Config.MODEL_ID)
+                if not model_id or not isinstance(model_id, str):
+                    errors.append("provider_config.model_id is required and must be a non-empty string")
+
+                if self.provider == PROVIDER_WATSONX:
+                    required_keys = ["api_key", "url", "container_kind", "container_id"]
+                    missing_keys = [key for key in required_keys if key not in self.provider_config]
+                    if missing_keys:
+                        errors.append(
+                            f"WatsonX provider requires {', '.join(required_keys)} in provider_config. "
+                            f"Missing: {', '.join(missing_keys)}"
+                        )
 
         if len(errors) > 0:
             logger.error(errors)

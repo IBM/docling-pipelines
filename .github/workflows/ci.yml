@@ -58,6 +58,49 @@ jobs:
           if [ -z "$MODIFIED" ]; then echo "No modified Python files."; exit 0; fi
           python -m mypy --config-file=pyproject.toml $MODIFIED
 
+  frontend-test:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(join(github.event.commits.*.modified, ','), 'frontend/') ||
+      contains(join(github.event.commits.*.added, ','), 'frontend/') ||
+      github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: npm ci --prefix frontend
+
+      - name: ESLint Check (modified files)
+        env:
+          CHANGE_TARGET_BRANCH: ${{ github.base_ref || 'main' }}
+        run: |
+          chmod +x scripts/check_modified_frontend_files.sh
+          ./scripts/check_modified_frontend_files.sh
+
+      - name: Run Frontend Tests with Coverage
+        run: npm run test:coverage --prefix frontend
+
+      - name: Upload Frontend Coverage Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage-report
+          path: frontend/coverage/
+          retention-days: 14
+
   test:
     name: Test Suite (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest

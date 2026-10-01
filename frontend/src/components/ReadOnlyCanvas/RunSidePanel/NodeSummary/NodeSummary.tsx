@@ -1,12 +1,12 @@
 /**
  * @fileoverview Node summary component displaying node metadata and execution details.
  * Shows node label, operator type, status badge, execution time, and metadata table.
- * Mirrors docling-pipelines-ui NodeSummary:
+ *
+ * Layout:
  *  - DocumentExport icon in header
  *  - Carbon DataTable with Name/Value column headers
- *  - node_status key filtered from metadata rows (already in badge)
+ *  - node_status key filtered from metadata rows (already shown in the status badge)
  *  - Skipped Docs / Failed Docs arrays shown as clickable count → tearsheet
- *  - Node Outputs section
  */
 
 import React, { useMemo, useState } from 'react';
@@ -75,7 +75,6 @@ const FILTERED_METADATA_KEYS = new Set(['node_status', 'node_id', 'nodeId', 'id'
 
 /**
  * Convert snake_case / lower_case keys to Title Case with spaces.
- * Mirrors docling-pipelines-ui formatColumnHeader():
  *   "documents_in_scope" → "Documents In Scope"
  *   "failed_docs_count"  → "Failed Docs Count"
  */
@@ -88,7 +87,7 @@ function formatColumnHeader(key: string): string {
 
 /**
  * Format a numeric value for display.
- * Mirrors docling-pipelines-ui formatNumericValue().
+ * Floats below {@link CELL_VALUE_FLOAT_THRESHOLD} are rounded to {@link CELL_VALUE_FLOAT_DECIMALS} decimal places.
  */
 function formatNumericValue(value: number): string {
   if (!Number.isInteger(value) && Math.abs(value) < CELL_VALUE_FLOAT_THRESHOLD) {
@@ -99,7 +98,7 @@ function formatNumericValue(value: number): string {
 
 /**
  * Truncate a long string with an ellipsis and wrap in a Carbon Tooltip so the
- * full value is visible on hover. Mirrors docling-pipelines-ui truncateWithTooltip().
+ * full value is visible on hover.
  */
 function truncateWithTooltip(text: string): React.ReactNode {
   if (text.length <= CELL_VALUE_MAX_LENGTH) { return text; }
@@ -112,8 +111,7 @@ function truncateWithTooltip(text: string): React.ReactNode {
 }
 
 /**
- * Format a cell value for display.
- * Mirrors docling-pipelines-ui formatCellValue():
+ * Format a cell value for display:
  *  - Arrays/objects → JSON string, truncated with tooltip if > 100 chars
  *  - Floats (non-integer, < 1000) → 4 decimal places
  *  - Long strings → truncated with tooltip at 100 chars
@@ -160,7 +158,7 @@ function downloadDocs(docs: DocItem[], filename: string): void {
 
 /**
  * Compute the CSS class for the status badge by stripping spaces only (preserve PascalCase).
- * Mirrors docling-pipelines-ui: styles[`status${nodeStatus.replaceAll(/\s+/g, '')}`]
+ * e.g. "In Progress" → styles.statusInProgress
  */
 function getStatusClass(nodeStatus: string): string {
   const key = `status${nodeStatus.replace(/\s+/g, '')}`;
@@ -322,6 +320,7 @@ export function NodeSummary({
               <div className={styles.clickableDocCount}>
                 <button
                   type="button"
+                  data-testid="skipped-docs-count"
                   className={styles.docCountLink}
                   onClick={() => { setSkippedDocsOpen(true); }}
                 >
@@ -350,6 +349,7 @@ export function NodeSummary({
               <div className={styles.clickableDocCount}>
                 <button
                   type="button"
+                  data-testid="failed-docs-count"
                   className={styles.docCountLink}
                   onClick={() => { setFailedDocsOpen(true); }}
                 >
@@ -379,7 +379,7 @@ export function NodeSummary({
 
   return (
     <div className={styles.nodeSummaryContainer}>
-      {/* Header: DocumentExport icon + node name + status badge — mirrors docling-pipelines-ui */}
+      {/* Header: DocumentExport icon + node name + status badge */}
       <div className={styles.nodeSummaryHeader}>
         <div className={styles.titleRow}>
           <DocumentExport className={styles.nodeIcon} />

@@ -12,7 +12,7 @@
  * - {@link toCreateRequest}  — form values + definition → `POST /api/flows` body
  * - {@link toPatchRequest}   — edit-modal values → `PATCH /api/flows/:id` body
  *
- * Mirrors the structure of `project-mapper.ts`.
+ * Follows the same structure as `project-mapper.ts`.
  */
 
 import type { Flow, CreateFlowFormValues } from '@/types';

@@ -1,9 +1,8 @@
 /**
  * @fileoverview `useNotify` — the primary API for dispatching global notifications.
  *
- * Mirrors the `notificationUtil.handleSuccessNotification /
- * handleErrorNotification` pattern from the reference repo, adapted to use
- * Redux dispatch instead of `window.globalHeader.showNotification()`.
+ * Dispatches toast notifications via Redux. Use this instead of calling
+ * `addNotification` directly from component code.
  *
  * Usage:
  * ```ts

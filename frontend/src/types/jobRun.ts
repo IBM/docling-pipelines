@@ -45,7 +45,7 @@ export interface JobRunCreateResponse {
 
 /**
  * Node statistics from job run execution.
- * Mirrors NodeStatsDto from Python backend.
+ * Maps to the `NodeStatsDto` shape returned by the Python backend.
  */
 export interface NodeStats {
   id: string;
@@ -68,7 +68,7 @@ export interface NodeStats {
 
 /**
  * Node metadata item from job run.
- * Mirrors NodeMetadataItem from Python backend.
+ * Maps to the `NodeMetadataItem` shape returned by the Python backend.
  */
 export interface NodeMetadataItem {
   id: string;
@@ -78,7 +78,7 @@ export interface NodeMetadataItem {
 
 /**
  * Overall job statistics from execution.
- * Mirrors JobStatsDto from Python backend.
+ * Maps to the `JobStatsDto` shape returned by the Python backend.
  */
 export interface JobStats {
   job_id: string;
@@ -132,7 +132,7 @@ export interface JobRunStatusResponse {
 
 /**
  * Request body for creating a job run.
- * Mirrors JobsAPIExecuteModel from Python backend.
+ * Maps to the `JobsAPIExecuteModel` shape consumed by the Python backend.
  */
 export interface JobRunCreateRequest {
   entity: {

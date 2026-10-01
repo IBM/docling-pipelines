@@ -81,8 +81,14 @@ export function VectorDBPanelBody({
   controller,
 }: VectorDBPanelBodyProps): React.JSX.Element {
   const [isTearsheetOpen, setIsTearsheetOpen] = useState(false);
-  const [providerConfigDirty, setProviderConfigDirty] = useState(false);
+  // Tracks whether the Advanced JSON textarea has been touched — gates the invalid
+  // indicator so the textarea does not show red before the user types anything.
+  const [advancedConfigDirty, setAdvancedConfigDirty] = useState(false);
   const [providerConfigError, setProviderConfigError] = useState<string | null>(null);
+  // Holds the raw textarea value while the user is mid-edit and the JSON is not yet
+  // valid. We never write an unparseable string to provider_config — that would corrupt
+  // parsedSavedConfig and wipe managed keys (username, password, etc.) on the next render.
+  const [advancedConfigDraft, setAdvancedConfigDraft] = useState<string | null>(null);
   // Tracks the user's chosen auth method. Seeded from saved config; updated when the
   // dropdown changes. Keeps the selector showing the chosen method even while the
   // relevant fields are still empty (before the user types a value).
@@ -182,8 +188,8 @@ export function VectorDBPanelBody({
   // Connection & Settings fields for OpenSearch
   const opensearchHost = (parsedSavedConfig.host as string | undefined) ?? 'localhost';
   const opensearchPort = parsedSavedConfig.port !== undefined && parsedSavedConfig.port !== null ? String(parsedSavedConfig.port) : '9200';
-  const opensearchUseSsl = (parsedSavedConfig.use_ssl as boolean | undefined) ?? true;
-  const opensearchVerifyCerts = (parsedSavedConfig.verify_certs as boolean | undefined) ?? true;
+  const opensearchUseSsl = (parsedSavedConfig.use_ssl as boolean | undefined) ?? false;
+  const opensearchVerifyCerts = (parsedSavedConfig.verify_certs as boolean | undefined) ?? false;
 
   // Auth fields for OpenSearch
   const opensearchUsername = (parsedSavedConfig.username as string | undefined) ?? '';
@@ -245,42 +251,87 @@ export function VectorDBPanelBody({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [providerConfig, provider]);
 
+  // Merge display-side defaults into parsedSavedConfig for the enrichment API.
+  // Untouched fields (host, port, use_ssl, etc.) are absent from parsedSavedConfig
+  // but the backend still needs them — explicit saves always win.
+  const resolvedProviderConfig = useMemo<Record<string, unknown>>(() => {
+    if (provider === VECTORDB_PROVIDERS.OPENSEARCH) {
+      const defaults: Record<string, unknown> = {
+        host: opensearchHost,
+        port: Number(opensearchPort),
+        use_ssl: opensearchUseSsl,
+      };
+      if (opensearchUseSsl) {
+        defaults.verify_certs = opensearchVerifyCerts;
+      }
+      // parsedSavedConfig spreads last so explicit saves always override defaults.
+      return { ...defaults, ...parsedSavedConfig };
+    }
+    if (provider === VECTORDB_PROVIDERS.MILVUS) {
+      const defaults: Record<string, unknown> = {
+        auth_type: milvusAuthType,
+        database: milvusDatabase,
+        secure: milvusSecure,
+      };
+      if (milvusAuthType !== 'uri') {
+        defaults.host = milvusHost;
+        defaults.port = Number(milvusPort);
+      }
+      return { ...defaults, ...parsedSavedConfig };
+    }
+    return parsedSavedConfig;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider, parsedSavedConfig]);
+
   // ── Required param validation ─────────────────────────────────────────────
   const validate = getRequiredParamValidator(nodeAttributes);
   const providerValidation = validate(ATTR.PROVIDER, provider);
 
-  const isProviderConfigValid = !providerConfigDirty || advancedConfig === '' || isValidJsonObject(advancedConfig);
+  // Advanced textarea is invalid when:
+  // - the user has a mid-edit draft that is not yet valid JSON (advancedConfigDraft !== null), OR
+  // - the persisted value is not valid JSON (legacy data edge case).
+  // Structured fields (Connection / Auth accordions) have their own independent validity — they
+  // are always valid as long as they are well-typed inputs and never share this flag.
+  const isAdvancedConfigValid = !advancedConfigDirty || (advancedConfigDraft === null && (advancedConfig === '' || isValidJsonObject(advancedConfig)));
 
   const handleAdvancedConfigChange = (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
-    setProviderConfigDirty(true);
+    setAdvancedConfigDirty(true);
     setProviderConfigError(null);
-    const raw = e.target.value.trim();
-    if (raw === '') {
-      // User cleared the advanced textarea — drop all non-managed keys, keep managed ones.
+    const raw = e.target.value;
+    const trimmed = raw.trim();
+
+    if (trimmed === '') {
+      // User cleared the textarea — drop all non-managed keys, keep managed ones.
+      setAdvancedConfigDraft(null);
       const managedOnly = Object.fromEntries(
         Object.entries(parsedSavedConfig).filter(([k]) => managedKeys.has(k))
       );
       controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, managedOnly);
       return;
     }
+
     try {
-      const parsed = JSON.parse(raw) as Record<string, unknown>;
-      // Merge: managed-key values (set via UI) take precedence over anything in the textarea.
+      const parsed = JSON.parse(trimmed) as Record<string, unknown>;
+      // Valid JSON — persist immediately. Managed keys (username, password, etc.)
+      // always win so the structured fields are never overwritten by the textarea.
+      setAdvancedConfigDraft(null);
       const merged = {
         ...parsed,
         ...Object.fromEntries(Object.entries(parsedSavedConfig).filter(([k]) => managedKeys.has(k))),
       };
       controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, merged);
     } catch {
-      // Still typing — write raw string so the textarea is not reset mid-edit.
-      controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, e.target.value);
+      // Invalid JSON mid-edit — keep raw text in local draft state only.
+      // Never write an unparseable string to provider_config: doing so would corrupt
+      // parsedSavedConfig on the next render and wipe managed keys like username/password.
+      setAdvancedConfigDraft(raw);
     }
   };
 
   // ── Open tearsheet: validate config then open immediately ──
   // The tearsheet itself owns the API call and loading state.
   const handleOpenTearsheet = (): void => {
-    if (advancedConfig !== '' && !isValidJsonObject(advancedConfig)) {
+    if (advancedConfigDraft !== null || (advancedConfig !== '' && !isAdvancedConfigValid)) {
       setProviderConfigError('Advanced JSON configuration must be a valid JSON object before opening feature mappings.');
       return;
     }
@@ -368,6 +419,8 @@ export function VectorDBPanelBody({
               controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, {});
               controller?.updatePropertyValue?.({ name: ATTR.FEATURE_MAPPINGS }, []);
               setProviderConfigError(null);
+              setAdvancedConfigDraft(null);
+              setAdvancedConfigDirty(false);
             }
           }}
           invalid={providerValidation.isInvalid}
@@ -603,7 +656,7 @@ export function VectorDBPanelBody({
                     }}
                   />
                 </div>
-                {(milvusAuthType === 'grpc' || milvusAuthType === 'token') && (
+                {(milvusAuthType === 'standalone' || milvusAuthType === 'grpc' || milvusAuthType === 'token') && (
                   <div className={common.formField}>
                     <TextInput
                       id="milvus-username"
@@ -688,9 +741,9 @@ export function VectorDBPanelBody({
                   placeholder="{}"
                   helperText="Extra provider-specific options not covered above"
                   rows={5}
-                  value={advancedConfig}
+                  value={advancedConfigDraft ?? advancedConfig}
                   onChange={handleAdvancedConfigChange}
-                  invalid={!isProviderConfigValid}
+                  invalid={!isAdvancedConfigValid}
                   invalidText="Must be a valid JSON object"
                 />
               </div>
@@ -738,7 +791,7 @@ export function VectorDBPanelBody({
         currentFeatureMappings={featureMappings}
         pipelineFlow={pipelineFlow}
         nodeId={currentNodeId}
-        parsedProviderConfig={parsedSavedConfig}
+        parsedProviderConfig={resolvedProviderConfig}
         vectorSimilarityOptions={vectorSimilarityOptions}
         savedVectorSimilarity={savedVectorSimilarity}
         engineOptions={engineOptions}

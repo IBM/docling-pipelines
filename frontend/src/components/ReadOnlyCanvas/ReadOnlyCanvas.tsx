@@ -214,9 +214,8 @@ export function ReadOnlyCanvas({
     }
   }, [executionLogs, logsMatchCurrentRun]);
 
-  // Auto-select the most-recently-active node after each poll.
-  // Mirrors docling-pipelines-ui's useEffect([jobRunLogs, jobRunStatusResponse]) behaviour:
-  // pick the last node in node_sequence that already has a node_stats entry.
+  // Auto-select the most-recently-active node after each poll:
+  // walk backwards through node_sequence and pick the last node that has a node_stats entry.
   // Only fires when the user has not manually selected a node (selectedNodeId is null).
   useEffect(() => {
     // Guard: only act on logs that belong to this run
@@ -273,7 +272,6 @@ export function ReadOnlyCanvas({
   // Single-click on a node:
   //   • Different node  → open panel, keep current tab, show that node's data
   //   • Same node again → toggle between Log Details (0) and Node Summary (1)
-  // Matches docling-pipelines-ui clickActionHandler behaviour exactly.
   const handleNodeClick = useCallback((source: { id?: string }) => {
     if (!source.id) { return; }
     const nodeId = String(source.id);
@@ -288,7 +286,7 @@ export function ReadOnlyCanvas({
     }
   }, [selectedNodeId, logsPanelVisible]);
 
-  // Context toolbar on node hover — shows "Node Summary" action (matches docling-pipelines-ui).
+  // Context toolbar on node hover — shows "Node Summary" action.
   // Returns [] for all non-node types so the toolbar stays clean everywhere else.
   const handleContextMenu = useCallback((source: { type?: string }) => {
     if (source.type === 'node') {
@@ -312,7 +310,7 @@ export function ReadOnlyCanvas({
         // Context toolbar icon clicked on a DIFFERENT node — open panel and show that node
         setSelectedNodeId(nodeId);
         setLogsPanelVisible(true);
-        // Keep whatever tab is currently active (matches docling-pipelines-ui behaviour)
+        // Keep whatever tab is currently active
       } else if (nodeId && nodeId === selectedNodeId) {
         // Context toolbar icon clicked on the SAME node — toggle between tabs
         setActiveTabIndex((prev) => (prev === 0 ? 1 : 0));
@@ -345,9 +343,8 @@ export function ReadOnlyCanvas({
     enableLinkDirection: 'LeftRight',
     enableLinkReplaceOnNewConnection: true,
     enableDropZoneOnExternalDrag: false,
-    // Enable the context toolbar on node hover — shows the "Node Summary" action.
-    // docling-pipelines-ui uses enableContextToolbar:true + contextMenuHandler returning
-    // [{ action: RIGHT_PANEL, label: 'Node Summary' }] for node type.
+    // Enable the context toolbar on node hover — shows the "Node Summary" action
+    // via contextMenuHandler returning [{ action: RIGHT_PANEL, label: 'Node Summary' }] for node type.
     enableContextToolbar: true,
     enableHighlightNodeOnNewLinkDrag: true,
     enableSaveZoom: 'None',

@@ -6,7 +6,7 @@ export const DEFAULT_TABLE_PAGE_SIZE = 50;
 
 /**
  * Set of API status strings for which the Logs download button is enabled
- * in the run history tearsheet. Mirrors docling-pipelines-ui's `downloadLogsStatusList`.
+ * in the run history tearsheet.
  *
  * Derived from `API_STATUS_MAP` so it stays in sync with every known status
  * automatically — no manual list to maintain.

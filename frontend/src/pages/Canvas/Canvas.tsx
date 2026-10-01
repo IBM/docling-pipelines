@@ -271,9 +271,8 @@ export function Canvas(): React.JSX.Element {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Clears stale flow + run-viewer state, then fetches the current flow exactly once.
-  // Merged into a single effect guarded by fetchedRef — mirrors docling-pipelines-ui's single
-  // getUdpFlow useEffect(fn, []) pattern. Prevents StrictMode double-invoke and
-  // re-render churn from producing duplicate API calls.
+  // Guarded by fetchedRef to prevent StrictMode double-invoke and re-render churn
+  // from producing duplicate API calls.
   useEffect(() => {
     if (fetchedRef.current) { return; }
     fetchedRef.current = true;
@@ -507,7 +506,6 @@ export function Canvas(): React.JSX.Element {
   /**
    * Returns a unique node label for a newly-created node.
    * If the base label already exists on another node, appends _1, _2, …
-   * Matches docling-pipelines-ui `getUniqueNodeLabel` behaviour exactly.
    */
   const getUniqueNodeLabel = (baseLabel: string, newNodeId?: string): string => {
     const controller = canvasControllerRef.current;
@@ -778,8 +776,7 @@ export function Canvas(): React.JSX.Element {
   };
 
   const handleRun = useCallback((): void => {
-    // Mirrors docling-pipelines-ui: if a run is already in-progress, re-enter the viewer
-    // instead of starting a new run — matches: jobRunId && isRunning ? executeAndMonitorFlow() : runPipelineFlow()
+    // If a run is already in-progress, re-enter the viewer instead of starting a new one.
     if (isRunning && currentJobRunId) {
       setIsRunMode(true);
       return;
@@ -871,7 +868,7 @@ export function Canvas(): React.JSX.Element {
       paletteInitialState: true,
       enableLinkType: 'Curve',
       enableLinkDirection: 'LeftRight',
-      // 'None' means links are not independently selectable — matches docling-pipelines-ui.
+      // 'None' means links are not independently selectable.
       enableLinkSelection: 'None',
       enableLinkReplaceOnNewConnection: true,
       enableDropZoneOnExternalDrag: true,
@@ -880,7 +877,7 @@ export function Canvas(): React.JSX.Element {
       enableSaveZoom: 'None',
       enableEditingActions: true,
       enableMarkdownInComments: false,
-      // linkGap + linkContextToolbar positions match docling-pipelines-ui canvas config.
+      // linkGap + linkContextToolbar positions for the canvas layout.
       // dataLinkArrowHead exists at runtime but is absent from the bundled .d.ts.
       enableCanvasLayout: {
         dataLinkArrowHead: true,
@@ -1161,8 +1158,7 @@ export function Canvas(): React.JSX.Element {
       { divider: true },
       {
         action: CANVAS_ACTIONS.RUN,
-        // "View run" while a run is in-progress — matches docling-pipelines-ui canvasMessages.viewRun.
-        // Once the run completes (isRunning=false), the label reverts to "Run flow".
+        // "View run" while a run is in-progress; reverts to "Run flow" once complete.
         label: isRunning && currentJobRunId ? 'View run' : 'Run flow',
         enable: !isSaving && !isValidating,
         kind: 'primary',
@@ -1254,7 +1250,7 @@ export function Canvas(): React.JSX.Element {
           }
         }
 
-        // ── Unique node label (matches docling-pipelines-ui getUniqueNodeLabel) ────────
+        // ── Unique node label ─────────────────────────────────────────────────────────
         // When a second Branching/Merging (or any) node is dropped, give it a
         // suffix (_1, _2, …) so labels are unique across the canvas.
         if (newNode?.id && newNode?.label) {
@@ -1399,7 +1395,6 @@ export function Canvas(): React.JSX.Element {
   const handleDecorationAction = useCallback(
     (_object: unknown, decorationId: string, _pipelineId: string): void => {
       // Decoration clicks in read-only mode should not open the tearsheet.
-      // Matches docling-pipelines-ui: `if (isReadOnly) return;`
       if (!decorationId) { return; }
 
       // Pill decoration: "${linkId}-pill"

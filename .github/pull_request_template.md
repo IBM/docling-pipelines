@@ -19,6 +19,8 @@ Note -
 - [ ] Tests added/updated for new functionality
 - [ ] Documentation updated (see Documentation Update Checklist below)
 - [ ] No breaking changes (or documented in Breaking Changes section)
+- [ ] All commits carry a `Signed-off-by` trailer (`git commit -s`) — required by the DCO bot
+- [ ] All commits are GPG-verified (see [Verified Commits](../CONTRIBUTING.md#verified-commits))
 
 ## Breaking Changes
 <!-- List any breaking changes introduced by this PR -->
