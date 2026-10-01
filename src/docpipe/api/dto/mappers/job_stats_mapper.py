@@ -2,20 +2,22 @@
 JobStatsMapper module for converting JobStats domain models to enterprise-compatible DTOs.
 """
 
-from typing import Any
-
 from docpipe.api.dto.job_run_dto import JobRunStatusResponse
 from docpipe.api.dto.job_stats_dto import JobStatsDto
-from docpipe.core.job_management.domain.models import JobStats
+from docpipe.core.job_management.domain.models import JobStats, NodeStats
 
 from .node_stats_mapper import NodeStatsMapper
+
+# Constants for duration calculations
+MIN_DURATION_SECONDS = 0
+MAX_DURATION_LIMIT_SECONDS = 31536000
 
 
 class JobStatsMapper:
     """Mapper for JobStats domain models to DTOs."""
 
     @staticmethod
-    def _get_node_sort_key(node_item: tuple[str, Any]) -> tuple[int, int, int, int, str]:
+    def _get_node_sort_key(node_item: tuple[str, NodeStats]) -> tuple[int, int, int, int, str]:
         """Generate a sort key to order nodes chronologically, placing pending/running nodes properly."""
         _, stats = node_item
         is_pending = 1 if stats.start_time == 0 else 0
@@ -40,13 +42,13 @@ class JobStatsMapper:
 
         # Dynamically calculate duration if it is not yet fully populated (e.g. for running jobs)
         duration = job_stats.duration
-        if duration <= 0 < job_stats.start_time:
+        if duration <= MIN_DURATION_SECONDS < job_stats.start_time:
             from datetime import UTC, datetime
 
             end_t = job_stats.end_time if job_stats.end_time > 0 else int(datetime.now(tz=UTC).timestamp())
-            duration = max(0, end_t - job_stats.start_time)
+            duration = max(MIN_DURATION_SECONDS, end_t - job_stats.start_time)
             # Clamp duration to the maximum supported seconds to avoid validation errors with far-apart mock times
-            duration = min(duration, 31536000)
+            duration = min(duration, MAX_DURATION_LIMIT_SECONDS)
 
         return JobStatsDto(
             job_id=job_stats.job_id,
