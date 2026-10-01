@@ -11,6 +11,7 @@
 export interface JobRunListItem {
   job_run_id: string;
   job_id: string;
+  flow_name?: string | null;
   status: string;
   message: string;
   start_time: number;
@@ -217,6 +218,8 @@ export interface JobRun {
   jobRunId?: string;
   /** ID of the parent job */
   jobId?: string;
+  /** Name of the executed flow */
+  flowName?: string | null;
   /** Current execution status */
   status?: string;
   /** ISO 8601 timestamp when execution started */

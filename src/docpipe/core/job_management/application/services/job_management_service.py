@@ -143,6 +143,11 @@ class JobManagementService:
         if flow is None:
             raise FlowNotFoundException(f"Flow not found for flow_id: {flow_id}")
 
+        # Resolve flow_name with highest accuracy: flow.name > flow_name > flow_id
+        resolved_flow_name = (
+            (flow.name if flow and flow.name else None) or (flow_name if flow_name != flow_id else None) or flow_id
+        )
+
         if hasattr(flow, DocpipeConstants.JOB_ID) and flow.job_id:
             flow_config[DocpipeConstants.JOB_ID] = flow.job_id
 
@@ -161,7 +166,7 @@ class JobManagementService:
         self.job_stats_service.start_tracking_job(
             job_id=job_id,
             job_run_id=job_run_id,
-            flow_name=flow_name,
+            flow_name=resolved_flow_name,
             user_id=user_id,
             metadata=metadata or {},
             initial_status=ExecutionStatus.QUEUED,
@@ -264,8 +269,9 @@ class JobManagementService:
         job_runs = self.job_stats_service.list_job_runs(job_id=job_id, status=status, limit=limit)
 
         # Transform to API response format (projection of key fields)
-        list_items = [
-            job_run.model_dump(
+        list_items = []
+        for job_run in job_runs:
+            item = job_run.model_dump(
                 include={
                     DocpipeConstants.JOB_RUN_ID,
                     DocpipeConstants.JOB_ID,
@@ -282,8 +288,17 @@ class JobManagementService:
                     DocpipeConstants.ORCHESTRATOR,
                 }
             )
-            for job_run in job_runs
-        ]
+            # flow_id attribute on JobStats holds the flow_name set during start_tracking_job
+            raw_flow_name = getattr(job_run, DocpipeConstants.FLOW_ID, None)
+            if not raw_flow_name or raw_flow_name.lower() == "unknown" or raw_flow_name == job_run.job_id:
+                try:
+                    matched_flow = self.flow_service.get_flow(job_run.job_id)
+                    if matched_flow and matched_flow.name:
+                        raw_flow_name = matched_flow.name
+                except Exception as exc:
+                    logger.debug("Failed to resolve flow name for flow_id %s: %s", job_run.job_id, exc)
+            item[DocpipeConstants.FLOW_NAME] = raw_flow_name or None
+            list_items.append(item)
 
         return {
             "list": list_items,
