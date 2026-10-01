@@ -81,7 +81,7 @@ examples/LDAP/.env
 
 # Local test artifacts with credentials
 test_flows/
-frontend/node_modules/
+node_modules/
 
 # Runtime-generated flow/project saves (UUID-named)
 sample_projects/
