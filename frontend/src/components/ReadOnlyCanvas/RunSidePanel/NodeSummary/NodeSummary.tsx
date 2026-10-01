@@ -322,6 +322,7 @@ export function NodeSummary({
               <div className={styles.clickableDocCount}>
                 <button
                   type="button"
+                  data-testid="skipped-docs-count"
                   className={styles.docCountLink}
                   onClick={() => { setSkippedDocsOpen(true); }}
                 >
@@ -350,6 +351,7 @@ export function NodeSummary({
               <div className={styles.clickableDocCount}>
                 <button
                   type="button"
+                  data-testid="failed-docs-count"
                   className={styles.docCountLink}
                   onClick={() => { setFailedDocsOpen(true); }}
                 >

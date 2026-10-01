@@ -95,6 +95,7 @@ export function AppHeader(): React.JSX.Element {
             aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             onClick={toggleTheme}
             className={styles.themeButton}
+            tooltipAlignment="end"
           >
             {isDarkMode ? <Light size={20} /> : <Asleep size={20} />}
           </HeaderGlobalAction>
