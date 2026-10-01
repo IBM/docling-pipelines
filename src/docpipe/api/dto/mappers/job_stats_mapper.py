@@ -1,3 +1,9 @@
+"""
+JobStatsMapper module for converting JobStats domain models to enterprise-compatible DTOs.
+"""
+
+from typing import Any
+
 from docpipe.api.dto.job_run_dto import JobRunStatusResponse
 from docpipe.api.dto.job_stats_dto import JobStatsDto
 from docpipe.core.job_management.domain.models import JobStats
@@ -9,12 +15,20 @@ class JobStatsMapper:
     """Mapper for JobStats domain models to DTOs."""
 
     @staticmethod
+    def _get_node_sort_key(node_item: tuple[str, Any]) -> tuple[int, int, int, int, str]:
+        """Generate a sort key to order nodes chronologically, placing pending/running nodes properly."""
+        _, stats = node_item
+        is_pending = 1 if stats.start_time == 0 else 0
+        is_running = 1 if stats.end_time == 0 else 0
+        return (is_pending, stats.start_time, is_running, stats.end_time, stats.name)
+
+    @staticmethod
     def to_dto(job_stats: JobStats) -> JobStatsDto:
         """Convert JobStats domain model to JobStatsDto with chronologically sorted node_stats."""
-        # Sort node_stats by start_time to match execution order
+        # Sort node_stats: completed/running first chronologically, then pending ones last
         sorted_node_items = sorted(
             job_stats.node_stats.items(),
-            key=lambda item: (item[1].start_time, item[1].end_time, item[1].name),
+            key=JobStatsMapper._get_node_sort_key,
         )
         node_stats_dto = {node_id: NodeStatsMapper.to_dto(stats) for node_id, stats in sorted_node_items}
 
@@ -24,6 +38,16 @@ class JobStatsMapper:
             for node_id, batch_stats in job_stats.batch_node_stats.items()
         }
 
+        # Dynamically calculate duration if it is not yet fully populated (e.g. for running jobs)
+        duration = job_stats.duration
+        if duration <= 0 < job_stats.start_time:
+            from datetime import UTC, datetime
+
+            end_t = job_stats.end_time if job_stats.end_time > 0 else int(datetime.now(tz=UTC).timestamp())
+            duration = max(0, end_t - job_stats.start_time)
+            # Clamp duration to the maximum supported seconds to avoid validation errors with far-apart mock times
+            duration = min(duration, 31536000)
+
         return JobStatsDto(
             job_id=job_stats.job_id,
             job_run_id=job_stats.job_run_id,
@@ -31,7 +55,7 @@ class JobStatsMapper:
             message=job_stats.message,
             start_time=job_stats.start_time,
             end_time=job_stats.end_time,
-            duration=job_stats.duration,
+            duration=duration,
             heartbeat_timestamp=job_stats.heartbeat_timestamp,
             total_docs=job_stats.total_docs,
             processed_docs=job_stats.processed_docs,
@@ -70,10 +94,10 @@ class JobStatsMapper:
         """
         from docpipe.api.dto.job_run_dto import JobRunStatusResponse
 
-        # Calculate node_sequence (execution order based on start_time)
+        # Calculate node_sequence (execution order based on start_time, pending last)
         sorted_nodes = sorted(
             job_stats.node_stats.items(),
-            key=lambda item: (item[1].start_time, item[1].end_time, item[1].name),
+            key=JobStatsMapper._get_node_sort_key,
         )
         node_sequence = [node_id for node_id, _ in sorted_nodes]
 
