@@ -245,6 +245,7 @@ export function OutputFeaturesTab({
             renderIcon={Maximize}
             iconDescription="Expand table"
             hasIconOnly
+            data-testid="expand-output-table"
             onClick={() => { setIsExpanded(true); }}
             className={styles.expandButton}
           />
