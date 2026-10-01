@@ -11,7 +11,7 @@
  *    (live from backend, preferred)
  * 2. `READABILITY_SCORE_OPTIONS` constant (static fallback)
  *
- * Pattern mirrors DocumentClassifier:
+ * UI conventions:
  * - `DefinitionTooltip` with `openOnHover` → description on hover
  * - `hideLabel` on Carbon inputs → no duplicate label text
  * - `.formField` wrapper → consistent vertical spacing
