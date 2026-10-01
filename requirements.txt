@@ -990,7 +990,7 @@ semchunk==3.2.5
     # via docling-core
 semver==3.1.0
     # via prefect
-sentence-transformers==5.4.1
+sentence-transformers==5.6.0
     # via docling-pipelines
 setuptools==83.0.0
     # via
