@@ -347,7 +347,9 @@ module = [
     "opentelemetry",
     "opentelemetry.*",
     "mcp",
-    "mcp.*"
+    "mcp.*",
+    "openlineage",
+    "openlineage.*"
 ]
 ignore_missing_imports = true
 follow_imports = "silent"
