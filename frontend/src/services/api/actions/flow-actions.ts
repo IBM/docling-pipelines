@@ -81,7 +81,7 @@ export const getFlow = async (flowId: string): Promise<AxiosResponse<Flow>> => {
  * List flows for a specific project via BFF.
  *
  * Calls BFF endpoint: GET /api/projects/:projectId/flows
- * BFF proxies to Python backend: GET /api/v1/projects/:projectId/flows
+ * BFF proxies to Python backend: GET /api/v1/projects/:projectId/flows?is_elyra=true
  */
 export const getFlowsByProjectId = async (
   projectId: string,
@@ -90,6 +90,7 @@ export const getFlowsByProjectId = async (
     offset?: number;
     name?: string;
     tags?: string[];
+    is_hidden?: boolean;
   }
 ): Promise<AxiosResponse<PaginatedFlowResponse>> => {
   const queryParams = new URLSearchParams();
@@ -98,6 +99,7 @@ export const getFlowsByProjectId = async (
   if (params?.offset !== undefined) { queryParams.append('offset', params.offset.toString()); }
   if (params?.name) { queryParams.append('name', params.name); }
   if (params?.tags) { params.tags.forEach((tag) => { queryParams.append('tags', tag); }); }
+  if (params?.is_hidden !== undefined) { queryParams.append('is_hidden', params.is_hidden.toString()); }
 
   const qs = queryParams.toString();
   const url = qs
