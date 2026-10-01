@@ -192,7 +192,7 @@ Never import an `adapters/` class from `domain/` or `application/`. Domain ports
 12. External operator providers registered via `register_operator_provider()` — never mutate `DOCPIPE_OPERATORS` directly
 13. Operators never call DuckDB or any DB directly — use storage abstraction layer
 14. API handlers use DTOs only — never return domain model instances from routes
-15. **Use `@staticmethod` or `@classmethod` unless `self`/`cls` is genuinely needed** — instance methods are the last resort, not the default. An AST scan found 501 instance methods in `src/docpipe/` that never access `self`; each pays a bound-method allocation on every call for nothing. Apply the following decision tree when writing or reviewing any method:
+15. **Use `@staticmethod` or `@classmethod` unless `self`/`cls` is genuinely needed** — instance methods are the last resort, not the default. Apply the following decision tree when writing or reviewing any method:
 
     ```
     Does the method read or write instance state (self.x)?
@@ -211,25 +211,13 @@ Never import an `adapters/` class from `domain/` or `application/`. Domain ports
     - Factory/constructor alternatives that use `cls` → `@classmethod`
     - `transform()`, `__init__`, lifecycle hooks, anything reading `self.*` → instance method
     - Never add `self` to a method signature just to satisfy a linter or to match surrounding style
+    - Known violations being tracked in [#127](https://github.com/IBM/docling-pipelines/issues/127)
 
-    **Known hot-path offenders to fix on sight** (called per-document or per-column; fix by method name, not line number — lines shift):
-
-    | File | Methods |
-    |---|---|
-    | `core/operators/quality/readability/readability_metrics.py` | `get_words`, `count_characters`, `flesch_reading_ease`, `flesch_kincaid_grade`, `gunning_fog`, `smog_index`, `coleman_liau_index`, `automated_readability_index`, `dale_chall_readability_score`, `difficult_words`, `spache_readability`, `mcalpine_eflaw`, `reading_time`, `text_standard`, `linsear_write_formula` |
-    | `core/operators/functional/embeddings/embeddings_operator.py` | `_generate_document_hash` |
-    | `storage/duck_db/duckdb_table_storage.py` | `_pyarrow_to_duckdb_type` |
-    | `core/job_management/application/services/report_generator.py` | `_get_timestamp_from_modified_time`, `_create_doc_entry` |
-    | `core/orchestration/flow_validator.py` | `_get_parent_results`, `_feature_metadata_to_dict`, `_get_required_node_fields`, `_traverse_dag`, `_build_reverse_graph`, `_find_terminal_node`, `_find_all_terminal_nodes`, `_validate_isolated_nodes`, `_validate_storage_output_operator_placement`, `_build_graph`, `_make_undirected_graph`, `_find_connected_components`, `create_validation_alerts`, `get_duplicate_node_names`, `_evaluate_node_validation_skip` |
-    | `core/assets/flows/application/services/authoring_compiler.py` | any method that does not read `self` (grep: `def [a-z].*self` → confirm no `self\.` in body) |
-    | `utils/infrastructure/flow_execution_reporter.py` | same grep pattern as above |
-    | `core/job_management/application/aggregation/aggregator.py` | same grep pattern as above |
-    | `core/incremental_metadata/application/services/incremental_update_service.py` | same grep pattern as above |
-
-    **Legitimate instance methods — do not touch:**
-    - `ReadabilityMetrics.count_syllables`, `count_syllables_in_text` — read `self.dic` (Pyphen instance)
-    - All `domain/ports/` ABC methods — `self` is required for the implementor contract
-    - All `__init__`, `transform()`, lifecycle hooks
+16. **Use `_` and `__` name prefixes correctly** — they have distinct meanings and must not be used interchangeably:
+    - `_name` (single underscore) — **internal by convention**: accessible from outside the class but signals "do not use directly". Use for private helpers, internal state, and implementation details that subclasses may legitimately access.
+    - `__name` (double underscore) — **name-mangled**: Python rewrites it to `_ClassName__name`, making it genuinely inaccessible from outside the class and invisible to subclasses. Use only when you explicitly need to prevent subclass access or avoid accidental attribute collisions in deep inheritance hierarchies — **not** as a stronger form of `_`.
+    - In practice, almost all private methods and attributes in this codebase should use `_` (single). Reserve `__` for the rare case where name mangling is the explicit intent.
+    - Never use `__name__` (dunder) style for anything other than Python special/magic methods (`__init__`, `__repr__`, `__enter__`, etc.).
 
 ## Environment Variables
 
