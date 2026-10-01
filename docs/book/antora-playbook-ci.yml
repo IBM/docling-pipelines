@@ -1,18 +1,18 @@
 site:
   title: Docling-pipelines — The Definitive Guide
-  # url is injected at build time by CI via --url flag (avoids hardcoding org name)
-  url: ~
+  # URL is passed at build time via --attribute site-url=...
+  url: https://IBM.github.io/docling-pipelines/book/site
   start_page: docling-pipelines::index.adoc
 
 content:
   sources:
-    - url: /repo
+    - url: .
       start_path: docs/book
       branches: HEAD
 
 ui:
   bundle:
-    url: /antora/ui/ui-bundle.zip
+    url: docs/book/ui/ui-bundle.zip
     snapshot: true
 
 asciidoc:
@@ -25,5 +25,5 @@ asciidoc:
     toclevels: 2
 
 output:
-  dir: /antora/site
+  dir: docs/book/site
   clean: true

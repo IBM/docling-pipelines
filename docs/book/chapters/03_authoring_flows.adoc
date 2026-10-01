@@ -1,318 +1,318 @@
 == Authoring Flows
 
-A *flow* is a JSON document that describes a document processing pipeline as a directed acyclic graph (DAG).
-Each node in the graph is an operator.
-Edges between nodes are declared with `depends_on` lists.
+A _flow_ is a JSON document (or Python dict) that describes a document-processing pipeline
+as a directed acyclic graph (DAG) of operator nodes. This chapter covers the complete format,
+`global_config` options, dependency syntax, and annotated examples.
 
-=== Flow JSON Format
-
-==== Root Structure
+=== Flow JSON Structure
 
 [source,json]
 ----
 {
   "flow_name": "my-pipeline",
   "description": "Optional human-readable description",
-  "global_config": { },
-  "flow": [ ]
+  "global_config": { ... },
+  "flow": [
+    { "type": "ingest_source", "name": "ingest", "config": { ... } },
+    { "type": "extract_operator", "name": "extract", "config": { ... }, "depends_on": ["ingest"] }
+  ]
 }
 ----
 
-[cols="1,1,1,3",options="header"]
+[cols="1,1,3",options="header"]
 |===
-|Field |Type |Required |Description
-|`flow_name` |string |Yes |Human-readable pipeline name; used to derive a deterministic `job_id`
-|`description` |string |No |Free-text description
-|`global_config` |object |No |Flow-level configuration applied to all operators unless overridden
-|`flow` |array |Yes |Array of operator node objects
-|===
+|Field |Required |Description
 
-==== Operator Node Structure
+|`flow_name`
+|Yes
+|Human-readable identifier; used to derive the deterministic job UUID.
 
-[source,json]
-----
-{
-  "name": "unique_operator_name",
-  "type": "operator_short_name",
-  "depends_on": ["parent_name"],
-  "config": { }
-}
-----
+|`description`
+|No
+|Prose description; not used by the engine.
 
-[cols="1,1,1,3",options="header"]
-|===
-|Field |Type |Required |Description
-|`name` |string |Yes |Unique identifier within the flow; no spaces or dots
-|`type` |string |Yes |Operator short name (e.g. `ingest_source`) or class name
-|`depends_on` |array |No |List of upstream operator names; omit for root (ingest) nodes
-|`config` |object |No |Operator-specific configuration dictionary
+|`global_config`
+|No
+|Pipeline-wide settings (see <<_global_configuration>>).
+
+|`flow`
+|Yes
+|Array of operator node objects.
 |===
 
-==== Naming Rules
+=== Operator Node Fields
 
-* `name` must be unique within the flow.
-* No spaces allowed.
-* No dots (`.`) — reserved for branch references.
-* Use descriptive names (e.g. `ingest_pdfs`, `extract_entities`).
-
-==== Operator Types
-
-Use either the short name or the class name:
-
-[source,json]
-----
-{ "type": "ingest_source" }
-{ "type": "IngestSourceOperator" }
-----
-
-Run `docling-pipelines --list-operators` to see all available short names.
-
-=== Global Configuration
-
-Global configuration is set in the `global_config` section and applies to all operators.
-
-==== Common Fields
-
-[source,json]
-----
-{
-  "global_config": {
-    "doc_column": "content",
-    "force_ingest": false,
-    "disable_validation": false,
-    "data_storage_type": "memory",
-    "memmap_threshold": 100,
-    "micro_batch_size": 50,
-    "max_concurrent_batches": 10
-  }
-}
-----
-
-[cols="2,1,1,3",options="header"]
+[cols="1,1,3",options="header"]
 |===
-|Field |Type |Default |Description
-|`doc_column` |string |`"content"` |Column name for extracted text
-|`force_ingest` |boolean |`false` |Re-ingest all documents even if previously processed
-|`disable_validation` |boolean |`false` |Skip flow validation (not recommended for production)
-|`skip_custom_op_validation` |boolean |`false` |Skip validation for custom operators only
-|`output_folder` |string |auto |Directory for final output files
-|`data_storage_type` |string |`"memory"` |`"memory"` or `"local"` for intermediate data
-|`memmap_threshold` |integer |`100` |Threshold (MB) after which disk storage is used
-|`micro_batch_size` |integer |`50` |Documents per micro-batch
-|`max_concurrent_batches` |integer |`10` |Maximum concurrent micro-batches
+|Field |Required |Description
+
+|`type`
+|Yes
+|The operator's `short_name` (e.g. `ingest_source`, `chunker`). See the catalog in <<_operator_catalog>>.
+
+|`name`
+|Yes
+|Unique node identifier within the flow. Used by other nodes in `depends_on`.
+
+|`config`
+|Yes
+|Operator-specific parameters (can be an empty object `{}`).
+
+|`depends_on`
+|No (omit for root)
+|Array of `name` values this node depends on. Omit for the root ingest node.
 |===
-
-==== Incremental Processing Fields
-
-[cols="2,1,1,3",options="header"]
-|===
-|Field |Type |Default |Description
-|`force_ingest` |boolean |`false` |Force reprocessing of all documents
-|`retain_deleted_docs` |boolean |`false` |Keep previously indexed docs for files that no longer exist at source
-|===
-
-==== Operator Overrides
-
-Per-operator settings can be provided in `global_config` under the operator name:
-
-[source,json]
-----
-{
-  "global_config": {
-    "my_extract_node": {
-      "max_workers": 2
-    }
-  }
-}
-----
 
 === Dependency Syntax
 
-==== Simple Linear Chain
+==== Simple chain
 
 [source,json]
 ----
-[
-  { "name": "ingest",   "type": "ingest_source",   "config": {...} },
-  { "name": "extract",  "type": "extract_operator", "depends_on": ["ingest"],  "config": {...} },
-  { "name": "chunk",    "type": "chunker",           "depends_on": ["extract"], "config": {...} }
-]
+{ "name": "b", "depends_on": ["a"] }
 ----
 
-==== Multiple Dependencies (Merge)
+==== Multiple inputs (fan-in)
 
 [source,json]
 ----
-{ "name": "merge_results", "type": "merge", "depends_on": ["branch_a", "branch_b"] }
+{ "name": "merge", "type": "merge", "depends_on": ["branch_a", "branch_b"] }
 ----
 
-==== Branch Pattern
+==== Branching (fan-out)
+
+Multiple nodes may declare the same upstream node in `depends_on`. The engine will fork the
+data stream and run both branches concurrently.
 
 [source,json]
 ----
-{ "name": "split",    "type": "branching", "depends_on": ["extract"], "config": {"filter_criteria": [...]} },
-{ "name": "branch_a", "type": "chunker",   "depends_on": ["split.0"], "config": {...} },
-{ "name": "branch_b", "type": "chunker",   "depends_on": ["split.1"], "config": {...} },
-{ "name": "merge",    "type": "merge",     "depends_on": ["branch_a", "branch_b"] }
+{ "name": "branch_a", "type": "chunker",   "depends_on": ["extract"] },
+{ "name": "branch_b", "type": "doc_quality", "depends_on": ["extract"] }
 ----
 
-Dot notation (`split.0`, `split.1`) references individual output ports from a `branching` operator.
+==== DAG validation rules
 
-==== Entry Point Rule
+* Exactly one root node (no `depends_on`); it must be an ingest operator.
+* All names in `depends_on` must refer to nodes defined in the same flow.
+* No cycles — the engine detects and rejects circular dependencies.
+* Every node declared in `flow` must be reachable from the root.
 
-Every valid flow must have exactly one root node (a node without `depends_on`).
-The root node must be an Ingest-category operator.
+=== Global Configuration
 
-=== Validation Rules
+The `global_config` block applies pipeline-wide defaults. All fields are optional.
 
-The flow validator checks:
+[cols="2,1,4",options="header"]
+|===
+|Field |Default |Description
 
-. Non-empty DAG — at least one operator
-. All operator names are unique and non-empty
-. The first operator is an Ingest-category operator
-. ACL operators are positioned correctly (after ingest, before extract)
-. No disjoint (unreachable) operators
-. No circular dependencies
-. All `type` values resolve to a registered operator
-. Node-level validation — each operator's config is valid
-. Final operator warning if the last node is not a VectorDB or Storage operator
+|`doc_column`
+|`"content"`
+|Name of the column that holds document text. Passed to all operators.
 
-Run validation without executing:
+|`storage`
+|`"in-memory"`
+|Intermediate storage strategy. `"in-memory"` or `"filesystem"`.
 
-[source,bash]
+|`execute_type`
+|`"local"`
+|Execution mode. `"local"` for in-process; `"prefect"` for distributed.
+
+|`disable_validation`
+|`false`
+|Skip flow DAG validation. Not recommended for production.
+
+|`skip_custom_op_validation`
+|`false`
+|Skip validation checks for custom operators.
+
+|`force_ingest`
+|`false`
+|Re-ingest all documents even if previously processed (disable incremental mode).
+
+|`retain_deleted_docs`
+|`false`
+|Keep documents in the output even if the source file is no longer present.
+
+|`output_folder`
+|—
+|Directory for filesystem-backed intermediate results.
+
+|`data_storage_type`
+|—
+|PyArrow data store type for intermediate tables.
+
+|`enable_micro_batching`
+|`true`
+|Split large document sets into parallel sub-batches.
+
+|`micro_batch_size`
+|`100`
+|Documents per micro-batch.
+
+|`max_concurrent_batches`
+|`10`
+|Maximum micro-batches in flight concurrently.
+
+|`prefect`
+|—
+|Prefect-specific configuration block (see <<_production_deployment_and_observability>>).
+|===
+
+==== Operator-level overrides
+
+`global_config` also accepts operator-specific override blocks. Use the operator `name` or
+`type` as the key:
+
+[source,json]
 ----
-docling-pipelines --flow-file my_flow.json --validate
+"global_config": {
+  "doc_column": "content",
+  "my_extract_node": {
+    "timeout": 300
+  }
+}
 ----
 
-=== Annotated Examples
-
-==== Example 1 — Basic Document Processing Pipeline
+=== Annotated Complete Example: Basic Extraction Pipeline
 
 [source,json]
 ----
 {
-  "flow_name": "basic-pipeline",
-  "description": "Extract text from PDFs and store in OpenSearch",
+  "flow_name": "basic-extraction",
   "global_config": {
     "doc_column": "content",
-    "force_ingest": false
+    "storage": "in-memory",
+    "execute_type": "local",
+    "enable_micro_batching": false
   },
   "flow": [
     {
-      "name": "ingest",
       "type": "ingest_source",
+      "name": "ingest",                        // <1>
       "config": {
         "provider": "filesystem",
-        "connection_params": {"paths": ["./documents"]},
-        "include_filter": ".pdf"
+        "connection_params": {
+          "paths": ["./docs"]
+        },
+        "include_filter": "pdf,docx"           // <2>
       }
     },
     {
-      "name": "extract",
       "type": "extract_operator",
-      "depends_on": ["ingest"],
+      "name": "extract",
+      "depends_on": ["ingest"],               // <3>
       "config": {
-        "text_extraction": {"provider": "docling_library"},
-        "entity_extraction": {"provider": "none"}
+        "text_extraction": {
+          "provider": "docling_library"
+        },
+        "entity_extraction": {
+          "provider": "none"
+        }
       }
     },
     {
-      "name": "chunk",
-      "type": "chunker",
+      "type": "lang_detect",
+      "name": "language",
       "depends_on": ["extract"],
+      "config": {
+        "language_provider": "fasttext"
+      }
+    },
+    {
+      "type": "sql_filter",
+      "name": "filter_english",
+      "depends_on": ["language"],
+      "config": {
+        "criteria_list": ["lang_name = 'en'"]  // <4>
+      }
+    },
+    {
+      "type": "chunker",
+      "name": "chunk",
+      "depends_on": ["filter_english"],
       "config": {
         "chunk_type": "hybrid",
         "chunk_size": 512,
-        "chunk_overlap": 128
-      }
-    },
-    {
-      "name": "embed",
-      "type": "embeddings",
-      "depends_on": ["chunk"],
-      "config": {
-        "provider": "litellm",
-        "provider_config": {
-          "model_id": "openai/nomic-embed-text",
-          "api_base": "http://localhost:11434"
-        }
-      }
-    },
-    {
-      "name": "store",
-      "type": "vectordb",
-      "depends_on": ["embed"],
-      "config": {
-        "provider": "opensearch",
-        "create_index": true,
-        "provider_config": {
-          "index_name": "my_documents",
-          "host": "localhost",
-          "port": 9200,
-          "use_ssl": false
-        }
+        "chunk_overlap": 50
       }
     }
   ]
 }
 ----
+<1> Root node — no `depends_on`. Must be an ingest operator.
+<2> Only ingest PDF and DOCX files; ignore others.
+<3> Chain the extract node to the ingest node.
+<4> `sql_filter` uses the `lang_name` column written by `lang_detect` upstream.
 
-==== Example 2 — Quality-Enhanced RAG Pipeline
+=== Annotated Complete Example: RAG Pipeline with Branching
+
+This example runs quality checks in a separate branch while also producing embeddings.
 
 [source,json]
 ----
 {
-  "flow_name": "rag-with-quality",
-  "global_config": {"doc_column": "content"},
+  "flow_name": "rag-with-quality-branch",
+  "global_config": {
+    "enable_micro_batching": true,
+    "micro_batch_size": 50
+  },
   "flow": [
     {
-      "name": "ingest",
       "type": "ingest_source",
+      "name": "ingest",
       "config": {
         "provider": "filesystem",
-        "connection_params": {"paths": ["./corpus"]},
-        "include_filter": ".pdf,.docx"
+        "connection_params": { "paths": ["./corpus"] },
+        "include_filter": "pdf"
       }
     },
     {
-      "name": "extract",
       "type": "extract_operator",
+      "name": "extract",
       "depends_on": ["ingest"],
       "config": {
-        "text_extraction": {"provider": "docling_library"},
-        "entity_extraction": {"provider": "none"}
+        "text_extraction": { "provider": "docling_library" },
+        "entity_extraction": { "provider": "none" }
       }
     },
     {
-      "name": "dedup",
       "type": "ededup",
+      "name": "dedup",
       "depends_on": ["extract"],
       "config": {}
     },
     {
-      "name": "lang",
-      "type": "lang_detect",
+      "type": "branching",
+      "name": "branch",
       "depends_on": ["dedup"],
-      "config": {"filter_unknown_language": false}
+      "config": {}
     },
     {
-      "name": "filter",
+      "type": "doc_quality",
+      "name": "quality_metrics",
+      "depends_on": ["branch"],
+      "config": { "text_lang": "en" }
+    },
+    {
       "type": "sql_filter",
-      "depends_on": ["lang"],
+      "name": "quality_gate",
+      "depends_on": ["quality_metrics"],
       "config": {
-        "criteria_list": ["lang_name = 'en'"],
-        "logical_operator": "AND"
+        "criteria_list": [
+          "docq_total_words >= 50",
+          "docq_contain_bad_word = false"
+        ]
       }
     },
     {
-      "name": "chunk",
       "type": "chunker",
-      "depends_on": ["filter"],
-      "config": {"chunk_type": "hybrid", "chunk_size": 512}
+      "name": "chunk",
+      "depends_on": ["quality_gate"],
+      "config": { "chunk_type": "hybrid", "chunk_size": 512 }
     },
     {
-      "name": "embed",
       "type": "embeddings",
+      "name": "embed",
       "depends_on": ["chunk"],
       "config": {
         "provider": "litellm",
@@ -323,16 +323,18 @@ docling-pipelines --flow-file my_flow.json --validate
       }
     },
     {
-      "name": "store",
       "type": "vectordb",
+      "name": "index",
       "depends_on": ["embed"],
       "config": {
         "provider": "opensearch",
+        "vector_dimension": 768,
         "provider_config": {
           "index_name": "rag_corpus",
           "host": "localhost",
           "port": 9200,
-          "use_ssl": false
+          "use_ssl": false,
+          "verify_certs": false
         }
       }
     }
@@ -340,94 +342,46 @@ docling-pipelines --flow-file my_flow.json --validate
 }
 ----
 
-==== Example 3 — Branching Workflow
+=== Flow Identification and Job IDs
 
-[source,json]
-----
-{
-  "flow_name": "branching-example",
-  "flow": [
-    {
-      "name": "ingest", "type": "ingest_source",
-      "config": {"provider": "filesystem", "connection_params": {"paths": ["./docs"]}}
-    },
-    {
-      "name": "extract", "type": "extract_operator",
-      "depends_on": ["ingest"],
-      "config": {"text_extraction": {"provider": "docling_library"}, "entity_extraction": {"provider": "none"}}
-    },
-    {
-      "name": "classify", "type": "document_classifier",
-      "depends_on": ["extract"],
-      "config": {
-        "provider": "litellm",
-        "provider_config": {"model_id": "openai/granite4", "api_base": "http://localhost:11434/v1", "api_key": "${OLLAMA_API_KEY}"},
-        "document_types": ["invoice", "contract", "report"]
-      }
-    },
-    {
-      "name": "split", "type": "branching",
-      "depends_on": ["classify"],
-      "config": {
-        "filter_criteria": ["document_type = 'invoice'", "document_type != 'invoice'"]
-      }
-    },
-    {
-      "name": "process_invoices", "type": "chunker",
-      "depends_on": ["split.0"],
-      "config": {"chunk_type": "simple", "chunk_size": 512}
-    },
-    {
-      "name": "process_other", "type": "chunker",
-      "depends_on": ["split.1"],
-      "config": {"chunk_type": "hybrid", "chunk_size": 1024}
-    },
-    {
-      "name": "merge", "type": "merge",
-      "depends_on": ["process_invoices", "process_other"]
-    }
-  ]
-}
-----
+The flow engine derives a deterministic job UUID from `flow_name`. A new `job_run_id` is
+generated for each execution.
 
-=== Flow Identification and Incremental Processing
-
-==== job_id Derivation
-
-When using the CLI, `job_id` is derived deterministically from `flow_name`:
-
-. Sanitize the name (lowercase, replace spaces/special chars with hyphens)
-. Generate an 8-character hash from the original name
-. Create `\{sanitized}_\{hash}`
-. Generate UUID v5 from the intermediate string
-
-Use a unique `flow_name` per logically distinct pipeline.
-Reusing the same `flow_name` for different pipelines causes incremental metadata conflicts.
-
-==== REST API
-
-When flows are created via REST API, a `flow_id` is automatically generated and used as `job_id`.
-
-==== Python API
-
-When using `DocpipeFlowManager` directly, provide a stable `job_id`:
+You can supply explicit IDs when using the Python API:
 
 [source,python]
 ----
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+
 manager = DocpipeFlowManager(
     flow_file="my_flow.json",
-    job_id="my-unique-stable-job-id"
+    job_id="my-custom-job-id",
+    job_run_id="run-001"
 )
+manager.execute()
 ----
 
-Without a stable `job_id`, incremental processing cannot track previously processed files across runs.
-See xref:09_python_api_and_programmatic_usage.adoc[Chapter 9] for complete Python API details.
+See <<_python_api_and_programmatic_usage>> for the full Python API.
+
+=== Running and Validating Flows
+
+[source,bash]
+----
+# Execute a flow
+docling-pipelines --flow-file my_flow.json
+
+# Validate only (no execution)
+docling-pipelines --flow-file my_flow.json --validate
+
+# Override log level
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file my_flow.json
+----
 
 === Best Practices
 
-* Set a unique, stable `flow_name` per pipeline.
-* Put a quality step (`ededup`, `lang_detect`) before expensive embedding operations.
-* Use `force_ingest: true` only when you need to reprocess existing documents (e.g., after a config change).
-* Use `disable_validation: false` (the default) in production.
-* Use environment variable substitution for secrets in flow JSON: `"api_key": "$\{WATSONX_API_KEY}"`.
-* Validate flows before submitting to a production job server with `--validate`.
+* Keep `flow_name` short, lowercase, and hyphenated — it becomes part of the job ID.
+* Always place the ingest node first with no `depends_on`.
+* Set `enable_micro_batching: false` during development for simpler logs; enable it in production.
+* Use `validate` mode to catch configuration errors before committing to a full run.
+* Store API keys and passwords in environment variables, never hardcoded in flow JSON.
+* Reference `sample_flows/` in the repository for working, annotated pipeline examples.

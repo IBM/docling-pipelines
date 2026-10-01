@@ -1,126 +1,84 @@
 == LLM Integration
 
-Docling-pipelines uses a unified LLM adapter architecture that standardises all LLM integrations across operators.
-A single `LLMAdapterFactory` creates provider adapters that implement common port interfaces.
+Several operators — `EmbeddingsOperator`, `ChunkerOperator` (summarisation),
+`DocumentClassifierOperator`, `PIIAndHAPAnnotator`, and `ExtractOperator` (entity
+extraction) — all share a unified LLM adapter architecture. This chapter explains that
+architecture and provides the complete provider reference.
 
-=== Architecture Overview
+=== Unified Adapter Architecture
 
-==== Two Patterns
+The LLM layer is built around three port interfaces:
 
-Most operators follow **Pattern A** (Direct Port):
-
-----
-Operator
-  ↓
-Service Layer (optional for simple operators)
-  ↓ calls
-LLMAdapterFactory
-  ↓ returns
-Common Port Interface (LLMInferencePort / LLMEmbeddingPort / TextDetectionPort)
-  ↑ implemented by
-Consolidated Provider Adapters (WatsonXAdapter, LiteLLMAdapter)
-----
-
-Entity extraction uses **Pattern B** (Operator-Specific Adapter Layer):
-
-----
-ExtractOperator
-  ↓
-EntityExtractionAdapterFactory
-  ↓ creates
-LiteLLMEntityAdapter / WatsonxEntityAdapter
-  ↓ extends
-LLMEntityAdapter (parallelism, schema building, response normalisation)
-  ↓ calls
-LLMAdapterFactory
-  ↓ returns
-LLMInferencePort
-----
-
-==== Port Interfaces
-
-[cols="1,2,2",options="header"]
+[cols="1,3",options="header"]
 |===
-|Port |Purpose |Used by
-|`LLMInferencePort` |Chat/generation APIs |Classification, Entity Extraction, Summarisation, PII/HAP (LLM mode)
-|`LLMEmbeddingPort` |Embedding generation |EmbeddingsOperator
-|`TextDetectionPort` |Specialised detection APIs |PII/HAP (WatsonX mode)
+|Port |Purpose
+
+|`LLMInferencePort`
+|Text generation / completion (used by classifiers, entity extraction, PII/HAP).
+
+|`LLMEmbeddingPort`
+|Dense vector embedding generation (used by `EmbeddingsOperator`).
+
+|`TextDetectionPort`
+|PII and HAP detection (used by `PIIAndHAPAnnotator`).
 |===
 
-=== LLM Providers
+Two adapters implement one or more ports:
 
-==== Ollama via LiteLLM (Recommended for Local Development)
-
-Ollama is accessed through LiteLLM using the OpenAI-compatible API:
-
-[source,json]
-----
-{
-  "provider": "litellm",
-  "provider_config": {
-    "model_id": "openai/granite4",
-    "api_base": "http://localhost:11434/v1",
-    "api_key": "${OLLAMA_API_KEY}"
-  }
-}
-----
-
-The `api_key` value `"ollama"` is a placeholder — Ollama does not require authentication.
-The `openai/` prefix in `model_id` tells LiteLLM to use the OpenAI-compatible endpoint.
-
-==== LiteLLM (100+ Providers)
-
-LiteLLM provides a unified interface for cloud and local LLM providers:
-
-[cols="2,3",options="header"]
+[cols="1,2,3",options="header"]
 |===
-|Provider |model_id format
-|OpenAI |`openai/gpt-4`, `openai/gpt-4o`
-|Anthropic |`anthropic/claude-3-opus`, `anthropic/claude-3-sonnet`
-|AWS Bedrock |`bedrock/amazon.titan-text-express-v1`
-|Azure OpenAI |`azure/gpt-4`
-|Google Vertex AI |`vertex_ai/gemini-pro`
-|Cohere |`cohere/command-r`
-|Ollama |`openai/model_name` with `api_base: http://localhost:11434/v1`
-|HuggingFace API |`huggingface/model_id`
+|Adapter |Implements |Description
+
+|`WatsonxAdapter`
+|All three ports
+|IBM WatsonX.ai native API. Optimised for PII/HAP via the `/ml/v1/text/detection`
+endpoint — no prompt engineering required.
+
+|`LiteLLMAdapter`
+|`LLMInferencePort` + `LLMEmbeddingPort`
+|Proxy adapter supporting 100+ providers (Ollama, OpenAI, Azure, Cohere, AWS Bedrock,
+HuggingFace API, etc.) via LiteLLM's unified interface.
 |===
 
-[source,json]
+The `LLMAdapterFactory` resolves the correct adapter from a `provider` string:
+
+[source,python]
 ----
-{
-  "provider": "litellm",
-  "provider_config": {
-    "model_id": "openai/gpt-4",
-    "api_key": "${OPENAI_API_KEY}",
-    "temperature": 0.0,
-    "max_tokens": 2000,
-    "timeout": 600
-  }
-}
+from docpipe.core.adapters.llm_adapter_factory import LLMAdapterFactory
+
+adapter = LLMAdapterFactory.create_llm_adapter(
+    provider="litellm",
+    provider_config={"model_id": "openai/nomic-embed-text", "api_base": "http://localhost:11434"}
+)
 ----
 
-For streaming (recommended for large documents with remote vLLM):
+=== Two Integration Patterns
 
-[source,json]
+==== Pattern A — Direct Port (most operators)
+
+`EmbeddingsOperator`, `DocumentClassifierOperator`, `PIIAndHAPAnnotator`, and
+`ChunkerOperator` (summarisation) use the factory directly — no intermediate service layer:
+
 ----
-{
-  "provider_config": {
-    "model_id": "openai/llama3-70b",
-    "api_base": "http://vllm-server:8000/v1",
-    "api_key": "${VLLM_API_KEY}",
-    "stream": true,
-    "timeout": 1800
-  }
-}
+Operator → LLMAdapterFactory → WatsonxAdapter | LiteLLMAdapter → Provider API
 ----
 
-==== WatsonX Adapter
+==== Pattern B — Operator-Specific Adapter Layer (entity extraction only)
 
-The WatsonX adapter implements all three port interfaces:
+`ExtractOperator` entity extraction has its own adapter layer because entity extraction
+requires richer prompt engineering and document-type-specific schema handling that does not
+fit the general `LLMInferencePort` contract:
 
-* `LLMInferencePort` — chat and generation
-* `LLMEmbeddingPort` — embeddings
-* `TextDetectionPort` — PII/HAP via `/ml/v1/text/detection` API
+----
+ExtractOperator → EntityExtractionPort → LiteLLMEntityAdapter | WatsonxEntityAdapter
+----
+
+=== Provider Configuration Reference
+
+==== WatsonX
+
+WatsonX is the recommended provider for IBM enterprise workloads. It is the only adapter
+that supports the native PII/HAP detection API.
 
 [source,json]
 ----
@@ -129,37 +87,109 @@ The WatsonX adapter implements all three port interfaces:
   "provider_config": {
     "model_id": "ibm/granite-13b-chat-v2",
     "api_key": "${WATSONX_API_KEY}",
-    "api_base": "${WATSONX_API_BASE_URL}",
+    "api_base": "https://us-south.ml.cloud.ibm.com",
     "container_kind": "project",
     "container_id": "${WATSONX_PROJECT_ID}",
-    "temperature": 0.0,
-    "max_tokens": 2000,
-    "timeout": 600
+    "timeout": 300
   }
 }
 ----
 
-For WatsonX embeddings:
+[cols="2,1,3",options="header"]
+|===
+|Field |Required |Description
+
+|`model_id`
+|Yes
+|WatsonX model identifier (e.g. `ibm/granite-13b-chat-v2`).
+
+|`api_key`
+|Yes
+|IBM Cloud API key.
+
+|`api_base`
+|Yes
+|WatsonX endpoint URL (e.g. `https://us-south.ml.cloud.ibm.com`).
+
+|`container_kind`
+|Yes
+|`"project"` or `"space"`.
+
+|`container_id`
+|Yes
+|Project or space UUID.
+
+|`timeout`
+|`300`
+|Request timeout in seconds.
+|===
+
+For embeddings, use `ibm/slate-125m-english-rtrvr` as the model ID and set
+`enable_rate_limiting: true` for production workloads (7 req/s limit).
+
+==== LiteLLM
+
+LiteLLM is a unified proxy that supports 100+ providers via a single API surface.
+Use it for Ollama (local), OpenAI, Azure, Cohere, AWS Bedrock, and many others.
 
 [source,json]
 ----
 {
-  "provider": "watsonx",
+  "provider": "litellm",
   "provider_config": {
-    "model_id": "ibm/slate-125m-english-rtrvr",
-    "api_key": "${WATSONX_API_KEY}",
-    "api_base": "${WATSONX_API_BASE_URL}",
-    "container_kind": "project",
-    "container_id": "${WATSONX_PROJECT_ID}",
-    "batch_size": 800,
-    "enable_rate_limiting": false
+    "model_id": "openai/nomic-embed-text",
+    "api_base": "http://localhost:11434",
+    "api_key": "<ollama>",
+    "timeout": 120,
+    "batch_size": 32
   }
 }
 ----
 
-==== HuggingFace Adapter (Embeddings Only)
+[cols="2,1,3",options="header"]
+|===
+|Field |Required |Description
 
-For local embedding generation without API calls:
+|`model_id`
+|Yes
+|Model with provider prefix (see table below).
+
+|`api_key`
+|Depends
+|API key for the provider. Use `"<ollama>"` as a placeholder for Ollama.
+
+|`api_base`
+|Depends
+|Custom endpoint URL (required for Ollama, Azure, etc.).
+
+|`timeout`
+|`120`
+|Request timeout in seconds.
+
+|`batch_size`
+|`32`
+|Texts per batch (for embeddings).
+|===
+
+===== LiteLLM Model Prefix Reference
+
+[cols="1,1,2",options="header"]
+|===
+|Provider |Prefix |Example
+
+|Ollama |`openai/` |`openai/nomic-embed-text`
+|OpenAI |`openai/` |`openai/text-embedding-3-small`
+|Azure OpenAI |`azure/` |`azure/text-embedding-ada-002`
+|Cohere |`cohere/` |`cohere/embed-english-v3.0`
+|AWS Bedrock |`bedrock/` |`bedrock/amazon.titan-embed-text-v1`
+|HuggingFace API |`huggingface/` |`huggingface/sentence-transformers/all-MiniLM-L6-v2`
+|WatsonX via LiteLLM |`watsonx/` |`watsonx/ibm/slate-125m-english-rtrvr`
+|===
+
+==== HuggingFace (Embeddings Only)
+
+HuggingFace local inference runs the sentence-transformers model in-process. No API key,
+no network call, no cost. Supports CPU, CUDA, and Apple Silicon (MPS).
 
 [source,json]
 ----
@@ -174,150 +204,228 @@ For local embedding generation without API calls:
 }
 ----
 
-For GPU inference:
-
-[source,json]
-----
-{
-  "provider_config": {
-    "model_id": "sentence-transformers/all-mpnet-base-v2",
-    "use_local": true,
-    "device": "cuda"
-  }
-}
-----
-
-For Apple Silicon:
-
-[source,json]
-----
-{
-  "provider_config": {
-    "device": "mps"
-  }
-}
-----
-
-=== Provider Configuration Reference
-
-==== Shared Connection Fields (LiteLLM and WatsonX)
-
-[cols="1,1,1,3",options="header"]
-|===
-|Field |Type |Required |Description
-|`model_id` |string |Yes |Model identifier with provider prefix (LiteLLM) or WatsonX model name
-|`api_key` |string |Conditional |Provider API key (required for most cloud providers)
-|`api_base` |string |No |Custom API endpoint URL
-|`temperature` |float |No |Sampling temperature (default: `0.0`)
-|`max_tokens` |integer |No |Maximum response tokens (default: `2000`)
-|`timeout` |integer |No |HTTP read timeout in seconds (default: `600`)
-|===
-
-==== WatsonX-Specific Fields
-
-[cols="1,1,1,3",options="header"]
-|===
-|Field |Type |Required |Description
-|`container_id` |string |Yes |WatsonX project or space UUID
-|`container_kind` |string |No |`project` or `space` (default: `project`)
-|===
-
-==== LiteLLM-Specific Fields
-
-[cols="1,1,1,3",options="header"]
-|===
-|Field |Type |Required |Description
-|`stream` |boolean |No |Enable HTTP chunked transfer encoding for streaming responses
-|===
-
 === Operator-Specific LLM Configuration
 
-==== MLEnrichmentOperator
+==== EmbeddingsOperator
 
-* **Short name:** `ml_enrichment`
-* **Category:** Quality
-
-Uses the shared LLM infrastructure to compute text enrichment features and quality scores:
+See <<_embeddingsoperator>> for the full parameter reference. Key provider fields:
 
 [source,json]
 ----
 {
-  "name": "enrich",
-  "type": "ml_enrichment",
-  "depends_on": ["extract"],
+  "type": "embeddings",
   "config": {
-    "doc_column": "content",
-    "provider": "litellm",
-    "provider_config": {
-      "model_id": "openai/granite4",
-      "api_base": "http://localhost:11434/v1",
-      "api_key": "${OLLAMA_API_KEY}"
+    "provider": "litellm | huggingface | watsonx",
+    "provider_config": { ... },
+    "token_limit": 8192,
+    "overlap_ratio": 0.2
+  }
+}
+----
+
+==== ChunkerOperator (Summarisation)
+
+[source,json]
+----
+{
+  "type": "chunker",
+  "config": {
+    "chunk_type": "hybrid",
+    "summarization": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/llama3.2",
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "<ollama>"
+      },
+      "summary_sentences": 2,
+      "summary_max_words": 30,
+      "max_input_tokens": 8000
     }
   }
 }
 ----
 
-==== EntityCurationOperator
+==== DocumentClassifierOperator
 
-See xref:05_extracting_and_processing_documents.adoc[Chapter 5] for the full description.
-`entity_curation` does not call LLMs directly — it applies schema-driven transformations to entities already extracted by `extract_operator`.
+[source,json]
+----
+{
+  "type": "document_classifier",
+  "config": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/granite4",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "<ollama>"
+    },
+    "document_types": {
+      "invoice": "A supplier invoice with line items",
+      "contract": "A legal agreement between parties"
+    },
+    "confidence_threshold": 0.7
+  }
+}
+----
 
-=== Adding a New LLM Provider
+==== PIIAndHAPAnnotator
 
-To add support for a new provider:
+[source,json]
+----
+{
+  "type": "pii_and_hap",
+  "config": {
+    "provider": "litellm | watsonx",
+    "provider_config": { ... },
+    "expected_redactions": ["pii", "hap"],
+    "pii_threshold": 0.5,
+    "hap_threshold": 0.8
+  }
+}
+----
 
-. Implement `LLMInferencePort` or `LLMEmbeddingPort` in a new adapter class under `src/docpipe/core/adapters/`.
-. Register the adapter with `LLMAdapterFactory`.
-. Update the `provider` validation in the affected operator's `validate()` method.
+For WatsonX, the `provider_config` is the same as the general WatsonX config above.
+WatsonX uses its native `/ml/v1/text/detection` API — no prompts needed.
 
-Alternatively, use `litellm` as the provider — LiteLLM supports 100+ providers out of the box.
-New providers added to LiteLLM become immediately available in docpipe without code changes.
+==== ExtractOperator (Entity Extraction)
+
+[source,json]
+----
+{
+  "type": "extract_operator",
+  "config": {
+    "text_extraction": { "provider": "docling_library" },
+    "entity_extraction": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/llama3.2",
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "<ollama>"
+      },
+      "document_types": {
+        "invoice": "Extract: invoice_number, vendor_name, total_amount, date"
+      }
+    }
+  }
+}
+----
+
+=== MLEnrichmentOperator
+
+`MLEnrichmentOperator` does not use LLM adapters — it computes statistical features
+using the Data Prep Kit library, not a language model. See <<_data_quality_and_enrichment>>
+for its full parameter reference.
+
+=== EntityCurationOperator
+
+`EntityCurationOperator` applies schema-driven field filtering and type transformations
+to the raw entities produced by `ExtractOperator`. It does not call an LLM.
+
+[source,json]
+----
+{
+  "type": "entity_curation",
+  "name": "curate",
+  "depends_on": ["extract"],
+  "config": {
+    "entities_column": "entities",
+    "document_type_column": "document_type"
+  }
+}
+----
+
+Four built-in transformations are applied based on field definitions in 40+ bundled
+document class schemas:
+
+[cols="2,3",options="header"]
+|===
+|Transformation |Effect
+
+|`currency_to_numeric`
+|Locale-aware currency parsing via Babel. `"$1,234.56"` → `1234.56`.
+
+|`make_date_uniform`
+|Normalise dates to ISO 8601 `YYYY-MM-DD`. Uses `datefinder` as fallback.
+
+|`to_number`
+|Multi-language number word parsing. `"一千"` → `1000`.
+
+|`weight_to_numeric`
+|Locale-aware weight conversion. `"5斤"` (zh_CN) → `2.5` (kg).
+|===
+
+=== Choosing an LLM Provider
+
+[cols="2,3",options="header"]
+|===
+|Use case |Recommendation
+
+|Local development / prototyping
+|Ollama via LiteLLM (`openai/` prefix). Free, no API key, offline.
+
+|Production text generation / classification
+|LiteLLM (OpenAI or Azure). Reliable, well-documented rate limits.
+
+|IBM enterprise / regulated workloads
+|WatsonX native. Governance, audit trail, native PII/HAP detection.
+
+|High-concurrency embedding (offline)
+|HuggingFace local. No external calls; scales to 600+ parallel processes.
+
+|Multilingual embeddings
+|LiteLLM (Cohere `embed-multilingual-v3.0`).
+|===
 
 === Environment Variables for LLM Providers
 
 [cols="2,3",options="header"]
 |===
-|Variable |Used by
-|`OLLAMA_HOST` |Ollama default endpoint (default: `http://localhost:11434`)
-|`OPENAI_API_KEY` |LiteLLM with OpenAI provider
-|`ANTHROPIC_API_KEY` |LiteLLM with Anthropic provider
-|`WATSONX_API_KEY` |WatsonX adapter (alternative to `provider_config.api_key`)
-|`WATSONX_API_BASE_URL` |WatsonX adapter (alternative to `provider_config.api_base`)
-|`WATSONX_PROJECT_ID` |WatsonX adapter (alternative to `provider_config.container_id`)
+|Variable |Provider
+
+|`OPENAI_API_KEY`
+|OpenAI via LiteLLM.
+
+|`HUGGINGFACE_API_KEY`
+|HuggingFace Inference API (only when `use_local: false`).
+
+|`WATSONX_API_KEY`, `WATSONX_API_BASE_URL`
+|WatsonX native adapter.
+
+|`OLLAMA_HOST`
+|Ollama server base URL (default `http://localhost:11434`).
+
+|`AZURE_API_KEY`, `AZURE_API_BASE`, `AZURE_API_VERSION`
+|Azure OpenAI via LiteLLM.
 |===
 
-Using environment variable substitution in flow JSON:
+Store all keys as environment variables. Use `+${VAR_NAME}+` substitution syntax in flow JSON:
 
 [source,json]
 ----
-{
-  "provider": "litellm",
-  "provider_config": {
-    "model_id": "openai/gpt-4",
-    "api_key": "${OPENAI_API_KEY}"
-  }
-}
+"api_key": "${OPENAI_API_KEY}"
 ----
 
-=== Chunker Summarisation
+=== Troubleshooting
 
-The `chunker` operator can invoke an LLM to generate a short summary for each chunk.
-See xref:05_extracting_and_processing_documents.adoc[Chapter 5] for the `summarization` config block.
+[cols="2,3",options="header"]
+|===
+|Symptom |Fix
 
-Supported summarisation providers: `litellm`, `watsonx`.
+|`ConfigurationError: Unknown provider`
+|Use one of: `huggingface`, `litellm`, `watsonx`.
 
-=== Document Classification
+|`ExternalServiceError: Model not found`
+|Check `model_id` — verify the model is pulled (`ollama list`) or available on the provider.
 
-The `document_classifier` operator uses `LLMInferencePort` (Pattern A) via `ClassificationService`.
-Its prompt asks the LLM to assign one of the provided `document_types` to the input document.
+|`The api_key client option must be set`
+|Set the provider API key env var (`OPENAI_API_KEY`, etc.) or in `provider_config.api_key`.
 
-Full configuration reference: see xref:05_extracting_and_processing_documents.adoc[Chapter 5].
+|Ollama `connection refused`
+|Run `ollama serve`. Check `OLLAMA_HOST` if using a non-default host.
 
-=== PII/HAP Detection
+|WatsonX `401 Unauthorized`
+|Verify `api_key`, `api_base`, `container_kind`, and `container_id` are all set correctly.
 
-The `pii_and_hap` operator uses:
-
-* *LiteLLM path* — `LLMInferencePort`; prompt-based detection; supports Ollama and 100+ providers.
-* *WatsonX path* — `TextDetectionPort`; uses the native WatsonX `/ml/v1/text/detection` endpoint.
-
-Full configuration reference: see xref:06_data_quality_and_enrichment.adoc[Chapter 6].
+|Slow embedding throughput
+|For local workloads, switch to HuggingFace `use_local: true`. For cloud, increase `batch_size`.
+|===

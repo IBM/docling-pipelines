@@ -1,70 +1,77 @@
 == Python API and Programmatic Usage
 
-Docling-pipelines can be used programmatically via `DocpipeFlowManager`, embedded in Jupyter notebooks, or controlled via the FastAPI REST server.
+`DocpipeFlowManager` is the primary Python interface for embedding docling-pipelines
+in application code, automation scripts, and Jupyter notebooks. It accepts the same
+flow JSON that the CLI uses and exposes methods for execution, validation, metadata
+retrieval, and log inspection.
 
-=== DocpipeFlowManager
-
-`DocpipeFlowManager` provides the Python API for flow execution.
-
-==== Setup
+=== Setup
 
 [source,bash]
 ----
-export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 source .venv/bin/activate
+export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 ----
 
 Verify the import:
 
-[source,bash]
+[source,python]
 ----
-python -c "from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager; print('OK')"
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+print("Import OK")
 ----
 
-==== Execute a Flow from File
+=== Basic Usage: Execute Flow from File
 
 [source,python]
 ----
-from pathlib import Path
 from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
-manager = DocpipeFlowManager(
-    flow_file=str(Path("sample_flows/quickstart/complete_pipeline_ollama.json")),
-    job_id="my-stable-job-id"      # optional but recommended for incremental runs
-)
-
+manager = DocpipeFlowManager(flow_file="my_flow.json")
 result = manager.execute()
 
-metadata = manager.get_execution_metadata()
-print(f"Job ID: {metadata.get('job_id')}")
-print(f"Flow Name: {metadata.get('flow_name')}")
+print(result)          # execution status dict
 ----
 
-==== Execute a Flow from a Dictionary
+The constructor also accepts:
+
+[source,python]
+----
+manager = DocpipeFlowManager(
+    flow_file="my_flow.json",
+    job_id="my-stable-job-id",       # optional; derived from flow_name if omitted
+    job_run_id="run-001",             # optional; generated if omitted
+)
+----
+
+=== Execute Flow from a Python Dict
+
+Pass the flow definition inline without a JSON file:
 
 [source,python]
 ----
 from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
-flow_def = {
+flow_definition = {
     "flow_name": "inline-pipeline",
     "global_config": {
         "doc_column": "content",
-        "force_ingest": True
+        "storage": "in-memory",
+        "execute_type": "local",
+        "enable_micro_batching": False
     },
     "flow": [
         {
-            "name": "ingest",
             "type": "ingest_source",
+            "name": "ingest",
             "config": {
                 "provider": "filesystem",
-                "connection_params": {"paths": ["./documents"]},
-                "include_filter": ".pdf,.txt"
+                "connection_params": {"paths": ["./sample_documents"]}
             }
         },
         {
-            "name": "extract",
             "type": "extract_operator",
+            "name": "extract",
             "depends_on": ["ingest"],
             "config": {
                 "text_extraction": {"provider": "docling_library"},
@@ -74,318 +81,320 @@ flow_def = {
     ]
 }
 
-manager = DocpipeFlowManager(flow_def=flow_def, job_id="my-pipeline-001")
+manager = DocpipeFlowManager(flow_def=flow_definition)
 result = manager.execute()
 ----
 
-==== Validate Before Executing
+=== Validation
+
+Validate a flow without executing it:
+
+[source,python]
+----
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+from docpipe.exceptions.exceptions import FlowValidationException
+
+manager = DocpipeFlowManager(flow_file="my_flow.json")
+
+try:
+    manager.validate()
+    print("Flow is valid")
+except FlowValidationException as exc:
+    print(f"Validation failed: {exc}")
+    for error in exc.errors:
+        print(f"  ERROR: {error}")
+    for warning in exc.warnings:
+        print(f"  WARNING: {warning}")
+----
+
+=== Execution Metadata
+
+After `execute()`, retrieve per-node statistics:
 
 [source,python]
 ----
 manager = DocpipeFlowManager(flow_file="my_flow.json")
-validation_result = manager.validate()
+manager.execute()
 
-if validation_result.is_valid:
-    print("Flow is valid")
-    result = manager.execute()
-else:
-    print(f"Validation errors: {validation_result.errors}")
-    print(f"Validation warnings: {validation_result.warnings}")
-----
-
-==== Accessing Execution Metadata
-
-[source,python]
-----
 metadata = manager.get_execution_metadata()
-print(f"Job ID: {metadata['job_id']}")
-print(f"Job Run ID: {metadata['job_run_id']}")
-print(f"Flow Name: {metadata['flow_name']}")
-print(f"Status: {metadata['status']}")
-print(f"Duration: {metadata['duration']}")
+for node_name, node_meta in metadata.items():
+    print(f"{node_name}: {node_meta}")
 ----
 
-==== Retrieving Execution Logs
+The metadata dict contains fields such as `total_docs_count`, `failed_docs_count`,
+`skipped_docs_count`, and any operator-specific metrics.
+
+=== Execution Logs
+
+Retrieve structured execution logs:
 
 [source,python]
 ----
 logs = manager.get_execution_logs()
 for entry in logs:
-    print(f"[{entry['level']}] {entry['operator']}: {entry['message']}")
+    print(entry)
 ----
 
-==== Listing Available Operators
+=== Listing Available Operators
 
 [source,python]
 ----
 from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 
-manager = DocpipeFlowManager.__new__(DocpipeFlowManager)
-operators = manager.list_operators(verbose=True)
-for op in operators:
-    print(f"{op['short_name']}: {op['description']}")
+# Summary table
+DocpipeFlowManager.list_operators()
+
+# Verbose — include full parameter specs
+DocpipeFlowManager.list_operators(verbose=True)
 ----
 
-Or from the CLI:
+`list_operators()` is a static method; no flow definition is required.
 
-[source,bash]
-----
-docling-pipelines --list-operators
-docling-pipelines --list-operators --verbose
-----
-
-==== Custom job_id and flow_id
+=== Error Handling
 
 [source,python]
 ----
-import uuid
-
-manager = DocpipeFlowManager(
-    flow_file="my_flow.json",
-    job_id="finance-pipeline",          # stable; determines incremental state
-    flow_id=str(uuid.uuid4())           # unique per run
-)
-----
-
-==== Error Handling
-
-[source,python]
-----
-from docpipe.exceptions import (
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+from docpipe.exceptions.exceptions import (
     FlowValidationException,
     FlowExecutionFailedException,
-    DocpipeException
+    DocpipeException,
 )
+import logging
+
+logging.basicConfig(level=logging.INFO)
+
+manager = DocpipeFlowManager(flow_file="my_flow.json")
 
 try:
-    manager = DocpipeFlowManager(flow_file="my_flow.json")
+    manager.validate()
     result = manager.execute()
+    print(f"Pipeline completed: {result}")
 
 except FlowValidationException as exc:
-    print(f"Validation failed: {exc.errors}")
+    print(f"Flow is invalid: {exc}")
 
 except FlowExecutionFailedException as exc:
     print(f"Execution failed: {exc}")
-    logs = manager.get_execution_logs()
-    failed = [l for l in logs if l.get("level") == "ERROR"]
-    for entry in failed:
-        print(f"  {entry['operator']}: {entry['message']}")
+    metadata = manager.get_execution_metadata()
+    print(f"Partial metadata: {metadata}")
 
 except DocpipeException as exc:
-    print(f"Docpipe error: {exc}")
+    print(f"Unexpected error: {exc}")
 ----
 
-==== Log Level Configuration
+=== Log Level Configuration
 
 [source,python]
 ----
 import os
-os.environ["DS_LOG_LEVEL"] = "DEBUG"
+os.environ["DS_LOG_LEVEL"] = "DEBUG"    # DEBUG | INFO | WARNING | ERROR
 
 from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 manager = DocpipeFlowManager(flow_file="my_flow.json")
 manager.execute()
 ----
 
-Or set before launching:
+==== Suppressing docpipe Log Configuration in Embedded Usage
 
-[source,bash]
-----
-DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file my_flow.json
-----
-
-==== Disabling docpipe Log Configuration (Embedded Usage)
-
-When embedding docpipe in an existing application with its own logging setup:
+When embedding docling-pipelines in an application that manages its own logging, disable
+docpipe's log setup to avoid conflicts:
 
 [source,python]
 ----
-manager = DocpipeFlowManager(
-    flow_file="my_flow.json",
-    configure_logging=False        # do not let docpipe reconfigure root logger
-)
+import os
+os.environ["DOCPIPE_DISABLE_LOG_CONFIG"] = "true"
+
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
 ----
 
 === Jupyter Notebook Integration
 
+==== Install in a notebook environment
+
 [source,python]
 ----
-# Install if needed:
-# !pip install docpipe  (or in a venv: !uv pip install -e ".[dev]")
+import subprocess, sys
 
-import os
-os.environ["PYTHONPATH"] = "/path/to/docling-pipelines/src"
-os.environ["DS_LOG_LEVEL"] = "INFO"
+subprocess.check_call([
+    sys.executable, "-m", "pip", "install",
+    "-e", "/path/to/docling-pipelines[dev]"
+])
+----
 
+Or, if running from the repository:
+
+[source,python]
+----
+import sys
+sys.path.insert(0, "/path/to/docling-pipelines/src")
+----
+
+==== Interactive progress display
+
+[source,python]
+----
 from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+from IPython.display import display
+import json
 
-flow_def = {
-    "flow_name": "notebook-pipeline",
+flow = {
+    "flow_name": "notebook-demo",
+    "global_config": {"enable_micro_batching": False},
     "flow": [
         {
-            "name": "ingest",
             "type": "ingest_source",
-            "config": {
-                "provider": "filesystem",
-                "connection_params": {"paths": ["./sample_docs"]},
-                "include_filter": ".pdf"
-            }
+            "name": "ingest",
+            "config": {"provider": "filesystem", "connection_params": {"paths": ["./data"]}}
         },
         {
-            "name": "extract",
             "type": "extract_operator",
+            "name": "extract",
             "depends_on": ["ingest"],
-            "config": {
-                "text_extraction": {"provider": "docling_library"},
-                "entity_extraction": {"provider": "none"}
-            }
+            "config": {"text_extraction": {"provider": "docling_library"}, "entity_extraction": {"provider": "none"}}
         }
     ]
 }
 
-manager = DocpipeFlowManager(flow_def=flow_def, job_id="notebook-001")
+manager = DocpipeFlowManager(flow_def=flow)
+manager.validate()
 result = manager.execute()
+
+display(json.dumps(result, indent=2))
 metadata = manager.get_execution_metadata()
-print(metadata)
+display(metadata)
 ----
 
-=== REST API Server
+=== REST API
 
-==== Starting the Server
+The FastAPI server exposes HTTP endpoints for all pipeline operations. Start it with:
 
 [source,bash]
 ----
 source .venv/bin/activate
-export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
+docling-pipelines-api
 
+# Or directly via uvicorn:
 uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8080
 ----
-
-Once running:
 
 [cols="2,3",options="header"]
 |===
 |URL |Description
-|`http://localhost:8080/health` |Health check
-|`http://localhost:8080/api/v1/docs` |Swagger UI (interactive API docs)
-|`http://localhost:8080/api/v1/redoc` |ReDoc documentation
-|`http://localhost:8080/api/v1/openapi.json` |Raw OpenAPI schema
+
+|`http://localhost:8080/health`
+|Health check.
+
+|`http://localhost:8080/api/v1/docs`
+|Swagger UI — interactive API documentation.
+
+|`http://localhost:8080/api/v1/redoc`
+|ReDoc documentation.
+
+|`http://localhost:8080/api/v1/openapi.json`
+|Raw OpenAPI schema.
 |===
 
 ==== Authentication
 
-Two paths are supported; both produce a JWT that is passed as `Authorization: Bearer <token>`:
-
 [source,bash]
 ----
-# LDAP login
+# Obtain a JWT token via LDAP login
 curl -X POST http://localhost:8080/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"username": "alice", "password": "${LDAP_PASSWORD}"}'
+  -d '{"username": "alice", "password": "${USER_PASSWORD}"}'
 
-# Use the token
-TOKEN="eyJhbGci..."
+# Use the token on subsequent requests
 curl http://localhost:8080/api/v1/flows \
-  -H "Authorization: Bearer ${TOKEN}"
+  -H "Authorization: Bearer <token>"
 ----
 
-See xref:11_production_deployment_and_observability.adoc[Chapter 11] for OAuth2/OIDC setup.
-
-==== API Endpoints Summary
-
-===== Projects
+==== Key API Endpoints
 
 [cols="1,2,3",options="header"]
 |===
 |Method |Path |Description
-|`POST` |`/api/v1/projects` |Create a new project
-|`GET` |`/api/v1/projects` |List projects (paginated)
-|`DELETE` |`/api/v1/projects/\{id}` |Delete a project (cascade-deletes flows)
+
+|`POST` |`/api/v1/flows` |Create a flow definition.
+|`GET` |`/api/v1/flows` |List flows (paginated).
+|`POST` |`/api/v1/job_runs` |Create and start a job run.
+|`GET` |`/api/v1/job_runs/\{id}` |Get job run status and metadata.
+|`POST` |`/api/v1/job_runs/\{id}/cancel` |Cancel a running job.
+|`GET` |`/api/v1/operators/metadata` |List all operators with metadata.
+|`POST` |`/api/v1/validation/validate_flow` |Validate a flow definition.
+|`GET` |`/api/v1/document-libraries` |List document libraries.
+|`POST` |`/api/v1/documents/search` |Search documents (ACL-filtered).
 |===
 
-===== Flows
+For the complete endpoint reference, see `docs/api/REST_API_SERVER.md`.
 
-[cols="1,2,3",options="header"]
-|===
-|Method |Path |Description
-|`POST` |`/api/v1/flows` |Create a new flow
-|`GET` |`/api/v1/flows` |List flows (paginated)
-|`GET` |`/api/v1/flows/\{id}` |Get a flow by ID
-|`PUT` |`/api/v1/flows/\{id}` |Replace a flow
-|`DELETE` |`/api/v1/flows/\{id}` |Delete a flow
-|===
+==== Running a Job via REST
 
-===== Job Runs
-
-[cols="1,2,3",options="header"]
-|===
-|Method |Path |Description
-|`POST` |`/api/v1/job_runs` |Create and start a job run
-|`GET` |`/api/v1/job_runs/\{id}` |Get job run status
-|`POST` |`/api/v1/job_runs/\{id}/cancel` |Cancel a running job
-|===
-
-===== Operators
-
-[cols="1,2,3",options="header"]
-|===
-|Method |Path |Description
-|`GET` |`/api/v1/operators/metadata` |List all operators with metadata
-|===
-
-===== Documents and Document Libraries
-
-[cols="1,2,3",options="header"]
-|===
-|Method |Path |Description
-|`GET` |`/api/v1/documents/\{id}` |Retrieve a document by ID (ACL-filtered)
-|`POST` |`/api/v1/documents/search` |Search documents (ACL-filtered)
-|`POST` |`/api/v1/document-libraries` |Create a document library
-|`GET` |`/api/v1/document-libraries` |List document libraries
-|`GET` |`/api/v1/document-sets` |List document sets
-|===
-
-==== REST API Environment Variables
-
-[cols="2,2,3",options="header"]
-|===
-|Variable |Default |Description
-|`DS_LOG_LEVEL` |`INFO` |Log level
-|`CORS_ORIGINS` |`http://localhost:3000` |Comma-separated allowed origins
-|`OLLAMA_HOST` |`http://localhost:11434` |Ollama host
-|`WATSONX_API_BASE_URL` |— |WatsonX base URL (for provider listing)
-|===
-
-=== CLI API Reference
-
-==== Command Forms
-
-[source,bash]
+[source,python]
 ----
-# Execute a flow
-docling-pipelines --flow-file <path>
+import requests
 
-# Validate only (no execution)
-docling-pipelines --flow-file <path> --validate
+BASE = "http://localhost:8080"
 
-# List all operators
-docling-pipelines --list-operators
+# 1. Authenticate
+token = requests.post(f"{BASE}/auth/login",
+                      json={"username": "user", "password": "pass"}).json()["access_token"]  # pragma: allowlist secret
+headers = {"Authorization": f"Bearer {token}"}
 
-# List operators with detailed parameters
-docling-pipelines --list-operators --verbose
+# 2. Create a flow
+flow_id = requests.post(f"{BASE}/api/v1/flows", json={
+    "flow_name": "my-pipeline",
+    "flow": [...]
+}, headers=headers).json()["id"]
 
-# Specify a custom job ID
-docling-pipelines --flow-file <path> --job-id my-job-id
+# 3. Start a job run
+job_run = requests.post(f"{BASE}/api/v1/job_runs",
+                        json={"flow_id": flow_id}, headers=headers).json()
+
+# 4. Poll for completion
+import time
+while True:
+    status = requests.get(f"{BASE}/api/v1/job_runs/{job_run['id']}", headers=headers).json()
+    if status["status"] in ("COMPLETED", "FAILED"):
+        print(f"Job finished: {status['status']}")
+        break
+    time.sleep(2)
 ----
 
-==== Exit Codes
+=== Production Considerations
 
-[cols="1,3",options="header"]
+* **Stable job IDs** — always provide an explicit `job_id` when using `DocpipeFlowManager`
+  in production to ensure correct incremental-processing state across runs.
+* **Error handling** — catch `FlowValidationException` and `FlowExecutionFailedException`
+  separately; the former means the flow config is invalid, the latter means a run-time error.
+* **Logging** — use `DS_LOG_LEVEL=INFO` in production; `DEBUG` generates verbose output
+  that can be useful during development but may impact performance.
+* **Thread safety** — `DocpipeFlowManager` instances are not thread-safe; create one
+  instance per execution thread.
+* **Micro-batching** — for large document sets, enable `enable_micro_batching: true` in
+  `global_config` and tune `micro_batch_size` and `max_concurrent_batches`.
+
+=== Exception Reference
+
+[cols="2,3",options="header"]
 |===
-|Code |Meaning
-|`0` |Success
-|`1` |Flow execution error
-|`2` |Validation error
-|`3` |Configuration error
-|`4` |Import / dependency error
+|Exception |When raised
+
+|`FlowValidationException`
+|Flow JSON fails structural or semantic validation.
+
+|`FlowExecutionFailedException`
+|A fatal error occurs during operator execution.
+
+|`DocpipeException`
+|Base class for all docpipe exceptions.
+
+|`ConfigurationError`
+|An operator config field is invalid.
+
+|`DependencyError`
+|A required library is not installed.
+
+|`ExternalServiceError`
+|A call to an external service (LLM, vector DB) fails.
 |===

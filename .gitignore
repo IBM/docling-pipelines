@@ -104,6 +104,7 @@ benchmarks/execution_granularity/study.local.json
 # Frontend test coverage output
 frontend/coverage/
 
+
 # Antora documentation book — generated output (built by CI, not committed)
 docs/book/site/
 docs/book/ui/
@@ -111,6 +112,8 @@ docs/book/docling-pipelines-guide.pdf
 # Synced chapter copies (source of truth is docs/book/chapters/), but keep index.adoc
 docs/book/modules/ROOT/pages/*.adoc
 !docs/book/modules/ROOT/pages/index.adoc
+# Antora docinfo scratch file (generated, not source)
+docs/book/modules/ROOT/docinfo-footer.html
 
-# Generation prompt — scratch file, not for end-users
-docs/book/prompt.md
+# Docker runtime volumes
+docker/volumes/
