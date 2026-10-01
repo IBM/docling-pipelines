@@ -35,7 +35,9 @@
     svg { display: block; width: 100%; min-width: 1500px; height: auto; font-family: inherit; }
     svg .pod { fill: #eaf1f6; stroke: #7895aa; stroke-width: 2; stroke-dasharray: 9 7; }
     svg .api { fill: #fff; stroke: #667f93; stroke-width: 2.5; }
-    svg .topic, svg .consumer { fill: #e7f5f5; stroke: var(--event); stroke-width: 2.5; }
+    svg .topic, svg .consumer, svg .producer { fill: #e7f5f5; stroke: var(--event); stroke-width: 2.5; }
+    svg .listener { fill: #f4fbfb; stroke: var(--event); stroke-width: 2.5; }
+    svg .registry { fill: #f2edfa; stroke: var(--status); stroke-width: 2.5; }
     svg .batch { fill: #f8fafb; stroke: #8299a9; stroke-width: 2.5; stroke-dasharray: 8 6; }
     svg .binding { fill: #fff0ef; stroke: var(--binding); stroke-width: 2.5; }
     svg .notification { fill: #f2edfa; stroke: var(--status); stroke-width: 2.5; }
@@ -44,6 +46,7 @@
     svg .event-route { fill: none; stroke: var(--event); stroke-width: 3; }
     svg .binding-route { fill: none; stroke: var(--binding); stroke-width: 3; }
     svg .status-route { fill: none; stroke: var(--status); stroke-width: 3; }
+    svg .registry-route { fill: none; stroke: var(--status); stroke-width: 2.5; }
     svg .batch-route { fill: none; stroke: #667f93; stroke-width: 3; stroke-dasharray: 8 6; }
     svg .flow-route { fill: none; stroke: var(--flow); stroke-width: 2.5; }
     svg .title { fill: var(--ink); font-size: 25px; font-weight: 750; }
@@ -72,19 +75,19 @@
     <header>
       <div class="eyebrow">Local lab · High-level design</div>
       <h1>Event streaming beside the existing API path</h1>
-      <p class="subtitle">Both inputs start outside the pod on the left and call the job-run API. For this S3 flow, the Kafka route binds the event file path to the ingest prefix and publishes a received notification.</p>
+      <p class="subtitle">The Kafka listener consumes file events, calls the job-run API, and produces received notifications. Its consumer and producer both use the external Schema Registry. Batch clients call the same API.</p>
     </header>
     <div class="legend" aria-label="Diagram legend">
       <span><i class="swatch event" aria-hidden="true"></i>Kafka route</span>
       <span><i class="swatch binding" aria-hidden="true"></i>Event-to-flow binding</span>
-      <span><i class="swatch status" aria-hidden="true"></i>Received notification</span>
+      <span><i class="swatch status" aria-hidden="true"></i>Schema Registry and received notification</span>
       <span><i class="swatch flow" aria-hidden="true"></i>Existing document flow</span>
       <span><i class="swatch batch" aria-hidden="true"></i>Batch API route</span>
     </div>
     <section class="canvas" aria-label="Docling Pipelines high-level architecture">
-      <svg viewBox="0 0 1900 840" role="img" aria-labelledby="diagram-title diagram-description">
+      <svg viewBox="0 -80 1900 920" role="img" aria-labelledby="diagram-title diagram-description">
         <title id="diagram-title">Kafka and batch paths into the Docling Pipelines pod</title>
-        <desc id="diagram-description">A Kafka topic on the left points to a consumer at the top of the pod. The consumer calls the job-run API, which binds the event file path to the S3 ingest prefix for this flow. After the API creates the job run, the consumer publishes a received notification to the topic on the right. A separate batch client on the left also calls the job-run API, which starts the document flow. The S3 ingest lists objects matching the prefix. The flow contains ingest, extract, chunk, embed, and vector store stages.</desc>
+        <desc id="diagram-description">An external Kafka topic sends file events to the consumer inside the Kafka Docling Pipeline Listener, above the Docling Pipelines API. The consumer sends events to the API and to a separate producer inside the listener. Both consumer and producer point to the external Schema Registry above the pod. The producer sends received notifications to an external topic. A batch client also calls the API. The API binds the event file path to the S3 ingest prefix, then runs ingest, extract, chunk, embed, and vector store stages.</desc>
         <defs>
           <marker id="event-tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#087d87"/></marker>
           <marker id="binding-tip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#bb4144"/></marker>
@@ -95,20 +98,26 @@
 
         <!-- Boundaries and boxes -->
         <rect class="pod" x="270" y="55" width="1290" height="750" rx="24"/>
-        <text class="kicker" x="310" y="96">POD BOUNDARY</text>
-        <text class="title" x="310" y="130">Docling Pipelines pod</text>
+        <text class="kicker" x="1220" y="96">POD BOUNDARY</text>
+        <text class="title" x="1220" y="130">Docling Pipelines pod</text>
+        <rect class="registry" x="315" y="-65" width="850" height="80" rx="15"/>
+        <rect class="listener" x="300" y="155" width="895" height="160" rx="18"/>
         <rect class="topic" x="25" y="175" width="190" height="115" rx="15"/>
-        <rect class="consumer" x="315" y="170" width="320" height="125" rx="15"/>
+        <rect class="consumer" x="325" y="205" width="300" height="85" rx="13"/>
+        <rect class="producer" x="845" y="205" width="320" height="85" rx="13"/>
         <rect class="batch" x="25" y="644" width="190" height="110" rx="15"/>
         <rect class="api" x="315" y="345" width="1200" height="425" rx="18"/>
         <rect class="binding" x="345" y="440" width="260" height="110" rx="12"/>
         <rect class="existing" x="345" y="615" width="1145" height="125" rx="14"/>
         <rect class="notification" x="1640" y="175" width="220" height="115" rx="15"/>
 
-        <!-- Routes: Kafka to consumer and binding; batch client through the API to ingest -->
-        <path class="event-route" d="M 215 232.5 H 315" marker-end="url(#event-tip)"/>
-        <path class="event-route" d="M 475 295 V 440" marker-end="url(#event-tip)"/>
-        <path class="status-route" d="M 635 232.5 H 1640" marker-end="url(#status-tip)"/>
+        <!-- Routes: Kafka listener, schema lookups, API call, and batch client -->
+        <path class="event-route" d="M 215 247.5 H 325" marker-end="url(#event-tip)"/>
+        <path class="event-route" d="M 625 247.5 H 845" marker-end="url(#event-tip)"/>
+        <path class="event-route" d="M 475 290 V 440" marker-end="url(#event-tip)"/>
+        <path class="registry-route" d="M 475 205 V 15" marker-end="url(#status-tip)"/>
+        <path class="registry-route" d="M 1005 205 V 15" marker-end="url(#status-tip)"/>
+        <path class="status-route" d="M 1165 247.5 H 1640" marker-end="url(#status-tip)"/>
         <path class="batch-route" d="M 215 699 H 345" marker-end="url(#batch-tip)"/>
         <path class="binding-route" d="M 475 550 V 615" marker-end="url(#binding-tip)"/>
 
@@ -116,11 +125,16 @@
         <text class="kicker" x="45" y="203">OUTSIDE POD</text>
         <text class="box-title" x="45" y="235">Kafka topic</text>
         <text class="small mono" x="45" y="261">docpipe-poc</text>
-        <text class="kicker" x="340" y="198">NEW COMPONENT</text>
-        <text class="box-title" x="340" y="231">Consumer</text>
-        <text class="label" x="340" y="262">Reads created / modified events</text>
-        <text class="small" x="500" y="325">Calls job-run API</text>
-        <text class="status-kicker" x="900" y="215">AFTER JOB RUN CREATED: RECEIVED + JOB RUN ID</text>
+        <text class="status-kicker" x="645" y="-38">OUTSIDE POD</text>
+        <text class="box-title" x="645" y="-9">Schema Registry</text>
+        <text class="kicker" x="640" y="187">KAFKA DOCLING PIPELINE LISTENER</text>
+        <text class="box-title" x="350" y="244">Consumer</text>
+        <text class="small" x="350" y="270">Reads file events</text>
+        <text class="box-title" x="870" y="244">Producer</text>
+        <text class="small" x="870" y="270">Publishes received status</text>
+        <text class="small" x="500" y="335">Calls job-run API</text>
+        <text class="small" x="660" y="238">After API response</text>
+        <text class="status-kicker" x="1190" y="215">RECEIVED + JOB RUN ID</text>
         <text class="kicker" x="45" y="672">OUTSIDE POD</text>
         <text class="box-title" x="45" y="702">Batch client</text>
         <text class="small" x="45" y="729">Calls job-run API</text>
@@ -157,9 +171,9 @@
         <text class="stage-title" x="1312" y="706">Vector store</text>
       </svg>
       <div class="notes">
-        <article><strong>Shared API</strong><p>The consumer and ordinary batch clients call the same job-run API. The consumer and API are separate components inside one pod.</p></article>
+        <article><strong>Kafka listener</strong><p>The consumer calls the shared job-run API and passes the received status to the producer. Both listener components use the external Schema Registry.</p></article>
         <article><strong>Event binding</strong><p>For Kafka runs, <code>flow_id</code> picks the saved flow. In this S3 flow, <code>file_path</code> becomes ingest <code>connection_params.prefix</code>. Other providers use different location fields.</p></article>
-        <article><strong>Received notification</strong><p>After the API creates the run, the consumer publishes <code>received</code> with its job run ID. Query <code>GET /api/v1/job_runs/{job_run_id}</code> for completion.</p></article>
+        <article><strong>Received notification</strong><p>After the API creates the run, the producer publishes <code>received</code> with its job run ID. Query <code>GET /api/v1/job_runs/{job_run_id}</code> for completion.</p></article>
       </div>
     </section>
     <p class="sources">Based on <a href="flow.json">flow.json</a>, <a href="docker-compose.yml">docker-compose.yml</a>, and the <a href="../src/docpipe/integrations/kafka/consumer.py">Kafka consumer</a>. The nested Kafka POCs are preliminary studies.</p>
