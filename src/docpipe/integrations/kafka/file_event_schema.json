@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docpipe/kafka/file-event/v1",
+  "title": "FileEvent",
+  "type": "object",
+  "required": ["event_id", "event_type", "event_timestamp", "connection_id", "flow_id", "file_path"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "event_type": {
+      "type": "string",
+      "enum": ["created", "modified", "deleted"]
+    },
+    "event_timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "connection_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "flow_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "file_path": {
+      "type": "string"
+    }
+  }
+}
