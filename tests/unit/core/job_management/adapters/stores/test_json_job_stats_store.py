@@ -64,6 +64,7 @@ def sample_job_stats():
         status=ExecutionStatus.RUNNING,
         processed_docs=100,
         failed_docs=5,
+        progress_timestamp=1704067300,
     )
 
 
@@ -123,6 +124,7 @@ class TestFilePersistence:
             data = json.load(f)
             assert data["job_run_id"] == job_run_id
             assert data["processed_docs"] == 100
+            assert data["progress_timestamp"] == 1704067300
 
     def test_node_stats_persisted_to_separate_files(self, *, store, temp_data_dir):
         """Each node stat should be written to separate file."""

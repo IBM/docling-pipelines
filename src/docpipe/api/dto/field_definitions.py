@@ -140,6 +140,7 @@ START_TIME_DESC = "Start timestamp (Unix epoch seconds)"
 END_TIME_DESC = "End timestamp (Unix epoch seconds)"
 DURATION_DESC = "Duration in seconds"
 HEARTBEAT_DESC = "Last heartbeat timestamp (Unix epoch seconds)"
+PROGRESS_TIMESTAMP_DESC = "Timestamp of the last measurable unit of forward progress (Unix epoch seconds)"
 TIME_TAKEN_DESC = "Execution time for this node in seconds"
 EXECUTION_TIME_DESC = "Execution time in seconds"
 
