@@ -1297,6 +1297,12 @@ class OperatorUtils:
             if key in node:
                 docpipe[key] = node[key]
 
+        # Forward JSON Schema numeric range constraints
+        if "minimum" in node:
+            docpipe[OperatorConstants.Filtering.MIN_VALUE] = node["minimum"]
+        if "maximum" in node:
+            docpipe[OperatorConstants.Filtering.MAX_VALUE] = node["maximum"]
+
         # JSON Schema stores required fields as an array on the parent object node.
         # The check must use field_key (the raw JSON Schema property key, e.g.
         # "index_name") — NOT the Pydantic title (e.g. "Index Name") stored in

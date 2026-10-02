@@ -127,3 +127,10 @@
   gap: $spacing-07;
   align-items: flex-start;
 }
+
+// Nullable number input: toggle + optional number input stacked
+.nullableNumberInputWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-03;
+}
