@@ -6,6 +6,7 @@ import numpy as np
 import pyarrow as pa
 import pytest
 
+from docpipe.core.constants.constants import Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.vectordb import VectorDBOperator
 from docpipe.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import VectorStoreFactory
@@ -1681,6 +1682,162 @@ class TestIndexAndRecordResultsFailedChunks:
         _, metadata = op.transform(table)
         # No crash — metadata is well-formed
         assert "chunks_failed_to_index" in metadata
+
+    def test_unchunked_doclang_content_converted_to_markdown(self):
+        """Test that unchunked documents with doc_format=doclang are converted to clean markdown before indexing."""
+        mock_adapter = Mock()
+        mock_adapter.index_exists.return_value = True
+        mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 3}
+        mock_adapter.index_documents.return_value = (1, [])
+        mock_adapter.get_chunk_ids_for_documents.return_value = {}
+
+        config = {
+            OperatorConstants.Config.PROVIDER: "opensearch",
+            OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+            OperatorConstants.Config.AVAILABLE_FEATURES: {
+                "embeddings": {
+                    OperatorConstants.Misc.TYPE: "vector",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                }
+            },
+            "doc_format": "doclang",
+        }
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            op = VectorDBOperator(config)
+
+        xml_content = '<doclang version="0.7">\n  <text>Hello World from DocLang</text>\n</doclang>'
+        table = pa.table(
+            {
+                "id": ["doc1"],
+                "doc_id_hash": ["doc1_hash"],
+                "content": [xml_content],
+                "embeddings": [[0.1, 0.2, 0.3]],
+            }
+        )
+        _, metadata = op.transform(table)
+
+        assert metadata[Metrics.External.PROCESSED_DOCS] == 1
+        assert mock_adapter.index_documents.called
+        indexed_docs = mock_adapter.index_documents.call_args[0][0]
+        assert len(indexed_docs) == 1
+        # Check that indexed content has XML tags stripped / converted
+        _doc_pk, doc_data = indexed_docs[0]
+        indexed_content = doc_data.get("content")
+        assert "<doc>" not in indexed_content
+        assert "Hello World from DocLang" in indexed_content
+
+    def test_chunked_metadata_preservation(self):
+        """Test that spatial and chunk metadata from chunked_content are extracted into indexed document payload."""
+        mock_adapter = Mock()
+        mock_adapter.index_exists.return_value = True
+        mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 3}
+        mock_adapter.index_documents.return_value = (1, [])
+        mock_adapter.get_chunk_ids_for_documents.return_value = {}
+        mock_adapter.generate_chunk_pk.return_value = "pk_chunk_0"
+
+        config = {
+            OperatorConstants.Config.PROVIDER: "opensearch",
+            OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+            OperatorConstants.Config.AVAILABLE_FEATURES: {
+                "embeddings": {
+                    OperatorConstants.Misc.TYPE: "vector",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                }
+            },
+        }
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            op = VectorDBOperator(config)
+
+        chunk_payload = [
+            {
+                "chunk": "First chunk text",
+                "chunk_sequence_number": 0,
+                "page_no": 1,
+                "bounding_box": [10.0, 20.0, 100.0, 200.0],
+                "header_path": ["Introduction"],
+            }
+        ]
+        table = pa.table(
+            {
+                "id": ["doc1"],
+                "doc_id_hash": ["doc1_hash"],
+                "content": ["Full document text"],
+                "chunked_content": [chunk_payload],
+                "embeddings": [[[0.1, 0.2, 0.3]]],
+            }
+        )
+        _, metadata = op.transform(table)
+
+        assert metadata[Metrics.External.PROCESSED_DOCS] == 1
+        assert mock_adapter.index_documents.called
+        indexed_docs = mock_adapter.index_documents.call_args[0][0]
+        assert len(indexed_docs) == 1
+        _doc_pk, doc_dict = indexed_docs[0]
+        assert doc_dict["content"] == "First chunk text"
+        assert doc_dict["page_no"] == 1
+        assert doc_dict["bounding_box"] == [10.0, 20.0, 100.0, 200.0]
+        assert doc_dict["header_path"] == ["Introduction"]
+        assert doc_dict["chunk_sequence_number"] == 0
+
+    def test_chunked_doclang_xml_stripped_from_chunk_field(self):
+        """VectorDBOperator strips DocLang XML from the chunk field when doc_format=doclang.
+
+        Covers the defensive stripping added to _prepare_memory_based_chunks: even if a custom
+        chunker or external pipeline passes raw DocLang XML in the chunk field, VectorDBOperator
+        must strip it before indexing so the vector store receives clean plain text.
+        """
+        mock_adapter = Mock()
+        mock_adapter.index_exists.return_value = True
+        mock_adapter.detect_all_vector_dimensions.return_value = {"embeddings": 3}
+        mock_adapter.index_documents.return_value = (1, [])
+        mock_adapter.get_chunk_ids_for_documents.return_value = {}
+        mock_adapter.generate_chunk_pk.return_value = "pk_chunk_0"
+
+        config = {
+            OperatorConstants.Config.PROVIDER: "opensearch",
+            OperatorConstants.Config.PROVIDER_CONFIG: {"index_name": "idx", "host": "localhost"},
+            OperatorConstants.Config.AVAILABLE_FEATURES: {
+                "embeddings": {
+                    OperatorConstants.Misc.TYPE: "vector",
+                    OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+                }
+            },
+            "doc_format": "doclang",
+        }
+        with patch(
+            "docpipe.core.operators.vectordb.vectordb_operator.VectorStoreFactory.create",
+            return_value=mock_adapter,
+        ):
+            op = VectorDBOperator(config)
+
+        # Simulate a chunk that still contains raw DocLang XML (e.g., from a custom chunker)
+        xml_chunk = '<doclang version="0.7"><text>Hello World from DocLang</text></doclang>'
+        chunk_payload = [{"chunk": xml_chunk, "page_no": 1}]
+        table = pa.table(
+            {
+                "id": ["doc1"],
+                "doc_id_hash": ["doc1_hash"],
+                "content": [xml_chunk],
+                "chunked_content": [chunk_payload],
+                "embeddings": [[[0.1, 0.2, 0.3]]],
+            }
+        )
+        _, metadata = op.transform(table)
+
+        assert metadata[Metrics.External.PROCESSED_DOCS] == 1
+        indexed_docs = mock_adapter.index_documents.call_args[0][0]
+        assert len(indexed_docs) == 1
+        _doc_pk, doc_dict = indexed_docs[0]
+        # XML must be stripped — indexed content must be plain text
+        assert "<" not in doc_dict["content"]
+        assert "Hello World from DocLang" in doc_dict["content"]
+        assert doc_dict["page_no"] == 1
 
 
 if __name__ == "__main__":
