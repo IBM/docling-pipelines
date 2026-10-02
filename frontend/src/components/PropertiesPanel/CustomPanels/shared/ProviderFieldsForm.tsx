@@ -123,7 +123,7 @@ function NullableNumberInput({
   onChange,
 }: NullableNumberInputProps): React.JSX.Element {
   const isEnabled = value !== null && value !== undefined;
-  const [draft, setDraft] = useState<number | string>(isEnabled ? (value as number) : '');
+  const [draft, setDraft] = useState<number | string>(isEnabled ? value : '');
 
   const outOfRange = isOutOfRange(draft, minValue, maxValue);
 
