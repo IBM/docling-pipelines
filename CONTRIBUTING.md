@@ -814,6 +814,8 @@ All PRs must pass:
 - ✅ Integration tests (if applicable)
 - ✅ Code coverage threshold
 - ✅ Documentation updates (if needed)
+- ✅ All commits carry a `Signed-off-by` trailer (DCO — see [DCO Sign-off](#dco-sign-off) below)
+- ✅ All commits are GPG-verified (see [Verified Commits](#verified-commits) below)
 
 ### Review Process
 
@@ -829,6 +831,104 @@ All PRs must pass:
 - At least one maintainer approval
 - No unresolved conversations
 - Up-to-date with main branch
+- **All commits must include a `Signed-off-by` trailer** — the DCO bot blocks merging without it
+- **All commits must be GPG-verified** — PRs containing unverified commits will not be merged
+
+### DCO Sign-off
+
+Every commit must carry a `Signed-off-by` trailer. This is enforced automatically by the
+[DCO bot](https://probot.github.io/apps/dco/) and is a hard blocker for merging.
+
+The sign-off is your declaration that you authored the change and have the right to submit it
+under the project licence (see [Developer Certificate of Origin](https://developercertificate.org/)).
+
+**How to add the sign-off:**
+
+```bash
+# Append -s to every commit command
+git commit -s -m "feat: my change"
+```
+
+To sign off automatically on every commit, add this to your global git config:
+
+```bash
+git config --global format.signoff true
+```
+
+**Fixing missing sign-offs before review:**
+
+```bash
+# Single commit
+git commit --amend --no-edit -s
+
+# Multiple commits — rebase and sign each
+git rebase -i HEAD~N   # replace N with the number of commits
+# Mark each as 'edit', then for each stop:
+git commit --amend --no-edit -s
+git rebase --continue
+```
+
+> **Note:** DCO sign-off is separate from GPG verification. Both are required.
+
+### Verified Commits
+
+Every commit merged into `main` must be GPG-signed and show the **Verified** badge on GitHub.
+
+**Why verified commits?**
+
+Verified commits cryptographically prove that a commit was authored by the person whose name is on it,
+protecting the repository from commit spoofing.
+
+**How to set up GPG signing:**
+
+For the full walkthrough, see the
+[GitHub documentation on managing commit signature verification](https://docs.github.com/en/authentication/managing-commit-signature-verification).
+Quick steps:
+
+1. **Generate a GPG key** (skip if you already have one):
+
+```bash
+gpg --full-generate-key
+# Choose: RSA and RSA, 4096 bits, no expiry (or your preference)
+```
+
+2. **Export your public key and add it to GitHub:**
+
+```bash
+gpg --armor --export YOUR_KEY_ID
+# Copy the output and paste it at https://github.com/settings/keys → New GPG key
+```
+
+3. **Configure Git to sign all commits automatically:**
+
+```bash
+git config --global user.signingkey YOUR_KEY_ID
+git config --global commit.gpgsign true
+```
+
+4. **Verify a commit is signed:**
+
+```bash
+git log --show-signature -1
+# Output should include "gpg: Good signature from ..."
+```
+
+> **Note:** GPG verification is separate from DCO sign-off. Both are required.
+
+**Fixing unverified commits before review:**
+
+If your commits are not yet GPG-signed, amend and force-push before requesting a review:
+
+```bash
+# Single commit — add both sign-off and GPG signature in one step
+git commit --amend --no-edit -s -S
+
+# Multiple commits — interactive rebase, sign each
+git rebase -i HEAD~N   # replace N with the number of commits
+# Mark each as 'edit', then for each stop:
+git commit --amend --no-edit -s -S
+git rebase --continue
+```
 
 ## Commit Message Guidelines
 
@@ -878,6 +978,8 @@ Optional, indicates the area of change:
 
 - Reference issues: `Closes #123`, `Fixes #456`
 - Note breaking changes: `BREAKING CHANGE: description`
+- **DCO sign-off every commit** — use `git commit -s` or set `format.signoff = true` globally
+- **GPG sign every commit** — use `git commit -S` or set `commit.gpgsign = true` globally
 
 ### Examples
 

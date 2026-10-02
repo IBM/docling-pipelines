@@ -188,7 +188,7 @@ export interface FlowRunProperties {
  * Two parallel data shapes co-exist:
  * - **`items`** — flat map of `flow_id → FlowRow` display objects. Written by
  *   `ProjectDetail` (list fetch) and `FlowDetail` (deep-link single fetch); read
- *   by `FlowsTable` and `FlowDetail`. Mirrors the `items` map in `projectsSlice`.
+ *   by `FlowsTable` and `FlowDetail`. Follows the same `items` pattern as `projectsSlice`.
  * - **`currentFlow`** — the full `Flow` object including the `definition` blob.
  *   Written and read exclusively by the Canvas editor. Retained unchanged so
  *   Canvas continues to work without modification.

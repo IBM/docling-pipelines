@@ -27,7 +27,7 @@ export const NOOP_LABELS = {
 
 /**
  * Frontend fallback defaults, used when operator metadata does not yet expose
- * an `attributes` block. These mirror the Python-side defaults in NOOPOperator.
+ * an `attributes` block. These match the Python-side defaults in NOOPOperator.
  */
 export const NOOP_DEFAULTS = {
   SLEEP_SEC: 0,
