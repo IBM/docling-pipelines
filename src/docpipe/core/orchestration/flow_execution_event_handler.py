@@ -78,9 +78,20 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             ):
                 return
 
+            # Resolve flow_name: check flow_def or existing job stats before falling back
+            resolved_flow_name = None
+            if flow_def:
+                resolved_flow_name = flow_def.get(DocpipeConstants.NAME) or flow_def.get(DocpipeConstants.FLOW_NAME)
+            if not resolved_flow_name:
+                existing_stats = self.job_stats_service.get_job_run_stats(job_run_id=self.job_run_id)
+                if existing_stats and existing_stats.flow_id and existing_stats.flow_id.lower() != "unknown":
+                    resolved_flow_name = existing_stats.flow_id
+
             # Start tracking job
             self.job_stats_service.start_tracking_job(
-                job_id=self.job_id, job_run_id=self.job_run_id, flow_name=self.flow_id or "unknown"
+                job_id=self.job_id,
+                job_run_id=self.job_run_id,
+                flow_name=resolved_flow_name or self.flow_id or "unknown",
             )
             self._update_framework_status(status=ExecutionStatus.RUNNING.value)
 

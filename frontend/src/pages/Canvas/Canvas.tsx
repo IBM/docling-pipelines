@@ -838,7 +838,7 @@ export function Canvas(): React.JSX.Element {
       try {
         const res = await createJobRun({
           entity: {
-            job: { asset_ref: flowId, asset_ref_type: JOB_ASSET_REF_TYPE, name: flowId },
+            job: { asset_ref: flowId, asset_ref_type: JOB_ASSET_REF_TYPE, name: flow.name || flowId },
             job_run: { configuration: {} },
           },
         });

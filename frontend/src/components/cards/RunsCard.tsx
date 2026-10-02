@@ -49,7 +49,8 @@ function formatRunTime(epochSeconds: number): string {
  * `jobId` (= flow_id) so each row can resolve its own name without an extra fetch.
  */
 function RunRow({ run }: { run: JobRun }): React.JSX.Element {
-  const flowName = useAppSelector(makeSelectFlowName(String(run.jobId ?? '')));
+  const storeFlowName = useAppSelector(makeSelectFlowName(String(run.jobId ?? '')));
+  const flowName = run.flowName || storeFlowName;
   const { Icon, className: iconClass } = getStatusIcon(String(run.status ?? ''));
   const startEpoch = run.startTime ? Math.floor(new Date(run.startTime).getTime() / 1000) : 0;
   const isSuccess = ['completed', 'success'].includes((run.status ?? '').toLowerCase());
@@ -93,6 +94,7 @@ export function RunsCard(): React.JSX.Element {
           res.data.list.map((r) => [r.job_run_id, {
             jobRunId: r.job_run_id,
             jobId: r.job_id,
+            flowName: r.flow_name,
             status: r.status,
             startTime: r.start_time ? new Date(r.start_time * 1000).toISOString() : '',
             message: r.message,
