@@ -4,8 +4,8 @@
  */
 
 import React, { useState } from 'react';
-import { Button } from '@carbon/react';
-import { Close, WarningAlt, ErrorFilled, ChevronRight, ChevronDown, Copy } from '@carbon/react/icons';
+import { Button, CopyButton } from '@carbon/react';
+import { Close, WarningAlt, ErrorFilled, ChevronRight, ChevronDown } from '@carbon/react/icons';
 import { SharedDataTable } from '@/components/common/SharedDataTable';
 import type { SharedDataTableHeader, SharedDataTableRow } from '@/components/common/SharedDataTable';
 import styles from './BottomNotificationPanel.module.scss';
@@ -18,6 +18,8 @@ import {
   BUTTON_TITLES,
 } from '@/constants/notificationPanel';
 
+import type { ValidationActionType } from '@/services/api';
+
 export interface NotificationItem {
   id: string;
   type: 'error' | 'warning';
@@ -26,6 +28,7 @@ export interface NotificationItem {
   node_name?: string | null;
   node_id?: string | null;
   message_code?: string | null;
+  action_type?: ValidationActionType | null;
   timestamp: string;
 }
 
@@ -33,7 +36,7 @@ interface BottomNotificationPanelProps {
   notifications: NotificationItem[];
   onClose: () => void;
   title?: string;
-  onNodeClick?: (nodeId: string, messageCode?: string | null) => void;
+  onNodeClick?: (nodeId: string, messageCode?: string | null, actionType?: ValidationActionType | null) => void;
 }
 
 const HEADERS: SharedDataTableHeader[] = [
@@ -76,15 +79,22 @@ const BottomNotificationPanel: React.FC<BottomNotificationPanelProps> = ({
 
   // ── Row data ──────────────────────────────────────────────────────────────
 
-  const rows: SharedDataTableRow[] = notifications.map((notif, index) => ({
-    id: notif.id,
-    [COLUMN_KEYS.EXPAND]:      '',
-    [COLUMN_KEYS.NUMBER]:      (index + 1).toString(),
-    [COLUMN_KEYS.TIMESTAMP]:   notif.timestamp,
-    [COLUMN_KEYS.STATUS]:      notif.type,
-    [COLUMN_KEYS.NAME]:        notif.node_name ?? DEFAULT_VALUES.NODE_NAME_PLACEHOLDER,
-    [COLUMN_KEYS.DESCRIPTION]: notif.message ?? '',
-  }));
+  const rows: SharedDataTableRow[] = notifications.map((notif, index) => {
+    const rawMessage = notif.message ?? '';
+    const truncatedMessage = rawMessage.length > 100
+      ? `${rawMessage.slice(0, 100)}...`
+      : rawMessage;
+
+    return {
+      id: notif.id,
+      [COLUMN_KEYS.EXPAND]:      '',
+      [COLUMN_KEYS.NUMBER]:      (index + 1).toString(),
+      [COLUMN_KEYS.TIMESTAMP]:   notif.timestamp,
+      [COLUMN_KEYS.STATUS]:      notif.type,
+      [COLUMN_KEYS.NAME]:        notif.node_name ?? DEFAULT_VALUES.NODE_NAME_PLACEHOLDER,
+      [COLUMN_KEYS.DESCRIPTION]: truncatedMessage,
+    };
+  });
 
   // ── Cell renderer ─────────────────────────────────────────────────────────
 
@@ -118,12 +128,14 @@ const BottomNotificationPanel: React.FC<BottomNotificationPanelProps> = ({
     if (colKey === COLUMN_KEYS.NAME) {
       const nodeId = notification?.node_id;
       const messageCode = notification?.message_code;
-      if (nodeId && onNodeClick) {
+      const actionType = notification?.action_type;
+      const isNavigable = actionType !== 'none';
+      if (nodeId && onNodeClick && isNavigable) {
         return (
           <button
             type="button"
             className={styles.nodeLink}
-            onClick={() => { onNodeClick(nodeId, messageCode); }}
+            onClick={() => { onNodeClick(nodeId, messageCode, actionType); }}
           >
             {cell.value}
           </button>
@@ -137,15 +149,14 @@ const BottomNotificationPanel: React.FC<BottomNotificationPanelProps> = ({
       return (
         <div className={styles.descriptionCell}>
           <span className={styles.descriptionText}>{cell.value}</span>
-          <button
-            type="button"
+          <CopyButton
             className={styles.copyButton}
             onClick={() => { handleCopy(fullMessage); }}
-            aria-label={ARIA_LABELS.COPY_DESCRIPTION}
-            title={BUTTON_TITLES.COPY_TO_CLIPBOARD}
-          >
-            <Copy size={16} />
-          </button>
+            iconDescription={BUTTON_TITLES.COPY_TO_CLIPBOARD}
+            feedback="Copied"
+            feedbackTimeout={2000}
+            align="left"
+          />
         </div>
       );
     }

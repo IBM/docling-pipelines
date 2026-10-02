@@ -121,7 +121,7 @@ describe('BottomNotificationPanel — rendering', () => {
 
   it('renders copy button for each description cell', () => {
     render(<BottomNotificationPanel notifications={[makeNotification()]} onClose={vi.fn()} />);
-    expect(screen.getByRole('button', { name: /copy description/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /copy to clipboard/i })).toBeInTheDocument();
   });
 
   it('renders multiple notifications with sequential row numbers', () => {
@@ -150,30 +150,30 @@ describe('BottomNotificationPanel — close', () => {
 // ── Node link ─────────────────────────────────────────────────────────────────
 
 describe('BottomNotificationPanel — node link click', () => {
-  it('calls onNodeClick with nodeId and messageCode when node button is clicked', () => {
+  it('calls onNodeClick with nodeId, messageCode, and actionType when node button is clicked', () => {
     const onNodeClick = vi.fn();
     render(
       <BottomNotificationPanel
-        notifications={[makeNotification({ node_name: 'MyNode', node_id: 'node-1', message_code: 'EXTRACT_FAILED' })]}
+        notifications={[makeNotification({ node_name: 'MyNode', node_id: 'node-1', message_code: 'EXTRACT_FAILED', action_type: 'OPEN_PROPERTIES' })]}
         onClose={vi.fn()}
         onNodeClick={onNodeClick}
       />
     );
     fireEvent.click(screen.getByRole('button', { name: 'MyNode' }));
-    expect(onNodeClick).toHaveBeenCalledWith('node-1', 'EXTRACT_FAILED');
+    expect(onNodeClick).toHaveBeenCalledWith('node-1', 'EXTRACT_FAILED', 'OPEN_PROPERTIES');
   });
 
   it('passes null messageCode when message_code is null', () => {
     const onNodeClick = vi.fn();
     render(
       <BottomNotificationPanel
-        notifications={[makeNotification({ node_name: 'N', node_id: 'n-id', message_code: null })]}
+        notifications={[makeNotification({ node_name: 'N', node_id: 'n-id', message_code: null, action_type: null })]}
         onClose={vi.fn()}
         onNodeClick={onNodeClick}
       />
     );
     fireEvent.click(screen.getByRole('button', { name: 'N' }));
-    expect(onNodeClick).toHaveBeenCalledWith('n-id', null);
+    expect(onNodeClick).toHaveBeenCalledWith('n-id', null, null);
   });
 });
 
@@ -233,7 +233,7 @@ describe('BottomNotificationPanel — copy description', () => {
   it('calls navigator.clipboard.writeText with the message when copy button is clicked', () => {
     const message = 'Something went wrong';
     render(<BottomNotificationPanel notifications={[makeNotification({ message })]} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: /copy description/i }));
+    fireEvent.click(screen.getByRole('button', { name: /copy to clipboard/i }));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(message);
   });
 
@@ -241,7 +241,7 @@ describe('BottomNotificationPanel — copy description', () => {
     render(
       <BottomNotificationPanel notifications={[makeNotification({ message: null })]} onClose={vi.fn()} />
     );
-    fireEvent.click(screen.getByRole('button', { name: /copy description/i }));
+    fireEvent.click(screen.getByRole('button', { name: /copy to clipboard/i }));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith('');
   });
 
@@ -249,7 +249,7 @@ describe('BottomNotificationPanel — copy description', () => {
     (navigator.clipboard.writeText as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('denied'));
     render(<BottomNotificationPanel notifications={[makeNotification()]} onClose={vi.fn()} />);
     expect(() => {
-      fireEvent.click(screen.getByRole('button', { name: /copy description/i }));
+      fireEvent.click(screen.getByRole('button', { name: /copy to clipboard/i }));
     }).not.toThrow();
   });
 });
