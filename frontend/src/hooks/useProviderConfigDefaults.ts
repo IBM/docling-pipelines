@@ -28,15 +28,19 @@
 import { useEffect } from 'react';
 import type { OperatorFeature } from '@/types';
 import { NodeOperator } from '@/constants/operators';
+import { INGEST_SOURCE_ATTRIBUTE } from '@/components/PropertiesPanel/CustomPanels/IngestSource/constants';
+import { STORAGE_OUTPUT_ATTRIBUTE } from '@/components/PropertiesPanel/CustomPanels/StorageOutput/constants';
+import { EXTRACT_ATTRIBUTE, EXTRACTION_KEY } from '@/components/PropertiesPanel/CustomPanels/Extract/constants';
+import { CHUNKER_ATTRIBUTE } from '@/components/PropertiesPanel/CustomPanels/Chunker/constants';
 
 // ── Param key constants ───────────────────────────────────────────────────────
-const PROVIDER = 'provider';
-const PROVIDER_CONFIG = 'provider_config';
-const CONNECTION_PARAMS = 'connection_params';   // ingest_source only
-const DESTINATION_CONFIG = 'destination_config'; // storage_output
-const TEXT_EXTRACTION = 'text_extraction';       // extract_operator
-const ENTITY_EXTRACTION = 'entity_extraction';   // extract_operator
-const SUMMARIZATION = 'summarization';           // chunker
+const PROVIDER = EXTRACTION_KEY.PROVIDER;
+const PROVIDER_CONFIG = EXTRACTION_KEY.PROVIDER_CONFIG;
+const CONNECTION_PARAMS = INGEST_SOURCE_ATTRIBUTE.CONNECTION_PARAMS;
+const DESTINATION_CONFIG = STORAGE_OUTPUT_ATTRIBUTE.DESTINATION_CONFIG;
+const TEXT_EXTRACTION = EXTRACT_ATTRIBUTE.TEXT_EXTRACTION;
+const ENTITY_EXTRACTION = EXTRACT_ATTRIBUTE.ENTITY_EXTRACTION;
+const SUMMARIZATION = CHUNKER_ATTRIBUTE.SUMMARIZATION;
 
 /* eslint-disable @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-member-access */
 
