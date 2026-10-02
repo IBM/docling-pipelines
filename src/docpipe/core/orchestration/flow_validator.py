@@ -638,7 +638,8 @@ class FlowValidator:
 
         return node_result
 
-    def _get_parent_results(self, *, prev_result: Any) -> list[FeaturePropagationResult]:
+    @staticmethod
+    def _get_parent_results(*, prev_result: Any) -> list[FeaturePropagationResult]:
         """Normalize Prefect traversal input into a list of parent propagation results."""
         if isinstance(prev_result, FeaturePropagationResult):
             return [prev_result]
@@ -648,7 +649,8 @@ class FlowValidator:
             return [parent for parent in prev_result.values() if isinstance(parent, FeaturePropagationResult)]
         return []
 
-    def _feature_metadata_to_dict(self, *, result: FeaturePropagationResult) -> dict[str, dict[str, Any]]:
+    @staticmethod
+    def _feature_metadata_to_dict(*, result: FeaturePropagationResult) -> dict[str, dict[str, Any]]:
         """Convert node feature metadata into plain dictionaries for downstream propagation/debugging."""
         return {
             name: {
@@ -664,7 +666,8 @@ class FlowValidator:
             for name, meta in result.feature_metadata.items()
         }
 
-    def _get_required_node_fields(self, *, op_def: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
+    @staticmethod
+    def _get_required_node_fields(*, op_def: dict[str, Any]) -> tuple[str, str, dict[str, Any]]:
         """Extract required propagation fields from a DAG node definition."""
         node_id = op_def.get(OperatorConstants.Misc.ID)
         operator = op_def.get(OperatorConstants.Misc.OPERATOR)
@@ -902,7 +905,8 @@ class FlowValidator:
         self._node_features_cache = node_features
         return node_features
 
-    def _traverse_dag(self, *, dag: list, task: Any) -> None:
+    @staticmethod
+    def _traverse_dag(*, dag: list, task: Any) -> None:
         """Traverse the DAG in topological order, calling task for each node.
 
         Replaces the previous Prefect-based traversal. Delegates ordering to
@@ -944,9 +948,8 @@ class FlowValidator:
 
             results[node_id] = task(task_name, op_def, prev_result, link_name)
 
-    def _validate_global_config_values(
-        self, *, global_config: dict[str, Any], validate_results: ValidateStepResults
-    ) -> None:
+    @staticmethod
+    def _validate_global_config_values(*, global_config: dict[str, Any], validate_results: ValidateStepResults) -> None:
         """Validate global configuration values such as doc_format."""
         doc_format = global_config.get(OperatorConstants.DOC_FORMAT_KEY)
         if doc_format is not None:
@@ -1012,7 +1015,8 @@ class FlowValidator:
             validate_results=validate_results,
         )
 
-    def _build_reverse_graph(self, dag: list) -> dict:
+    @staticmethod
+    def _build_reverse_graph(dag: list) -> dict:
         """Build reverse graph to find nodes without inputs."""
         reverse_graph: dict[str, list[str]] = {n["id"]: [] for n in dag}
         for node in dag:
@@ -1046,14 +1050,16 @@ class FlowValidator:
                 reported_nodes=reported_nodes,
             )
 
-    def _find_terminal_node(self, component: set, graph: dict) -> str | None:
+    @staticmethod
+    def _find_terminal_node(component: set, graph: dict) -> str | None:
         """Find the terminal node (node with no outgoing edges) in a component."""
         for node_id in component:
             if not graph.get(node_id, []):
                 return node_id
         return None
 
-    def _find_all_terminal_nodes(self, graph: dict) -> list[str]:
+    @staticmethod
+    def _find_all_terminal_nodes(graph: dict) -> list[str]:
         """Find all terminal nodes (nodes with no outgoing edges) in a graph."""
         return [node_id for node_id, neighbors in graph.items() if not neighbors]
 
@@ -1085,8 +1091,9 @@ class FlowValidator:
             )
             reported_nodes.add(terminal_node_id)
 
+    @staticmethod
     def _validate_isolated_nodes(
-        self, *, dag: list, graph: dict, reverse_graph: dict, reported_nodes: set, validate_results: ValidateStepResults
+        *, dag: list, graph: dict, reverse_graph: dict, reported_nodes: set, validate_results: ValidateStepResults
     ):
         """Check for isolated nodes (nodes with no input AND no output)."""
         for node in dag:
@@ -1222,7 +1229,8 @@ class FlowValidator:
                 )
         # Early exit if no ACL operator present
 
-    def _validate_storage_output_operator_placement(self, *, dag: list, validate_results: ValidateStepResults):
+    @staticmethod
+    def _validate_storage_output_operator_placement(*, dag: list, validate_results: ValidateStepResults):
         """Validate that storage_output operators using refetch_original or comprehensive_export
         have an upstream ingest_source operator in the DAG.
 
@@ -1280,7 +1288,8 @@ class FlowValidator:
                     alerts=validate_results.errors,
                 )
 
-    def _build_graph(self, dag: list) -> dict:
+    @staticmethod
+    def _build_graph(dag: list) -> dict:
         """Build a directed graph representation from the DAG.
 
         Args:
@@ -1296,7 +1305,8 @@ class FlowValidator:
                 graph[node["id"]].append(edge["node_id_ref"])
         return graph
 
-    def _make_undirected_graph(self, graph: dict) -> dict:
+    @staticmethod
+    def _make_undirected_graph(graph: dict) -> dict:
         """Convert a directed graph into an undirected graph for disjoint detection.
 
         Args:
@@ -1312,7 +1322,8 @@ class FlowValidator:
                 undirected[dst].add(src)
         return undirected
 
-    def _find_connected_components(self, undirected: dict) -> list:
+    @staticmethod
+    def _find_connected_components(undirected: dict) -> list:
         """Find connected components in an undirected graph.
 
         Args:
@@ -1557,7 +1568,8 @@ class FlowValidator:
 
         return category
 
-    def create_validation_alerts(self, op_def: dict, messages: list, alerts: list, **kwargs):
+    @staticmethod
+    def create_validation_alerts(op_def: dict, messages: list, alerts: list, **kwargs):
         """Create validation alerts from a list of messages.
 
         Args:
@@ -1569,7 +1581,8 @@ class FlowValidator:
         for message in messages:
             add_validation_alert(message=message, op_def=op_def, alerts=alerts, **kwargs)
 
-    def get_duplicate_node_names(self, *, nodes):
+    @staticmethod
+    def get_duplicate_node_names(*, nodes):
         """Get duplicate names of nodes from pipeline.
 
         Args:
@@ -1580,9 +1593,8 @@ class FlowValidator:
         """
         return [item for item in set(nodes) if nodes.count(item) > 1]
 
-    def _evaluate_node_validation_skip(
-        self, operator: str, operator_factory: OperatorFactory, global_config: dict
-    ) -> bool:
+    @staticmethod
+    def _evaluate_node_validation_skip(operator: str, operator_factory: OperatorFactory, global_config: dict) -> bool:
         """Evaluate whether to skip validation for a custom operator.
 
         Args:

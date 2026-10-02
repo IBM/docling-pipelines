@@ -1676,5 +1676,64 @@ class TestValidationActionTypeMapping:
         assert dto.action_type is not None
 
 
+class TestFlowValidatorStaticMethods:
+    """Verify graph utility methods are static and callable without an instance."""
+
+    STATIC_METHODS = (
+        "_get_parent_results",
+        "_feature_metadata_to_dict",
+        "_get_required_node_fields",
+        "_traverse_dag",
+        "_validate_global_config_values",
+        "_build_reverse_graph",
+        "_find_terminal_node",
+        "_find_all_terminal_nodes",
+        "_validate_isolated_nodes",
+        "_validate_storage_output_operator_placement",
+        "_build_graph",
+        "_make_undirected_graph",
+        "_find_connected_components",
+        "create_validation_alerts",
+        "get_duplicate_node_names",
+        "_evaluate_node_validation_skip",
+    )
+
+    def test_graph_utilities_are_static(self):
+        """Every converted graph utility must be a true staticmethod."""
+        import inspect
+
+        for method_name in self.STATIC_METHODS:
+            assert isinstance(inspect.getattr_static(FlowValidator, method_name), staticmethod), (
+                f"{method_name} is not a staticmethod"
+            )
+
+    def test_build_graph_class_call(self):
+        """Graph construction works when called directly on the class."""
+        dag = [
+            {"id": "a", "output_edges": [{"node_id_ref": "b"}]},
+            {"id": "b", "output_edges": []},
+        ]
+
+        graph = FlowValidator._build_graph(dag)
+
+        assert graph == {"a": ["b"], "b": []}
+
+    def test_get_duplicate_node_names_class_call(self):
+        """Duplicate detection works when called directly on the class."""
+        duplicates = FlowValidator.get_duplicate_node_names(nodes=["a", "b", "a", "c", "b"])
+
+        assert sorted(duplicates) == ["a", "b"]
+
+    def test_find_connected_components_class_call(self):
+        """Component detection works when called directly on the class."""
+        undirected = {"a": {"b"}, "b": {"a"}, "c": set()}
+
+        components = FlowValidator._find_connected_components(undirected)
+
+        assert len(components) == 2
+        assert {"a", "b"} in components
+        assert {"c"} in components
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
