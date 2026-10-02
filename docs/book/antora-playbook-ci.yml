@@ -1,0 +1,29 @@
+site:
+  title: Docling-pipelines — The Definitive Guide
+  # URL is passed at build time via --attribute site-url=...
+  url: https://IBM.github.io/docling-pipelines/book/site
+  start_page: docling-pipelines::index.adoc
+
+content:
+  sources:
+    - url: .
+      start_path: docs/book
+      branches: HEAD
+
+ui:
+  bundle:
+    url: docs/book/ui/ui-bundle.zip
+    snapshot: true
+
+asciidoc:
+  attributes:
+    sectnums: ''
+    docinfo: shared
+    icons: font
+    source-highlighter: highlight.js
+    toc: ~
+    toclevels: 2
+
+output:
+  dir: docs/book/site
+  clean: true

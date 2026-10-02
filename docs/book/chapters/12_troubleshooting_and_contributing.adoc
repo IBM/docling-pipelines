@@ -1,0 +1,371 @@
+== Troubleshooting and Contributing
+
+This chapter consolidates common diagnostic steps, known issues and fixes, the code
+standards that apply to all contributions, and the PR workflow.
+
+=== Diagnostics Checklist
+
+Run these checks whenever a flow fails or behaves unexpectedly.
+
+==== Environment
+
+[source,bash]
+----
+# Python version (must be 3.12.x)
+python --version
+
+# Virtual environment active?
+which python    # should point to .venv/bin/python
+
+# Imports work?
+python -c "from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager; print('OK')"
+
+# List all operators
+docling-pipelines --list-operators
+----
+
+==== Validate Before Running
+
+[source,bash]
+----
+docling-pipelines --flow-file my_flow.json --validate
+----
+
+Validation catches:
+
+* Unknown operator types.
+* Missing required config fields.
+* Circular `depends_on` references.
+* DAG topology errors (no root, disjoint nodes).
+* Operator-specific config errors (via each operator's `validate()` method).
+
+==== Enable Debug Logging
+
+[source,bash]
+----
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file my_flow.json 2>&1 | tee pipeline.log
+----
+
+Look for lines containing `ERROR` or `WARNING` first:
+
+[source,bash]
+----
+grep -E "ERROR|WARNING" pipeline.log | head -40
+----
+
+==== Check External Services
+
+[source,bash]
+----
+# Ollama
+curl http://localhost:11434/api/version
+ollama list
+
+# OpenSearch
+curl -k -u admin:Admin@12345 https://localhost:9200/_cluster/health
+
+# Milvus
+python -c "from pymilvus import connections; connections.connect(); print('Milvus OK')"
+----
+
+=== Common Issues and Fixes
+
+==== Installation Issues
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Fix
+
+|`ModuleNotFoundError: No module named 'docpipe'`
+|Set `PYTHONPATH`: `export PYTHONPATH="$(pwd)/src:$\{PYTHONPATH}"`
+
+|`python --version` shows 3.13+
+|Install Python 3.12. With pyenv: `pyenv install 3.12 && pyenv local 3.12`
+
+|`uv: command not found`
+|Install uv: `curl -LsSf https://astral.sh/uv/install.sh \| sh`
+
+|Import errors after dependency change
+|Re-run `uv pip install -e ".[dev]"` and `uv lock`
+|===
+
+==== Flow Validation Errors
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Fix
+
+|`Operator type 'xxx' not found`
+|Check the short name in `--list-operators`. Custom operators: verify `DOCPIPE_CUSTOM_OPERATORS` is set.
+
+|`Flow must have exactly one root node`
+|Exactly one node must have no `depends_on`. The root must be an ingest operator.
+
+|`Circular dependency detected`
+|Draw the dependency graph and find the cycle. Use unique node names.
+
+|`Depends-on node 'xxx' does not exist`
+|The name in `depends_on` must exactly match a `name` field elsewhere in the flow.
+|===
+
+==== Operator Execution Errors
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Fix
+
+|`content` column is empty
+|`ExtractOperator` failed or the source file is unreadable. Enable OCR if the file is scanned.
+
+|`KeyError: doc_id_hash`
+|`ExtractOperator` must run before any operator that requires `doc_id_hash`.
+
+|`chunked_content column not found`
+|`ChunkerOperator` must run before `EmbeddingsOperator`.
+
+|All documents filtered by `sql_filter`
+|The threshold is too strict. Inspect column value distributions before setting thresholds.
+
+|`ConfigurationError: Unknown provider`
+|Check the provider name. For embeddings: `huggingface`, `litellm`, `watsonx`.
+
+|`ExternalServiceError: Model not found`
+|Verify the `model_id`. For Ollama: run `ollama pull <model>` first.
+|===
+
+==== Ingest Errors
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Fix
+
+|Zero documents ingested
+|Check `include_filter` — extensions must match files in the source path.
+
+|`FileNotFoundError`
+|Verify paths in `connection_params.paths` exist and are readable.
+
+|S3 `NoCredentialsError`
+|Set `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables.
+
+|SharePoint `401 Unauthorized`
+|Verify `client_id`, `client_secret`, `tenant_id`. Ensure the app has `Sites.Read.All`.
+|===
+
+==== Vector Database Errors
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Fix
+
+|`ConnectionError` to OpenSearch
+|Run OpenSearch and verify `host`/`port` in `provider_config`.
+
+|`DocpipeException: index_name is required`
+|Add `"index_name"` inside `provider_config` (OpenSearch) or `"collection_name"` (Milvus).
+
+|Vector dimension mismatch
+|Omit `vector_dimension` for auto-detection, or set it to match the model's output size.
+
+|Milvus Lite lock error
+|Set `enable_micro_batching: false` in `global_config`.
+|===
+
+==== LLM / API Errors
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Fix
+
+|Ollama `connection refused`
+|Run `ollama serve`. Check `OLLAMA_HOST` if using a non-default host.
+
+|`api_key client option must be set`
+|Set the API key env var (`OPENAI_API_KEY`, etc.) or in `provider_config.api_key`.
+
+|WatsonX `401 Unauthorized`
+|Verify `api_key`, `api_base`, `container_kind`, and `container_id`.
+
+|Slow embedding throughput
+|Switch to HuggingFace `use_local: true` for offline workloads, or increase `batch_size`.
+|===
+
+==== Performance Issues
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Fix
+
+|Slow extraction on large PDFs
+|Use `max_workers: 1` and GPU acceleration (`"device": "cuda"`) for heavy workloads.
+
+|High memory usage
+|Reduce `micro_batch_size`. Default is 100; try 20–50 for large documents.
+
+|Slow OpenSearch indexing
+|Increase `batch_size` in `provider_config` (500–1000). Tune `ef_construction` and `m`.
+
+|Semantic chunking hangs
+|Ollama must be running. Verify with `curl http://localhost:11434/api/version`.
+|===
+
+=== Code Standards
+
+All contributions — including custom operators — must follow these standards:
+
+==== Python Rules
+
+* **Python version:** 3.12+. No 3.13+ features.
+* **Keyword-only arguments:** All functions/methods with 2+ parameters (excluding
+  `self`/`cls`) must use a keyword-only separator:
++
+[source,python]
+----
+def my_method(self, *, param1: str, param2: int) -> None: ...
+----
+
+* **Logging:** Always use `get_logger()` from
+  `docpipe.utils.infrastructure.logging`. Never `logging.getLogger()`.
+* **Log format:** No f-strings in `logger.*()` calls. Use `%s` format:
++
+[source,python]
+----
+logger.info("Processing %s documents", len(table))  # correct
+logger.info(f"Processing {len(table)} documents")   # wrong
+----
+
+* **No emoji or non-ASCII characters** in any log message.
+* **Business logic in `transform()` only** — no orchestration logic, no direct DB calls.
+* **Port interfaces for LLM** — never import concrete adapter classes from operators.
+* **`get_metadata()` must be `@staticmethod`** — no `self`.
+
+==== Documentation Rules
+
+* Every new operator needs a `<operator_name>_readme.md` in
+  `docs/operators/<category>/` with exactly 8 sections in order:
+  `Overview` → `Key Features` → `Operator Configuration` → `Parameters` →
+  `Output Columns` → `Examples` → `Troubleshooting` → `Architecture` (optional).
+* File naming: `UPPER_SNAKE_CASE.md` for guide and reference docs; lowercase
+  `<operator_name>_readme.md` for operator readmes.
+* Every change goes in `CHANGELOG.md` under `## [Unreleased]`.
+* Validate Mermaid diagrams at https://mermaid.live before committing.
+* Use relative paths in all documentation links.
+
+==== Testing Standards
+
+* Overall unit test coverage: **80% minimum** (enforced by CI).
+* Core operator `transform()` methods: **90%+ coverage**.
+* Run the full test suite before pushing:
++
+[source,bash]
+----
+pytest tests/unit/ --cov=src/docpipe --cov-report=term-missing
+----
+
+* Run pre-commit hooks before pushing:
++
+[source,bash]
+----
+pre-commit run --all-files
+----
+
+=== PR Workflow
+
+==== Before Opening a PR
+
+[source,bash]
+----
+# 1. Create a feature branch
+git checkout -b feat/my-new-operator
+
+# 2. Make changes
+
+# 3. Run tests
+pytest tests/unit/ -v
+
+# 4. Run linting and formatting
+pre-commit run --all-files
+
+# 5. Update CHANGELOG.md under ## [Unreleased]
+----
+
+==== Branch Naming
+
+[cols="1,2",options="header"]
+|===
+|Prefix |Use for
+
+|`feat/`
+|New features and operators.
+
+|`fix/`
+|Bug fixes.
+
+|`docs/`
+|Documentation changes only.
+
+|`chore/`
+|Non-functional changes (deps, CI, tooling).
+
+|`refactor/`
+|Code refactoring without behaviour change.
+|===
+
+==== Commit Message Format
+
+Follow the Conventional Commits specification:
+
+[source]
+----
+feat(operators): add WordCountFilterOperator
+
+Adds a new Quality-category operator that filters documents below
+a configurable word count threshold. Requires ml_enrichment upstream.
+
+Closes #123
+----
+
+Format: `<type>(<scope>): <short description>`
+
+Types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `perf`
+
+==== PR Checklist
+
+Before requesting review, ensure:
+
+* [ ] All new public functions have docstrings.
+* [ ] New operators are registered in `DOCPIPE_OPERATORS` frozenset.
+* [ ] Operator readme written in `docs/operators/<category>/`.
+* [ ] Unit tests added for `transform()` with `>=90%` coverage.
+* [ ] `CHANGELOG.md` updated.
+* [ ] `pre-commit run --all-files` passes with no errors.
+* [ ] `pytest tests/unit/` passes with no failures.
+* [ ] No hardcoded credentials or API keys.
+
+==== Running Tests
+
+[source,bash]
+----
+# All unit tests
+pytest tests/unit/ -v
+
+# Specific operator tests
+pytest tests/unit/core/operators/ -v
+
+# With coverage
+pytest --cov=src/docpipe --cov-report=html
+
+# Integration tests (requires services)
+pytest tests/integration/ -v
+----
+
+=== Getting Help
+
+* **GitHub Issues** — report bugs or request features at
+  https://github.com/IBM/docling-pipelines/issues.
+* **GitHub Discussions** — ask questions, share use cases, discuss design.
+* **Documentation** — the `docs/` directory contains detailed guides, reference docs, and
+  operator READMEs. Start with `docs/guides/FLOW_CONFIGURATION_GUIDE.md` for flow authoring
+  and `docs/reference/OPERATORS.md` for the full operator parameter reference.
+* **Sample Flows** — the `sample_flows/` directory contains annotated, working pipeline
+  definitions covering all major use cases.

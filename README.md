@@ -76,6 +76,8 @@ Log verbosity is controlled via `DS_LOG_LEVEL` (`DEBUG`, `INFO`, `WARNING`).
 
 Check out the full [documentation](docs/README.md) for installation, flow authoring, operator reference, and more:
 
+- [Documentation Book](docs/book/README.md) — 12-chapter guide: architecture, setup, flow authoring, extraction, vector storage, deployment
+
 - [Quick Start Guide](QUICKSTART.md) — first pipeline in under 5 minutes
 - [Pipeline Setup Guide](USER_GUIDE_PIPELINE_SETUP.md) — complete setup with Ollama, OpenSearch, and flow examples
 - [Flow Authoring Format](docs/guides/FLOW_AUTHORING_FORMAT.md) — declarative flow authoring

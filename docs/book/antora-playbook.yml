@@ -1,0 +1,29 @@
+site:
+  title: Docling-pipelines — The Definitive Guide
+  # url is injected at build time by CI via --url flag (avoids hardcoding org name)
+  url: ~
+  start_page: docling-pipelines::index.adoc
+
+content:
+  sources:
+    - url: /repo
+      start_path: docs/book
+      branches: HEAD
+
+ui:
+  bundle:
+    url: /antora/ui/ui-bundle.zip
+    snapshot: true
+
+asciidoc:
+  attributes:
+    sectnums: ''
+    docinfo: shared
+    icons: font
+    source-highlighter: highlight.js
+    toc: ~
+    toclevels: 2
+
+output:
+  dir: /antora/site
+  clean: true

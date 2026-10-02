@@ -1,0 +1,434 @@
+== Ingesting Data
+
+The `IngestSourceOperator` (`ingest_source`) is always the root node of a flow. It loads
+documents from a configured source and produces a PyArrow table that all downstream operators
+consume.
+
+=== Overview
+
+`IngestSourceOperator` supports eight provider backends:
+
+[cols="1,2",options="header"]
+|===
+|Provider key |Description
+
+|`filesystem`
+|Local directories and files. Supports recursive traversal.
+
+|`s3`
+|Amazon S3 and S3-compatible stores (IBM COS, MinIO).
+
+|`sharepoint`
+|Microsoft SharePoint document libraries.
+
+|`onedrive`
+|Microsoft OneDrive folders.
+
+|`googledrive`
+|Google Drive (service account or OAuth).
+
+|`box`
+|Box (OAuth or JWT app credentials).
+
+|`dropbox`
+|Dropbox (OAuth or app key).
+
+|`custom`
+|Any custom loader implementing the `AbstractLoader` interface.
+|===
+
+=== Output Columns
+
+Every provider produces the same base schema:
+
+[cols="2,1,3",options="header"]
+|===
+|Column |Type |Description
+
+|`id`
+|`string`
+|Unique document identifier (path hash or provider item ID).
+
+|`name`
+|`string`
+|Filename or document title.
+
+|`path`
+|`string`
+|Full source path or URL.
+
+|`size`
+|`int64`
+|File size in bytes.
+
+|`created_time`
+|`timestamp`
+|Creation timestamp.
+
+|`modified_time`
+|`timestamp`
+|Last modification timestamp.
+
+|`content`
+|`binary`
+|Raw file bytes (consumed by `ExtractOperator`).
+
+|`extension`
+|`string`
+|File extension (e.g. `pdf`, `docx`).
+|===
+
+=== Configuration Reference
+
+[source,json]
+----
+{
+  "type": "ingest_source",
+  "name": "ingest",
+  "config": {
+    "provider": "filesystem",
+    "connection_params": { ... },
+    "credentials": { ... },
+    "include_filter": "pdf,docx,txt",
+    "max_files": 1000
+  }
+}
+----
+
+[cols="2,1,3",options="header"]
+|===
+|Parameter |Required |Description
+
+|`provider`
+|Yes
+|One of the provider keys listed above.
+
+|`connection_params`
+|Yes
+|Provider-specific connection parameters (see per-provider sections below).
+
+|`credentials`
+|Depends
+|Provider-specific authentication credentials.
+
+|`include_filter`
+|No
+|Comma-separated file extensions to include (e.g. `"pdf,docx,txt"`). All files are included if omitted.
+
+|`max_files`
+|No
+|Maximum number of files to ingest in one run.
+|===
+
+=== Provider Configuration
+
+==== Local Filesystem
+
+[source,json]
+----
+{
+  "type": "ingest_source",
+  "name": "ingest",
+  "config": {
+    "provider": "filesystem",
+    "connection_params": {
+      "paths": ["./documents", "/data/reports"],
+      "recursive": true
+    },
+    "include_filter": "pdf,docx"
+  }
+}
+----
+
+[cols="2,1,3",options="header"]
+|===
+|Field |Default |Description
+
+|`paths`
+|Required
+|List of directory or file paths to ingest.
+
+|`recursive`
+|`true`
+|Traverse subdirectories recursively.
+|===
+
+==== Amazon S3 and S3-Compatible Storage
+
+[source,json]
+----
+{
+  "type": "ingest_source",
+  "name": "ingest",
+  "config": {
+    "provider": "s3",
+    "connection_params": {
+      "bucket_name": "my-documents-bucket",
+      "prefix": "reports/2024/",
+      "endpoint_url": "https://s3.amazonaws.com"
+    },
+    "credentials": {
+      "access_key_id": "${AWS_ACCESS_KEY_ID}",
+      "secret_access_key": "${AWS_SECRET_ACCESS_KEY}",
+      "region": "us-east-1"
+    },
+    "include_filter": "pdf"
+  }
+}
+----
+
+For IBM Cloud Object Storage (COS), set `endpoint_url` to your COS endpoint and use
+`hmac_keys` credentials.
+
+==== Microsoft SharePoint
+
+[source,json]
+----
+{
+  "type": "ingest_source",
+  "name": "ingest",
+  "config": {
+    "provider": "sharepoint",
+    "connection_params": {
+      "document_library_id": "b!...",
+      "folder_path": "/Shared Documents/Reports",
+      "recursive": true
+    },
+    "credentials": {
+      "client_id": "${SP_CLIENT_ID}",
+      "client_secret": "${SP_CLIENT_SECRET}",
+      "tenant_id": "${SP_TENANT_ID}"
+    },
+    "include_filter": "pdf,docx"
+  }
+}
+----
+
+TIP: To extract ACL permissions from SharePoint, add an `acl_operator` node immediately
+after `ingest_source`. See <<_acl_based_access_control>>.
+
+==== Microsoft OneDrive
+
+[source,json]
+----
+{
+  "type": "ingest_source",
+  "name": "ingest",
+  "config": {
+    "provider": "onedrive",
+    "connection_params": {
+      "folder_id": "root:/Documents/Reports:",
+      "recursive": true
+    },
+    "credentials": {
+      "client_id": "${OD_CLIENT_ID}",
+      "client_secret": "${OD_CLIENT_SECRET}",
+      "tenant_id": "${OD_TENANT_ID}"
+    }
+  }
+}
+----
+
+==== Google Drive
+
+[source,json]
+----
+{
+  "type": "ingest_source",
+  "name": "ingest",
+  "config": {
+    "provider": "googledrive",
+    "connection_params": {
+      "folder_id": "1ABC...",
+      "recursive": true
+    },
+    "credentials": {
+      "service_account_json": "${GOOGLE_SA_JSON_PATH}"
+    }
+  }
+}
+----
+
+==== Box
+
+[source,json]
+----
+{
+  "type": "ingest_source",
+  "name": "ingest",
+  "config": {
+    "provider": "box",
+    "connection_params": {
+      "folder_id": "0",
+      "recursive": true
+    },
+    "credentials": {
+      "client_id": "${BOX_CLIENT_ID}",
+      "client_secret": "${BOX_CLIENT_SECRET}",
+      "jwt_config_path": "${BOX_JWT_CONFIG_PATH}"
+    }
+  }
+}
+----
+
+==== Dropbox
+
+[source,json]
+----
+{
+  "type": "ingest_source",
+  "name": "ingest",
+  "config": {
+    "provider": "dropbox",
+    "connection_params": {
+      "path": "/Documents",
+      "recursive": true
+    },
+    "credentials": {
+      "access_token": "${DROPBOX_ACCESS_TOKEN}"
+    }
+  }
+}
+----
+
+=== File Filtering
+
+==== Extension-based filtering
+
+Use `include_filter` with a comma-separated list of extensions (without leading dots):
+
+[source,json]
+----
+"include_filter": "pdf,docx,xlsx,pptx,txt,md"
+----
+
+Leave `include_filter` out (or set it to an empty string) to include all file types.
+
+==== Maximum file count
+
+Use `max_files` to cap the ingest size during development or testing:
+
+[source,json]
+----
+"max_files": 100
+----
+
+=== Incremental Processing
+
+By default, the operator tracks which documents have been processed in previous runs and
+skips them. This behaviour is controlled by:
+
+[cols="2,1,3",options="header"]
+|===
+|`global_config` field |Default |Effect
+
+|`force_ingest`
+|`false`
+|When `true`, all documents are re-ingested regardless of prior state.
+
+|`retain_deleted_docs`
+|`false`
+|When `true`, documents removed from the source are kept in downstream output.
+|===
+
+Incremental metadata is stored in the backend configured by `incremental_metadata` in
+`docling-pipelines-config.yaml`. See <<_production_deployment_and_observability>> for
+storage backend options.
+
+=== Document Libraries
+
+Document libraries provide a managed collection abstraction backed by the REST API. They
+group document sets, enforce ACL policies, and expose search endpoints.
+
+A document library can be created and managed through:
+
+* The REST API (`POST /api/v1/document-libraries`)
+* The Python API (via `DocpipeFlowManager` or direct service calls)
+
+To associate processed documents with a document library, add a `document_set` operator to
+your flow and then link the resulting document set to the library via the REST API.
+
+See <<_vector_storage_and_retrieval>> for the full ACL-based retrieval flow.
+
+=== ACL-Based Access Control
+
+`ACLOperator` (`acl_operator`) reads per-document permissions from the upstream cloud
+provider and writes them as an `allowed_users` column — a JSON array of email addresses or
+UPNs.
+
+==== Configuration
+
+[source,json]
+----
+{
+  "type": "acl_operator",
+  "name": "extract_permissions",
+  "config": {
+    "fail_on_error": true
+  },
+  "depends_on": ["ingest"]
+}
+----
+
+[cols="2,1,3",options="header"]
+|===
+|Parameter |Default |Description
+
+|`fail_on_error`
+|`true`
+|`true` — abort the flow if any document fails ACL extraction.
+`false` — skip failed documents and continue.
+|===
+
+NOTE: Provider credentials come automatically from the upstream `ingest_source` node's
+metadata. Do not repeat them in the `acl_operator` config.
+
+==== Typical pipeline with ACL
+
+[source,json]
+----
+[
+  { "type": "ingest_source",  "name": "ingest", ... },
+  { "type": "acl_operator",   "name": "acl",     "depends_on": ["ingest"],  "config": { "fail_on_error": true } },
+  { "type": "extract_operator","name": "extract", "depends_on": ["acl"],     "config": { ... } },
+  { "type": "chunker",         "name": "chunk",   "depends_on": ["extract"], "config": { ... } },
+  { "type": "embeddings",      "name": "embed",   "depends_on": ["chunk"],   "config": { ... } },
+  { "type": "vectordb",        "name": "index",   "depends_on": ["embed"],   "config": { ... } }
+]
+----
+
+The `allowed_users` column flows through all downstream operators and is stored in the vector
+index. At retrieval time, the REST API's `ACLQueryBuilder` filters search results to only
+documents where the authenticated user appears in `allowed_users`.
+
+See <<_vector_storage_and_retrieval>> for the retrieval architecture.
+
+=== Security Best Practices
+
+* Store all credentials in environment variables or a secrets manager — never hardcode them in
+  flow JSON files that are committed to version control.
+* For HashiCorp Vault integration, see `docs/integrations/vault/README.md`.
+* Use `fail_on_error: true` in production ACL extraction to detect permission misconfigurations.
+* Rotate cloud credentials regularly; `ACLOperator` always fetches fresh ACLs at run time.
+
+=== Troubleshooting
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Fix
+
+|`FileNotFoundError: path does not exist`
+|Check that `connection_params.paths` exists and the virtual environment has read access.
+
+|S3 `NoCredentialsError`
+|Verify `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables are set, or check `credentials` in the flow config.
+
+|SharePoint `401 Unauthorized`
+|Confirm `client_id`, `client_secret`, and `tenant_id` are correct; ensure the app has `Sites.Read.All` permission.
+
+|`ACL extraction completed: 0 processed, N failed`
+|Credentials may be valid but lack ACL read permissions. Set `fail_on_error: false` to identify which documents fail.
+
+|Zero documents ingested
+|Check `include_filter` — ensure the extensions match files in the source directory.
+|===

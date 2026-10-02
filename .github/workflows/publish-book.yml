@@ -1,0 +1,62 @@
+name: Publish Documentation Book
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/book/**'
+      - '.github/workflows/publish-book.yml'
+  workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force rebuild even if no changes detected'
+        required: false
+        default: 'false'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync chapter files into Antora pages directory
+        run: |
+          cd docs/book
+          mkdir -p modules/ROOT/pages
+          for f in chapters/*.adoc; do
+            cp "$f" "modules/ROOT/pages/$(basename "$f")"
+          done
+
+      - name: Build UI bundle
+        run: cd docs/book && chmod +x build-ui-bundle.sh && ./build-ui-bundle.sh
+
+      - name: Build Antora site
+        run: |
+          SITE_URL="https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/repo:ro" \
+            -v "$GITHUB_WORKSPACE/docs/book:/antora" \
+            -w /antora \
+            docker.io/antora/antora:3.2 \
+            /antora/antora-playbook.yml \
+            --url="$SITE_URL"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/book/site

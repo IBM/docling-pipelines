@@ -1,0 +1,72 @@
+name: Docs — Build & Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+  workflow_dispatch:   # allow manual trigger from the Actions tab
+
+# Only one deployment at a time
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    name: Build Antora site
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history required by Antora git source
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Antora
+        run: npm install -g @antora/cli@3.1 @antora/site-generator@3.1
+
+      - name: Sync chapter files into Antora pages directory
+        run: |
+          mkdir -p docs/book/modules/ROOT/pages
+          for f in docs/book/chapters/*.adoc; do
+            cp "$f" "docs/book/modules/ROOT/pages/$(basename "$f")"
+          done
+
+      - name: Build UI bundle
+        run: bash docs/book/build-ui-bundle.sh
+
+      - name: Build Antora site
+        run: |
+          antora docs/book/antora-playbook-ci.yml
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/book/site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4

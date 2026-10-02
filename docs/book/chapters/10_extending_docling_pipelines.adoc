@@ -1,0 +1,406 @@
+== Extending Docling-pipelines
+
+Docling-pipelines supports three extension mechanisms: custom operator classes, new
+connectors (ingest providers), and external operator packages distributed as Python
+packages. This chapter covers all three.
+
+=== Custom Operators
+
+A custom operator is any Python class that extends `AbstractOperator` and is registered
+with the operator registry before the first flow execution.
+
+==== Minimum Required Structure
+
+[source,python]
+----
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.utils.infrastructure.logging import get_logger
+import pyarrow as pa
+
+logger = get_logger()
+
+class MyOperator(AbstractOperator):
+    short_name: str = "my_operator"           # must match flow JSON "type" value
+    category: OperatorCategory = OperatorCategory.Quality
+    owner: str = "docpipe"                    # "docpipe" = built-in; None = custom
+
+    def __init__(self, config: dict) -> None:
+        super().__init__(config)
+        # read operator params from config dict here
+        self.threshold = config.get("threshold", 0.5)
+
+    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict]:
+        metadata = self.create_base_metadata(total_docs_count=len(table))
+        # ... process table ...
+        logger.info("Processing %s documents with threshold %s", len(table), self.threshold)
+        return [table], metadata
+
+    @staticmethod
+    def get_metadata() -> dict:
+        return {
+            "short_name": "my_operator",
+            "description": "My custom operator",
+            "owner": "docpipe",
+        }
+----
+
+==== Class Attribute Reference
+
+[cols="2,1,3",options="header"]
+|===
+|Attribute |Required |Description
+
+|`short_name`
+|Yes
+|Type identifier used in flow JSON. Must be unique in the registry.
+
+|`category`
+|Yes
+|`OperatorCategory` enum value.
+
+|`owner`
+|No
+|`"docpipe"` for built-ins; `None` or custom string for external operators.
+Default is `None` (custom priority 100).
+|===
+
+==== Inherited Helper Methods
+
+[cols="2,3",options="header"]
+|===
+|Method |Description
+
+|`self.create_base_metadata(total_docs_count=N)`
+|Initialise the metadata dict returned by `transform()`.
+
+|`self.record_failed_document(metadata, doc_id, doc_name, reason)`
+|Record a per-document failure in metadata.
+
+|`self.record_skipped_document(metadata, doc_id, doc_name, reason)`
+|Record a per-document skip in metadata.
+
+|`self.doc_column`
+|The content column name from config (default `"content"`).
+
+|`self.job_id`, `self.job_run_id`
+|Current job and run IDs (from thread-local `SessionInfo`).
+|===
+
+==== Optional Override Methods
+
+[cols="2,3",options="header"]
+|===
+|Method |Purpose
+
+|`validate(errors, warnings, available_features)`
+|Add flow-validation errors or warnings for this operator's config.
+
+|`get_required_features() -> list[str]`
+|Return column names this operator requires to be present at runtime.
+
+|`get_static_required_features() -> list[str]`
+|Return column names required by all instances of this operator.
+
+|`is_available() -> bool`
+|Return `False` if required library dependencies are not installed.
+|===
+
+==== Registering a Custom Operator
+
+After creating the class, register it with one of two methods:
+
+===== Method 1: Environment variable (recommended for packages)
+
+[source,bash]
+----
+export DOCPIPE_CUSTOM_OPERATORS="mypackage.operators"
+docling-pipelines --flow-file my_flow.json
+----
+
+The module at `mypackage.operators` must expose an `OPERATORS` frozenset:
+
+[source,python]
+----
+# mypackage/operators/__init__.py
+from mypackage.operators.my_operator import MyOperator
+
+OPERATORS = frozenset({MyOperator})
+----
+
+===== Method 2: Programmatic registration
+
+[source,python]
+----
+from docpipe.core.operators.operator_registry import register_operator_provider
+from mypackage.operators import OPERATORS
+
+def my_provider(orchestrator=None):
+    return OPERATORS
+
+# Call before any DocpipeFlowManager usage
+register_operator_provider(my_provider)
+----
+
+===== Method 3: Add to `DOCPIPE_OPERATORS` (built-in operators only)
+
+For built-in operators contributed to the project:
+
+1. Add the class to `src/docpipe/core/operators/operator_registry.py` — import and add to
+   the `DOCPIPE_OPERATORS` frozenset.
+
+==== Using a Custom Operator in a Flow
+
+[source,json]
+----
+{
+  "flow": [
+    { "type": "ingest_source", "name": "ingest", "config": { ... } },
+    {
+      "type": "my_operator",
+      "name": "custom_step",
+      "depends_on": ["ingest"],
+      "config": { "threshold": 0.7 }
+    }
+  ]
+}
+----
+
+==== Verifying Registration
+
+[source,bash]
+----
+docling-pipelines --list-operators | grep my_operator
+----
+
+Or in Python:
+
+[source,python]
+----
+from docpipe.core.operators.operator_registry import get_docpipe_operators
+
+ops = get_docpipe_operators()
+names = {op.short_name for op in ops}
+assert "my_operator" in names
+----
+
+=== Operator Priority and Override
+
+Operators with the same `short_name` are resolved by priority. Lower number = higher
+priority (wins the conflict).
+
+[cols="1,1,2",options="header"]
+|===
+|Range |Name |Purpose
+
+|0–99
+|Consumer tiers
+|Custom tiers registered above all built-ins.
+
+|100
+|`OWNER_CUSTOM`
+|External custom operators. Override built-ins by default.
+
+|200
+|`OWNER_DOCPIPE`
+|Built-in operators.
+|===
+
+To override a built-in operator:
+
+[source,python]
+----
+from docpipe.core.constants.constants import DocpipeConstants
+
+class MyExtractOperator(AbstractOperator):
+    short_name = "extract_operator"  # same as built-in
+    owner = DocpipeConstants.OWNER_CUSTOM  # priority 100 < 200 (wins)
+    ...
+----
+
+To register a tier above `OWNER_CUSTOM`:
+
+[source,python]
+----
+from docpipe.core.orchestration.operator_factory import OperatorFactory
+
+OperatorFactory.register_owner_priority(owner="my_app", priority=10)
+
+class HighPriorityOperator(AbstractOperator):
+    short_name = "extract_operator"
+    owner = "my_app"  # priority 10 — beats everything
+    ...
+----
+
+=== External Operator Packages
+
+For distributing operators as installable Python packages (PyPI or private registry):
+
+==== Package Structure
+
+[source]
+----
+my_docpipe_operators/
+├── pyproject.toml
+├── my_docpipe_operators/
+│   ├── __init__.py          # register operators here
+│   ├── operators/
+│   │   ├── __init__.py      # define OPERATORS frozenset
+│   │   ├── custom_op1.py
+│   │   └── custom_op2.py
+│   └── flows/
+│       └── sample.json
+└── tests/
+    └── test_operators.py
+----
+
+==== pyproject.toml Entry Point
+
+Declare the package under the `docpipe.operators` entry-point group:
+
+[source,toml]
+----
+[project.entry-points."docpipe.operators"]
+my_operators = "my_docpipe_operators.operators"
+----
+
+When the package is installed, `get_docpipe_operators()` discovers it automatically
+without any manual `register_operator_provider()` call.
+
+==== Registration at Import Time
+
+[source,python]
+----
+# my_docpipe_operators/__init__.py
+from docpipe.core.operators.operator_registry import register_operator_provider
+from my_docpipe_operators.operators import OPERATORS
+
+def _provider(orchestrator=None):
+    return OPERATORS
+
+register_operator_provider(_provider)
+----
+
+==== Testing Custom Operators
+
+[source,python]
+----
+import pytest
+from docpipe.core.operators.operator_registry import (
+    register_operator_provider,
+    clear_operator_providers,
+    get_docpipe_operators,
+)
+
+@pytest.fixture(autouse=True)
+def reset_providers():
+    clear_operator_providers()
+    yield
+    clear_operator_providers()
+
+def test_registration():
+    def provider(orchestrator=None):
+        return frozenset({MyOperator})
+
+    register_operator_provider(provider)
+    names = {op.short_name for op in get_docpipe_operators()}
+    assert "my_operator" in names
+----
+
+=== Creating New Connectors (Ingest Providers)
+
+To add a new ingest source provider (e.g. a custom database or API):
+
+1. Create a class that extends `AbstractLoader` in
+   `src/docpipe/core/operators/ingest/loaders/`.
+
+2. Implement the required methods:
+   * `load(connection_params, credentials, include_filter, max_files)` — returns an
+     iterable of `LoadedDocument` objects.
+
+3. Register the loader with `@register_loader("my_provider")`.
+
+4. The new provider key (`"my_provider"`) is then available in the `ingest_source`
+   operator config.
+
+See `src/docpipe/core/operators/ingest/loaders/filesystem_loader.py` for a reference
+implementation.
+
+=== Coding Standards for Custom Operators
+
+Follow these rules to ensure custom operators work correctly with the rest of the framework:
+
+* All functions/methods with 2+ parameters (excluding `self`/`cls`) must use a
+  keyword-only separator: `def my_method(self, *, param1, param2)`.
+* Use `get_logger()` from `docpipe.utils.infrastructure.logging` — never `logging.getLogger()`.
+* No f-strings in `logger.*()` calls — use `%s` format: `logger.info("Processing %s docs", n)`.
+* No emoji or non-ASCII characters in log messages.
+* Business logic in `transform()` only — no orchestration, no direct DB calls.
+* Use port interfaces (`LLMInferencePort`, `LLMEmbeddingPort`) for LLM calls — never import
+  concrete adapter classes directly.
+* `get_metadata()` must be a `@staticmethod` — no `self`.
+
+=== Complete Custom Operator Example
+
+[source,python]
+----
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.utils.infrastructure.logging import get_logger
+import pyarrow as pa
+import pyarrow.compute as pc
+
+logger = get_logger()
+
+class WordCountFilterOperator(AbstractOperator):
+    """Filters out documents below a minimum word count threshold."""
+
+    short_name: str = "word_count_filter"
+    category: OperatorCategory = OperatorCategory.Quality
+
+    def __init__(self, config: dict) -> None:
+        super().__init__(config)
+        self.min_words = config.get("min_words", 50)
+        self.word_count_column = config.get("word_count_column", "num_words")
+
+    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict]:
+        metadata = self.create_base_metadata(total_docs_count=len(table))
+
+        if self.word_count_column not in table.schema.names:
+            logger.warning(
+                "Column '%s' not found; skipping filter. Run ml_enrichment first.",
+                self.word_count_column
+            )
+            return [table], metadata
+
+        mask = pc.greater_equal(table[self.word_count_column], self.min_words)
+        filtered = table.filter(mask)
+
+        skipped = len(table) - len(filtered)
+        logger.info("WordCountFilter: kept %s/%s documents (min_words=%s)",
+                    len(filtered), len(table), self.min_words)
+
+        metadata["filtered_count"] = skipped
+        return [filtered], metadata
+
+    @staticmethod
+    def get_metadata() -> dict:
+        return {
+            "short_name": "word_count_filter",
+            "description": "Filters documents below a minimum word count.",
+            "owner": None,
+        }
+----
+
+Use in a flow:
+
+[source,json]
+----
+{
+  "type": "word_count_filter",
+  "name": "filter_short_docs",
+  "depends_on": ["ml_enrichment"],
+  "config": {
+    "min_words": 100,
+    "word_count_column": "num_words"
+  }
+}
+----

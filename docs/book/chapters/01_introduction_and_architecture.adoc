@@ -1,0 +1,181 @@
+== Introduction and Architecture
+
+Docling-pipelines is a modular, operator-based framework for building document processing
+pipelines in Python. It converts raw documents — PDFs, Office files, HTML, images, audio,
+and more — into structured, enriched, and searchable data using a composable DAG of operators.
+Every stage from ingestion through extraction, quality assessment, chunking, embedding, and
+vector-database indexing is expressed as an independent operator that can be assembled into a
+flow without writing pipeline glue code.
+
+=== What Docling-pipelines Does
+
+At its core, the framework:
+
+* Ingests documents from local filesystems, cloud storage (S3, SharePoint, OneDrive, Google
+  Drive, Box, Dropbox), or custom loaders.
+* Extracts text and structured entities using the Docling library, a remote `docling-serve`
+  instance, or an LLM (Ollama, LiteLLM, WatsonX).
+* Applies quality operators — language detection, readability scoring, deduplication,
+  PII/HAP annotation, regex redaction, and statistical enrichment — to filter and annotate
+  documents.
+* Chunks text into overlapping segments using simple, semantic, or Docling-hybrid strategies.
+* Generates dense vector embeddings via HuggingFace (local), LiteLLM (100+ providers), or
+  WatsonX.
+* Indexes embeddings into OpenSearch or Milvus for downstream RAG or semantic-search
+  applications.
+* Tracks every job run with persistent metadata in DuckDB, PostgreSQL, or an in-memory store.
+
+=== Design Principles
+
+.Single responsibility per operator
+Each operator owns one clearly-defined concern. Combining operators in a flow is the only
+way composition happens; operators never call each other directly.
+
+.PyArrow as the inter-operator contract
+Data flows between operators as `pa.Table` objects. Every `transform()` method receives a
+table and returns `tuple[list[pa.Table], dict]`. This contract keeps operators independent
+of the orchestration layer.
+
+.Hexagonal architecture in complex operators
+Operators that talk to external systems (LLMs, vector databases, cloud storage, language
+detectors) follow a ports-and-adapters pattern. The operator class depends on a port
+interface; concrete adapters implement that interface. Swapping providers is a config change,
+not a code change.
+
+.DAG execution with explicit dependencies
+A flow is a directed acyclic graph. Every operator node declares its upstream dependencies
+with `depends_on`. The engine validates the graph, detects cycles, and executes nodes in
+topological order. Parallel branches execute concurrently.
+
+=== High-Level Architecture
+
+----
+┌────────────────────────────────────────────────────────────────────┐
+│  Entry points                                                      │
+│  CLI · REST API (FastAPI) · Python library (DocpipeFlowManager)    │
+└───────────────────────────┬────────────────────────────────────────┘
+                            │ flow JSON / dict
+                            ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  Orchestration layer                                               │
+│  FlowExecutor → FlowValidator → OrchestratorFactory               │
+│  PythonOrchestrator (default)  │  PrefectEngine (distributed)     │
+│  BatchManager (micro-batching) │  OperatorFactory (resolution)    │
+└───────────────────────────┬────────────────────────────────────────┘
+                            │ pa.Table
+                            ▼
+┌────────────────────────────────────────────────────────────────────┐
+│  Operator layer                                                    │
+│  Ingest → Extract → Quality → Functional → VectorDB / Storage     │
+└───────────────────────────┬────────────────────────────────────────┘
+                            │
+         ┌──────────────────┼──────────────────┐
+         ▼                  ▼                  ▼
+   External services    Job management     Storage
+   Ollama / WatsonX     DuckDB / Postgres  DuckDB / Parquet
+   OpenSearch / Milvus  (job stats)        (document sets)
+   Cloud connectors
+----
+
+=== Operator Catalog
+
+The following table lists every operator shipped with the project.
+
+[cols="2,1,1,4",options="header"]
+|===
+|Class |Short name |Category |Purpose
+
+|`IngestSourceOperator`   |`ingest_source`      |Ingest     |Load documents from filesystem, S3, SharePoint, OneDrive, Google Drive, Box, Dropbox, or a custom loader
+|`ExtractOperator`        |`extract_operator`   |Extract    |Extract text and entities from documents; supports Docling library, docling-serve, and LLM-based extraction
+|`ACLOperator`            |`acl_operator`       |Extract    |Fetch per-document ACL from cloud providers and append `allowed_users` column
+|`BranchingOperator`      |`branching`          |Functional |Split a table into multiple named branches based on a column value
+|`ChunkerOperator`        |`chunker`            |Functional |Split document text into overlapping chunks (simple, semantic, or hybrid)
+|`EmbeddingsOperator`     |`embeddings`         |Functional |Generate dense vector embeddings (HuggingFace, LiteLLM, WatsonX)
+|`DocIdHashOperator`      |`doc_id_hash`        |Functional |Compute a stable SHA-256 hash ID for each document
+|`MergeOperator`          |`merge`              |Functional |Merge multiple branch tables back into one
+|`NOOPOperator`           |`noop`               |Functional |Pass-through; useful for testing and debugging
+|`EntityCurationOperator` |`entity_curation`    |Functional |Apply schema-driven field filtering and type transformations to extracted entities
+|`DocumentClassifier`     |`document_classifier`|Quality    |Classify documents into user-defined categories using an LLM
+|`DocQuality`             |`doc_quality`        |Quality    |Compute 11 quality metrics (word count, symbol ratio, lorem ipsum, profanity, etc.)
+|`EdedupOperator`         |`ededup`             |Quality    |Exact deduplication by document hash
+|`LanguageDetect`         |`lang_detect`        |Quality    |Detect ISO 639-1 language code and confidence score (fasttext or langdetect)
+|`MLEnrichmentOperator`   |`ml_enrichment`      |Quality    |Compute 30 statistical text-quality features
+|`PIIAndHAPAnnotator`     |`pii_and_hap`        |Quality    |Detect and optionally redact PII and hate/abuse/profanity content
+|`ReadabilityOperator`    |`readability`        |Quality    |Compute up to 13 readability scores (Flesch, Gunning Fog, SMOG, etc.)
+|`RedactionOperator`      |`redaction`          |Quality    |Mask text matching a regex pattern with a configurable character
+|`SQLFilterOperator`      |`sql_filter`         |Quality    |Row-level SQL-style filtering; optionally drops columns
+|`VectorDBOperator`       |`vectordb`           |VectorDB   |Index embeddings into OpenSearch or Milvus
+|`DocumentSetOperator`    |`document_set`       |Storage    |Persist a PyArrow table into a named DuckDB document set
+|===
+
+=== Core Concepts
+
+==== Flow
+
+A flow is a JSON (or Python dict) object that describes a pipeline as a DAG of operator
+nodes. Each node has a `type` (the operator `short_name`), a `name` (unique within the flow),
+a `config` block, and an optional `depends_on` list naming its upstream nodes.
+
+The root node — the sole entry point — has no `depends_on` and is always an ingest operator.
+
+See <<_authoring_flows>> for the complete format reference.
+
+==== Operator
+
+Every operator extends `AbstractOperator`, which itself extends `AbstractTableTransform`
+from the Data Prep Kit (`data_processing`). The minimum required interface is:
+
+* `short_name` — the type identifier used in flow JSON
+* `category` — `OperatorCategory` enum value
+* `transform(table: pa.Table) -> tuple[list[pa.Table], dict]` — the processing method
+* `get_metadata() -> dict` — static descriptor used by the registry and the CLI
+
+==== Job run
+
+Each pipeline execution is a _job run_ tracked by the job management subsystem. A job run has
+a status (`PENDING`, `RUNNING`, `COMPLETED`, `FAILED`), per-node metadata (documents
+processed, skipped, failed), and optional micro-batch progress. Job run records are persisted
+in the configured backend (DuckDB or PostgreSQL).
+
+==== Session info
+
+`SessionInfo` carries `job_id` and `job_run_id` as thread-local state. Operators access these
+values through `get_session_info()` — they are never passed as function arguments.
+
+==== Micro-batching
+
+When `enable_micro_batching: true` is set in `global_config` (the default for CLI and REST
+executions), the `BatchManager` splits large document sets into parallel sub-batches. Each
+sub-batch runs through the full operator chain independently. Use `micro_batch_size` and
+`max_concurrent_batches` to tune throughput.
+
+==== Operator registry
+
+Built-in operators are declared in the `DOCPIPE_OPERATORS` frozenset. External packages
+inject additional operators through `register_operator_provider()`. The `OperatorFactory`
+resolves `short_name` to a class using a priority order — custom operators (priority 100)
+outrank built-ins (priority 200).
+
+See <<_extending_docling_pipelines>> for details on custom and external operators.
+
+=== Entry Points
+
+[cols="2,3",options="header"]
+|===
+|Entry point |Description
+
+|`docling-pipelines --flow-file <path>`
+|CLI — loads a flow JSON file and executes it.
+
+|`docling-pipelines-api`
+|Starts the FastAPI REST server on port 8080.
+
+|`DocpipeFlowManager(flow_file=…).execute()`
+|Python library — programmatic pipeline execution.
+
+|`FlowExecutor` (internal)
+|Core engine used by the CLI and library; not intended for direct use.
+|===
+
+See <<_python_api_and_programmatic_usage>> for the Python API and
+<<_production_deployment_and_observability>> for the REST server.

@@ -1,0 +1,16 @@
+{{#if (or page.previous page.next)}}
+<nav class="page-nav" aria-label="page navigation">
+  {{#if page.previous}}
+  <a href="{{relativizeUrlPath page.previous.url pageUrl}}" class="prev">
+    <span class="nav-dir">← Previous</span>
+    <span class="nav-title">{{page.previous.content}}</span>
+  </a>
+  {{/if}}
+  {{#if page.next}}
+  <a href="{{relativizeUrlPath page.next.url pageUrl}}" class="next">
+    <span class="nav-dir">Next →</span>
+    <span class="nav-title">{{page.next.content}}</span>
+  </a>
+  {{/if}}
+</nav>
+{{/if}}
