@@ -267,7 +267,7 @@ def main():  # pragma: no cover
         params=op_def["config"],
         job_stats_service=None,
     )
-    print("\n\n>>> Starting execution...")
+    logger.debug("Starting execution...")
     content = pa.array(
         [
             "Contact support team via email:  support@ibm.com, or the sales team sales@in.ibm.com.",
@@ -282,10 +282,9 @@ def main():  # pragma: no cover
     data_access = data_access_factory.create_data_access()
     data_access.save_table("", input_table)
 
-    tables, _ = executor.execute(data_access=data_access, deleted_rows_list=None)
-    print(tables[0])
+    _tables, _ = executor.execute(data_access=data_access, deleted_rows_list=None)
 
-    print(">>> Completed execution...")
+    logger.debug("Completed execution...")
 
 
 # main entry point into the program; used for unit testing only
