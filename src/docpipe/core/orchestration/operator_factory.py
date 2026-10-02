@@ -380,7 +380,7 @@ def main():  # pragma: no cover
     logger.info(f"Loaded {len(factory.operators)} operators")
 
     for key, value in factory.operators.items():
-        print(f" short_name: {key} ==> class_name: {value.__name__}")
+        logger.debug(" short_name: %s ==> class_name: %s", key, value.__name__)
 
 
 # main entry point into the program; used for unit testing only
