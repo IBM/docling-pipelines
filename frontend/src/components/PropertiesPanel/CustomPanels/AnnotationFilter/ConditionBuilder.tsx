@@ -291,7 +291,7 @@ export function ConditionBuilder({
         ) {
           next.value = 'false';
         }
-        // Clear value (not operator) when variable changes — matches docling-pipelines-ui behaviour.
+        // Clear value (not operator) when variable changes.
         // Keeping the operator lets users switch variables without losing their chosen operator.
         next.value = '';
       }
@@ -299,7 +299,7 @@ export function ConditionBuilder({
     });
     onChange({ conditions: updated, logicalOperator });
 
-    // Validate on value changes (matches docling-pipelines-ui: validate on every change, not just blur)
+    // Validate on every value change (not just on blur) to give immediate feedback.
     if ('value' in updates) {
       const condition = updated.find((c) => c.id === conditionId);
       if (condition) {
@@ -352,8 +352,8 @@ export function ConditionBuilder({
           legendText={CONDITION_BUILDER_LABELS.VALUE}
           className={styles.booleanInputWrapper}
           onChange={(evt: React.ChangeEvent<HTMLInputElement> | string | number | undefined) => {
-            // Carbon's RadioButtonGroup passes the value directly in some versions,
-            // an event object in others — handle both forms like docling-pipelines-ui does.
+            // Carbon's RadioButtonGroup passes the value directly in some versions
+            // and an event object in others — handle both forms.
             const val = typeof evt === 'object' && evt !== null && 'target' in evt
               ? (evt).target.value
               : String(evt ?? 'false');

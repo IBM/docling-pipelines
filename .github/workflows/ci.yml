@@ -83,6 +83,13 @@ jobs:
       - name: Install Frontend Dependencies
         run: npm ci --prefix frontend
 
+      - name: ESLint Check (modified files)
+        env:
+          CHANGE_TARGET_BRANCH: ${{ github.base_ref || 'main' }}
+        run: |
+          chmod +x scripts/check_modified_frontend_files.sh
+          ./scripts/check_modified_frontend_files.sh
+
       - name: Run Frontend Tests with Coverage
         run: npm run test:coverage --prefix frontend
 

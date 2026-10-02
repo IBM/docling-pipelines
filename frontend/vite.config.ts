@@ -26,6 +26,8 @@ export default defineConfig(() => ({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
+    // es2022 is required for top-level await used in main.tsx (loadMessages)
+    target: 'es2022',
   },
   server: {
     port: 3000,

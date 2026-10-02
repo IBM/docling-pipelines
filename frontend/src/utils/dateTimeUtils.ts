@@ -109,7 +109,7 @@ export function convertFromEpoch(epochValue: string | number): string {
   const epoch = typeof epochValue === 'string' ? Number.parseInt(epochValue, 10) : epochValue;
   if (Number.isNaN(epoch)) { return ''; }
 
-  // Use UTC methods to mirror the UTC construction in convertToEpoch.
+  // Use UTC methods to match the UTC construction in convertToEpoch.
   const date = new Date(epoch * 1000);
   const yyyy = date.getUTCFullYear();
   const mm = String(date.getUTCMonth() + 1).padStart(2, '0');

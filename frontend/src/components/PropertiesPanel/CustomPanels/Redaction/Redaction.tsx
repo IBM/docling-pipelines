@@ -7,7 +7,7 @@
  * - `redaction_regex`              — required; regex pattern or plain word to redact
  * - `redaction_masking_character`  — optional; single character used to mask matches (default "*")
  *
- * Pattern mirrors DocumentClassifier:
+ * UI conventions:
  * - `DefinitionTooltip` with `openOnHover` → description on hover
  * - `hideLabel` on Carbon inputs → no duplicate label text
  * - `.formField` wrapper → consistent vertical spacing

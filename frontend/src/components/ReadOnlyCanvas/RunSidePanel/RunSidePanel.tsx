@@ -1,10 +1,11 @@
 /**
- * @fileoverview Right side panel for ReadOnlyCanvas showing job run logs and node details.
+ * @fileoverview Right side panel for the pipeline run viewer showing job run logs and node details.
  * Contains two tabs: Log Details (accordion of node logs) and Node Summary (node metadata).
- * Mirrors docling-pipelines-ui panel behaviour:
- *  - Log Details tab disabled when no node_sequence
- *  - Node Summary tab hidden for failed runs with empty node_sequence
- *  - "Show detailed log" modal includes CopyButton
+ *
+ * Behaviour:
+ *  - Log Details tab is disabled when there is no node_sequence
+ *  - Node Summary tab is hidden for failed runs with an empty node_sequence
+ *  - "Show detailed log" modal includes a CopyButton for one-click clipboard copy
  */
 
 import React, { useState, useCallback } from 'react';
@@ -44,7 +45,7 @@ export function RunSidePanel({
 
   const { node_sequence, job_stats } = executionLogs;
 
-  // Log Details is disabled when there are no per-node logs (mirrors docling-pipelines-ui)
+  // Log Details tab is disabled when there are no per-node logs
   const hasNodeSequence = node_sequence && node_sequence.length > 0;
   const isFailedNoSequence =
     !hasNodeSequence && job_stats?.status?.toLowerCase() === JOB_RUN_STATUS.FAILED.toLowerCase();
@@ -140,7 +141,7 @@ export function RunSidePanel({
         )}
       </div>
 
-      {/* "Show detailed log" modal — mirrors docling-pipelines-ui modal with CopyButton */}
+      {/* "Show detailed log" modal with CopyButton for one-click clipboard copy */}
       {showFullLog && (
         <div className={styles.fullLogModal}>
           <div className={styles.fullLogContent}>
