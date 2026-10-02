@@ -46,8 +46,8 @@ CATEGORY_DESCRIPTIONS = {
     OperatorCategory.Extract: "Extract data",
     OperatorCategory.Quality: "Quality",
     OperatorCategory.Functional: "Transform data",
-    OperatorCategory.VectorDB: "Generate output",
-    OperatorCategory.Storage: "Generate output",  # Same as VectorDB
+    OperatorCategory.VectorDB: "Vector DB",
+    OperatorCategory.Storage: "Storage",
 }
 
 # Maximum nodes allowed in a flow
