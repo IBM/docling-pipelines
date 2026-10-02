@@ -190,11 +190,12 @@ const bulkDeleteFlows = async (req: Request, res: Response) => {
 const getFlowsByProject = async (req: Request, res: Response) => {
   try {
     const { projectId } = req.params;
-    const { limit = 100, offset = 0, name, tags } = req.query;
+    const { limit = 100, offset = 0, name, tags, is_hidden } = req.query;
 
     const params = new URLSearchParams({
       limit: limit.toString(),
       offset: offset.toString(),
+      is_elyra: 'true',
     });
 
     if (name) params.append('name', name as string);
@@ -202,6 +203,7 @@ const getFlowsByProject = async (req: Request, res: Response) => {
       const tagList = Array.isArray(tags) ? tags : [tags];
       tagList.forEach((tag) => params.append('tags', tag as string));
     }
+    if (is_hidden !== undefined) params.append('is_hidden', is_hidden as string);
 
     const requestUrl = `${process.env.BACKEND_API_URL}/api/v1/projects/${projectId}/flows?${params.toString()}`;
     logUtil.debug({ logger, message: 'Request URL', data: requestUrl });

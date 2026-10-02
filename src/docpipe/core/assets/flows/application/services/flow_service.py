@@ -575,6 +575,13 @@ class FlowService(AssetService[Flow]):
         all_flows = self._repository.find_all()
         filtered_flows = self._filter_flows(all_flows, name_filter, tags_filter, is_hidden, container_id)
         filtered_flows = self._filter_flows_by_format(flows=filtered_flows, is_elyra=is_elyra)
+
+        # Sort newest-first (most recently modified at top) using modified_on / updated_at
+        def _sort_key(flow: Flow) -> str:
+            ts = flow.get_updated_at() or flow.get_created_at()
+            return ts.isoformat() if ts is not None else ""
+
+        filtered_flows.sort(key=_sort_key, reverse=True)
         paginated_flows = filtered_flows[skip : skip + limit]
 
         logger.info(
