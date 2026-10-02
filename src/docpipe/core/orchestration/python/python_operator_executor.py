@@ -282,7 +282,7 @@ def main():  # pragma: no cover
     data_access = data_access_factory.create_data_access()
     data_access.save_table("", input_table)
 
-    tables, _ = executor.execute(data_access=data_access, deleted_rows_list=None)
+    _tables, _ = executor.execute(data_access=data_access, deleted_rows_list=None)
 
     logger.debug("Completed execution...")
 
