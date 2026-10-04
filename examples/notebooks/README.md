@@ -16,6 +16,14 @@ uv sync --extra notebooks
 jupyter notebook examples/notebooks/
 ```
 
+## Validation
+
+Validate notebook JSON and Python code cells locally with:
+
+```bash
+python scripts/validate_notebooks.py examples/notebooks/
+```
+
 ## Prerequisites
 
 ### Required Services
