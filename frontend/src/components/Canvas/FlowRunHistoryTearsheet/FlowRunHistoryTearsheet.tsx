@@ -42,8 +42,8 @@ const TIMESTAMP_OPTIONS: Intl.DateTimeFormatOptions = {
 
 /**
  * Downloads execution logs for a job run as a `.txt` file.
- * Mirrors docling-pipelines-ui handleDownloadLogs: fetches with include_logs=true,
- * concatenates per-node log strings from node_sequence, saves as text.
+ * Fetches with include_logs=true, concatenates per-node log strings from
+ * node_sequence, and saves the result as a text file.
  */
 function triggerDownloadLogs(runId: string, timestamp: string): void {
   void getJobRun(runId, true).then((res) => {

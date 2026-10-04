@@ -47,7 +47,7 @@ export {
   deleteProject,
 } from './actions/project-actions';
 
-// Flow mapper (full namespace — mirrors projectMapper usage)
+// Flow mapper (full namespace — same usage pattern as projectMapper)
 export * as flowMapper from './mappers/flow-mapper';
 // Deprecated alias kept for any callers not yet migrated
 export { flowResponseToRow } from './mappers/flow-mapper';
