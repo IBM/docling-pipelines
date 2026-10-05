@@ -427,7 +427,8 @@ class JobReportGenerator:
         logger.warning("No extract operator found in dag_nodes")
         return None, None
 
-    def _get_timestamp_from_modified_time(self, modified_time: Any, doc_id: str) -> str:
+    @staticmethod
+    def _get_timestamp_from_modified_time(modified_time: Any, doc_id: str) -> str:
         """
         Convert modified_time to YYYY-MM-DD:HH:MM:SS format.
 
@@ -454,10 +455,11 @@ class JobReportGenerator:
                 return modified_time
             return ""
         except Exception as e:
-            logger.debug(f"Could not convert timestamp for doc {doc_id}: {e}")
+            logger.debug("Could not convert timestamp for doc %s: %s", doc_id, e)
             return ""
 
-    def _create_doc_entry(self, *, doc_name: str, modified_time: Any, timestamp_str: str) -> dict[str, Any]:
+    @staticmethod
+    def _create_doc_entry(*, doc_name: str, modified_time: Any, timestamp_str: str) -> dict[str, Any]:
         """Create initial document entry."""
         return {
             "name": doc_name,
