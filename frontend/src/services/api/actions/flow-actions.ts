@@ -90,7 +90,6 @@ export const getFlowsByProjectId = async (
     offset?: number;
     name?: string;
     tags?: string[];
-    is_hidden?: boolean;
   }
 ): Promise<AxiosResponse<PaginatedFlowResponse>> => {
   const queryParams = new URLSearchParams();
@@ -99,7 +98,6 @@ export const getFlowsByProjectId = async (
   if (params?.offset !== undefined) { queryParams.append('offset', params.offset.toString()); }
   if (params?.name) { queryParams.append('name', params.name); }
   if (params?.tags) { params.tags.forEach((tag) => { queryParams.append('tags', tag); }); }
-  if (params?.is_hidden !== undefined) { queryParams.append('is_hidden', params.is_hidden.toString()); }
 
   const qs = queryParams.toString();
   const url = qs
