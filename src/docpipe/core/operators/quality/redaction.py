@@ -167,6 +167,13 @@ class RedactionOperator(AbstractOperator):
                     match_count += len(matches)
                     elem.tail = self.redact(elem.tail)
 
+        # ET.tostring with encoding="unicode" does not emit an <?xml ...?> prolog.
+        # This is intentional: docling's export_to_doclang() never produces a prolog,
+        # so DocLang content in this codebase is always a bare <doclang ...> root element.
+        # If that contract changes, switch to:
+        #   buf = io.StringIO()
+        #   ET.ElementTree(root).write(buf, encoding="unicode", xml_declaration=True)
+        #   return buf.getvalue(), match_count
         return ET.tostring(root, encoding="unicode"), match_count
 
     def _redact_single_document(self, content: str) -> tuple[str, int]:
