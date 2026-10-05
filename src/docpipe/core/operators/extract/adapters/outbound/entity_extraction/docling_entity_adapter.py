@@ -92,25 +92,53 @@ class DoclingEntityAdapter(EntityExtractionPort):
                 raise ValueError(msg)
 
             model_type = vlm_pipeline.get(DoclingClientConfigConstants.MODEL_TYPE)
-            if model_type != DoclingClientConfigConstants.MODEL_TYPE_INLINE:
-                msg = (
-                    f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.MODEL_TYPE}'"
-                    f" must be '{DoclingClientConfigConstants.MODEL_TYPE_INLINE}'."
-                    " Note: API model is not supported by DocumentExtractor."
-                )
-                raise ValueError(msg)
 
-            inline_config = vlm_pipeline.get(DoclingClientConfigConstants.INLINE_MODEL)
-            if not isinstance(inline_config, dict):
-                msg = f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.INLINE_MODEL}' must be a non-empty dictionary"
-                raise ValueError(msg)
-            if not isinstance(inline_config.get(DoclingClientConfigConstants.REPO_ID), str):
-                msg = (
-                    f"'{DoclingClientConfigConstants.VLM_PIPELINE}"
-                    f".{DoclingClientConfigConstants.INLINE_MODEL}"
-                    f".{DoclingClientConfigConstants.REPO_ID}' must be a non-empty string"
-                )
-                raise ValueError(msg)
+            # Only validate model_type when it is explicitly provided
+            if model_type is not None:
+                if not isinstance(model_type, str):
+                    msg = (
+                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.MODEL_TYPE}'"
+                        " must be a string"
+                    )
+                    raise ValueError(msg)
+                if model_type != DoclingClientConfigConstants.MODEL_TYPE_INLINE:
+                    msg = (
+                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.MODEL_TYPE}'"
+                        f" must be '{DoclingClientConfigConstants.MODEL_TYPE_INLINE}'."
+                        " Note: API model is not supported by DocumentExtractor."
+                    )
+                    raise ValueError(msg)
+
+                # inline_model is required when model_type == "inline"
+                inline_config = vlm_pipeline.get(DoclingClientConfigConstants.INLINE_MODEL)
+                if inline_config is None:
+                    msg = (
+                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.INLINE_MODEL}'"
+                        " is required"
+                    )
+                    raise ValueError(msg)
+                if not isinstance(inline_config, dict):
+                    msg = (
+                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}.{DoclingClientConfigConstants.INLINE_MODEL}'"
+                        " must be a dictionary"
+                    )
+                    raise ValueError(msg)
+
+                repo_id = inline_config.get(DoclingClientConfigConstants.REPO_ID)
+                if repo_id is None:
+                    msg = (
+                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}"
+                        f".{DoclingClientConfigConstants.INLINE_MODEL}"
+                        f".{DoclingClientConfigConstants.REPO_ID}' is required"
+                    )
+                    raise ValueError(msg)
+                if not isinstance(repo_id, str):
+                    msg = (
+                        f"'{DoclingClientConfigConstants.VLM_PIPELINE}"
+                        f".{DoclingClientConfigConstants.INLINE_MODEL}"
+                        f".{DoclingClientConfigConstants.REPO_ID}' must be a string"
+                    )
+                    raise ValueError(msg)
 
         super().validate(config=config)
 
@@ -188,7 +216,8 @@ class DoclingEntityAdapter(EntityExtractionPort):
             from docling.backend.docling_parse_backend import DoclingParseDocumentBackend
             from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
             from docling.datamodel.base_models import InputFormat
-            from docling.datamodel.pipeline_options import VlmExtractionPipelineOptions
+            from docling.datamodel.pipeline_options import VlmPipelineOptions
+            from docling.datamodel.pipeline_options_vlm_model import InlineVlmOptions  # noqa: F401
             from docling.document_extractor import ExtractionFormatOption
             from docling.pipeline.extraction_vlm_pipeline import ExtractionVlmPipeline
 
@@ -198,12 +227,12 @@ class DoclingEntityAdapter(EntityExtractionPort):
                 return None
 
             inline_config = vlm_pipeline.get(DoclingClientConfigConstants.INLINE_MODEL, {})
-            # Start from the preset bundled in VlmExtractionPipelineOptions and apply
+            # Start from the preset bundled in VlmPipelineOptions and apply
             # only the fields the user explicitly provided in inline_config.
-            base_vlm_options = VlmExtractionPipelineOptions().vlm_options
+            base_vlm_options = VlmPipelineOptions()
             user_fields = {k: v for k, v in inline_config.items() if hasattr(base_vlm_options, k)}
             vlm_options = base_vlm_options.model_copy(update=user_fields)
-            pipeline_options = VlmExtractionPipelineOptions(vlm_options=vlm_options)
+            pipeline_options = VlmPipelineOptions(vlm_options=vlm_options)
 
             # Build extraction format options for both PDF and IMAGE formats
             return {
