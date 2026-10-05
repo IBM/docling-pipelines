@@ -63,13 +63,11 @@ class TestBoxSourceAdapter:
         """Test building config with custom folder_id."""
         adapter = BoxSourceAdapter()
         config = adapter.build_config_from_operator_params(
-            connection_params={
+            provider_config={
                 "folder_id": "123456789",
                 "recursive": True,
                 "max_file_size_mb": 50,
                 "exclude_patterns": ["*.tmp"],
-            },
-            credentials={
                 "credentials_json_path": "/tmp/box_config.json",
             },
             included_extensions=["pdf", "docx"],
@@ -87,10 +85,8 @@ class TestBoxSourceAdapter:
         """Test that folder_id defaults to '0' when not specified."""
         adapter = BoxSourceAdapter()
         config = adapter.build_config_from_operator_params(
-            connection_params={
+            provider_config={
                 "recursive": False,
-            },
-            credentials={
                 "credentials_json_path": "/tmp/box_config.json",
             },
         )
@@ -102,10 +98,8 @@ class TestBoxSourceAdapter:
         """Test building config with max_files parameter."""
         adapter = BoxSourceAdapter()
         config = adapter.build_config_from_operator_params(
-            connection_params={
+            provider_config={
                 "folder_id": "987654321",
-            },
-            credentials={
                 "credentials_json_path": "/tmp/box_config.json",
             },
             max_files=100,
@@ -633,8 +627,7 @@ class TestBoxFetchBinaryContent:
         with patch.object(adapter, "_get_box_client", return_value=mock_client):
             result = adapter.fetch_binary_content(
                 source_id="702199884861",
-                connection_params={},
-                credentials={"credentials_json_path": "/tmp/box.json"},
+                provider_config={"credentials_json_path": "/tmp/box.json"},
             )
         assert result == b"content"
 
@@ -648,8 +641,7 @@ class TestBoxFetchBinaryContent:
         with patch.object(adapter, "_get_box_client", return_value=mock_client):
             result = adapter.fetch_binary_content(
                 source_id="https://app.box.com/file/702199884861",
-                connection_params={},
-                credentials={"credentials_json_path": "/tmp/box.json"},
+                provider_config={"credentials_json_path": "/tmp/box.json"},
             )
         assert result == b"data"
         mock_client.downloads.download_file.assert_called_once_with("702199884861")
@@ -658,8 +650,7 @@ class TestBoxFetchBinaryContent:
         adapter = BoxSourceAdapter()
         result = adapter.fetch_binary_content(
             source_id="https://app.box.com/bad/url",
-            connection_params={},
-            credentials={"credentials_json_path": "/tmp/box.json"},
+            provider_config={"credentials_json_path": "/tmp/box.json"},
         )
         assert result is None
 
@@ -667,8 +658,7 @@ class TestBoxFetchBinaryContent:
         adapter = BoxSourceAdapter()
         result = adapter.fetch_binary_content(
             source_id="123456",
-            connection_params={},
-            credentials={},
+            provider_config={},
         )
         assert result is None
 
@@ -677,8 +667,7 @@ class TestBoxFetchBinaryContent:
         with patch.object(adapter, "_get_box_client", side_effect=FileNotFoundError("no file")):
             result = adapter.fetch_binary_content(
                 source_id="123",
-                connection_params={},
-                credentials={"credentials_json_path": "/tmp/box.json"},
+                provider_config={"credentials_json_path": "/tmp/box.json"},
             )
         assert result is None
 
@@ -687,8 +676,7 @@ class TestBoxFetchBinaryContent:
         with patch.object(adapter, "_get_box_client", side_effect=ValueError("bad auth")):
             result = adapter.fetch_binary_content(
                 source_id="123",
-                connection_params={},
-                credentials={"credentials_json_path": "/tmp/box.json"},
+                provider_config={"credentials_json_path": "/tmp/box.json"},
             )
         assert result is None
 
@@ -697,7 +685,6 @@ class TestBoxFetchBinaryContent:
         with patch.object(adapter, "_get_box_client", side_effect=RuntimeError("unexpected")):
             result = adapter.fetch_binary_content(
                 source_id="123",
-                connection_params={},
-                credentials={"credentials_json_path": "/tmp/box.json"},
+                provider_config={"credentials_json_path": "/tmp/box.json"},
             )
         assert result is None

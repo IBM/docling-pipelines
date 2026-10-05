@@ -98,14 +98,13 @@ class TestFilesystemSourceAdapter:
         second.mkdir()
         adapter = FilesystemSourceAdapter()
         config = adapter.build_config_from_operator_params(
-            connection_params={
+            provider_config={
                 "paths": [str(tmp_path), str(second)],
                 "recursive": False,
                 "exclude_patterns": ["*.tmp"],
                 "follow_symlinks": True,
                 "max_file_size_mb": 3,
             },
-            credentials={},
             included_extensions=["txt"],
         )
         config_data = config.model_dump()
@@ -248,8 +247,7 @@ class TestFilesystemSourceAdapter:
         adapter = FilesystemSourceAdapter()
         content = adapter.fetch_binary_content(
             source_id=file_path.resolve().as_uri(),
-            connection_params={"paths": [str(tmp_path)]},
-            credentials={},
+            provider_config={"paths": [str(tmp_path)]},
         )
 
         assert content == b"hello file uri"
