@@ -637,7 +637,137 @@ class TestExecuteMethod:
 
 
 # ---------------------------------------------------------------------------
-# 5. Metadata Tests
+# 5. Validate Method Tests
+# ---------------------------------------------------------------------------
+
+
+class TestValidateMethod:
+    """Test validate() method."""
+
+    @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("docpipe.lib.docpipe_flow_manager.create_session_info")
+    @patch("docpipe.lib.docpipe_flow_manager.FlowValidator")
+    def test_validate_calls_create_session_info(
+        self,
+        mock_validator_class,
+        mock_create_session,
+        mock_factory,
+        simple_flow,
+    ):
+        """validate() must call create_session_info so validators read correct job context."""
+        mock_orchestrator = Mock()
+        mock_factory.return_value = mock_orchestrator
+        mock_session = Mock(job_id="test-job", job_run_id="test-run")
+        mock_create_session.return_value = mock_session
+
+        mock_validator = Mock()
+        mock_validator.validate = Mock()
+        mock_validator_class.return_value = mock_validator
+
+        manager = DocpipeFlowManager(
+            flow_def=simple_flow, job_id="test-job", job_run_id="test-run", flow_id="test-flow"
+        )
+        result = manager.validate()
+
+        mock_create_session.assert_called_once_with(
+            job_id="test-job",
+            job_run_id="test-run",
+            orchestrator=mock_orchestrator,
+            flow_id="test-flow",
+        )
+        assert result["valid"] is True
+
+    @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("docpipe.lib.docpipe_flow_manager.create_session_info")
+    @patch("docpipe.lib.docpipe_flow_manager.FlowValidator")
+    def test_validate_create_session_info_called_before_validator(
+        self,
+        mock_validator_class,
+        mock_create_session,
+        mock_factory,
+        simple_flow,
+    ):
+        """create_session_info must be called before FlowValidator is constructed."""
+        call_order: list[str] = []
+
+        mock_orchestrator = Mock()
+        mock_factory.return_value = mock_orchestrator
+
+        def _session_side_effect(**_):  # type: ignore[no-untyped-def]
+            call_order.append("session")
+            return Mock()
+
+        mock_create_session.side_effect = _session_side_effect
+
+        mock_validator = Mock()
+        mock_validator.validate = Mock()
+
+        def _validator_side_effect(**_):  # type: ignore[no-untyped-def]
+            call_order.append("validator")
+            return mock_validator
+
+        mock_validator_class.side_effect = _validator_side_effect
+
+        manager = DocpipeFlowManager(flow_def=simple_flow)
+        manager.validate()
+
+        assert call_order.index("session") < call_order.index("validator")
+
+    @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("docpipe.lib.docpipe_flow_manager.create_session_info")
+    @patch("docpipe.lib.docpipe_flow_manager.FlowValidator")
+    def test_validate_returns_valid_true_on_success(
+        self,
+        mock_validator_class,
+        mock_create_session,
+        mock_factory,
+        simple_flow,
+    ):
+        """validate() returns valid=True when FlowValidator raises no exception."""
+        mock_orchestrator = Mock()
+        mock_factory.return_value = mock_orchestrator
+        mock_create_session.return_value = Mock()
+
+        mock_validator = Mock()
+        mock_validator.validate = Mock()
+        mock_validator_class.return_value = mock_validator
+
+        manager = DocpipeFlowManager(flow_def=simple_flow)
+        result = manager.validate()
+
+        assert result == {"valid": True, "errors": [], "warnings": []}
+
+    @patch("docpipe.lib.docpipe_flow_manager.OrchestratorFactory.create_orchestrator")
+    @patch("docpipe.lib.docpipe_flow_manager.create_session_info")
+    @patch("docpipe.lib.docpipe_flow_manager.FlowValidator")
+    def test_validate_returns_errors_on_flow_validation_exception(
+        self,
+        mock_validator_class,
+        mock_create_session,
+        mock_factory,
+        simple_flow,
+    ):
+        """validate() surfaces errors from FlowValidationException."""
+        from docpipe.exceptions.docpipe_exceptions import FlowValidationException
+
+        mock_orchestrator = Mock()
+        mock_factory.return_value = mock_orchestrator
+        mock_create_session.return_value = Mock()
+
+        mock_validator = Mock()
+        exc = FlowValidationException(errors=["missing root operator"], warnings=[])
+        mock_validator.validate.side_effect = exc
+        mock_validator_class.return_value = mock_validator
+
+        manager = DocpipeFlowManager(flow_def=simple_flow)
+        result = manager.validate()
+
+        assert result["valid"] is False
+        assert "missing root operator" in result["errors"]
+
+
+# ---------------------------------------------------------------------------
+# 6. Metadata Tests
 # ---------------------------------------------------------------------------
 
 

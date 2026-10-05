@@ -27,7 +27,6 @@ from docpipe.exceptions.error_messages import ValidationCodeMessages, Validation
 from docpipe.types import FlowConfig
 from docpipe.utils.infrastructure.logging import get_logger
 from docpipe.utils.orchestration.flow_utils import add_validation_alert
-from docpipe.utils.orchestration.prefect_config import clean_up_prefect_home
 
 logger = get_logger()
 
@@ -106,7 +105,7 @@ class FlowValidator:
         FlowValidator works in conjunction with:
         - FeaturePropagator: Handles feature tracking through the DAG
         - OperatorMetadata: Provides operator capability information
-        - FlowEngine: Executes validation traversal (Prefect-based)
+        - _traverse_dag: Executes validation traversal (plain Python topological walk)
 
     Validation Modes:
         1. validate(): Basic structural validation without feature tracking
@@ -178,8 +177,9 @@ class FlowValidator:
         loads operator metadata once during initialization for efficient validation.
 
         Args:
-            orchestrator: Reference to the AbstractOrchestrator instance that will
-                execute the validation traversal. Must have flow_engine initialized.
+            orchestrator: Reference to the AbstractOrchestrator instance. Used to
+                resolve custom operator packages and enable_custom_operators settings.
+                Does not need flow_engine to be initialized.
             feature_propagator: Optional shared FeaturePropagator instance. When
                 provided the validator reuses it instead of constructing a new one,
                 avoiding a redundant operator-metadata load (e.g. when called from
@@ -246,6 +246,98 @@ class FlowValidator:
                 ]
             )
         self.validate_dag(flow_def=flow_def, global_config=global_config)
+
+    @staticmethod
+    def _sanitize_vault_refs_for_validation(value: object, *, key: str | None = None) -> object:
+        """Replace vault:// references with safe validation mock values.
+
+        Operators receive non-empty mock structures rather than unresolved URIs
+        so that required presence checks and dict validation pass cleanly.
+        """
+        from docpipe.integrations.secrets.secret_provider import is_vault_reference
+
+        if isinstance(value, str) and is_vault_reference(value):
+            if key in ("credentials", "credentials_json", "provider_credentials"):
+                return {"__vault_mock__": True}
+            return "__vault_placeholder__"
+        if isinstance(value, dict):
+            return {k: FlowValidator._sanitize_vault_refs_for_validation(v, key=str(k)) for k, v in value.items()}
+        if isinstance(value, list):
+            return [FlowValidator._sanitize_vault_refs_for_validation(item, key=key) for item in value]
+        return value
+
+    @staticmethod
+    def _collect_vault_refs(obj: object, *, prefix: str = "") -> list[tuple[str, str]]:
+        """Recursively collect (path, vault_uri) pairs from an object."""
+        from docpipe.integrations.secrets.secret_provider import is_vault_reference
+
+        if isinstance(obj, str) and is_vault_reference(obj):
+            return [(prefix, obj)]
+        if isinstance(obj, dict):
+            found_dict: list[tuple[str, str]] = []
+            for k, v in obj.items():
+                found_dict.extend(FlowValidator._collect_vault_refs(v, prefix=f"{prefix}.{k}" if prefix else str(k)))
+            return found_dict
+        if isinstance(obj, list):
+            found_list: list[tuple[str, str]] = []
+            for i, item in enumerate(obj):
+                found_list.extend(FlowValidator._collect_vault_refs(item, prefix=f"{prefix}[{i}]"))
+            return found_list
+        return []
+
+    @staticmethod
+    def _validate_single_vault_ref(
+        *,
+        path: str,
+        ref: str,
+        op_def: dict[str, Any],
+        validate_results: ValidateStepResults,
+    ) -> None:
+        """Validate a single vault reference URI and record any error or warning."""
+        from docpipe.integrations.secrets.secret_provider import (
+            get_provider,
+            parse_vault_reference,
+        )
+
+        try:
+            provider_name, _, _ = parse_vault_reference(ref)
+        except Exception:
+            add_validation_alert(
+                message=ValidationMessage(
+                    message=f"Config key '{path}' contains a malformed vault URI: '{ref}'.",
+                    message_code="VAULT_URI_MALFORMED",
+                ),
+                op_def=op_def,
+                alerts=validate_results.errors,
+            )
+            return
+
+        if not provider_name or get_provider(name=provider_name) is None:
+            add_validation_alert(
+                message=ValidationMessage(
+                    message=(
+                        f"Config key '{path}' references vault provider "
+                        f"'{provider_name}' which is not currently registered. "
+                        "Set DOCPIPE_VAULT_ENABLED=true and ensure "
+                        "VAULT_ROLE_ID / VAULT_SECRET_ID are set."
+                    ),
+                    message_code="VAULT_PROVIDER_NOT_REGISTERED",
+                ),
+                op_def=op_def,
+                alerts=validate_results.warnings,
+            )
+
+    def _validate_vault_references(self, *, dag: list, validate_results: ValidateStepResults) -> None:
+        """Validate vault reference URIs and warn when referenced provider is not registered."""
+        for op_def in dag:
+            config = op_def.get(OperatorConstants.Config.CONFIG, {})
+            for path, ref in self._collect_vault_refs(config):
+                self._validate_single_vault_ref(
+                    path=path,
+                    ref=ref,
+                    op_def=op_def,
+                    validate_results=validate_results,
+                )
 
     def validate_dag(self, *, flow_def: FlowConfig, global_config: FlowConfig) -> None:
         """Validate the DAG structure and all nodes.
@@ -328,12 +420,14 @@ class FlowValidator:
         validate_results = ValidateStepResults(available_features={}, errors=errors, warnings=warnings)
         session_info = get_session_info()
 
+        self._validate_global_config_values(global_config=global_config, validate_results=validate_results)
         self._validate_root_operator(dag=dag, validate_results=validate_results)
         self._validate_acl_operator_placement(dag=dag, validate_results=validate_results)
         self._validate_storage_output_operator_placement(dag=dag, validate_results=validate_results)
         self._validate_disjoint_operators(dag=dag, validate_results=validate_results)
         self._validate_no_cycles(dag=dag, validate_results=validate_results)
         self._validate_operator_availability(dag=dag, global_config=global_config, validate_results=validate_results)
+        self._validate_vault_references(dag=dag, validate_results=validate_results)
 
         def node_validation_task(task_name, op_def, result=None, link_name=None):
             return self._validate_node(
@@ -344,21 +438,7 @@ class FlowValidator:
                 session_info=session_info,
             )
 
-        if self.orchestrator.flow_engine is None:
-            raise FlowValidationException(
-                errors=[
-                    ValidationAlert(
-                        ErrorCode.FLOW_VALIDATION_FAILED.value,
-                        message="Flow engine not initialized",
-                        message_code="FLOW_ENGINE_NOT_INITIALIZED",
-                    )
-                ]
-            )
-
-        self.orchestrator.flow_engine.execute_non_execute_flow(
-            flow_name="dag_validation_flow", task=node_validation_task, dag=dag
-        )
-        clean_up_prefect_home()
+        self._traverse_dag(dag=dag, task=node_validation_task)
 
         self.validate_last_operator(dag=dag, validate_results=validate_results)
 
@@ -464,22 +544,7 @@ class FlowValidator:
             )
             return node_result
 
-        # Execute feature propagation traversal
-        if self.orchestrator.flow_engine is None:
-            raise FlowValidationException(
-                errors=[
-                    ValidationAlert(
-                        ErrorCode.FLOW_VALIDATION_FAILED.value,
-                        message="Flow engine not initialized",
-                        message_code="FLOW_ENGINE_NOT_INITIALIZED",
-                    )
-                ]
-            )
-
-        self.orchestrator.flow_engine.execute_non_execute_flow(
-            flow_name="feature_propagation_flow", task=feature_propagation_task, dag=dag
-        )
-        clean_up_prefect_home()
+        self._traverse_dag(dag=dag, task=feature_propagation_task)
 
         logger.info(
             f"Feature propagation complete: {len(propagation_result.available_features)} nodes processed",
@@ -536,6 +601,7 @@ class FlowValidator:
                         | op_def.get(OperatorConstants.Config.CONFIG, {})
                         | {DocpipeConstants.VALIDATING_FLOW: True}
                     )
+                    config = self._sanitize_vault_refs_for_validation(config)
                     operator = operator_class(config=config)
                     operator.name = op_def.get(OperatorConstants.Columns.NAME)
                     operator.id = op_def.get(OperatorConstants.Columns.ID)
@@ -592,6 +658,7 @@ class FlowValidator:
                 "available_for_vector_db": meta.available_for_vector_db,
                 "mandatory_for_vector_db": meta.mandatory_for_vector_db,
                 "type": meta.type,
+                "is_primary": meta.is_primary,
                 **({"source_node_id": meta.node_id} if meta.node_id else {}),
             }
             for name, meta in result.feature_metadata.items()
@@ -831,23 +898,66 @@ class FlowValidator:
 
             return node_result
 
-        if self.orchestrator.flow_engine is None:
-            raise FlowValidationException(
-                errors=[
-                    ValidationAlert(
-                        ErrorCode.FLOW_VALIDATION_FAILED.value,
-                        message="Flow engine not initialized",
-                        message_code="FLOW_ENGINE_NOT_INITIALIZED",
-                    )
-                ]
-            )
-
-        self.orchestrator.flow_engine.execute_non_execute_flow(
-            flow_name="feature_propagation_debug_flow", task=feature_debug_task, dag=dag
-        )
-        clean_up_prefect_home()
+        self._traverse_dag(dag=dag, task=feature_debug_task)
         self._node_features_cache = node_features
         return node_features
+
+    def _traverse_dag(self, *, dag: list, task: Any) -> None:
+        """Traverse the DAG in topological order, calling task for each node.
+
+        Replaces the previous Prefect-based traversal. Delegates ordering to
+        ``sort_dag_topologically`` (shared utility, Kahn's algorithm) so this
+        method is correct for all DAG shapes regardless of input list order,
+        including branch+merge flows where the merge node has multiple parents.
+
+        Parent results are resolved from a node-keyed results dict and passed
+        into the task function in the same shape the previous Prefect traversal
+        used:
+        - No parents (root node)   → None
+        - Single parent            → the parent result directly
+        - Multiple parents (merge) → dict of {link_name: result}
+
+        Args:
+            dag: List of DAG node definitions. Order need not be topological.
+            task: Callable with signature
+                ``task(task_name, op_def, prev_result, link_name) -> Any``.
+                The return value is stored and forwarded to downstream nodes.
+        """
+        from docpipe.utils.orchestration.flow_utils import sort_dag_topologically
+
+        results: dict[str, Any] = {}
+
+        for op_def in sort_dag_topologically(dag=dag):
+            node_id = op_def["id"]
+            input_edges = op_def.get("input_edges", [])
+            link_name = op_def.get(OperatorConstants.Misc.LINK_NAME)
+            task_name = op_def.get(OperatorConstants.Columns.NAME, node_id)
+
+            if not input_edges:
+                prev_result = None
+            elif len(input_edges) == 1:
+                prev_result = results.get(input_edges[0]["node_id_ref"])
+            else:
+                prev_result = {
+                    edge.get(OperatorConstants.Misc.LINK_NAME): results.get(edge["node_id_ref"]) for edge in input_edges
+                }
+
+            results[node_id] = task(task_name, op_def, prev_result, link_name)
+
+    def _validate_global_config_values(
+        self, *, global_config: dict[str, Any], validate_results: ValidateStepResults
+    ) -> None:
+        """Validate global configuration values such as doc_format."""
+        doc_format = global_config.get(OperatorConstants.DOC_FORMAT_KEY)
+        if doc_format is not None:
+            valid_formats = [f.value for f in OperatorConstants.DocFormat]
+            if doc_format not in valid_formats:
+                validate_results.errors.append(
+                    ValidationAlert(
+                        ErrorCode.FLOW_VALIDATION_FAILED.value,
+                        f"Invalid doc_format '{doc_format}'. Supported values are: {', '.join(valid_formats)}",
+                    )
+                )
 
     def _validate_root_operator(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that the root operator of the DAG (no incoming edges) is an Ingest operator.
@@ -942,6 +1052,10 @@ class FlowValidator:
             if not graph.get(node_id, []):
                 return node_id
         return None
+
+    def _find_all_terminal_nodes(self, graph: dict) -> list[str]:
+        """Find all terminal nodes (nodes with no outgoing edges) in a graph."""
+        return [node_id for node_id, neighbors in graph.items() if not neighbors]
 
     def _report_non_vectordb_terminal(
         self,
@@ -1255,22 +1369,33 @@ class FlowValidator:
         return extract_operator_count
 
     def validate_last_operator(self, *, dag: list, validate_results: ValidateStepResults):
-        """Validate that the last operator in the DAG is a VectorDB operator."""
+        """Validate that every terminal node in the DAG is a VectorDB or Storage operator.
+
+        A terminal node is any node with no outgoing edges. In a branching flow there
+        can be more than one terminal node, so each branch end is checked independently.
+        A warning is emitted for every terminal node that is not a VectorDB or Storage operator.
+        """
         if not dag:
             return
 
-        last_op = dag[-1]
-        category = self._get_operator_category(op_def=last_op, alerts=validate_results.errors)
+        graph = self._build_graph(dag)
+        id_to_index = {node["id"]: i for i, node in enumerate(dag)}
 
-        if category != OperatorCategory.VectorDB:
-            add_validation_alert(
-                message=ValidationMessage(
-                    message=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.value,
-                    message_code=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name,
-                ),
-                op_def=last_op,
-                alerts=validate_results.warnings,
-            )
+        for terminal_node_id in self._find_all_terminal_nodes(graph):
+            index = id_to_index.get(terminal_node_id)
+            if index is None:
+                continue
+            terminal_node = dag[index]
+            category = self._get_operator_category(op_def=terminal_node, alerts=validate_results.errors)
+            if category not in (OperatorCategory.VectorDB, OperatorCategory.Storage):
+                add_validation_alert(
+                    message=ValidationMessage(
+                        message=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.value,
+                        message_code=ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name,
+                    ),
+                    op_def=terminal_node,
+                    alerts=validate_results.warnings,
+                )
 
     def _validate_no_cycles(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate that the DAG does not contain cycles.

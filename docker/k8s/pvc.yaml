@@ -1,0 +1,33 @@
+---
+# PersistentVolumeClaim — docpipe data directory
+#
+# Backs the /opt/app-root/src/data volume mount in the fastapi container.
+# This directory holds:
+#   - data/duckdb/job_stats.duckdb      — job run history and node stats
+#   - data/duckdb/document_sets.duckdb  — document sets and document libraries
+#   - data/job_stats_store_data/        — filesystem-mode job stats store
+#
+# Without this PVC, DuckDB files and job history are lost on every pod restart.
+#
+# Usage:
+#   kubectl apply -f docker/k8s/pvc.yaml
+#   kubectl apply -f docker/k8s/deployment.yaml
+#
+# Sizing: 1 Gi covers most deployments. Increase if document set metadata or
+# job history grows large (each job_stats.duckdb row is ~1 KB).
+#
+# storageClassName: omitted — uses the cluster's default storage class.
+# Override with a specific class (e.g. "gp3", "standard", "ocs-storagecluster-ceph-rbd")
+# if your cluster requires an explicit provisioner.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: docpipe-data
+  labels:
+    app: docpipe
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

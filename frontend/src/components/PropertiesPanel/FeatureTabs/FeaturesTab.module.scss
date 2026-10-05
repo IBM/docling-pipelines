@@ -1,0 +1,93 @@
+@use '@carbon/react/scss/type';
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+
+// Wrapper for the entire tab content
+.featuresTab {
+  padding-top: $spacing-04;
+
+  // Force the entire toolbar row — search container, toolbar-content wrapper,
+  // and the ghost expand button — to share the same $field background.
+  // On hover, all three switch to $field-hover together.
+  // !important is required throughout to beat Carbon's own specificity.
+  :global(.cds--table-toolbar),
+  :global(.cds--toolbar-content),
+  :global(.cds--btn--ghost) {
+    background-color: $field !important;
+  }
+
+  :global(.cds--table-toolbar:hover),
+  :global(.cds--toolbar-content:hover),
+  :global(.cds--btn--ghost:hover) {
+    background-color: $field-hover !important;
+  }
+}
+
+// Descriptive subtitle below the tab label
+.tabDescription {
+  @include type.type-style('label-01');
+  color: $text-secondary;
+  padding: 0 $spacing-05 $spacing-04;
+  margin: 0;
+}
+
+// Loading spinner centering
+.loadingWrapper {
+  display: flex;
+  justify-content: center;
+  padding: $spacing-07;
+}
+
+// Empty state container
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: $spacing-09 $spacing-05;
+  gap: $spacing-03;
+}
+
+.emptyTitle {
+  @include type.type-style('productive-heading-01');
+  color: $text-primary;
+  margin: 0;
+}
+
+.emptyDescription {
+  @include type.type-style('body-short-01');
+  color: $text-secondary;
+  margin: 0;
+  text-align: center;
+}
+
+// Expand icon button in the table toolbar
+.expandButton {
+  flex-shrink: 0;
+}
+
+// Wrapper inside Tearsheet body — table with uniform padding on all sides,
+// matching the screenshot (small gap around all four edges of the table).
+.tearsheetTableWrapper {
+  padding: $spacing-07;
+  height: 100%;
+
+  // Remove the TableContainer's default top padding — the wrapper padding handles it.
+  :global(.cds--table-container) {
+    padding-top: 0;
+  }
+}
+
+.groupHeaderLabel {
+  @include type.type-style('label-02');
+  font-weight: 600;
+  color: $text-primary;
+}
+
+// Downstream use column header label — sits inside DefinitionTooltip as the trigger.
+// DefinitionTooltip applies its own dotted underline via the __trigger class;
+// this rule only sets the text style to match the table header weight.
+.downstreamColumnLabel {
+  @include type.type-style('label-01');
+  font-weight: 600;
+  color: $text-primary;
+}

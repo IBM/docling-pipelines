@@ -243,8 +243,10 @@ class TestPromptManager:
         manager = PromptManager(prompt_file)
         prompt = manager.load_prompt()
         # JSON strings are escaped when dumped, so check for escaped quotes
-        assert "key" in prompt and "value" in prompt
-        assert "result" in prompt and "success" in prompt
+        assert "key" in prompt
+        assert "value" in prompt
+        assert "result" in prompt
+        assert "success" in prompt
 
     def test_is_cached_property(self, temp_prompt_file):
         """Test is_cached property behavior."""

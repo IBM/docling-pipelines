@@ -217,6 +217,61 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         """Return list of required input features."""
         return []
 
+    def _validate_provider(self, *, errors: list[str]) -> None:
+        """Validate provider type and value against supported providers."""
+        if not self.should_validate_field(field_value=self.provider):
+            return
+        if not isinstance(self.provider, str):
+            errors.append(f"provider must be a string, got {type(self.provider)}")
+            return
+        supported_providers = LLMAdapterFactory.get_supported_providers(capability="embedding")
+        if self.provider not in supported_providers:
+            errors.append(f"provider must be one of {sorted(supported_providers)}, got '{self.provider}'")
+
+    def _validate_overlap_and_token(self, *, errors: list[str]) -> None:
+        """Validate overlap_ratio and token_limit configuration values."""
+        if self.should_validate_field(field_value=self.overlap_ratio):
+            if not isinstance(self.overlap_ratio, (int, float)):
+                errors.append(f"overlap_ratio must be a number, got {type(self.overlap_ratio)}")
+            elif not (OVERLAP_RATIO_MIN <= self.overlap_ratio <= OVERLAP_RATIO_MAX):
+                errors.append(f"overlap_ratio must be between {OVERLAP_RATIO_MIN} and {OVERLAP_RATIO_MAX}")
+
+        if self.should_validate_field(field_value=self.token_limit):
+            if not isinstance(self.token_limit, int):
+                errors.append(f"token_limit must be an integer, got {type(self.token_limit)}")
+            elif self.token_limit <= 0:
+                errors.append(f"token_limit must be positive, got {self.token_limit}")
+
+    def _validate_provider_config(self, *, errors: list[str]) -> None:
+        """Validate provider_config dict including model_id, max_concurrent_requests, and batch_size."""
+        if not self.should_validate_field(field_value=self.provider_config):
+            return
+        if not isinstance(self.provider_config, dict):
+            errors.append(f"provider_config must be a dictionary, got {type(self.provider_config)}")
+            return
+
+        model_id = self.provider_config.get(OperatorConstants.Config.MODEL_ID)
+        if not model_id or not isinstance(model_id, str):
+            errors.append("provider_config.model_id is required and must be a non-empty string")
+
+        max_concurrent_requests = self.provider_config.get(OperatorConstants.Config.MAX_CONCURRENT_REQUESTS)
+        if max_concurrent_requests is not None and self.should_validate_field(field_value=max_concurrent_requests):
+            if not isinstance(max_concurrent_requests, int):
+                errors.append(
+                    f"provider_config.max_concurrent_requests must be an integer, got {type(max_concurrent_requests).__name__}"
+                )
+            elif max_concurrent_requests <= 0:
+                errors.append(
+                    f"provider_config.max_concurrent_requests must be positive, got {max_concurrent_requests}"
+                )
+
+        batch_size = self.provider_config.get(OperatorConstants.Config.BATCH_SIZE)
+        if batch_size is not None and self.should_validate_field(field_value=batch_size):
+            if not isinstance(batch_size, int):
+                errors.append(f"provider_config.batch_size must be an integer, got {type(batch_size).__name__}")
+            elif batch_size <= 0:
+                errors.append(f"provider_config.batch_size must be positive, got {batch_size}")
+
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """
         Validate operator configuration.
@@ -238,71 +293,17 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
                 f"or '{OperatorConstants.Columns.CHUNKED_CONTENT}' column to be available"
             )
 
-        # Get metadata and extract ATTRIBUTES for validation
+        # Validate configuration against metadata
         metadata = self.get_metadata()
         attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
-
-        # Validate configuration against metadata
         validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
 
-        # Validate provider
-        if self.should_validate_field(field_value=self.provider):
-            if not isinstance(self.provider, str):
-                errors.append(f"provider must be a string, got {type(self.provider)}")
-            else:
-                supported_providers = LLMAdapterFactory.get_supported_providers(capability="embedding")
-                if self.provider not in supported_providers:
-                    errors.append(f"provider must be one of {sorted(supported_providers)}, got '{self.provider}'")
-
-        # Validate overlap ratio
-        if self.should_validate_field(field_value=self.overlap_ratio):
-            if not isinstance(self.overlap_ratio, (int, float)):
-                errors.append(f"overlap_ratio must be a number, got {type(self.overlap_ratio)}")
-            elif not (OVERLAP_RATIO_MIN <= self.overlap_ratio <= OVERLAP_RATIO_MAX):
-                errors.append(f"overlap_ratio must be between {OVERLAP_RATIO_MIN} and {OVERLAP_RATIO_MAX}")
-
-        # Validate token limit
-        if self.should_validate_field(field_value=self.token_limit):
-            if not isinstance(self.token_limit, int):
-                errors.append(f"token_limit must be an integer, got {type(self.token_limit)}")
-            elif self.token_limit <= 0:
-                errors.append(f"token_limit must be positive, got {self.token_limit}")
-
-        # Validate provider_config and model_id
-        if self.should_validate_field(field_value=self.provider_config):
-            if not isinstance(self.provider_config, dict):
-                errors.append(f"provider_config must be a dictionary, got {type(self.provider_config)}")
-            else:
-                # Validate model_id within provider_config
-                model_id = self.provider_config.get(OperatorConstants.Config.MODEL_ID)
-                if not model_id or not isinstance(model_id, str):
-                    errors.append("provider_config.model_id is required and must be a non-empty string")
-
-                # Validate max_concurrent_requests if present
-                max_concurrent_requests = self.provider_config.get(OperatorConstants.Config.MAX_CONCURRENT_REQUESTS)
-                if max_concurrent_requests is not None and self.should_validate_field(
-                    field_value=max_concurrent_requests
-                ):
-                    if not isinstance(max_concurrent_requests, int):
-                        errors.append(
-                            f"provider_config.max_concurrent_requests must be an integer, got {type(max_concurrent_requests).__name__}"
-                        )
-                    elif max_concurrent_requests <= 0:
-                        errors.append(
-                            f"provider_config.max_concurrent_requests must be positive, got {max_concurrent_requests}"
-                        )
-
-                # Validate batch_size if present
-                batch_size = self.provider_config.get(OperatorConstants.Config.BATCH_SIZE)
-                if batch_size is not None and self.should_validate_field(field_value=batch_size):
-                    if not isinstance(batch_size, int):
-                        errors.append(f"provider_config.batch_size must be an integer, got {type(batch_size).__name__}")
-                    elif batch_size <= 0:
-                        errors.append(f"provider_config.batch_size must be positive, got {batch_size}")
+        self._validate_provider(errors=errors)
+        self._validate_overlap_and_token(errors=errors)
+        self._validate_provider_config(errors=errors)
 
         # Check if chunked_content feature is available (always validate, even during flow validation)
-        chunked_content_exists = OperatorConstants.Columns.CHUNKED_CONTENT in available_features
-        if not chunked_content_exists:
+        if OperatorConstants.Columns.CHUNKED_CONTENT not in available_features:
             from docpipe.exceptions.error_messages import ValidationCodeMessages
 
             warnings.append(ValidationCodeMessages.CHUNKER_OPERATOR_MISSING)
@@ -399,7 +400,7 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         }
 
     @staticmethod
-    def _build_chunk_text_for_embedding(chunk: dict[str, Any]) -> str:
+    def _build_chunk_text_for_embedding(*, chunk: dict[str, Any]) -> str:
         """
         Prepends summary to chunk text if summary is present.
         chunk text will be generated as : abstract: <summary>\ncontent: <chunk_text>
@@ -681,7 +682,8 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
                     texts.append(chunk)
             else:
                 logger.warning(
-                    f"Skipping chunk with unexpected type: {type(chunk).__name__}",
+                    "Skipping chunk with unexpected type: %s",
+                    type(chunk).__name__,
                     extra=self.common_log_arguments,
                 )
 
@@ -689,7 +691,9 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
             raise DocpipeException("No valid text chunks found after parsing")
 
         logger.debug(
-            f"Processing {len(texts)} chunks for document: {doc_name}",
+            "Processing %s chunks for document: %s",
+            len(texts),
+            doc_name,
             extra=self.common_log_arguments,
         )
         return texts
@@ -711,6 +715,12 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         content: str = table[self.doc_column][idx].as_py()
         if not content:
             raise DocpipeException(f"Document content column '{self.doc_column}' is empty or missing")
+
+        # Convert DocLang to markdown for unchunked pipelines where EmbeddingsOperator
+        # operates directly on the raw document content column without a preceding ChunkerOperator
+        if self.doc_format == OperatorConstants.DocFormat.DOCLANG:
+            content = OperatorUtils.doclang_to_markdown(content)
+
         return [content]
 
     def _handle_doc_hash_generation_failure(
@@ -829,6 +839,212 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
 
         return embeddings_result, doc_hash
 
+    def _store_embedding_for_row(
+        self,
+        *,
+        idx: int,
+        embeddings: list[float] | list[list[float]],
+        chunks_column_data: list | None,
+        doc_ids: list | None,
+        embeddings_dir_ref: list[str | None],
+    ) -> dict[str, str] | list[float] | list[list[float]]:
+        """
+        Decide whether to write embeddings to a memmap file (when the matching
+        chunk row is already file-backed) or keep them in memory.
+
+        ``embeddings_dir_ref`` is a one-element list used as a mutable reference
+        so the directory path is lazily initialised only once per slice.
+        """
+        row_chunks_as_files = (
+            chunks_column_data is not None
+            and idx < len(chunks_column_data)
+            and isinstance(chunks_column_data[idx], dict)
+            and DocpipeConstants.CHUNKS_MEMMAP_FILE in chunks_column_data[idx]
+        )
+        if not row_chunks_as_files:
+            return embeddings  # type: ignore[return-value]
+
+        # Lazy-initialise the embeddings directory once per slice
+        if embeddings_dir_ref[0] is None:
+            embeddings_dir_ref[0] = get_data_path(
+                sub_dir=f"/{self.job_id}/{self.job_run_id}/temp_data/embeddings/{self.embeddings_column}"
+            )
+
+        if doc_ids and idx < len(doc_ids):
+            from docpipe.core.operators.operator_utils import sanitize_doc_id_for_filename
+
+            embeddings_filename = f"{sanitize_doc_id_for_filename(doc_ids[idx])}_embeddings.bin"
+        else:
+            embeddings_filename = f"embeddings_{uuid.uuid4().hex}.bin"
+
+        embeddings_filepath = str(Path(embeddings_dir_ref[0] or "") / embeddings_filename)
+        write_content_to_file(content_list=embeddings, filepath=embeddings_filepath)
+        logger.debug("Wrote embeddings to memmap file: %s", embeddings_filepath, extra=self.common_log_arguments)
+        return {DocpipeConstants.EMBEDDINGS_MEMMAP_FILE: embeddings_filepath}
+
+    def _add_embeddings_to_slice(
+        self,
+        *,
+        slice_table: pa.Table,
+        slice_embeddings: list,
+        slice_doc_id_hashes: list[str],
+        has_chunked_content: bool,
+    ) -> pa.Table:
+        """
+        Attach the generated embeddings (and updated doc-id hashes) to a
+        slice table, routing each row to either in-memory or file-backed
+        storage depending on whether its chunks are already file-backed.
+        """
+        chunks_column_data = (
+            slice_table[OperatorConstants.Columns.CHUNKED_CONTENT].to_pylist() if has_chunked_content else None
+        )
+        doc_ids = (
+            slice_table[OperatorConstants.Columns.ID].to_pylist()
+            if OperatorConstants.Columns.ID in slice_table.column_names
+            else None
+        )
+        embeddings_dir_ref: list[str | None] = [None]
+
+        embeddings_column_data: list[dict[str, str] | list[float] | list[list[float]]] = [
+            self._store_embedding_for_row(
+                idx=idx,
+                embeddings=emb,
+                chunks_column_data=chunks_column_data,
+                doc_ids=doc_ids,
+                embeddings_dir_ref=embeddings_dir_ref,
+            )
+            for idx, emb in enumerate(slice_embeddings)
+        ]
+
+        slice_table = TransformUtils.add_column(
+            table=slice_table, name=self.embeddings_column, content=embeddings_column_data
+        )
+        logger.info("Added embeddings column '%s' to table", self.embeddings_column, extra=self.common_log_arguments)
+
+        if self.doc_id_hash_column in slice_table.column_names:
+            slice_table = slice_table.drop_columns([self.doc_id_hash_column])
+            slice_table = TransformUtils.add_column(
+                table=slice_table, name=self.doc_id_hash_column, content=slice_doc_id_hashes
+            )
+        return slice_table
+
+    def _ensure_doc_id_hash_column(self, *, table: pa.Table) -> tuple[pa.Table, Exception | None]:
+        """
+        Make sure the doc_id_hash column exists, generating it when it does not.
+
+        Returns ``(table, None)`` on success, or ``(table, error)`` when the hash
+        cannot be generated — the caller turns that error into a failure result.
+        """
+        if self.doc_id_hash_column in table.column_names:
+            return table, None
+
+        # DocIdHashOperator needs the content column to derive a hash from.
+        if self.doc_column not in table.column_names:
+            return table, DocpipeException(
+                f"Cannot generate '{self.doc_id_hash_column}' column: '{self.doc_column}' column is missing."
+            )
+
+        try:
+            result_tables: list[pa.Table]
+            result_tables, _ = self._doc_id_op.transform(table)
+            return result_tables[0], None
+        except Exception as e:
+            return table, e
+
+    def _embed_slice_rows(
+        self,
+        *,
+        slice_table: pa.Table,
+        has_chunked_content: bool,
+        metadata: dict[str, Any],
+    ) -> tuple[list, list[str], list[int]]:
+        """
+        Embed every row of one slice.
+
+        Returns (embeddings, doc_id_hashes, indices of rows that failed).
+        """
+        slice_embeddings: list[list[float] | list[list[float]]] = []
+        slice_doc_id_hashes: list[str] = []
+        slice_remove_idx: list[int] = []
+        slice_hash_values: list[str] = slice_table[self.doc_id_hash_column].to_pylist()
+
+        for i in range(slice_table.num_rows):
+            doc_id, doc_name = self._get_doc_identifiers(slice_table, i)
+            try:
+                embeddings_result, doc_hash = self._process_single_document(
+                    table=slice_table,
+                    idx=i,
+                    has_chunked_content=has_chunked_content,
+                    doc_hash_values=slice_hash_values,
+                )
+                slice_embeddings.append(embeddings_result)
+                slice_doc_id_hashes.append(doc_hash)
+                metadata[Metrics.External.PROCESSED_DOCS] += 1
+            except Exception as exc:
+                logger.error(f"Failed embeddings for {doc_name}: {exc!s}", extra=self.common_log_arguments)
+                self.record_failed_document(
+                    metadata=metadata,
+                    doc_id=doc_id,
+                    doc_name=doc_name,
+                    reason=f"Embedding failure: {exc!s}",
+                )
+                slice_remove_idx.append(i)
+
+        return slice_embeddings, slice_doc_id_hashes, slice_remove_idx
+
+    def _process_slice(
+        self,
+        *,
+        slice_table: pa.Table,
+        slice_num: int,
+        total_slices: int,
+        has_chunked_content: bool,
+        metadata: dict[str, Any],
+    ) -> pa.Table | None:
+        """
+        Embed one slice and attach the results to it.
+
+        Returns None when every row in the slice failed — that slice contributes
+        nothing to the final table.
+        """
+        slice_embeddings, slice_doc_id_hashes, slice_remove_idx = self._embed_slice_rows(
+            slice_table=slice_table,
+            has_chunked_content=has_chunked_content,
+            metadata=metadata,
+        )
+
+        if slice_remove_idx:
+            slice_table = OperatorUtils.remove_rows(table=slice_table, remove_row_idx=slice_remove_idx)
+
+        if not slice_embeddings:
+            return None
+
+        slice_table = self._add_embeddings_to_slice(
+            slice_table=slice_table,
+            slice_embeddings=slice_embeddings,
+            slice_doc_id_hashes=slice_doc_id_hashes,
+            has_chunked_content=has_chunked_content,
+        )
+        logger.info(
+            "Slice %d/%d complete: processed %d docs, failed %d docs",
+            slice_num,
+            total_slices,
+            len(slice_embeddings),
+            len(slice_remove_idx),
+            extra=self.common_log_arguments,
+        )
+        return slice_table
+
+    def _finalize_node_status(self, *, metadata: dict[str, Any]) -> None:
+        """Downgrade the node status to COMPLETED_WITH_ERRORS if any document failed."""
+        if metadata[Metrics.External.FAILED_DOCS_COUNT] <= 0:
+            return
+        current_status = metadata[Metrics.External.NODE_STATUS]
+        metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
+            current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
+            ExecutionStatus.COMPLETED_WITH_ERRORS,
+        ).value
+
     def transform(self, table: pa.Table, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
         Transform the input table by adding embeddings using memory-efficient internal slicing.
@@ -849,22 +1065,9 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         metadata: dict[str, Any] = self.create_base_metadata(total_docs_count=OperatorUtils.find_doc_count(table=table))
 
         # Ensure doc_id_hash column exists
-        # DocIdHashOperator requires content column, so check if it's available
-        if self.doc_id_hash_column not in table.column_names:
-            if self.doc_column not in table.column_names:
-                # Cannot generate doc_id_hash without content column
-                error = DocpipeException(
-                    f"Cannot generate '{self.doc_id_hash_column}' column: '{self.doc_column}' column is missing."
-                )
-                return self._handle_doc_hash_generation_failure(table, error, metadata)
-
-            # Generate doc_id_hash using the cached DocIdHashOperator instance
-            try:
-                result_tables: list[pa.Table]
-                result_tables, _ = self._doc_id_op.transform(table)
-                table = result_tables[0]
-            except Exception as e:
-                return self._handle_doc_hash_generation_failure(table, e, metadata)
+        table, hash_error = self._ensure_doc_id_hash_column(table=table)
+        if hash_error is not None:
+            return self._handle_doc_hash_generation_failure(table, hash_error, metadata)
 
         # Check if we have chunked content
         has_chunked_content: bool = OperatorConstants.Columns.CHUNKED_CONTENT in table.column_names
@@ -891,139 +1094,20 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
                 extra=self.common_log_arguments,
             )
 
-            # Temporary lists for this slice only
-            slice_embeddings: list[list[float] | list[list[float]]] = []
-            slice_doc_id_hashes: list[str] = []
-            slice_remove_idx: list[int] = []
-
-            # Cache hash values for this slice
-            slice_hash_values: list[str] = slice_table[self.doc_id_hash_column].to_pylist()
-
-            for i in range(slice_table.num_rows):
-                doc_id, doc_name = self._get_doc_identifiers(slice_table, i)
-                try:
-                    embeddings_result, doc_hash = self._process_single_document(
-                        table=slice_table,
-                        idx=i,
-                        has_chunked_content=has_chunked_content,
-                        doc_hash_values=slice_hash_values,
-                    )
-                    slice_embeddings.append(embeddings_result)
-                    slice_doc_id_hashes.append(doc_hash)
-                    metadata[Metrics.External.PROCESSED_DOCS] += 1
-                except Exception as exc:
-                    logger.error(
-                        f"Failed embeddings for {doc_name}: {exc!s}",
-                        extra=self.common_log_arguments,
-                    )
-                    self.record_failed_document(
-                        metadata=metadata,
-                        doc_id=doc_id,
-                        doc_name=doc_name,
-                        reason=f"Embedding failure: {exc!s}",
-                    )
-                    slice_remove_idx.append(i)
-
-            # Cleanup failed rows from this slice
-            if slice_remove_idx:
-                slice_table = OperatorUtils.remove_rows(table=slice_table, remove_row_idx=slice_remove_idx)
-
-            # Add results to this slice
-            if slice_embeddings:
-                # Check each row to determine storage format based on chunk storage
-                # If chunks are stored as files for a row, embeddings must also be stored as files
-                embeddings_column_data: list[dict[str, str] | list[float] | list[list[float]]] = []
-                embeddings_dir = None
-                doc_ids = None
-                chunks_column_data = None
-
-                # Get chunks column data if it exists
-                if has_chunked_content:
-                    chunks_column_data = slice_table[OperatorConstants.Columns.CHUNKED_CONTENT].to_pylist()
-
-                # Get document IDs for filename generation
-                if OperatorConstants.Columns.ID in slice_table.column_names:
-                    doc_ids = slice_table[OperatorConstants.Columns.ID].to_pylist()
-
-                for idx, embeddings in enumerate(slice_embeddings):
-                    # Determine if this row's chunks are stored as files
-                    row_chunks_as_files = False
-                    if chunks_column_data and idx < len(chunks_column_data):
-                        chunk_data = chunks_column_data[idx]
-                        if isinstance(chunk_data, dict) and DocpipeConstants.CHUNKS_MEMMAP_FILE in chunk_data:
-                            row_chunks_as_files = True
-
-                    # Store embeddings as files if chunks are stored as files
-                    if row_chunks_as_files:
-                        # Lazy initialization of embeddings directory
-                        # Include embeddings column name to segregate multi-model embeddings
-                        if embeddings_dir is None:
-                            embeddings_dir = get_data_path(
-                                sub_dir=f"/{self.job_id}/{self.job_run_id}/temp_data/embeddings/{self.embeddings_column}"
-                            )
-
-                        # Generate filename using sanitized document ID
-                        if doc_ids and idx < len(doc_ids):
-                            from docpipe.core.operators.operator_utils import sanitize_doc_id_for_filename
-
-                            sanitized_doc_id = sanitize_doc_id_for_filename(doc_ids[idx])
-                            embeddings_filename = f"{sanitized_doc_id}_embeddings.bin"
-                        else:
-                            # Fallback to UUID if doc_id not available
-                            embeddings_filename = f"embeddings_{uuid.uuid4().hex}.bin"
-                        embeddings_filepath = str(Path(embeddings_dir) / embeddings_filename)
-
-                        # Write embeddings to memmap file
-                        write_content_to_file(content_list=embeddings, filepath=embeddings_filepath)
-
-                        # Store file path reference
-                        embeddings_column_data.append({DocpipeConstants.EMBEDDINGS_MEMMAP_FILE: embeddings_filepath})
-
-                        logger.debug(
-                            f"Wrote embeddings to memmap file: {embeddings_filepath}",
-                            extra=self.common_log_arguments,
-                        )
-                    else:
-                        # Store embeddings in-memory
-                        embeddings_column_data.append(embeddings)
-
-                # Add embeddings column with mixed storage format
-                slice_table = TransformUtils.add_column(
-                    table=slice_table, name=self.embeddings_column, content=embeddings_column_data
-                )
-                logger.info(
-                    f"Added embeddings column '{self.embeddings_column}' to table",
-                    extra=self.common_log_arguments,
-                )
-                # Add/Update hashes
-                if self.doc_id_hash_column in slice_table.column_names:
-                    slice_table = slice_table.drop_columns([self.doc_id_hash_column])
-                    slice_table = TransformUtils.add_column(
-                        table=slice_table, name=self.doc_id_hash_column, content=slice_doc_id_hashes
-                    )
-
-                processed_tables.append(slice_table)
-
-                # Log memory-efficient completion
-                logger.info(
-                    "Slice %d/%d complete: processed %d docs, failed %d docs",
-                    slice_num,
-                    total_slices,
-                    len(slice_embeddings),
-                    len(slice_remove_idx),
-                    extra=self.common_log_arguments,
-                )
+            processed_slice = self._process_slice(
+                slice_table=slice_table,
+                slice_num=slice_num,
+                total_slices=total_slices,
+                has_chunked_content=has_chunked_content,
+                metadata=metadata,
+            )
+            if processed_slice is not None:
+                processed_tables.append(processed_slice)
 
         # Final assembly
         final_table = pa.concat_tables(processed_tables) if processed_tables else table.slice(0, 0)
 
-        # Update node status based on failures
-        if metadata[Metrics.External.FAILED_DOCS_COUNT] > 0:
-            current_status = metadata[Metrics.External.NODE_STATUS]
-            metadata[Metrics.External.NODE_STATUS] = OperatorUtils.merge_status(
-                current_status if isinstance(current_status, ExecutionStatus) else ExecutionStatus(current_status),
-                ExecutionStatus.COMPLETED_WITH_ERRORS,
-            ).value
+        self._finalize_node_status(metadata=metadata)
 
         logger.info(
             f"Embeddings generation completed. Processed: {metadata[Metrics.External.PROCESSED_DOCS]}, "

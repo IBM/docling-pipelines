@@ -90,7 +90,8 @@ class MicrosoftGraphLoader(BaseLoader):
         try:
             import msal
         except ImportError:
-            raise ImportError("msal package not found. Install with: pip install msal") from None
+            msg = "msal package not found. Install with: pip install msal"
+            raise ImportError(msg) from None
         app = msal.ConfidentialClientApplication(
             self.client_id,
             authority=f"{MICROSOFT_LOGIN_URL}/{self.tenant_id}",
@@ -99,13 +100,13 @@ class MicrosoftGraphLoader(BaseLoader):
         result = app.acquire_token_for_client(scopes=[MICROSOFT_GRAPH_SCOPE])
 
         if not isinstance(result, dict):
-            raise TypeError(f"Unexpected response type: {type(result).__name__}")
+            msg = f"Unexpected response type: {type(result).__name__}"
+            raise TypeError(msg)
 
         access_token = result.get("access_token")
         if not access_token:
-            raise ValueError(
-                f"Failed to acquire Microsoft Graph token: {result.get('error')} - {result.get('error_description')}"
-            )
+            msg = f"Failed to acquire Microsoft Graph token: {result.get('error')} - {result.get('error_description')}"
+            raise ValueError(msg)
 
         self._token = access_token
         return access_token
@@ -231,7 +232,8 @@ class MicrosoftGraphLoader(BaseLoader):
                 )
                 folder_item_id = data.get("id")
             except Exception as e:
-                raise ValueError(f"Folder path '{self.folder_path}' not found in drive '{self.drive_id}': {e!s}") from e
+                msg = f"Folder path '{self.folder_path}' not found in drive '{self.drive_id}': {e!s}"
+                raise ValueError(msg) from e
 
         files = self._list_files(folder_item_id=folder_item_id)
 
@@ -290,7 +292,7 @@ class IngestSourceOperator(AbstractOperator):
     category: OperatorCategory = OperatorCategory.Ingest
     owner = DocpipeConstants.OWNER_DOCPIPE
 
-    def validate(self, errors: list, warnings: list, available_features: list):
+    def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """
         Validate operator configuration including adapter-specific requirements.
 
@@ -306,8 +308,20 @@ class IngestSourceOperator(AbstractOperator):
         # Call parent validation for required features
         super().validate(errors=errors, warnings=warnings, available_features=available_features)
 
-        # Validate adapter configuration for adapter-managed providers
-        if self.provider in ADAPTER_MANAGED_PROVIDERS:
+        # Validate adapter configuration for adapter-managed providers.
+        # Skip when credentials came from a vault reference — either still a
+        # vault:// string (execution path) or already replaced with the
+        # {"__vault_mock__": True} sentinel by the flow validator sanitizer.
+        # In both cases the real credentials are unavailable here and will be
+        # resolved at execution time.
+        # When credentials is a plain dict, run validation so missing fields
+        # are caught as early as possible.
+        from docpipe.integrations.secrets.secret_provider import is_vault_reference
+
+        credentials_is_vault = is_vault_reference(self.credentials) or (
+            isinstance(self.credentials, dict) and self.credentials.get("__vault_mock__")
+        )
+        if self.provider in ADAPTER_MANAGED_PROVIDERS and not credentials_is_vault:
             try:
                 # Attempt to build adapter config to trigger Pydantic validation
                 # This will catch missing required fields like secret_key
@@ -338,8 +352,8 @@ class IngestSourceOperator(AbstractOperator):
         """
         super().__init__(config)
         self.provider: str = config.get(PROVIDER_KEY, "").lower()
-        self.connection_params: dict[str, Any] = config.get(CONNECTION_PARAMS_KEY, {})
-        self.credentials: dict[str, Any] = config.get(CREDENTIALS_KEY, {})
+        self.connection_params: dict[str, Any] = config.get(CONNECTION_PARAMS_KEY) or {}
+        self.credentials: dict[str, Any] = config.get(CREDENTIALS_KEY) or {}
         self.max_files: int = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
 
         # Get supported extensions
@@ -383,19 +397,21 @@ class IngestSourceOperator(AbstractOperator):
         if self.included_extensions:
             unsupported = set(self.included_extensions) - set(self.supported_extensions)
             if unsupported:
-                raise ValueError(
+                msg = (
                     f"Unsupported file extensions in include_filter: {', '.join(sorted(unsupported))}. "
                     f"Supported extensions: {', '.join(sorted(self.supported_extensions))}"
                 )
+                raise ValueError(msg)
 
         # Validate excluded_extensions are subset of supported extensions
         if self.excluded_extensions:
             unsupported = set(self.excluded_extensions) - set(self.supported_extensions)
             if unsupported:
-                raise ValueError(
+                msg = (
                     f"Unsupported file extensions in exclude_filter: {', '.join(sorted(unsupported))}. "
                     f"Supported extensions: {', '.join(sorted(self.supported_extensions))}"
                 )
+                raise ValueError(msg)
 
     def transform(self, table: pa.Table | None) -> tuple[list[pa.Table], dict[str, Any]]:
         """
@@ -882,17 +898,19 @@ class IngestSourceOperator(AbstractOperator):
         # 1. Amazon S3 / IBM COS (S3 Compatible), Microsoft SharePoint, OneDrive, Google Drive , Box & Web
         # These providers now use the hexagonal architecture adapter
         if self.provider in ADAPTER_MANAGED_PROVIDERS:
-            raise ValueError(
+            msg = (
                 f"{self.provider} provider should use _process_documents_from_adapter(). "
                 "This provider is registered with SourceAdapterFactory and should be handled automatically."
             )
+            raise ValueError(msg)
 
         # 2. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
         if self.provider == "custom":
             loader_path = self.connection_params.get("loader_class_path")
             if not loader_path:
-                raise ValueError("Provider is 'custom' but 'loader_class_path' is missing.")
+                msg = "Provider is 'custom' but 'loader_class_path' is missing."
+                raise ValueError(msg)
 
             # Dynamic Import: "my_package.loaders.FileNetLoader"
             module_name: str
@@ -905,7 +923,31 @@ class IngestSourceOperator(AbstractOperator):
             init_kwargs: dict[str, Any] = {**self.connection_params, **self.credentials}
             return loader_class(**init_kwargs)
 
-        raise ValueError(f"Provider '{self.provider}' is not supported.")
+        msg = f"Provider '{self.provider}' is not supported."
+        raise ValueError(msg)
+
+    @staticmethod
+    def _get_provider_schemas() -> dict[str, Any]:
+        """Return provider-specific connection field schemas in docpipe metadata vocabulary."""
+        from docpipe.core.operators.ingest.adapters.outbound.sources.box.config import BoxSourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.filesystem.config import FilesystemSourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.config import OneDriveSourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.s3.config import S3SourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.sharepoint.config import SharePointSourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.web.config import WebPageSourceConfig
+
+        s3_schema = OperatorUtils.model_schema_to_docpipe(schema=S3SourceConfig.model_json_schema())
+        return {
+            "filesystem": OperatorUtils.model_schema_to_docpipe(schema=FilesystemSourceConfig.model_json_schema()),
+            "s3": s3_schema,
+            "ibm_cos": s3_schema,
+            "google_drive": OperatorUtils.model_schema_to_docpipe(schema=GoogleDriveSourceConfig.model_json_schema()),
+            "onedrive": OperatorUtils.model_schema_to_docpipe(schema=OneDriveSourceConfig.model_json_schema()),
+            "sharepoint": OperatorUtils.model_schema_to_docpipe(schema=SharePointSourceConfig.model_json_schema()),
+            "box_driver": OperatorUtils.model_schema_to_docpipe(schema=BoxSourceConfig.model_json_schema()),
+            "web": OperatorUtils.model_schema_to_docpipe(schema=WebPageSourceConfig.model_json_schema()),
+        }
 
     @staticmethod
     def get_metadata() -> dict[str, Any]:
@@ -997,12 +1039,18 @@ class IngestSourceOperator(AbstractOperator):
                     OperatorConstants.Config.DESCRIPTION: "Provider-specific connection parameters (bucket, prefix, folder_id, etc.)",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.PROVIDERS: IngestSourceOperator._get_provider_schemas(),
                 },
                 CREDENTIALS_KEY: {
                     OperatorConstants.Columns.NAME: "Credentials",
-                    OperatorConstants.Config.DESCRIPTION: "Authentication credentials for the provider",
-                    OperatorConstants.Config.REQUIRED: True,
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "Authentication credentials for the provider. Optional — credential fields "
+                        "can be passed directly inside connection_params instead."
+                    ),
+                    OperatorConstants.Config.DEFAULT: {},
+                    OperatorConstants.Config.REQUIRED: False,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+                    OperatorConstants.Config.SENSITIVE: True,
                 },
                 MAX_FILES_KEY: {
                     OperatorConstants.Columns.NAME: "Max Files",

@@ -2,17 +2,18 @@
 
 ## Overview
 
-The Milvus adapter provides vector database capabilities for the docpipe project, supporting both standalone Milvus deployments and IBM watsonx.data (wx.data) managed Milvus instances. This integration follows the hexagonal architecture pattern, implementing the `VectorStorePort` interface for seamless integration with the VectorDBOperator.
+The Milvus adapter provides vector database capabilities for the docpipe project, supporting Milvus Lite (embedded local `.db` file), standalone Milvus deployments, and IBM watsonx.data (wx.data) managed Milvus instances. This integration follows the hexagonal architecture pattern, implementing the `VectorStorePort` interface for seamless integration with the VectorDBOperator.
 
 ## Features
 
-- **Dual Deployment Support**: Works with both standalone Milvus and wx.data
+- **Milvus Lite (container-free)**: Run locally without Docker, Podman, or Kubernetes — data persists to a local `.db` file
+- **Dual Deployment Support**: Works with standalone Milvus and wx.data in addition to Lite
 - **Multiple Index Types**: HNSW, IVF_FLAT, IVF_SQ8, IVF_PQ, FLAT, DISKANN, AUTOINDEX, SPARSE_INVERTED_INDEX, SPARSE_WAND
 - **Flexible Similarity Metrics**: L2, Inner Product (IP), COSINE, BM25 (only for sparse vectors)
 - **Dense and Sparse Vectors**: Support for both dense embeddings and BM25 sparse vectors
 - **Batch Processing**: Efficient bulk operations with size-aware batching
 - **Automatic Schema Management**: Dynamic collection creation based on feature mappings
-- **Authentication Options**: Token-based (wx.data) or username/password (standalone)
+- **Authentication Options**: Token-based (wx.data), username/password (standalone), or local path (Lite)
 
 ## Architecture
 
@@ -51,12 +52,52 @@ MilvusAdapter (VectorStorePort)
 
 ### Authentication Types
 
-Milvus adapter supports four authentication types via the `auth_type` parameter:
+Milvus adapter supports five authentication types via the `auth_type` parameter:
 
-1. **standalone**: Local Milvus with optional username/password
-2. **grpc**: IBM wx.data with gRPC (requires username with `ibmlhapikey_` prefix and API key as password)
-3. **uri**: Pre-constructed URI with embedded API key
-4. **token**: IAM token-based (constructs URI internally from host/port/username/token)
+1. **lite**: Milvus Lite — embedded local database, no external service required. `uri` must be a local `.db` file path. Only `FLAT` index type is supported.
+2. **standalone**: Local Milvus with optional username/password
+3. **grpc**: IBM wx.data with gRPC (requires username with `ibmlhapikey_` prefix and API key as password)
+4. **uri**: Pre-constructed URI with embedded API key
+5. **token**: IAM token-based (constructs URI internally from host/port/username/token)
+
+### Milvus Lite (Container-Free Local)
+
+No Docker, Podman, or Kubernetes required. Data is persisted to a local `.db` file.
+
+**Installation:** `milvus-lite` is included as a core dependency — no separate installation needed.
+
+**Constraints:**
+- Only `FLAT` index type is supported (other index types are rejected at initialisation with an actionable error)
+- Set `enable_micro_batching: false` in `global_config` — Milvus Lite holds a single-process file lock
+- Not intended for production-scale workloads; use standalone or remote Milvus for those
+
+```json
+{
+  "type": "vectordb",
+  "name": "store_locally",
+  "config": {
+    "provider": "milvus",
+    "doc_id_column": "doc_id_hash",
+    "create_index": true,
+    "add_sparse_vector": false,
+    "provider_config": {
+      "collection_name": "documents",
+      "auth_type": "lite",
+      "uri": "./data/milvus/documents.db",
+      "index_type": "FLAT",
+      "metric_type": "COSINE",
+      "batch_size": 100
+    }
+  },
+  "depends_on": ["embed"]
+}
+```
+
+**Path resolution:** relative paths (e.g. `./data/milvus/docs.db`) are resolved from the working directory where `docling-pipelines` is invoked. The parent directory is created automatically if it does not exist. Use an absolute path to avoid ambiguity.
+
+**Persistence:** data survives process restart — reopen the same `.db` file path to query or extend the collection.
+
+**Migration path:** swap `auth_type: "lite"` for `auth_type: "standalone"` (and add `host`/`port`) to move from Milvus Lite to a standalone deployment without any other flow changes.
 
 ### Standalone Milvus
 
@@ -251,27 +292,28 @@ Milvus adapter supports four authentication types via the `auth_type` parameter:
 
 | Parameter   | Type    | Required         | Default   | Description |
 |-------------|---------|------------------|-----------|-------------|
-| `auth_type` | string  | Yes              | -         | Authentication type: `standalone`, `grpc`, `uri`, or `token` |
-| `host`      | string  | Conditional*     | -         | Milvus server host |
-| `port`      | integer | Conditional*     | 19530     | Milvus server port |
-| `uri`       | string  | Conditional**    | -         | Full connection URI (for `uri` auth_type) |
+| `auth_type` | string  | Yes              | -         | Authentication type: `lite`, `standalone`, `grpc`, `uri`, or `token` |
+| `uri`       | string  | Conditional*     | -         | Local `.db` file path (for `lite`) or full remote URI (for `uri` auth_type) |
+| `host`      | string  | Conditional**    | -         | Milvus server host |
+| `port`      | integer | Conditional**    | 19530     | Milvus server port |
 | `token`     | string  | Conditional***   | -         | IAM token (for `token` auth_type) |
 | `username`  | string  | Conditional****  | -         | Username for authentication |
 | `password`  | string  | Conditional***** | -         | Password/API key for authentication |
-| `database`  | string  | No               | "default" | Database name |
-| `secure`    | bool    | yes              | false     | Database name |
+| `database`  | string  | No               | "default" | Database name (not used for `lite`) |
+| `secure`    | bool    | No               | false     | Enable TLS/SSL (not used for `lite`) |
 
 #### Auth Type Requirements
 
-| auth_type | Required Parameters | Description |
-|-----------|-------------------|-------------|
-| `standalone` | `host`, `port` | Local Milvus. Optional: `username`, `password` |
-| `grpc` | `host`, `port`, `username`, `password` | IBM wx.data with gRPC. Username must have `ibmlhapikey_` prefix, password is API key |
-| `uri` | `uri` | Pre-constructed URI with embedded API key (format: `https://ibmlhapikey_<username>:<api-key>@<host>:<port>`) |
-| `token` | `host`, `port`, `username`, `token` | IAM token-based. Constructs URI internally (format: `https://ibmlhtoken_<username>:<token>@<host>:<port>`) |
+| auth_type    | Required Parameters                    | Description |
+|--------------|----------------------------------------|-------------|
+| `lite`       | `uri` (local `.db` path)               | Milvus Lite — embedded local database. No external service. Only `FLAT` index supported. |
+| `standalone` | `host`, `port`                         | Local Milvus. Optional: `username`, `password` |
+| `grpc`       | `host`, `port`, `username`, `password` | IBM wx.data with gRPC. Username must have `ibmlhapikey_` prefix, password is API key |
+| `uri`        | `uri`                                  | Pre-constructed URI with embedded API key (format: `https://ibmlhapikey_<username>:<api-key>@<host>:<port>`) |
+| `token`      | `host`, `port`, `username`, `token`    | IAM token-based. Constructs URI internally (format: `https://ibmlhtoken_<username>:<token>@<host>:<port>`) |
 
-*Required for `standalone`, `grpc`, and `token` auth types
-**Required for `uri` auth_type
+*Required for `lite` and `uri` auth types
+**Required for `standalone`, `grpc`, and `token` auth types
 ***Required for `token` auth_type
 ****Required for `grpc` and `token` auth types
 *****Required for `grpc` auth_type (should be API key)
@@ -809,7 +851,21 @@ uv run pytest tests/unit/operators/vectordb/test_milvus_client.py -v
 
 ### Integration Tests
 
-Requires running Milvus instance:
+#### Milvus Lite (no external service required)
+
+The full end-to-end integration test (ingest → extract → chunk → embed → Milvus Lite) requires no running server:
+
+```bash
+source .venv/bin/activate
+pytest tests/integration/test_ingest_extract_chunk_embed_milvus_lite.py -v
+```
+
+This test covers:
+- `test_full_pipeline_with_feature_mappings` — E2E flow; verifies row count, schema fields, and content stored correctly
+- `test_incremental_reindex_no_duplicates` — runs twice against the same `.db`; confirms row count is stable (no duplicates)
+- `test_unsupported_index_type_rejected` — confirms non-FLAT index types are rejected at initialisation with a clear error
+
+#### Standalone Milvus (requires running instance)
 
 ```bash
 # Start Milvus (Docker)

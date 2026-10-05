@@ -20,6 +20,13 @@ PREFECT_API_URL = "PREFECT_API_URL"
 PREFECT_DEBUG = "PREFECT_DEBUG"
 # Set to "server" to use persistent Prefect server with PostgreSQL backend
 PREFECT_MODE = "PREFECT_MODE"
+# Set to "true" (server mode only) to ship DOCPIPE logs to the Prefect API so they
+# appear on Task/Flow Runs in the UI.  Off by default -- see set_prefect_env_variables.
+PREFECT_LOG_TO_API = "PREFECT_LOG_TO_API"
+PREFECT_LOGGING_TO_API_ENABLED = "PREFECT_LOGGING_TO_API_ENABLED"
+# Set to "file" to keep the ephemeral Prefect database on disk under PREFECT_HOME
+# instead of in the process heap.  Default "memory" preserves existing behaviour.
+PREFECT_EPHEMERAL_DB = "PREFECT_EPHEMERAL_DB"
 
 
 def set_prefect_env_variables() -> None:
@@ -41,10 +48,24 @@ def set_prefect_env_variables() -> None:
     os.environ[PREFECT_SERVER_ANALYTICS_ENABLED] = "false"
     os.environ[PREFECT_SERVER_EPHEMERAL_STARTUP_TIMEOUT_SECONDS] = "120"
 
-    # Route custom DOCPIPE application logs into Prefect Task/Flow Runs natively
-    os.environ["PREFECT_LOGGING_EXTRA_LOGGERS"] = "DOCPIPE"
-
     prefect_mode = os.getenv(PREFECT_MODE, "ephemeral").lower()
+
+    # Shipping logs to the Prefect API is off unless explicitly enabled, and only
+    # has a purpose in server mode -- in ephemeral mode the target is an in-memory
+    # SQLite that dies with the process, so the traffic buys nothing.
+    #
+    # Enable with PREFECT_LOG_TO_API=true when running against a real server and
+    # you want DOCPIPE logs attached to Task/Flow Runs in the UI.  Console logging
+    # is unaffected either way.
+    log_to_api = prefect_mode == "server" and os.getenv(PREFECT_LOG_TO_API, "false").lower() == "true"
+    if log_to_api:
+        # Route custom DOCPIPE application logs into Prefect Task/Flow Runs natively
+        os.environ["PREFECT_LOGGING_EXTRA_LOGGERS"] = "DOCPIPE"
+        os.environ[PREFECT_LOGGING_TO_API_ENABLED] = "True"
+        logger.info("Prefect API logging enabled (server mode, PREFECT_LOG_TO_API=true)")
+    else:
+        os.environ[PREFECT_LOGGING_TO_API_ENABLED] = "False"
+        os.environ.pop("PREFECT_LOGGING_EXTRA_LOGGERS", None)
 
     if prefect_mode == "server":
         # SERVER MODE: Use persistent Prefect server
@@ -73,12 +94,26 @@ def _configure_ephemeral_mode() -> None:
     logger = get_logger()
 
     if not os.getenv(PREFECT_DEBUG):
-        logger.info("Using Prefect ephemeral mode (in-memory SQLite)")
         # See https://github.com/PrefectHQ/prefect/issues/10188
         os.environ[PREFECT_API_SERVICES_FLOW_RUN_NOTIFICATIONS_ENABLED] = "False"
-        # Create a temporary directory for Prefect Home
-        os.environ[PREFECT_HOME] = tempfile.mkdtemp(prefix=PREFECT_HOME_PREFIX)
-        os.environ[PREFECT_API_DATABASE_CONNECTION_URL] = "sqlite+aiosqlite:///:memory:"
+        # Create a temporary directory for Prefect Home.  Keep the prefix —
+        # clean_up_prefect_home() refuses to delete anything without it.
+        prefect_home = tempfile.mkdtemp(prefix=PREFECT_HOME_PREFIX)
+        os.environ[PREFECT_HOME] = prefect_home
+
+        # Where Prefect keeps its flow runs, task runs, state transitions and
+        # logs.  In-memory means all of that lives in the process heap and is
+        # only released when the process exits — Prefect's own docs say
+        # in-memory SQLite "should only be used for simple tests".  Set
+        # PREFECT_EPHEMERAL_DB=file to write it under PREFECT_HOME instead,
+        # trading resident memory for disk (and page cache).
+        if os.getenv(PREFECT_EPHEMERAL_DB, "memory").lower() == "file":
+            db_url = f"sqlite+aiosqlite:///{prefect_home}/prefect.db"
+            logger.info("Using Prefect ephemeral mode (file-backed SQLite at %s)", prefect_home)
+        else:
+            db_url = "sqlite+aiosqlite:///:memory:"
+            logger.info("Using Prefect ephemeral mode (in-memory SQLite)")
+        os.environ[PREFECT_API_DATABASE_CONNECTION_URL] = db_url
     else:
         logger.info("Using Prefect debug mode (persistent SQLite)")
 

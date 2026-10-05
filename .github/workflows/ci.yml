@@ -38,25 +38,68 @@ jobs:
         run: sudo apt-get install -y libldap2-dev libsasl2-dev
 
       - name: Install Dependencies
-        run: uv sync --extra dev
+        run: uv pip install --system -e ".[dev]"
 
       - name: Check Formatting (Ruff)
         run: |
           MODIFIED=$(git diff --name-only --diff-filter=ACMR $(git merge-base HEAD origin/main)..HEAD | grep '\.py$' || true)
           if [ -z "$MODIFIED" ]; then echo "No modified Python files."; exit 0; fi
-          uv run ruff format --check $MODIFIED
+          python -m ruff format --check $MODIFIED
 
       - name: Lint Code (Ruff)
         run: |
           MODIFIED=$(git diff --name-only --diff-filter=ACMR $(git merge-base HEAD origin/main)..HEAD | grep '\.py$' || true)
           if [ -z "$MODIFIED" ]; then echo "No modified Python files."; exit 0; fi
-          uv run ruff check $MODIFIED
+          python -m ruff check $MODIFIED
 
       - name: Static Type Checking (Mypy)
         run: |
           MODIFIED=$(git diff --name-only --diff-filter=ACMR $(git merge-base HEAD origin/main)..HEAD | grep '\.py$' | grep -v '^examples/' || true)
           if [ -z "$MODIFIED" ]; then echo "No modified Python files."; exit 0; fi
-          uv run mypy --config-file=pyproject.toml $MODIFIED
+          python -m mypy --config-file=pyproject.toml $MODIFIED
+
+  frontend-test:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(join(github.event.commits.*.modified, ','), 'frontend/') ||
+      contains(join(github.event.commits.*.added, ','), 'frontend/') ||
+      github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        run: npm ci --prefix frontend
+
+      - name: ESLint Check (modified files)
+        env:
+          CHANGE_TARGET_BRANCH: ${{ github.base_ref || 'main' }}
+        run: |
+          chmod +x scripts/check_modified_frontend_files.sh
+          ./scripts/check_modified_frontend_files.sh
+
+      - name: Run Frontend Tests with Coverage
+        run: npm run test:coverage --prefix frontend
+
+      - name: Upload Frontend Coverage Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: frontend-coverage-report
+          path: frontend/coverage/
+          retention-days: 14
 
   test:
     name: Test Suite (Python ${{ matrix.python-version }})
@@ -91,13 +134,13 @@ jobs:
         run: sudo apt-get install -y libldap2-dev libsasl2-dev
 
       - name: Install Dependencies
-        run: uv sync --extra dev
+        run: uv pip install --system -e ".[dev]"
 
       - name: Run Unit Tests
-        run: uv run pytest tests/unit -m "unit and not integration" -v --cov=src --cov-report=xml --cov-report=term-missing
+        run: python -m pytest tests/unit -m "unit and not integration" -v --cov=src --cov-report=xml --cov-report=term-missing
 
       - name: Run CLI Tests
-        run: uv run pytest tests/test_docpipe_cli.py -v
+        run: python -m pytest tests/test_docpipe_cli.py -v
 
       - name: Upload Test Coverage Artifact
         uses: actions/upload-artifact@v4

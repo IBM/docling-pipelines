@@ -21,16 +21,21 @@ def _find_project_root() -> Path:
     Examples:
         Container: /opt/app-root/src/docpipe -> /opt/app-root
         Local: /path/to/project/src/docpipe -> /path/to/project
+        Library consumer: process cwd when docling-pipelines-config.yaml is present there
     """
     current = Path(__file__).resolve()
-    # Search upward for docpipe package structure
+    # 1. Walk up — works for standalone docpipe project
     for parent in [current, *list(current.parents)]:
         # Check if this directory has the docpipe package structure
         if (parent / "integrations").exists() and (parent / "storage").exists() and (parent / "core").exists():
             # Return two levels up: docpipe -> src -> project_root
             return parent.parent.parent
 
-    # Last resort: use fixed parent count
+    # 2. Library consumer case — check the process working directory
+    if (Path.cwd() / "docling-pipelines-config.yaml").exists():
+        return Path.cwd()
+
+    # 3. Last resort: use fixed parent count
     # constants.py -> constants -> core -> docpipe -> src -> project_root
     return Path(__file__).resolve().parents[5]
 
@@ -329,6 +334,55 @@ class EnvironmentVariables:
     DOCPIPE_POSTGRES_USER = "DOCPIPE_POSTGRES_USER"
     DOCPIPE_POSTGRES_PASSWORD = "DOCPIPE_POSTGRES_PASSWORD"  # pragma: allowlist secret  # nosec B105
 
+    # OpenLineage Configuration
+    DOCPIPE_LINEAGE_ENABLED = "DOCPIPE_LINEAGE_ENABLED"
+    DOCPIPE_LINEAGE_MODE = "DOCPIPE_LINEAGE_MODE"
+    DOCPIPE_LINEAGE_NAMESPACE = "DOCPIPE_LINEAGE_NAMESPACE"
+    DOCPIPE_LINEAGE_PRODUCER = "DOCPIPE_LINEAGE_PRODUCER"
+    DOCPIPE_LINEAGE_STRICT = "DOCPIPE_LINEAGE_STRICT"
+
+
+class LineageConstants:
+    """Constants and defaults for OpenLineage integration."""
+
+    # Emission modes
+    MODE_FLOW = "flow"
+    MODE_OPERATOR = "operator"
+
+    # Environment-configured values with defaults
+    DEFAULT_ENABLED = os.getenv(EnvironmentVariables.DOCPIPE_LINEAGE_ENABLED, "false")
+    DEFAULT_MODE = os.getenv(EnvironmentVariables.DOCPIPE_LINEAGE_MODE, MODE_FLOW)
+    DEFAULT_NAMESPACE = os.getenv(EnvironmentVariables.DOCPIPE_LINEAGE_NAMESPACE, "docpipe://local")
+    DEFAULT_PRODUCER = os.getenv(
+        EnvironmentVariables.DOCPIPE_LINEAGE_PRODUCER, "https://github.com/IBM/docling-pipelines"
+    )
+    DEFAULT_STRICT = os.getenv(EnvironmentVariables.DOCPIPE_LINEAGE_STRICT, "false")
+
+    # Job and processing types
+    JOB_TYPE_FLOW = "FLOW"
+    JOB_TYPE_OPERATOR = "OPERATOR"
+    PROCESSING_TYPE_BATCH = "BATCH"
+    INTEGRATION_NAME = "docling-pipelines"
+
+    # Schema URLs
+    JOB_TYPE_SCHEMA_URL = "https://openlineage.io/spec/facets/JobTypeJobFacet.json"
+    SCHEMA_DATASET_FACET_URL = "https://openlineage.io/spec/facets/SchemaDatasetFacet.json"
+    OUTPUT_STATISTICS_FACET_URL = "https://openlineage.io/spec/facets/OutputStatisticsOutputDatasetFacet.json"
+    ERROR_MESSAGE_FACET_URL = "https://openlineage.io/spec/facets/ErrorMessageRunFacet.json"
+    NOMINAL_TIME_FACET_URL = "https://openlineage.io/spec/facets/1-0-0/NominalTimeRunFacet.json"
+    PARENT_RUN_FACET_URL = "https://openlineage.io/spec/facets/1-0-0/ParentRunFacet.json"
+    DOCUMENTATION_JOB_FACET_URL = "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json"
+
+    # Custom facet schema URLs
+    DOCPIPE_STATUS_FACET_URL = "https://github.com/IBM/docling-pipelines/schemas/docpipe-status-facet-1-0-0.json"
+    DOCPIPE_PROGRESS_FACET_URL = "https://github.com/IBM/docling-pipelines/schemas/docpipe-progress-facet-1-0-0.json"
+    DOCPIPE_NODE_STATS_FACET_URL = (
+        "https://github.com/IBM/docling-pipelines/spec/facets/1-0-0/DocpipeNodeStatsFacet.json"
+    )
+    DOCPIPE_NODE_STATUS_FACET_URL = (
+        "https://github.com/IBM/docling-pipelines/spec/facets/1-0-0/DocpipeNodeStatusFacet.json"
+    )
+
 
 class ServiceConstants:
     """Constants for external service configurations"""
@@ -521,7 +575,6 @@ class OrchestratorType:
     """Orchestratortype."""
 
     PYTHON = "python"
-    SPARK = "spark"
 
 
 class DataSourceType:

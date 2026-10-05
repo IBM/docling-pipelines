@@ -1,0 +1,83 @@
+@use '@carbon/react/scss/type';
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+
+.container {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $spacing-03;
+  width: 100%;
+}
+
+.labelSection {
+  display: flex;
+  align-items: center;
+  @include type.type-style('label-01');
+
+  :global(.cds--label),
+  :global(.cds--definition-tooltip) {
+    margin-bottom: 0 !important;
+  }
+
+  // If labelComponent passed has a wrapper with margin-bottom (e.g. common.labelWithTooltip)
+  > div {
+    margin-bottom: 0 !important;
+  }
+}
+
+.label {
+  @include type.type-style('label-01');
+  color: $text-secondary;
+}
+
+.toggleWrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: $spacing-03;
+
+  :global(.cds--toggle) {
+    min-height: auto;
+    margin: 0;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  :global(.cds--toggle__appearance) {
+    display: inline-flex;
+    align-items: center;
+    gap: $spacing-02;
+  }
+
+  :global(.cds--toggle__switch) {
+    margin: 0;
+  }
+}
+
+.toggleLabel {
+  @include type.type-style('label-01');
+  color: $text-secondary;
+  white-space: nowrap;
+}
+
+.vaultRefRow {
+  display: flex;
+  align-items: flex-start;
+  gap: $spacing-03;
+  width: 100%;
+
+  :global(.cds--form-item) {
+    flex: 1;
+  }
+}
+
+.vaultTag {
+  margin-top: 0.625rem;
+  flex-shrink: 0;
+}

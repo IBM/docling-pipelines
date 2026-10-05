@@ -372,7 +372,8 @@ class TestFlowSummary:
 
         reporter.print_flow_summary(job_stats=sample_job_stats, dag_nodes=dag_nodes)
 
-        assert mock_logger.info.call_count > 0
+        # sample_job_stats has failed_docs=1, so output routes to logger.error
+        assert mock_logger.error.call_count > 0
 
     @patch("docpipe.utils.infrastructure.flow_execution_reporter.logger")
     def test_print_operator_summary_table_respects_dag_order(self, mock_logger, reporter):
@@ -404,9 +405,11 @@ class TestFlowSummary:
 
         reporter._print_operator_summary_table(node_stats, dag_nodes)
 
-        calls = [call[0][0] for call in mock_logger.info.call_args_list]
-        first_idx = next(i for i, call in enumerate(calls) if "first" in str(call))
-        second_idx = next(i for i, call in enumerate(calls) if "second" in str(call))
+        # No failures — all output routes to logger.info; check DAG order is preserved.
+        # Rows are logged with %s-style args, so search all args of each call.
+        calls = mock_logger.info.call_args_list
+        first_idx = next(i for i, c in enumerate(calls) if "first" in str(c))
+        second_idx = next(i for i, c in enumerate(calls) if "second" in str(c))
         assert first_idx < second_idx
 
 

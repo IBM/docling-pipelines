@@ -1,0 +1,35 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+
+// White title band — ~88px tall (Figma): no exact token; kept as px since it's a design spec value
+.titleZone {
+  background-color: $layer-01; // white
+  height: $spacing-12;
+  display: flex;
+  align-items: center;
+  padding: 0 $spacing-07; // 32px left — matches Figma
+  border-bottom: 1px solid $border-subtle-01;
+}
+
+.title {
+  @include type-style('heading-05');
+  margin: 0;
+}
+
+// Grey content zone — fills all remaining viewport height
+.contentZone {
+  background-color: $background;
+  flex: 1; // takes remaining height since PageLayout fullBleed is a flex column
+  position: relative;
+  padding: $spacing-07; // 32px left/right breathing room on both states
+}
+
+// Centres empty/error states in the zone without affecting the table layout.
+.centeredState {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

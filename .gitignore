@@ -81,6 +81,25 @@ examples/LDAP/.env
 
 # Local test artifacts with credentials
 test_flows/
+frontend/node_modules/
 
-## UV lock file
-uv.lock
+# Runtime-generated flow/project saves (UUID-named)
+sample_projects/
+sample_flows/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]-*.json
+
+# Frontend build artifacts (generated, not committed)
+src/docpipe/api/static/
+src/docpipe/api/bff/
+frontend/.vite/
+frontend/bff/
+sonar/
+skills/
+openspec/
+
+# Private execution-granularity benchmark inputs and generated artifacts
+benchmarks/
+benchmark_results/
+benchmarks/execution_granularity/study.local.json
+
+# Frontend test coverage output
+frontend/coverage/

@@ -5,7 +5,7 @@ interface, handling CRUD operations for document set metadata using KeyValueStor
 """
 
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Iterator
 
 from docpipe.core.assets.document_sets.domain.models.data_card import DataCard
@@ -286,7 +286,7 @@ class DuckDBDocumentSetMetadataRepository(DocumentSetMetadataRepository):
             document_sets = [self._dict_to_document_set(data=record) for record in all_records]
 
             # Sort by created_at descending (handle None values)
-            document_sets.sort(key=lambda ds: ds.created_at or datetime.min, reverse=True)
+            document_sets.sort(key=lambda ds: ds.created_at or datetime.min.replace(tzinfo=UTC), reverse=True)
 
             logger.debug(f"Retrieved {len(document_sets)} document sets")
             return document_sets

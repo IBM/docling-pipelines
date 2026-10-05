@@ -1,0 +1,72 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+
+// Modal width — matches Figma spec (671px)
+.modal {
+  inline-size: 671px;
+}
+
+.modalHeader {
+  padding-bottom: 0;
+}
+
+// Strip ModalBody default padding — zones manage their own spacing.
+// !important needed because Carbon sets padding directly on .cds--modal-content
+// with higher specificity than a CSS Module class selector.
+.modalBody {
+  padding-inline: 0 !important;
+  padding-top: 0 !important;
+}
+
+// ── Progress indicator ─────────────────────────────────────────────────
+// Carbon handles step state styling internally; only override spacing.
+
+.progressBar {
+  padding-inline: $spacing-05; // 16px — matches Carbon sm modal header left padding
+  padding-top: $spacing-05;    // 16px — breathing room below the modal header
+  margin-bottom: $spacing-07;  // 32px — clear gap before the form heading
+}
+
+// ── Form content ───────────────────────────────────────────────────────
+.formContent {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-06; // 16px between fields
+  padding: 0 $spacing-05 $spacing-07; // 16px sides (matches header), 32px bottom
+}
+
+.formHeading {
+  @include type-style('heading-03');
+  margin: 0;
+}
+
+// ── Footer — 2-1-1 grid ────────────────────────────────────────────────
+// Carbon ModalFooter is display:flex — override to grid
+.footer {
+  display: grid !important; // Carbon ModalFooter uses display:flex — override to grid for 2-1-1 layout
+  grid-template-columns: 2fr 1fr 1fr;
+  padding: 0 !important; // Carbon adds default padding to .cds--modal-footer; remove so buttons fill the grid
+  border-top: 1px solid $border-subtle-01;
+
+  > * {
+    min-height: $spacing-10; // 64px — Carbon large button height ($spacing-10)
+    max-inline-size: unset !important; // Carbon caps button width at 320px via .cds--btn; remove cap so buttons fill their column
+  }
+}
+
+// Cancel — ghost, left cell (2fr)
+.footerCancel {
+  justify-content: flex-start;
+  padding-left: $spacing-05 !important; // 16px — matches modal header left padding
+}
+
+// Back — secondary, middle cell (1fr)
+.footerBack {
+  border-left: 1px solid $border-subtle-01;
+}
+
+// Next / Create — primary, right cell (1fr)
+.footerPrimary {
+  border-left: 1px solid $border-subtle-01;
+}

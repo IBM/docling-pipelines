@@ -1,0 +1,212 @@
+/**
+ * @fileoverview NodeSummary styles — node details panel.
+ * Displays node header, metadata table, and execution details.
+ * Uses Carbon Design tokens for theming and spacing.
+ */
+
+@use '@carbon/react/scss/theme' as themes;
+@use '@carbon/react/scss/spacing' as spacing;
+@use '@carbon/react/scss/type' as type;
+
+.nodeSummaryContainer {
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* only .nodeSummaryContent scrolls */
+}
+
+.nodeSummaryHeader {
+  padding: spacing.$spacing-05;
+  border-bottom: spacing.$spacing-01 solid themes.$border-subtle-01;
+  background-color: themes.$layer-01;
+  flex-shrink: 0; /* never shrinks — content area scrolls instead */
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: spacing.$spacing-03;
+}
+
+.nodeIcon {
+  margin-right: spacing.$spacing-03;
+  fill: themes.$text-primary;
+}
+
+.titleContainer {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.nodeTitle {
+  @include type.type-style('heading-02');
+  margin: 0;
+  color: themes.$text-primary;
+}
+
+.nodeType {
+  @include type.type-style('body-01');
+  color: themes.$text-secondary;
+  margin-top: spacing.$spacing-01;
+}
+
+.nodeDescription {
+  @include type.type-style('body-01');
+  color: themes.$text-secondary;
+  margin-top: spacing.$spacing-03;
+}
+
+/* Base badge shape */
+.nodeStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: spacing.$spacing-02;
+  padding: spacing.$spacing-02 spacing.$spacing-03;
+  border-radius: spacing.$spacing-01;
+  @include type.type-style('label-01');
+  font-weight: 600;
+  margin-left: spacing.$spacing-03;
+}
+
+.statusIcon {
+  width: spacing.$spacing-04;
+  height: spacing.$spacing-04;
+  flex-shrink: 0;
+}
+
+/* Status badge variants */
+.statusCompleted {
+  background-color: rgba(themes.$support-success, 0.15);
+  color: themes.$text-secondary;
+
+  .statusIcon {
+    fill: themes.$support-success;
+  }
+}
+
+.statusFailed {
+  background-color: rgba(themes.$support-error, 0.1);
+  color: themes.$text-secondary;
+
+  .statusIcon {
+    fill: themes.$support-error;
+  }
+}
+
+/* Warning covers 3 API status values.
+   Class names must match PascalCase backend values with spaces stripped:
+   "CompletedWithErrors" → statusCompletedWithErrors  */
+.statusWarning,
+.statusCompletedWithErrors,
+.statusCompletedWithWarnings {
+  background-color: rgba(themes.$support-warning, 0.1);
+  color: themes.$text-secondary;
+
+  .statusIcon {
+    fill: themes.$support-warning;
+  }
+}
+
+/* Running/active states.
+   Backend sends "Canceling" (single-l) — covered by statusCanceling. */
+.statusRunning,
+.statusStarting,
+.statusCanceling {
+  background-color: rgba(themes.$interactive, 0.1);
+  color: themes.$text-secondary;
+
+  .statusIcon {
+    fill: themes.$interactive;
+  }
+}
+
+/* Idle/terminal-grey states — Pending added for pre-start phase. */
+.statusNotStarted,
+.statusQueued,
+.statusPending,
+.statusCancelled,
+.statusSkipped {
+  background-color: themes.$background-selected;
+  color: themes.$text-secondary;
+
+  .statusIcon {
+    fill: themes.$icon-secondary;
+  }
+}
+
+/* Content area */
+.nodeSummaryContent {
+  padding: spacing.$spacing-05;
+  flex: 1;
+  overflow: auto;
+}
+
+.sectionTitle {
+  @include type.type-style('body-01');
+  font-weight: 600;
+  color: themes.$text-primary;
+  display: flex;
+  align-items: center;
+  gap: spacing.$spacing-02;
+}
+
+.sectionTitleText {
+  @include type.type-style('body-01');
+  font-weight: 600;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: spacing.$spacing-03 0;
+  height: spacing.$spacing-09;
+}
+
+/* Carbon DataTable overrides — transparent header background, compact rows */
+.metadataTable {
+  width: 100%;
+}
+
+.tableHeader {
+  background-color: transparent !important;
+  @include type.type-style('label-01');
+  color: themes.$text-secondary;
+}
+
+/* Clickable doc count cell — count link + view icon side by side */
+.clickableDocCount {
+  display: flex;
+  align-items: center;
+  gap: spacing.$spacing-02;
+}
+
+/* Styled as a link, matching docling-pipelines-ui .docCountLink */
+.docCountLink {
+  @include type.type-style('body-compact-01');
+  color: themes.$link-primary;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: none;
+
+  &:hover {
+    color: themes.$link-primary-hover;
+    text-decoration: underline;
+  }
+}
+
+/* Remove extra padding from the ghost View button next to the count */
+.viewDocsButton {
+  /* stylelint-disable-next-line declaration-no-important */
+  min-block-size: auto !important;
+  padding: 0 !important;
+}
+
+/* Content padding inside the docs tearsheet */
+.tearsheetContent {
+  padding: spacing.$spacing-07;
+}

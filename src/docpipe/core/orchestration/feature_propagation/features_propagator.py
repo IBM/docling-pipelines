@@ -305,6 +305,7 @@ class FeaturePropagator:
                 available_for_vector_db=feature_def.get(available_for_vector_db_key, False),
                 mandatory_for_vector_db=feature_def.get(mandatory_for_vector_db_key, False),
                 type=feature_def.get("type", OperatorConstants.Types.TYPE_STRING),
+                is_primary=feature_def.get(OperatorConstants.Misc.IS_PRIMARY, False),
             )
 
         # Get operator metadata
@@ -333,6 +334,10 @@ class FeaturePropagator:
                     input_feature.get(mandatory_for_vector_db_key, False),
                 ),
                 type=feature_def.get("type", input_feature.get("type", OperatorConstants.Types.TYPE_STRING)),
+                is_primary=feature_def.get(
+                    OperatorConstants.Misc.IS_PRIMARY,
+                    input_feature.get(OperatorConstants.Misc.IS_PRIMARY, False),
+                ),
             )
 
         # Apply special case logic for specific operators
@@ -515,6 +520,7 @@ class FeaturePropagator:
             OperatorConstants.Config.AVAILABLE_FOR_FILTER: feature_meta.available_for_filter,
             OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: feature_meta.available_for_vector_db,
             OperatorConstants.Config.MANDATORY_FOR_VECTOR_DB: feature_meta.mandatory_for_vector_db,
+            OperatorConstants.Misc.IS_PRIMARY: feature_meta.is_primary,
         }
 
         if feature_meta.node_id:

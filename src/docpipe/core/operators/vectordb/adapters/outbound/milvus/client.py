@@ -4,6 +4,7 @@ Milvus Client
 Handles connection setup, authentication, and lifecycle management for Milvus.
 """
 
+from pathlib import Path
 from typing import Any
 
 from pymilvus import MilvusClient as PyMilvusClient
@@ -104,7 +105,7 @@ class MilvusClient:
             DocpipeException: If connection parameters are invalid
         """
         # Validate auth_type value
-        valid_auth_types = ["standalone", "grpc", "uri", "token"]
+        valid_auth_types = ["standalone", "grpc", "uri", "token", "lite"]
 
         # Validate auth_type is provided
         if not self.auth_type:
@@ -122,7 +123,15 @@ class MilvusClient:
             )
 
         # Validations based on auth_type
-        if self.auth_type == "uri":
+        if self.auth_type == "lite":
+            if not self.uri:
+                raise DocpipeException(
+                    message="MilvusDB Error: 'uri' is required for lite auth_type — provide a local .db file path",
+                    status_code=400,
+                    error_code=ErrorCode.OPERATOR_CONFIGURATION_INVALID,
+                )
+
+        elif self.auth_type == "uri":
             if not self.uri:
                 raise DocpipeException(
                     message="MilvusDB Error: 'uri' is required for uri auth_type",
@@ -181,6 +190,17 @@ class MilvusClient:
                 "db_name": self.database,
                 "timeout": self.timeout,
             }
+
+            if self.auth_type == "lite":
+                # Milvus Lite — embedded local database, no external service required.
+                # uri is a local .db file path; db_name and timeout are not supported.
+                db_path = Path(self.uri)  # type: ignore[arg-type]
+                db_path.parent.mkdir(parents=True, exist_ok=True)
+                logger.info("Connecting to Milvus Lite at %s", db_path)
+                self._client = PyMilvusClient(str(db_path))
+                _ = self._client.list_collections()
+                logger.info("Successfully connected to Milvus Lite at %s", db_path)
+                return self._client
 
             if self.auth_type == "uri":
                 # URI-based connection with API key embedded

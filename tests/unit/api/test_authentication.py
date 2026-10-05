@@ -150,9 +150,7 @@ class TestLoginEndpoint:
         mock_jwt_config.jwt_access_token_expire_minutes = 30
 
         client = TestClient(app)
-        credentials = {"username": "testuser", "password": os.environ.get("TEST_USER_PASSWORD", "test-login-pass")}
-
-        response = client.post("/auth/login", json=credentials)
+        response = client.post("/auth/login", json={"username": "testuser", "password": "testpass"})
 
         assert response.status_code == 200
         data = response.json()
@@ -170,9 +168,7 @@ class TestLoginEndpoint:
         mock_jwt_config.jwt_access_token_expire_minutes = 30
 
         client = TestClient(app)
-        credentials = {"username": "testuser", "password": os.environ.get("TEST_USER_PASSWORD", "wrong-login-pass")}
-
-        response = client.post("/auth/login", json=credentials)
+        response = client.post("/auth/login", json={"username": "testuser", "password": "wrongpass"})
 
         assert response.status_code == 401
         json_response = response.json()
@@ -184,7 +180,7 @@ class TestLoginEndpoint:
     def test_login_when_auth_not_configured_returns_503(self):
         """Test login returns 503 when authentication is not configured."""
         client = TestClient(app)
-        credentials = {"username": "testuser", "password": os.environ.get("TEST_USER_PASSWORD", "test-login-pass")}
+        credentials = {"username": "testuser", "password": os.environ.get("TEST_PASSWORD", "testpass")}
 
         response = client.post("/auth/login", json=credentials)
 

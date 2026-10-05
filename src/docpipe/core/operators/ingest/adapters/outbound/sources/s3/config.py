@@ -17,9 +17,13 @@ class S3SourceConfig(BaseModel):
     """
 
     # AWS credentials
-    access_key: str = Field(..., description="AWS access key ID or S3-compatible access key")
+    access_key: str = Field(
+        ..., description="AWS access key ID or S3-compatible access key", json_schema_extra={"sensitive": True}
+    )
 
-    secret_key: str = Field(..., description="AWS secret access key or S3-compatible secret key")
+    secret_key: str = Field(
+        ..., description="AWS secret access key or S3-compatible secret key", json_schema_extra={"sensitive": True}
+    )
 
     # S3 bucket configuration
     bucket: str = Field(..., description="S3 bucket name")
@@ -137,8 +141,8 @@ class S3SourceConfig(BaseModel):
 
         json_schema_extra: ClassVar[dict] = {
             "example": {
-                "access_key": "A........",  # pragma: allowlist secret  # nosec B105 — example AWS key format in docstring, not a real credential
-                "secret_key": "wJa.......",  # pragma: allowlist secret  # nosec B105 — example AWS key format in docstring, not a real credential
+                "access_key": "AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret  # nosec B105 — example AWS key format in docstring, not a real credential
+                "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret  # nosec B105 — example AWS key format in docstring, not a real credential
                 "bucket": "my-documents-bucket",
                 "prefix": "documents/reports/",  # Directory prefix with trailing slash, or "documents/report.pdf" for exact file
                 "endpoint_url": None,

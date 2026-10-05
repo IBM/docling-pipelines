@@ -188,3 +188,122 @@ class TestJobManagementFactoryInitializeStorage:
         factory = JobManagementFactory(storage_backend=StorageBackend.POSTGRESQL, config=config)
         env = factory.resolve_worker_env()
         assert env.get("DOCPIPE_POSTGRES_HOST") == "localhost"
+
+
+class TestResolveFilesystemBaseDir:
+    """Tests for JobManagementFactory._resolve_filesystem_base_dir."""
+
+    def test_returns_env_override_when_set(self, tmp_path):
+        """Environment variable takes priority over config."""
+        factory = JobManagementFactory(storage_backend=StorageBackend.FILESYSTEM)
+        with patch.dict(os.environ, {"DOCPIPE_JOB_STATS_BASE_DIR": str(tmp_path)}):
+            result = factory._resolve_filesystem_base_dir()
+        assert result == str(tmp_path)
+
+    def test_returns_absolute_config_path_unchanged(self, tmp_path):
+        """Absolute path in config is returned as-is."""
+        factory = JobManagementFactory(
+            storage_backend=StorageBackend.FILESYSTEM,
+            config={"base_dir": str(tmp_path)},
+        )
+        with patch.dict(os.environ, {}, clear=True):
+            result = factory._resolve_filesystem_base_dir()
+        assert result == str(tmp_path)
+
+    def test_resolves_relative_config_path(self):
+        """Relative path in config is resolved to an absolute path."""
+        factory = JobManagementFactory(
+            storage_backend=StorageBackend.FILESYSTEM,
+            config={"base_dir": "some/relative/path"},
+        )
+        with patch.dict(os.environ, {}, clear=True):
+            result = factory._resolve_filesystem_base_dir()
+        assert result is not None
+        from pathlib import Path
+
+        assert Path(result).is_absolute()
+
+    def test_returns_none_when_no_config_and_no_env(self):
+        """Returns None when neither env var nor config base_dir is set."""
+        factory = JobManagementFactory(storage_backend=StorageBackend.FILESYSTEM)
+        with patch.dict(os.environ, {}, clear=True):
+            result = factory._resolve_filesystem_base_dir()
+        assert result is None
+
+    def test_env_override_takes_priority_over_config(self, tmp_path):
+        """Env var wins even when config also has a base_dir."""
+        env_path = str(tmp_path / "from_env")
+        factory = JobManagementFactory(
+            storage_backend=StorageBackend.FILESYSTEM,
+            config={"base_dir": str(tmp_path / "from_config")},
+        )
+        with patch.dict(os.environ, {"DOCPIPE_JOB_STATS_BASE_DIR": env_path}):
+            result = factory._resolve_filesystem_base_dir()
+        assert result == env_path
+
+
+class TestJobManagementFactory:
+    def test_resolve_worker_env_filesystem_with_base_dir(self, tmp_path):
+        """FILESYSTEM backend adds DOCPIPE_JOB_STATS_BASE_DIR when base_dir configured."""
+        from unittest.mock import patch
+
+        factory = JobManagementFactory(
+            storage_backend=StorageBackend.FILESYSTEM,
+            config={"base_dir": str(tmp_path)},
+        )
+        with patch.dict(os.environ, {}, clear=True):
+            env = factory.resolve_worker_env()
+        assert "DOCPIPE_JOB_STATS_BASE_DIR" in env
+        assert env["DOCPIPE_JOB_STATS_BASE_DIR"] == str(tmp_path)
+        assert env["DOCPIPE_STORAGE_BACKEND"] == "filesystem"
+
+    def test_resolve_worker_env_filesystem_no_base_dir(self):
+        """FILESYSTEM backend omits DOCPIPE_JOB_STATS_BASE_DIR when not configured."""
+        from unittest.mock import patch
+
+        factory = JobManagementFactory(storage_backend=StorageBackend.FILESYSTEM)
+        with patch.dict(os.environ, {}, clear=True):
+            env = factory.resolve_worker_env()
+        assert "DOCPIPE_JOB_STATS_BASE_DIR" not in env
+
+    def test_resolve_worker_env_postgresql_from_config(self):
+        """POSTGRESQL backend propagates postgres config values into env dict."""
+        from unittest.mock import patch
+
+        config = {
+            "postgres": {
+                "host": "pg-host",
+                "port": 5432,
+                "database": "mydb",
+                "user": "user1",
+                "password": "secret",  # pragma: allowlist secret
+            }
+        }
+        factory = JobManagementFactory(storage_backend=StorageBackend.POSTGRESQL, config=config)
+        with patch.dict(os.environ, {}, clear=True):
+            env = factory.resolve_worker_env()
+        assert env.get("DOCPIPE_POSTGRES_HOST") == "pg-host"
+        assert env.get("DOCPIPE_POSTGRES_DB") == "mydb"
+
+    def test_resolve_worker_env_postgresql_env_overrides_config(self):
+        """Env var beats config value for postgres keys."""
+        from unittest.mock import patch
+
+        config = {"postgres": {"host": "config-host"}}
+        factory = JobManagementFactory(storage_backend=StorageBackend.POSTGRESQL, config=config)
+        with patch.dict(os.environ, {"DOCPIPE_POSTGRES_HOST": "env-host"}, clear=False):
+            env = factory.resolve_worker_env()
+        assert env.get("DOCPIPE_POSTGRES_HOST") == "env-host"
+
+    @patch("docpipe.core.job_management.adapters.config.job_management_factory.run_migrations")
+    @patch("docpipe.core.job_management.adapters.config.job_management_factory.get_postgres_connection_string")
+    def test_initialize_storage_skips_migrations_when_disabled(self, mock_conn, mock_migrate):
+        """initialize_storage logs skip when run_migrations=False."""
+        mock_conn.return_value = "postgresql://user:pass@host/db"  # pragma: allowlist secret
+        factory = JobManagementFactory(
+            storage_backend=StorageBackend.POSTGRESQL,
+            config={"run_migrations": False},
+        )
+        factory.initialize_storage()
+        mock_migrate.assert_not_called()
+        assert factory.config.get("storage_initialized") is True

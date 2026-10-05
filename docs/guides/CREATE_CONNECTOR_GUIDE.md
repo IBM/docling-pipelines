@@ -483,6 +483,8 @@ Create a JSON flow file (e.g., `sample_flows/use_cases/your_connector_pipeline.j
 
 Here's a complete example implementing a Dropbox connector:
 
+> **Note:** A production Dropbox connector now ships with the project. This section remains a simplified teaching example built on raw HTTP calls; the shipped adapter uses the Dropbox SDK, supports refresh-token authentication and paginates listings. See [`sources/dropbox/README.md`](../../src/docpipe/core/operators/ingest/adapters/outbound/sources/dropbox/README.md) for the real implementation.
+
 ### `dropbox/config.py`
 
 ```python
@@ -769,14 +771,14 @@ Study these existing connectors for best practices:
 
 ### 1. Execute Flow
 ```bash
-source src/docpipe_app/backend/.venv/bin/activate
+source .venv/bin/activate
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 docling-pipelines --flow-file tests/flow_your_connector.json
 ```
 
 ### 2. Run Tests
 ```bash
-source src/docpipe_app/backend/.venv/bin/activate
+source .venv/bin/activate
 export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
 uv run pytest tests/unit/operators/ingest/test_your_connector.py -v
 ```

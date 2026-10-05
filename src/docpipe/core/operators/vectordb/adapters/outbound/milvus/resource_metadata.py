@@ -246,7 +246,7 @@ class MilvusResourceMetadata:
     ) -> dict[str, Any]:
         """Check whether the configured collection is supported by docpipe.
 
-        Mirrors enterprise is_datasift_supported_collection logic:
+        Mirrors enterprise is_docpipe_supported_collection logic:
           - empty name           → supported=True (new collection, will be created)
           - not in available     → supported=True (will be created)
           - no FLOAT_VECTOR      → supported=False

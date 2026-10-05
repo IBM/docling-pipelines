@@ -14,7 +14,7 @@ from docpipe.core.assets.common.adapters.repositories.local_asset_repository imp
 from docpipe.core.assets.flows.domain.models.flow import Flow
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def temp_flows_dir() -> Generator[Path, None, None]:
     """Create a temporary directory for flow storage during tests.
 
@@ -35,7 +35,7 @@ def temp_flows_dir() -> Generator[Path, None, None]:
         shutil.rmtree(temp_path)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def test_repository(temp_flows_dir: Path) -> LocalAssetRepository:
     """Create a LocalAssetRepository instance using temporary directory.
     Args:
@@ -46,7 +46,7 @@ def test_repository(temp_flows_dir: Path) -> LocalAssetRepository:
     return LocalAssetRepository(asset_type=Flow, storage_path=str(temp_flows_dir))
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def test_client(
     test_repository: LocalAssetRepository,
 ) -> Generator[TestClient, None, None]:

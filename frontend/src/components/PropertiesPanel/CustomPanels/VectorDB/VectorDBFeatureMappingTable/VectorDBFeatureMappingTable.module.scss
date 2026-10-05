@@ -1,0 +1,113 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+
+.tableContainer {
+  display: flex;
+  flex-direction: column;
+  margin-top: $spacing-05;
+  width: 100%;
+
+  :global(.cds--data-table-container) {
+    padding: 0;
+    width: 100%;
+  }
+
+  :global(.cds--data-table) {
+    background-color: $layer-01;
+    width: 100%;
+  }
+
+  :global(.cds--data-table thead) {
+    background-color: $layer-accent-01;
+  }
+
+  :global(.cds--data-table th) {
+    background-color: $layer-accent-01;
+    color: $text-primary;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border-bottom: 1px solid $border-subtle-01;
+    padding-top: $spacing-04;
+    padding-bottom: $spacing-04;
+  }
+
+  :global(.cds--data-table tbody tr) {
+    height: auto;
+    background-color: $layer-01;
+    border-bottom: 1px solid $border-subtle-01;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background-color: $layer-hover-01;
+    }
+  }
+
+  :global(.cds--data-table td) {
+    vertical-align: middle;
+    background-color: $layer-01;
+    padding-top: $spacing-04;
+    padding-bottom: $spacing-04;
+    color: $text-primary;
+    font-size: 0.875rem;
+  }
+}
+
+.tableSearch {
+  flex: 1;
+
+  :global(.cds--search-input) {
+    background-color: $layer-01;
+    border-bottom: none;
+    font-size: 0.875rem;
+    height: 48px;
+
+    &:focus {
+      outline: 2px solid $interactive;
+    }
+  }
+
+  :global(.cds--search-magnifier) {
+    top: 50%;
+    transform: translateY(-50%);
+  }
+}
+
+.actionButton {
+  border-radius: 0;
+  height: 48px;
+  min-height: 48px;
+  padding-left: $spacing-06;
+  padding-right: $spacing-06;
+  font-size: 0.875rem;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+}
+
+// ── Feature mapping table — actions column (icon only, no padding) ──
+.colActions {
+  width: 2rem;
+  min-width: 2rem;
+  text-align: center;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.columnInput {
+  flex: 1;
+  max-width: 340px;
+
+  :global(.cds--text-input) {
+    background-color: $layer-02 !important;
+  }
+}
+
+.mandatoryIcon {
+  color: $support-info;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

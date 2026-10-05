@@ -7,7 +7,7 @@ import pytest
 from docpipe.core.constants.constants import DocpipeConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import OperatorCategory
-from docpipe.core.orchestration.feature_propagation.models import FeaturePropagationResult
+from docpipe.core.orchestration.feature_propagation.models import FeatureMetadata, FeaturePropagationResult
 from docpipe.core.orchestration.flow_validator import FlowValidator, ValidateStepResults
 from docpipe.exceptions.docpipe_exceptions import (
     FlowValidationException,
@@ -73,8 +73,7 @@ class TestFlowValidator:
 
         assert len(exc_info.value.errors) > 0
 
-    @patch("docpipe.core.orchestration.flow_validator.clean_up_prefect_home")
-    def test_validate_dag_empty_dag(self, mock_cleanup):
+    def test_validate_dag_empty_dag(self):
         """Test validation with empty DAG."""
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
@@ -88,8 +87,7 @@ class TestFlowValidator:
 
         assert len(exc_info.value.errors) > 0
 
-    @patch("docpipe.core.orchestration.flow_validator.clean_up_prefect_home")
-    def test_validate_dag_unnamed_operators(self, mock_cleanup):
+    def test_validate_dag_unnamed_operators(self):
         """Test validation with unnamed operators."""
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
@@ -116,8 +114,7 @@ class TestFlowValidator:
         # Should have warnings about unnamed operators
         assert len(exc_info.value.warnings) > 0 or len(exc_info.value.errors) > 0
 
-    @patch("docpipe.core.orchestration.flow_validator.clean_up_prefect_home")
-    def test_validate_dag_duplicate_names(self, mock_cleanup):
+    def test_validate_dag_duplicate_names(self):
         """Test validation with duplicate operator names."""
         mock_orchestrator = Mock()
         mock_orchestrator.common_log_arguments = {}
@@ -508,6 +505,28 @@ class TestFlowValidator:
 
         assert result is False
 
+    def test_validate_global_config_doc_format_valid(self):
+        """Test global_config with valid doc_format passes validation."""
+        validator = FlowValidator.__new__(FlowValidator)
+        validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+        validator._validate_global_config_values(
+            global_config={"doc_format": "doclang"}, validate_results=validate_results
+        )
+        assert len(validate_results.errors) == 0
+
+        validator._validate_global_config_values(
+            global_config={"doc_format": "markdown"}, validate_results=validate_results
+        )
+        assert len(validate_results.errors) == 0
+
+    def test_validate_global_config_doc_format_invalid(self):
+        """Test global_config with invalid doc_format adds an error."""
+        validator = FlowValidator.__new__(FlowValidator)
+        validate_results = ValidateStepResults(available_features={}, errors=[], warnings=[])
+        validator._validate_global_config_values(global_config={"doc_format": "xml"}, validate_results=validate_results)
+        assert len(validate_results.errors) == 1
+        assert "Invalid doc_format 'xml'" in validate_results.errors[0]["message"]
+
 
 class TestFlowValidatorIntegration:
     """Integration tests for flow validation with real orchestrator."""
@@ -517,19 +536,7 @@ class TestFlowValidatorIntegration:
         """Create orchestrator instance for testing."""
         from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name="python")
-        orch.initialize(job_id="test-job-id", job_run_id="test-job-run-id")
-
-        # Replace the Prefect-based flow engine with a simple sequential walker so
-        # the validation traversal never starts an ephemeral Prefect API server.
-        def _sequential_execute_non_execute_flow(*, flow_name: str, task, dag):
-            result = None
-            for node in dag:
-                node_name = node.get("name", "")
-                result = task(node_name, node, result, None)
-
-        orch.flow_engine.execute_non_execute_flow = _sequential_execute_non_execute_flow
-        return orch
+        return OrchestratorFactory.create_orchestrator(orchestrator_name="python")
 
     @pytest.fixture
     def validator(self, orchestrator):
@@ -610,8 +617,8 @@ class TestFlowValidatorIntegration:
             "Expected MISSING_FEATURES error not found"
         )
 
-    def test_last_operator_not_vectordb_warns(self, validator, fixtures_invoices_dir):
-        """Test that flow where last operator is not VectorDB generates warning."""
+    def test_last_operator_not_vectordb_or_storage_warns(self, validator, fixtures_invoices_dir):
+        """Test that flow where last operator is not VectorDB or Storage generates warning."""
         flow_def = {
             "dag": [
                 {
@@ -648,6 +655,114 @@ class TestFlowValidatorIntegration:
         assert any(
             ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name in str(warning.message_code) for warning in warnings
         ), "Expected GENERATE_OUTPUT_MISSING warning not found"
+
+    def test_last_operator_storage_does_not_warn(self, validator, fixtures_invoices_dir):
+        """Test that flow where last operator is Storage (e.g. document_set) does not warn."""
+        flow_def = {
+            "dag": [
+                {
+                    "id": "ingest-1",
+                    "name": "ingest_documents",
+                    "operator": "ingest_source",
+                    "config": {"paths": str(fixtures_invoices_dir)},
+                    "input_edges": [],
+                    "output_edges": [{"node_id_ref": "extract-1"}],
+                },
+                {
+                    "id": "extract-1",
+                    "name": "extract_documents",
+                    "operator": "extract_operator",
+                    "config": {"doc_column": "content"},
+                    "input_edges": [{"node_id_ref": "ingest-1"}],
+                    "output_edges": [{"node_id_ref": "docset-1"}],
+                },
+                {
+                    "id": "docset-1",
+                    "name": "save_document_set",
+                    "operator": "document_set",
+                    "config": {"name": "test_set"},
+                    "input_edges": [{"node_id_ref": "extract-1"}],
+                    "output_edges": [],
+                },
+            ]
+        }
+
+        # Should validate without raising FlowValidationException or with no GENERATE_OUTPUT_MISSING warning
+        try:
+            validator.validate_dag(flow_def=flow_def, global_config={})
+        except FlowValidationException as exc_info:
+            warnings = exc_info.warnings or []
+            assert not any(
+                ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name in str(warning.message_code) for warning in warnings
+            )
+
+    def test_last_operator_not_vectordb_or_storage_warns_for_each_branch(self, validator, fixtures_invoices_dir):
+        """Test that a warning is emitted for every branch terminal that is not VectorDB or Storage.
+
+        Flow shape:
+            ingest-1 → extract-1 → branching-1 → chunker-a (branch A terminal)
+                                               → chunker-b (branch B terminal)
+        Both branch terminals miss VectorDB/Storage, so two GENERATE_OUTPUT_MISSING warnings
+        are expected — one per terminal node.
+        """
+        flow_def = {
+            "dag": [
+                {
+                    "id": "ingest-1",
+                    "name": "ingest_documents",
+                    "operator": "ingest_source",
+                    "config": {"paths": str(fixtures_invoices_dir)},
+                    "input_edges": [],
+                    "output_edges": [{"node_id_ref": "extract-1"}],
+                },
+                {
+                    "id": "extract-1",
+                    "name": "extract_documents",
+                    "operator": "extract_operator",
+                    "config": {"doc_column": "content"},
+                    "input_edges": [{"node_id_ref": "ingest-1"}],
+                    "output_edges": [{"node_id_ref": "branching-1"}],
+                },
+                {
+                    "id": "branching-1",
+                    "name": "branch_documents",
+                    "operator": "branching",
+                    "config": {},
+                    "input_edges": [{"node_id_ref": "extract-1"}],
+                    "output_edges": [
+                        {"node_id_ref": "chunker-a"},
+                        {"node_id_ref": "chunker-b"},
+                    ],
+                },
+                {
+                    "id": "chunker-a",
+                    "name": "chunk_branch_a",
+                    "operator": "chunker",
+                    "config": {"doc_column": "content", "chunk_size": 200},
+                    "input_edges": [{"node_id_ref": "branching-1"}],
+                    "output_edges": [],
+                },
+                {
+                    "id": "chunker-b",
+                    "name": "chunk_branch_b",
+                    "operator": "chunker",
+                    "config": {"doc_column": "content", "chunk_size": 200},
+                    "input_edges": [{"node_id_ref": "branching-1"}],
+                    "output_edges": [],
+                },
+            ]
+        }
+
+        with pytest.raises(FlowValidationException) as exc_info:
+            validator.validate_dag(flow_def=flow_def, global_config={})
+
+        warnings = exc_info.value.warnings or []
+        matching = [w for w in warnings if w.message_code == ValidationCodeMessages.GENERATE_OUTPUT_MISSING.name]
+        assert len(matching) == 2, (
+            f"Expected 2 GENERATE_OUTPUT_MISSING warnings (one per branch terminal), got {len(matching)}"
+        )
+        warned_node_ids = {w.node_id for w in matching}
+        assert warned_node_ids == {"chunker-a", "chunker-b"}
 
     def test_first_operator_not_ingest_fails(self, validator, fixtures_invoices_dir):
         """Test that flow where first operator is not Ingest fails."""
@@ -1176,36 +1291,6 @@ class TestGetRequiredNodeFieldsErrors:
             validator._get_required_node_fields(op_def={"id": "n1"})
 
 
-class TestValidateDagFlowEngineNone:
-    """validate_dag raises when flow_engine is None."""
-
-    def test_raises_when_flow_engine_none(self):
-        mock_orch = Mock()
-        mock_orch.common_log_arguments = {}
-        mock_orch.enable_custom_operators = False
-        mock_orch.custom_operator_packages = None
-        mock_orch.flow_engine = None
-
-        validator = FlowValidator(orchestrator=mock_orch)
-
-        # Patch all early-exit checks so we reach the flow_engine check
-        with (
-            patch.object(validator, "_validate_root_operator"),
-            patch.object(validator, "_validate_acl_operator_placement"),
-            patch.object(validator, "_validate_storage_output_operator_placement"),
-            patch.object(validator, "_validate_disjoint_operators"),
-            patch.object(validator, "_validate_no_cycles"),
-            patch.object(validator, "_validate_operator_availability"),
-        ):
-            with pytest.raises(FlowValidationException) as exc_info:
-                validator.validate_dag(
-                    flow_def={"dag": [{"id": "n1", "name": "n", "operator": "ingest_source"}]},
-                    global_config={},
-                )
-
-        assert any("FLOW_ENGINE_NOT_INITIALIZED" in str(e) for e in exc_info.value.errors)
-
-
 class TestValidateDagWithFeatures:
     """Tests for validate_dag_with_features — covers lines 440-488."""
 
@@ -1213,16 +1298,7 @@ class TestValidateDagWithFeatures:
     def orchestrator(self):
         from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name="python")
-        orch.initialize(job_id="test-job-id", job_run_id="test-job-run-id")
-
-        def _seq(*, flow_name, task, dag):
-            result = None
-            for node in dag:
-                result = task(node.get("name", ""), node, result, None)
-
-        orch.flow_engine.execute_non_execute_flow = _seq
-        return orch
+        return OrchestratorFactory.create_orchestrator(orchestrator_name="python")
 
     def test_validate_dag_with_features_returns_result(self, orchestrator, fixtures_invoices_dir):
         validator = FlowValidator(orchestrator=orchestrator)
@@ -1279,16 +1355,7 @@ class TestPropagateFeaturesPerNode:
     def orchestrator(self):
         from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
 
-        orch = OrchestratorFactory.create_orchestrator(orchestrator_name="python")
-        orch.initialize(job_id="test-job-id", job_run_id="test-job-run-id")
-
-        def _seq(*, flow_name, task, dag):
-            result = None
-            for node in dag:
-                result = task(node.get("name", ""), node, result, None)
-
-        orch.flow_engine.execute_non_execute_flow = _seq
-        return orch
+        return OrchestratorFactory.create_orchestrator(orchestrator_name="python")
 
     def test_returns_per_node_snapshot(self, orchestrator, fixtures_invoices_dir):
         validator = FlowValidator(orchestrator=orchestrator)
@@ -1316,6 +1383,297 @@ class TestPropagateFeaturesPerNode:
         assert "ingest-1" in result
         assert "extract-1" in result
         assert "operator" in result["ingest-1"]
+
+
+class TestFeatureMetadataIsPrimary:
+    """FeatureMetadata.is_primary — model field behaviour."""
+
+    def test_default_is_false(self):
+        meta = FeatureMetadata(name="doc_id", node_id="ingest-1")
+        assert meta.is_primary is False
+
+    def test_explicit_true(self):
+        meta = FeatureMetadata(name="doc_hash", node_id="hash-1", is_primary=True)
+        assert meta.is_primary is True
+
+    def test_explicit_false(self):
+        meta = FeatureMetadata(name="content", node_id="extract-1", is_primary=False)
+        assert meta.is_primary is False
+
+
+class TestTraverseDag:
+    """_traverse_dag works correctly for linear, branching, and out-of-order DAGs."""
+
+    @pytest.fixture
+    def validator(self):
+        mock_orch = Mock()
+        mock_orch.common_log_arguments = {}
+        return FlowValidator(orchestrator=mock_orch)
+
+    def test_linear_dag(self, validator):
+        """Simple A→B→C chain returns results in order."""
+        visited = []
+
+        def task(task_name, op_def, prev_result, link_name):
+            visited.append(op_def["id"])
+            return op_def["id"]
+
+        dag = [
+            {"id": "a", "name": "a", "input_edges": [], "output_edges": [{"node_id_ref": "b"}]},
+            {
+                "id": "b",
+                "name": "b",
+                "input_edges": [{"node_id_ref": "a", "link_name": "a"}],
+                "output_edges": [{"node_id_ref": "c"}],
+            },
+            {"id": "c", "name": "c", "input_edges": [{"node_id_ref": "b", "link_name": "b"}], "output_edges": []},
+        ]
+        validator._traverse_dag(dag=dag, task=task)
+        assert visited == ["a", "b", "c"]
+
+    def test_branch_merge_dag_in_order(self, validator):
+        """A→[B,C]→D: merge node receives a dict of two parent results."""
+        received_prev = {}
+
+        def task(task_name, op_def, prev_result, link_name):
+            received_prev[op_def["id"]] = prev_result
+            return op_def["id"]
+
+        dag = [
+            {"id": "a", "name": "a", "input_edges": [], "output_edges": [{"node_id_ref": "b"}, {"node_id_ref": "c"}]},
+            {
+                "id": "b",
+                "name": "b",
+                "input_edges": [{"node_id_ref": "a", "link_name": "branch_1"}],
+                "output_edges": [{"node_id_ref": "d"}],
+            },
+            {
+                "id": "c",
+                "name": "c",
+                "input_edges": [{"node_id_ref": "a", "link_name": "branch_2"}],
+                "output_edges": [{"node_id_ref": "d"}],
+            },
+            {
+                "id": "d",
+                "name": "d",
+                "input_edges": [
+                    {"node_id_ref": "b", "link_name": "branch_1"},
+                    {"node_id_ref": "c", "link_name": "branch_2"},
+                ],
+                "output_edges": [],
+            },
+        ]
+        validator._traverse_dag(dag=dag, task=task)
+        assert received_prev["a"] is None
+        assert received_prev["b"] == "a"
+        assert received_prev["c"] == "a"
+        # merge node gets a dict keyed by link_name
+        assert received_prev["d"] == {"branch_1": "b", "branch_2": "c"}
+
+    def test_branch_merge_dag_out_of_order(self, validator):
+        """Same branch+merge DAG but nodes shuffled — result must be identical."""
+        received_prev = {}
+
+        def task(task_name, op_def, prev_result, link_name):
+            received_prev[op_def["id"]] = prev_result
+            return op_def["id"]
+
+        # d appears before b and c in the list — deliberately out of topological order
+        dag = [
+            {
+                "id": "d",
+                "name": "d",
+                "input_edges": [
+                    {"node_id_ref": "b", "link_name": "branch_1"},
+                    {"node_id_ref": "c", "link_name": "branch_2"},
+                ],
+                "output_edges": [],
+            },
+            {
+                "id": "c",
+                "name": "c",
+                "input_edges": [{"node_id_ref": "a", "link_name": "branch_2"}],
+                "output_edges": [{"node_id_ref": "d"}],
+            },
+            {"id": "a", "name": "a", "input_edges": [], "output_edges": [{"node_id_ref": "b"}, {"node_id_ref": "c"}]},
+            {
+                "id": "b",
+                "name": "b",
+                "input_edges": [{"node_id_ref": "a", "link_name": "branch_1"}],
+                "output_edges": [{"node_id_ref": "d"}],
+            },
+        ]
+        validator._traverse_dag(dag=dag, task=task)
+        assert received_prev["a"] is None
+        assert received_prev["b"] == "a"
+        assert received_prev["c"] == "a"
+        assert received_prev["d"] == {"branch_1": "b", "branch_2": "c"}
+
+
+class TestFeaturePropagationResultAddFeatureIsPrimary:
+    """FeaturePropagationResult.add_feature() — is_primary resolution."""
+
+    def test_is_primary_explicit_true(self):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="doc_hash", node_id="hash-1", is_primary=True)
+        assert result.feature_metadata["doc_hash"].is_primary is True
+
+    def test_is_primary_explicit_false_no_tag(self):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="content", node_id="extract-1", is_primary=False)
+        assert result.feature_metadata["content"].is_primary is False
+
+    def test_is_primary_derived_from_primary_tag(self):
+        """is_primary must be True when 'primary' appears in tags even if the flag is False."""
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="doc_id", node_id="ingest-1", tags=["primary", "mandatory"], is_primary=False)
+        assert result.feature_metadata["doc_id"].is_primary is True
+
+    def test_is_primary_true_overrides_absent_tag(self):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="doc_hash", node_id="hash-1", tags=["mandatory"], is_primary=True)
+        assert result.feature_metadata["doc_hash"].is_primary is True
+
+    def test_is_primary_false_with_non_primary_tags(self):
+        result = FeaturePropagationResult()
+        result.add_feature(
+            feature_name="content", node_id="extract-1", tags=["mandatory", "internal"], is_primary=False
+        )
+        assert result.feature_metadata["content"].is_primary is False
+
+    def test_is_primary_default_when_omitted(self):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="title", node_id="extract-1")
+        assert result.feature_metadata["title"].is_primary is False
+
+
+class TestFlowValidatorFeatureMetadataToDictIsPrimary:
+    """FlowValidator._feature_metadata_to_dict() — is_primary included in serialised output."""
+
+    @pytest.fixture
+    def validator(self):
+        mock_orchestrator = Mock()
+        mock_orchestrator.common_log_arguments = {}
+        return FlowValidator(orchestrator=mock_orchestrator)
+
+    def test_is_primary_true_included(self, validator):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="doc_hash", node_id="hash-1", is_primary=True)
+        output = validator._feature_metadata_to_dict(result=result)
+        assert output["doc_hash"]["is_primary"] is True
+
+    def test_is_primary_false_included(self, validator):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="content", node_id="extract-1", is_primary=False)
+        output = validator._feature_metadata_to_dict(result=result)
+        assert output["content"]["is_primary"] is False
+
+    def test_multiple_features_each_have_is_primary(self, validator):
+        result = FeaturePropagationResult()
+        result.add_feature(feature_name="doc_hash", node_id="hash-1", is_primary=True)
+        result.add_feature(feature_name="content", node_id="extract-1", is_primary=False)
+        output = validator._feature_metadata_to_dict(result=result)
+        assert output["doc_hash"]["is_primary"] is True
+        assert output["content"]["is_primary"] is False
+
+
+class TestValidationActionTypeMapping:
+    """Verify action_type is derived at the API boundary (ValidationAlertDTO) from message_code.
+
+    Core validation models (ValidationMessage, ValidationAlert) carry no action_type.
+    The mapping lives entirely in flow_dto.py and is applied by the model_validator
+    on ValidationAlertDTO.
+    """
+
+    def test_highlight_for_structural_wiring_errors(self):
+        """Structural/wiring message codes map to 'highlight'."""
+        from docpipe.api.dto.flow_dto import ValidationActionType, ValidationAlertDTO
+
+        for code in [
+            "DISJOINT_OPERATORS_DETECTED",
+            "OPERATOR_NAME_REPEATED",
+            "INGEST_OPERATOR_MISPLACED",
+            "GENERATE_OUTPUT_MISSING",
+            "CHUNKER_OPERATOR_MISPLACED",
+            "CHUNKER_OPERATOR_MISSING",
+            "MISSING_FEATURES",
+            "CYCLIC_DEPENDENCY_DETECTED",
+        ]:
+            dto = ValidationAlertDTO(message="test", message_code=code)
+            assert dto.action_type == ValidationActionType.HIGHLIGHT, f"Expected highlight for {code}"
+
+    def test_open_properties_for_config_errors(self):
+        """Config/property message codes map to 'open_properties'."""
+        from docpipe.api.dto.flow_dto import ValidationActionType, ValidationAlertDTO
+
+        for code in [
+            "CHUNKER_INVALID_CHUNK_TYPE",
+            "CHUNKER_INVALID_CHUNK_SIZE_TYPE",
+            "CHUNKER_INVALID_CHUNK_OVERLAP_TYPE",
+            "CHUNK_OVERLAP_EXCEEDS_THRESHOLD",
+            "MERGE_TYPE_NOT_PROVIDED",
+            "INVALID_MERGE_TYPE",
+            "SQL_FILTER_INVALID_COLUMN",
+            "ACL_INVALID_PROVIDER",
+            "OPERATOR_VALIDATION_FAILED",
+        ]:
+            dto = ValidationAlertDTO(message="test", message_code=code)
+            assert dto.action_type == ValidationActionType.OPEN_PROPERTIES, f"Expected open_properties for {code}"
+
+    def test_none_for_flow_level_errors(self):
+        """Flow-level structural errors (no navigable node) map to 'none'."""
+        from docpipe.api.dto.flow_dto import ValidationActionType, ValidationAlertDTO
+
+        for code in [
+            "PIPELINE_NOT_FOUND_ERROR",
+            "DAG_PIPELINE_MISSING",
+            "INVALID_FLOW_WRAPPER",
+            "MISSING_NODE_ID",
+            "MISSING_NODE_NAME",
+            "MISSING_OPERATOR_NAME",
+        ]:
+            dto = ValidationAlertDTO(message="test", message_code=code)
+            assert dto.action_type == ValidationActionType.NONE, f"Expected none for {code}"
+
+    def test_unknown_code_defaults_to_none(self):
+        """Unknown or future message codes default to 'none' rather than erroring."""
+        from docpipe.api.dto.flow_dto import ValidationActionType, ValidationAlertDTO
+
+        dto = ValidationAlertDTO(message="test", message_code="SOME_FUTURE_CODE")
+        assert dto.action_type == ValidationActionType.NONE
+
+    def test_none_message_code_defaults_to_none(self):
+        """Missing message_code defaults to 'none'."""
+        from docpipe.api.dto.flow_dto import ValidationActionType, ValidationAlertDTO
+
+        dto = ValidationAlertDTO(message="test", message_code=None)
+        assert dto.action_type == ValidationActionType.NONE
+
+    def test_core_validation_alert_has_no_action_type(self):
+        """ValidationAlert (core model) carries no action_type field."""
+        from docpipe.exceptions.docpipe_exceptions import ValidationAlert
+
+        alert = ValidationAlert(
+            code="flow_validation_failed",
+            message="Disconnected operator",
+            message_code="DISJOINT_OPERATORS_DETECTED",
+        )
+        assert "action_type" not in alert
+        assert not hasattr(alert, "action_type")
+
+    def test_core_validation_message_has_no_action_type(self):
+        """ValidationMessage (core model) carries no action_type field."""
+        from docpipe.exceptions.error_messages import ValidationMessage
+
+        msg = ValidationMessage.create(message="Invalid chunk type", message_code="CHUNKER_INVALID_CHUNK_TYPE")
+        assert not hasattr(msg, "action_type") or msg.model_fields.get("action_type") is None
+
+    def test_dto_action_type_always_set_regardless_of_input(self):
+        """action_type is always present on ValidationAlertDTO — never None."""
+        from docpipe.api.dto.flow_dto import ValidationAlertDTO
+
+        dto = ValidationAlertDTO(message="some error", message_code="DISJOINT_OPERATORS_DETECTED")
+        assert dto.action_type is not None
 
 
 if __name__ == "__main__":

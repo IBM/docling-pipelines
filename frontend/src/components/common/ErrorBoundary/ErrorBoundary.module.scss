@@ -1,0 +1,40 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+
+.errorContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: $spacing-07;
+}
+
+.errorDetails {
+  margin-top: $spacing-05;
+  padding: $spacing-05;
+  background-color: $layer-01;
+  border: $spacing-01 solid $border-subtle-01;
+  border-radius: $spacing-02;
+}
+
+.errorDetails summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: $spacing-03;
+  color: $text-primary;
+}
+
+.errorStack {
+  margin-top: $spacing-03;
+  padding: $spacing-05;
+  background-color: $layer-02;
+  border-radius: $spacing-02;
+  overflow-x: auto;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: $spacing-04;
+  line-height: 1.5;
+  color: $text-secondary;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

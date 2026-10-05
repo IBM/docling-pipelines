@@ -15,6 +15,8 @@ from typing import Any
 
 import pyarrow as pa
 
+# Import adapters package to trigger self-registration with PIIAndHAPDetectionFactory
+import docpipe.core.operators.quality.pii_and_hap.adapters.outbound  # noqa: F401
 from docpipe.core.constants.constants import (
     AttributeDataTypes,
     DocpipeConstants,
@@ -23,6 +25,9 @@ from docpipe.core.constants.constants import (
 )
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.factories.pii_and_hap_detection_factory import (
+    PIIAndHAPDetectionFactory,
+)
 from docpipe.core.operators.quality.pii_and_hap.pii_and_hap_helper import (
     DEFAULT_HAP_THRESHOLD_VALUE,
     DEFAULT_PII_THRESHOLD_VALUE,
@@ -113,7 +118,6 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
 
     def __init__(self, config: dict[str, Any]) -> None:
         super().__init__(config)
-
         # Configuration mapping: (attribute_name, config_key, default_value)
         config_mappings = [
             # Detection configuration
@@ -172,9 +176,16 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
         for attr_name, config_key, default_value in config_mappings:
             setattr(self, attr_name, config.get(config_key, default_value))
 
+        # Coerce numeric fields — global_config merging can inject them as strings
+        self.batch_size = int(self.batch_size)
+        self.min_chunk_size = int(self.min_chunk_size)
+        self.max_chunk_size = int(self.max_chunk_size)
+        self.pii_threshold = float(self.pii_threshold)
+        self.hap_threshold = float(self.hap_threshold)
+
         # Read model_name directly from provider_config
         self.model_name = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {}).get(
-            OperatorConstants.Config.MODEL_ID, "granite4"
+            OperatorConstants.Config.MODEL_ID
         )
 
         # Normalize expected_redactions to lowercase set for O(1) lookups
@@ -194,47 +205,35 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
         }
 
     def _initialize_pii_hap_service(self) -> PIIHAPService:
-        """Initialize the PII/HAP detection service using common infrastructure.
+        """Initialize the PII/HAP detection service.
+
+        Calls ``PIIAndHAPDetectionFactory`` to resolve the provider, then injects
+        the resulting adapter into ``PIIHAPService``.
 
         Returns:
-            PIIHAPService: Initialized detection service
+            PIIHAPService: Initialized detection service.
 
         Raises:
-            ValueError: If the service cannot be initialized
+            ValueError: If the provider is not registered or configuration is invalid.
         """
         try:
-            # Extract provider-specific config from provider_config dictionary
-            service_config: dict[str, Any] = dict(self.provider_config)
-
-            # Add provider-specific configuration
-            if self.provider == PROVIDER_WATSONX:
-                # Validate required WatsonX parameters
-                required_keys = ["api_key", "url", "container_kind", "container_id"]
-                missing_keys = [key for key in required_keys if key not in service_config]
-                if missing_keys:
-                    raise ValueError(
-                        f"WatsonX provider requires {', '.join(required_keys)} in provider_config. "
-                        f"Missing: {', '.join(missing_keys)}"
-                    )
-                # Add default timeout if not specified
-                service_config.setdefault("timeout", 300)
-
-            # Create service using common infrastructure
-            # Validation happens automatically in PIIHAPService.__init__
-            service = PIIHAPService(
-                provider=self.provider,
-                model_id=self.model_name,
-                provider_config=service_config,
+            adapter = PIIAndHAPDetectionFactory.create(
+                self.provider,
+                model_id=self.model_name or "",
+                provider_config=dict(self.provider_config),
             )
-
+            service = PIIHAPService(adapter=adapter)
             logger.info(
-                f"Successfully initialized {self.provider} PII/HAP service",
+                "Successfully initialized %s PII/HAP service",
+                self.provider,
                 extra=self.common_log_arguments,
             )
             return service
-        except ValueError as e:
+        except Exception as e:
             logger.error(
-                f"Failed to initialize PII/HAP service for provider '{self.provider}': {e}",
+                "Failed to initialize PII/HAP service for provider '%s': %s",
+                self.provider,
+                e,
                 extra=self.common_log_arguments,
             )
             raise
@@ -242,32 +241,34 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
     def _validate_config(self) -> None:
         """Validate configuration values to ensure they are within acceptable ranges."""
         if not 0 <= self.pii_threshold <= 1:
-            raise ValueError(f"pii_threshold must be between 0 and 1, got {self.pii_threshold}")
+            msg = f"pii_threshold must be between 0 and 1, got {self.pii_threshold}"
+            raise ValueError(msg)
         if not 0 <= self.hap_threshold <= 1:
-            raise ValueError(f"hap_threshold must be between 0 and 1, got {self.hap_threshold}")
+            msg = f"hap_threshold must be between 0 and 1, got {self.hap_threshold}"
+            raise ValueError(msg)
         if self.batch_size <= 0:
-            raise ValueError(f"batch_size must be positive, got {self.batch_size}")
+            msg = f"batch_size must be positive, got {self.batch_size}"
+            raise ValueError(msg)
         if self.min_chunk_size > self.max_chunk_size:
-            raise ValueError(
-                f"min_chunk_size ({self.min_chunk_size}) cannot exceed max_chunk_size ({self.max_chunk_size})"
-            )
+            msg = f"min_chunk_size ({self.min_chunk_size}) cannot exceed max_chunk_size ({self.max_chunk_size})"
+            raise ValueError(msg)
 
     @staticmethod
     def _get_piihap_provider_schemas() -> dict[str, Any]:
         """Return per-provider JSON Schema dicts for the provider_config field.
 
-        Add a new entry here when registering a new PII/HAP provider.
+        Iterates the ``PIIAndHAPDetectionFactory`` registry and calls
+        ``get_config_schema()`` on each registered adapter class — adding a new
+        provider requires only registering the adapter.
         """
         from docpipe.core.operators.operator_utils import OperatorUtils
-        from docpipe.core.operators.shared.llm_provider_config import LLMProviderConfig, WatsonxProviderConfig
+        from docpipe.core.operators.quality.pii_and_hap.adapters.outbound.factories.pii_and_hap_detection_factory import (
+            PIIAndHAPDetectionFactory,
+        )
 
         return {
-            OperatorConstants.Config.PROVIDER_LITELLM: OperatorUtils.model_schema_to_docpipe(
-                schema=LLMProviderConfig.model_json_schema()
-            ),
-            OperatorConstants.Config.PROVIDER_WATSONX: OperatorUtils.model_schema_to_docpipe(
-                schema=WatsonxProviderConfig.model_json_schema()
-            ),
+            name: OperatorUtils.model_schema_to_docpipe(schema=adapter_class.get_config_schema().model_json_schema())
+            for name, adapter_class in PIIAndHAPDetectionFactory._registry.items()
         }
 
     @staticmethod
@@ -313,6 +314,48 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
                 "pii_ssn_details": {
                     OperatorConstants.Misc.NAME: "SSN Details Count",
                     OperatorConstants.Config.DESCRIPTION: "Number of SSNs found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_person_name": {
+                    OperatorConstants.Misc.NAME: "Person Name Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Person Names found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_date_of_birth": {
+                    OperatorConstants.Misc.NAME: "Date of Birth Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Dates of Birth found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_address": {
+                    OperatorConstants.Misc.NAME: "Address Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Addresses found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_passport_number": {
+                    OperatorConstants.Misc.NAME: "Passport Number Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Passport Numbers found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_driver_license": {
+                    OperatorConstants.Misc.NAME: "Driver License Number Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Driver License Numbers found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_national_id": {
+                    OperatorConstants.Misc.NAME: "National ID Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of National IDs found in document",
+                    OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
+                    OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+                },
+                "pii_medical_record": {
+                    OperatorConstants.Misc.NAME: "Medical Record Number Count",
+                    OperatorConstants.Config.DESCRIPTION: "Number of Medical Record Numbers found in document",
                     OperatorConstants.Config.AVAILABLE_FOR_FILTER: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
                 },
@@ -568,6 +611,7 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
 
         remove_row_idx: list[int] = []
         remove_row_id: list[str] = []
+        # LLM-based PII/HAP detection may benefit from structured DocLang XML; pass content as-is
         new_doc_content = table[self.doc_column].to_pylist()
         name_column = table[OperatorConstants.Misc.NAME].to_pylist()
         id_column = table[OperatorConstants.Columns.ID].to_pylist()
@@ -729,14 +773,23 @@ class PIIAndHAPAnnotator(AbstractOperator):  # type: ignore[misc]
 
         # Validate provider-specific requirements from provider_config
         if self.should_validate_field(field_value=self.provider_config):
-            if self.provider == PROVIDER_WATSONX:
-                required_keys = ["api_key", "url", "container_kind", "container_id"]
-                missing_keys = [key for key in required_keys if key not in self.provider_config]
-                if missing_keys:
-                    errors.append(
-                        f"WatsonX provider requires {', '.join(required_keys)} in provider_config. "
-                        f"Missing: {', '.join(missing_keys)}"
-                    )
+            if not self.provider_config:
+                errors.append(f"provider_config is required for provider '{self.provider}'")
+            elif not isinstance(self.provider_config, dict):
+                errors.append(f"provider_config must be a dictionary, got {type(self.provider_config).__name__}")
+            else:
+                model_id = self.provider_config.get(OperatorConstants.Config.MODEL_ID)
+                if not model_id or not isinstance(model_id, str):
+                    errors.append("provider_config.model_id is required and must be a non-empty string")
+
+                if self.provider == PROVIDER_WATSONX:
+                    required_keys = ["api_key", "url", "container_kind", "container_id"]
+                    missing_keys = [key for key in required_keys if key not in self.provider_config]
+                    if missing_keys:
+                        errors.append(
+                            f"WatsonX provider requires {', '.join(required_keys)} in provider_config. "
+                            f"Missing: {', '.join(missing_keys)}"
+                        )
 
         if len(errors) > 0:
             logger.error(errors)

@@ -56,7 +56,14 @@ class Mode(Enum):
 class SQLFilterOperator(AbstractOperator):
     """
     Implements filtering - select from a pyarrow.Table a set of rows that
-    satisfy a set of filtering criteria
+    satisfy a set of filtering criteria.
+
+    Protected columns (cannot be removed via features_to_drop):
+        - id
+        - content
+        - pages_processed
+        - allowed_users  (required for OpenSearch ACL queries)
+        - chunked_content  (required by EmbeddingsOperator and VectorDBOperator)
     """
 
     short_name: str = OperatorConstants.Operators.SQL_FILTER
@@ -85,6 +92,8 @@ class SQLFilterOperator(AbstractOperator):
         )
         self.columns_to_drop: list[str] = self.features_to_drop
         self.filter_criteria_json: dict[str, Any] | None = config.get(OperatorConstants.Filtering.FILTER_CRITERIA_JSON)
+        self.duckdb_memory_limit: str = config.get(OperatorConstants.Filtering.DUCKDB_MEMORY_LIMIT, "512MB")
+        self.duckdb_threads: int = config.get(OperatorConstants.Filtering.DUCKDB_THREADS, 2)
 
     def validate(
         self,
@@ -119,6 +128,8 @@ class SQLFilterOperator(AbstractOperator):
                     OperatorConstants.Misc.ID: ValidationCodeMessages.SQL_FILTER_ID_DROP_ATTEMPTED,
                     OperatorConstants.Columns.DOC_COLUMN_DEFAULT: ValidationCodeMessages.SQL_FILTER_CONTENT_DROP_ATTEMPTED,
                     OperatorConstants.Columns.PAGES_PROCESSED_COLUMN: ValidationCodeMessages.SQL_FILTER_PAGES_DROP,
+                    OperatorConstants.ACL.ALLOWED_USERS_COLUMN: ValidationCodeMessages.SQL_FILTER_ALLOWED_USERS_DROP_ATTEMPTED,
+                    OperatorConstants.Columns.CHUNKED_CONTENT: ValidationCodeMessages.SQL_FILTER_CHUNKED_CONTENT_DROP_ATTEMPTED,
                 }
                 for feature in protected_cols:
                     if feature in protected_features:
@@ -289,7 +300,9 @@ class SQLFilterOperator(AbstractOperator):
                 duckdb.CatalogException,
             )
 
-            with duckdb.connect() as con:
+            with duckdb.connect(
+                config={"memory_limit": self.duckdb_memory_limit, "threads": self.duckdb_threads}
+            ) as con:
                 try:
                     # collect per-criterion stats before the main filter (filter_criteria_list path only)
                     if len(self.filter_criteria) > 0 and not self.filter_criteria_json:
@@ -369,18 +382,17 @@ class SQLFilterOperator(AbstractOperator):
     def _has_protected_columns(self) -> tuple[bool, list[str]]:
         """
         Check if any protected columns are in the features_to_drop list.
-        Protected columns (id, content, pages_processed) cannot be dropped as they are
-        required by downstream operators.
+        Protected columns cannot be dropped as they are required by downstream operators:
+            - id, content, pages_processed (core pipeline columns)
+            - allowed_users (required for OpenSearch ACL queries)
+            - chunked_content (required by EmbeddingsOperator and VectorDBOperator)
 
         Returns:
             tuple: (has_protected, list_of_protected_columns)
         """
-        protected_columns = {
-            OperatorConstants.Misc.ID,
-            OperatorConstants.Columns.DOC_COLUMN_DEFAULT,
-            OperatorConstants.Columns.PAGES_PROCESSED_COLUMN,
-        }
-        protected_columns_to_drop = [col for col in self.features_to_drop if col in protected_columns]
+        protected_columns_to_drop = [
+            col for col in self.features_to_drop if col in OperatorConstants.PROTECTED_PIPELINE_COLUMNS
+        ]
         return (len(protected_columns_to_drop) > 0, protected_columns_to_drop)
 
     def has_invalid_columns(

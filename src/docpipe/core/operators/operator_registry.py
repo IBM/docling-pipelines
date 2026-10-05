@@ -148,7 +148,7 @@ def get_docpipe_operators(*, orchestrator: str | None = None) -> frozenset:
     loading and priority-based conflict resolution.
 
     Args:
-        orchestrator: Optional orchestrator type (e.g., "python", "spark") for filtering
+        orchestrator: Optional orchestrator type (e.g., "python") for filtering
 
     Returns:
         frozenset: Combined set of all operator class references (may contain duplicates by short_name)

@@ -5,7 +5,7 @@ This adapter implements the repository port using DuckDB storage.
 
 import json
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 
 from docpipe.core.assets.document_libraries.adapters.storage.duckdb_storage import DuckDBStorage
 from docpipe.core.assets.document_libraries.domain.models.document_library import DocumentLibrary
@@ -64,7 +64,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                 INSERT INTO {DocpipeConstants.DOCUMENT_LIBRARY_TABLE_NAME}
                 (library_id, name, description, purpose, original_size, final_size, tags, created_by, href)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             # Serialize tags to JSON string if present
             tags_json = json.dumps(library.tags) if library.tags else None
@@ -113,7 +113,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                 SELECT library_id, name, description, purpose, original_size, final_size, tags, created_by, href
                 FROM {DocpipeConstants.DOCUMENT_LIBRARY_TABLE_NAME}
                 WHERE library_id = ?
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             row = self.storage.fetch_one(query=query, params=(library_id,))
 
@@ -149,7 +149,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                 SELECT library_id, name, description, purpose, original_size, final_size, tags, created_by, href
                 FROM {DocpipeConstants.DOCUMENT_LIBRARY_TABLE_NAME}
                 WHERE name = ?
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             row = self.storage.fetch_one(query=query, params=(name,))
 
@@ -203,7 +203,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                     created_by = ?,
                     href = ?
                 WHERE library_id = ?
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             # Serialize tags to JSON string if present
             tags_json = json.dumps(library.tags) if library.tags else None
@@ -256,7 +256,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             query = f"""
                 DELETE FROM {DocpipeConstants.DOCUMENT_LIBRARY_TABLE_NAME}
                 WHERE library_id = ?
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             self.storage.execute_query(query=query, params=(library_id,))
 
@@ -293,7 +293,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                 SELECT library_id, name, description, purpose, original_size, final_size, tags, created_by, href
                 FROM {DocpipeConstants.DOCUMENT_LIBRARY_TABLE_NAME}
                 ORDER BY name ASC
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             if limit is not None:
                 query += f" LIMIT {limit}"
@@ -334,7 +334,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             query = f"""
                 SELECT COUNT(*) FROM {DocpipeConstants.DOCUMENT_LIBRARY_TABLE_NAME}
                 WHERE library_id = ?
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             row = self.storage.fetch_one(query=query, params=(library_id,))
             return row[0] > 0 if row else False
@@ -362,7 +362,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             query = f"""
                 SELECT COUNT(*) FROM {DocpipeConstants.DOCUMENT_LIBRARY_TABLE_NAME}
                 WHERE name = ?
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             row = self.storage.fetch_one(query=query, params=(name,))
             return row[0] > 0 if row else False
@@ -404,11 +404,11 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                 INSERT INTO {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
                 (library_id, document_set_id, added_at)
                 VALUES (?, ?, ?)
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             self.storage.execute_query(
                 query=query,
-                params=(library_id, document_set_id, datetime.utcnow()),
+                params=(library_id, document_set_id, datetime.now(UTC)),
             )
 
             logger.info(msg=f"Added document set {document_set_id} to library {library_id}")
@@ -461,7 +461,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             query = f"""
                 DELETE FROM {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
                 WHERE library_id = ? AND document_set_id = ?
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             self.storage.execute_query(
                 query=query,
@@ -510,7 +510,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                 FROM {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
                 WHERE library_id = ?
                 ORDER BY added_at
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             rows = self.storage.fetch_all(query=query, params=(library_id,))
             return [row[0] for row in rows]
@@ -570,10 +570,10 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
                 INSERT INTO {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
                 (library_id, document_set_id, added_at)
                 VALUES {placeholders}
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             # Flatten params: (lib_id, doc_set_id, timestamp) for each document set
-            timestamp = datetime.utcnow()
+            timestamp = datetime.now(UTC)
             params = []
             for doc_set_id in document_set_ids:
                 params.extend([library_id, doc_set_id, timestamp])
@@ -641,7 +641,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
             query = f"""
                 DELETE FROM {DocpipeConstants.LIBRARY_DOCUMENTSET_JUNCTION_TABLE}
                 WHERE library_id = ? AND document_set_id IN ({placeholders})
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             params = (library_id, *document_set_ids)
 
@@ -675,7 +675,7 @@ class DuckDBDocumentLibraryMetadataRepository(DocumentLibraryRepository):
         try:
             query = f"""
                 SELECT COUNT(*) FROM {DocpipeConstants.DOCUMENT_LIBRARY_TABLE_NAME}
-            """
+            """  # nosec B608 — table name is DocpipeConstants internal constant, not user-supplied input
 
             row = self.storage.fetch_one(query=query)
             return row[0] if row else 0

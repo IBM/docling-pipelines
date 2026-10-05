@@ -371,7 +371,6 @@ class ValidationService:
             logger.debug("Conversion completed")
 
             orchestrator = OrchestratorFactory.create_orchestrator(orchestrator_name=OrchestratorType.PYTHON)
-            orchestrator.initialize(job_id="validation-job", job_run_id="validation-run")
             validator = FlowValidator(orchestrator=orchestrator)
 
             # Run validation with feature propagation

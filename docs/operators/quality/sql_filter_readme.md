@@ -39,7 +39,7 @@ The SQLFilterOperator applies row-level filter criteria to a PyArrow table, keep
 | `criteria_list` | `list[string]` | No* | `[]` | SQL WHERE expressions as strings. At least one of `criteria_list` or `criteria_json` must be provided. |
 | `criteria_json` | `object` | No* | `null` | Structured filter criteria with nested logical groups. See format below. |
 | `logical_operator` | `string` | No | `"AND"` | How to join multiple `criteria_list` items. `"AND"` or `"OR"`. |
-| `features_to_drop` | `list[string]` | No | `[]` | Column names to remove from the output table. Cannot drop `id`, `contents`, or `pages_processed`. |
+| `features_to_drop` | `list[string]` | No | `[]` | Column names to remove from the output table. Cannot drop `id`, `content`, `pages_processed`, `allowed_users`, or `chunked_content`. |
 
 **`criteria_json` format:**
 
@@ -113,7 +113,7 @@ This operator removes rows and optionally removes columns but adds no new column
 
 **All documents filtered out** — your threshold is too strict. Start with a loose filter and tighten it after inspecting the distribution of values.
 
-**`features_to_drop` raises an error** — you cannot drop `id`, `contents`, or `pages_processed`. Remove those from the drop list.
+**`features_to_drop` raises an error** — you cannot drop `id`, `content`, `pages_processed`, `allowed_users`, or `chunked_content`. These columns are required by downstream operators. Remove them from the drop list.
 
 ## Sample Flow
 

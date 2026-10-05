@@ -1,6 +1,6 @@
-# Docling Pipelines Tests
+# Docpipe Tests
 
-This directory contains all tests for the Docling Pipelines operators and pipelines.
+This directory contains all tests for the Docpipe operators and pipelines.
 
 ## Test Structure
 
@@ -222,5 +222,5 @@ For test failures:
 ## Additional Resources
 
 - [pytest documentation](https://docs.pytest.org/)
-- [Docling Pipelines Architecture](../ARCHITECTURE.md)
+- [Docpipe Architecture](../ARCHITECTURE.md)
 - [Operator Documentation](../src/docpipe/core/operators/)

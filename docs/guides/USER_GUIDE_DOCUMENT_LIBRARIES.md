@@ -56,13 +56,16 @@ uv sync
 Document Libraries are accessed via REST API endpoints. Start the API server:
 
 ```bash
-# From project root directory (with PYTHONPATH set)
+# Recommended — uses the installed console entry point
+docling-pipelines-api
+
+# Alternative — invoke uvicorn directly (with PYTHONPATH set)
 uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 The API will be available at `http://localhost:8000` with interactive documentation at `http://localhost:8000/api/v1/docs`.
 
-**Note:** The command must be run from the project root with `PYTHONPATH` set to include the `src` directory.
+**Note:** The direct `uvicorn` command must be run from the project root with `PYTHONPATH` set to include the `src` directory.
 
 **Troubleshooting:**
 - **Error: "address already in use"**: Port 8000 is already occupied. Either:

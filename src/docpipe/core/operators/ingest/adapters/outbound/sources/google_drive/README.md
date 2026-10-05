@@ -54,7 +54,7 @@ Choose one of the following authentication methods:
    - Go to "APIs & Services" > "Credentials"
    - Click "Create Credentials" > "OAuth client ID"
    - Choose "Desktop app" as application type
-   - Name it (e.g., "Docling Pipelines Google Drive Connector")
+   - Name it (e.g., "Docpipe Google Drive Connector")
    - Click "Create"
 5. Download the credentials:
    - Click the download icon next to your new OAuth client

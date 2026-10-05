@@ -1,0 +1,220 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/theme' as *;
+@use '@carbon/react/scss/type';
+@use '@carbon/react/scss/utilities/convert' as *;
+
+.emptyStateWrapper {
+  margin-top: $spacing-06;
+  text-align: left;
+
+  :global(.c4p--empty-state) {
+    align-items: flex-start;
+    text-align: left;
+    padding: 0;
+  }
+
+  :global(.c4p--empty-state__header) {
+    text-align: left;
+  }
+
+  :global(.c4p--empty-state__title) {
+    @include type.type-style('heading-02');
+    color: $text-primary;
+    text-align: left;
+  }
+
+  :global(.c4p--empty-state__subtitle) {
+    font-size: 0.875rem;
+    font-weight: 400;
+    line-height: 1.4;
+    color: $text-secondary;
+    text-align: left;
+    max-width: 100%;
+  }
+
+  :global(.c4p--empty-state__action) {
+    justify-content: flex-start;
+    margin-top: $spacing-02;
+
+    .cds--btn--ghost,
+    .cds--btn--primary {
+      padding: 0;
+      min-height: auto;
+      font-size: 0.875rem;
+      font-weight: 400;
+      color: $link-primary;
+
+      &:hover {
+        background-color: transparent;
+        text-decoration: underline;
+      }
+    }
+  }
+}
+
+// ── Feature mapping summary card (shown in properties panel after save) ──
+// Target: gray outer wrapper, bold index name, full-width search+Edit toolbar,
+// light-gray header row, white body rows, horizontal dividers only.
+.resourceTableSection {
+  margin-top: $spacing-05;
+  // Outer card uses layer-02 (gray in g10) to frame the table
+  background-color: $layer-02;
+
+  // Remove DataTable container's default padding
+  :global(.cds--data-table-container) {
+    padding-top: 0;
+  }
+
+  // Toolbar: same gray as outer card, search+button laid out in one full-width row
+  :global(.cds--table-toolbar) {
+    background-color: $layer-02;
+  }
+
+  :global(.cds--toolbar-content) {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    background-color: $layer-02;
+  }
+
+  // Search stretches to fill all remaining space; Edit button stays right
+  :global(.cds--toolbar-search-container-persistent) {
+    flex: 1 1 auto;
+  }
+
+  :global(.cds--search-input) {
+    background-color: $layer-02;
+  }
+
+  // Header row — solid light gray ($layer-accent-01 = #e0e0e0 in g10)
+  :global(.cds--data-table thead tr),
+  :global(.cds--data-table thead tr th) {
+    background-color: $layer-accent-01;
+  }
+
+  :global(.cds--data-table th) {
+    background-color: $layer-accent-01;
+    border-bottom: 1px solid $border-subtle-01;
+    border-right: none;
+  }
+
+  // Body rows — same light gray as outer card ($layer-02 = #f4f4f4 in g10),
+  // horizontal dividers only, no vertical borders
+  :global(.cds--data-table tbody tr) {
+    background-color: $layer-02;
+    border-bottom: 1px solid $border-subtle-01;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background-color: $layer-hover-01;
+    }
+  }
+
+  :global(.cds--data-table td) {
+    border-right: none;
+    border-left: none;
+    background-color: inherit;
+  }
+
+  // Checkbox cell alignment
+  :global(.cds--table-column-checkbox) {
+    vertical-align: middle;
+  }
+}
+
+// Index name heading — bold, full-width, bottom border
+.resourceNameSection {
+  @include type.type-style('heading-compact-01');
+  color: $text-primary;
+  padding: $spacing-04 $spacing-05;
+  margin: 0;
+}
+
+.editButton {
+  border-radius: 0;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 400;
+  align-self: center;
+}
+
+// summaryTable: no additional overrides needed beyond .resourceTableSection
+.summaryTable {
+  width: 100%;
+}
+
+// Tearsheet Form styling
+// The Carbon Tearsheet content pane is overflow:auto with flex-grow:1 but no
+// explicit height — make tearsheetForm a full-height flex column so the loading
+// center can stretch to fill it.
+//
+// In g10: $background = #f4f4f4 (gray). Setting tearsheetForm to $background
+// gives the body the same gray page background as the reference design.
+// Carbon's Tearsheet already forces all inputs to var(--cds-field) = $field-01
+// = #ffffff (white in g10), so form inputs contrast naturally against the gray.
+.tearsheetForm {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-06;
+  padding: $spacing-06 $spacing-07 $spacing-07;
+  background-color: $background;
+  min-height: 100%;
+}
+
+// Full-body centered spinner.
+// min-height covers the typical tearsheet viewport; flex-grow fills any extra space
+// when the Carbon content pane exposes it.
+.tearsheetLoadingCenter {
+  flex-grow: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 420px;
+}
+
+.rowInputs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: $spacing-05;
+  align-items: flex-start;
+
+  :global(.cds--label),
+  :global(.cds--dropdown__title) {
+    margin-bottom: $spacing-03;
+    min-height: 1.125rem;
+    display: block;
+  }
+
+  :global(.cds--text-input-wrapper) {
+    width: 100%;
+  }
+
+  :global(.cds--dropdown) {
+    height: 40px;
+  }
+
+  :global(.cds--text-input) {
+    height: 40px;
+  }
+}
+
+// Spacer between the feature Dropdown and column TextInput in AddFeatureMappingModal
+.modalColumnInput {
+  margin-top: $spacing-05;
+}
+
+// Milvus-only sparse vector checkbox — sits above the row-inputs grid
+.sparseVectorCheckbox {
+  margin-bottom: $spacing-02;
+}
+
+// Carbon accordion reserves 25% right padding at ≥640px for text readability.
+// Override for form accordions so inputs use the full available width.
+.providerAccordion {
+  :global(.cds--accordion__content) {
+    padding-inline-end: $spacing-05;
+  }
+}

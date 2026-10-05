@@ -25,12 +25,13 @@ class ValidCustomOperator(AbstractOperator):
         metadata = self.create_base_metadata(total_docs_count=table.num_rows)
         return [table], metadata
 
-    def get_metadata(self) -> dict:
+    @staticmethod
+    def get_metadata() -> dict:
         """Return operator metadata."""
         return {
             "label": "Valid Custom Operator",
             "description": "Test operator for validation",
-            "category": self.category,
+            "category": ValidCustomOperator.category.value,
         }
 
     def get_required_features(self) -> list:

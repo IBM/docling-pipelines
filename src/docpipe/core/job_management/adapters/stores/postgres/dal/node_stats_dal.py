@@ -7,7 +7,6 @@ Provides CRUD operations for node-level statistics with batch support.
 from sqlalchemy import text
 from sqlmodel import select
 
-from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.job_management.domain.models import NodeStatsFields
 from docpipe.exceptions.docpipe_exceptions import PostgresOperationException
 from docpipe.utils.infrastructure.logging import get_logger
@@ -15,6 +14,22 @@ from docpipe.utils.infrastructure.logging import get_logger
 from .base_dao import BaseDAO
 
 logger = get_logger()
+
+
+_NODE_STATS_UPDATE_FIELDS = [
+    NodeStatsFields.NAME,
+    NodeStatsFields.NODE_STATUS,
+    NodeStatsFields.START_TIME,
+    NodeStatsFields.END_TIME,
+    NodeStatsFields.TIME_TAKEN,
+    NodeStatsFields.COL_NAMES,
+    NodeStatsFields.TOTAL_DOCS,
+    NodeStatsFields.FAILED_DOCS,
+    NodeStatsFields.SKIPPED_DOCS,
+    NodeStatsFields.DOCS_COMPLETED,
+    NodeStatsFields.NODE_METADATA,
+    NodeStatsFields.ERROR,
+]
 
 
 class NodeStatsDAL:
@@ -51,69 +66,72 @@ class NodeStatsDAL:
                 # Aggregated record - use partial index for batch_id IS NULL
                 self._dao.upsert_with_conflict(
                     obj=node_stat,
-                    index_elements=[NodeStatsFields.NODE_ID, "job_run_id"],
+                    index_elements=[NodeStatsFields.NODE_ID, NodeStatsFields.JOB_RUN_ID],
                     where_clause=text("batch_id IS NULL"),
-                    update_fields=[
-                        NodeStatsFields.NAME,
-                        NodeStatsFields.NODE_STATUS,
-                        NodeStatsFields.START_TIME,
-                        NodeStatsFields.END_TIME,
-                        NodeStatsFields.TIME_TAKEN,
-                        NodeStatsFields.COL_NAMES,
-                        NodeStatsFields.TOTAL_DOCS,
-                        NodeStatsFields.FAILED_DOCS,
-                        NodeStatsFields.SKIPPED_DOCS,
-                        NodeStatsFields.DOCS_COMPLETED,
-                        OperatorConstants.Metadata.NODE_METADATA,
-                        NodeStatsFields.ERROR,
-                    ],
+                    update_fields=_NODE_STATS_UPDATE_FIELDS,
                 )
             else:
                 # Batch record - use full index including batch_id
                 self._dao.upsert_with_conflict(
                     obj=node_stat,
-                    index_elements=[NodeStatsFields.NODE_ID, "job_run_id", NodeStatsFields.BATCH_ID],
+                    index_elements=[NodeStatsFields.NODE_ID, NodeStatsFields.JOB_RUN_ID, NodeStatsFields.BATCH_ID],
                     where_clause=text("batch_id IS NOT NULL"),
-                    update_fields=[
-                        NodeStatsFields.NAME,
-                        NodeStatsFields.NODE_STATUS,
-                        NodeStatsFields.START_TIME,
-                        NodeStatsFields.END_TIME,
-                        NodeStatsFields.TIME_TAKEN,
-                        NodeStatsFields.COL_NAMES,
-                        NodeStatsFields.TOTAL_DOCS,
-                        NodeStatsFields.FAILED_DOCS,
-                        NodeStatsFields.SKIPPED_DOCS,
-                        NodeStatsFields.DOCS_COMPLETED,
-                        OperatorConstants.Metadata.NODE_METADATA,
-                        NodeStatsFields.ERROR,
-                    ],
+                    update_fields=_NODE_STATS_UPDATE_FIELDS,
                 )
         except Exception as e:
-            logger.error(f"Failed to upsert node stats: {e}")
+            logger.error("Failed to upsert node stats: %s", e)
             raise PostgresOperationException(
                 message=f"Failed to upsert node stats: {e}", operation="upsert", table="node_stats"
             ) from e
 
     def bulk_insert(self, *, node_stats: list) -> None:
         """
-        Bulk insert multiple node stats records.
+        Bulk upsert multiple node stats records using INSERT ... ON CONFLICT DO UPDATE.
+
+        Splits into batch rows (batch_id IS NOT NULL) and aggregated rows (batch_id IS NULL)
+        to target the correct partial unique index for each group. Both groups run inside
+        a single session so they commit atomically — if either fails the whole write rolls back.
+
+        Safe to call when rows may already exist (e.g. marking PENDING -> SKIPPED).
 
         Args:
             node_stats: List of node stats model instances
 
         Raises:
-            PostgresOperationException: If bulk insert fails
+            PostgresOperationException: If bulk upsert fails
         """
         if not node_stats:
             return
 
         try:
-            self._dao.bulk_add_no_refresh(objs=node_stats)
+            batch_rows = [ns for ns in node_stats if ns.batch_id is not None]
+            aggregated_rows = [ns for ns in node_stats if ns.batch_id is None]
+
+            # Both groups share one session so the commit is atomic (issue 2).
+            def op(session):
+                """Op."""
+                if batch_rows:
+                    self._dao.bulk_upsert_with_conflict(
+                        objs=batch_rows,
+                        index_elements=[NodeStatsFields.NODE_ID, NodeStatsFields.JOB_RUN_ID, NodeStatsFields.BATCH_ID],
+                        where_clause=text("batch_id IS NOT NULL"),
+                        update_fields=_NODE_STATS_UPDATE_FIELDS,
+                        session=session,
+                    )
+                if aggregated_rows:
+                    self._dao.bulk_upsert_with_conflict(
+                        objs=aggregated_rows,
+                        index_elements=[NodeStatsFields.NODE_ID, NodeStatsFields.JOB_RUN_ID],
+                        where_clause=text("batch_id IS NULL"),
+                        update_fields=_NODE_STATS_UPDATE_FIELDS,
+                        session=session,
+                    )
+
+            self._dao.execute_with_session(fn=op)
         except Exception as e:
-            logger.error(f"Failed to bulk insert node stats: {e}")
+            logger.error("Failed to bulk upsert node stats: %s", e)
             raise PostgresOperationException(
-                message=f"Failed to bulk insert node stats: {e}", operation="bulk_insert", table="node_stats"
+                message=f"Failed to bulk upsert node stats: {e}", operation="bulk_upsert", table="node_stats"
             ) from e
 
     def get_node_stats_by_run_batch(self, *, node_id: str, job_run_id: str, batch_id: str | None = None):
@@ -195,6 +213,34 @@ class NodeStatsDAL:
             logger.error(f"Failed to get batch node stats: {e}")
             raise PostgresOperationException(
                 message=f"Failed to get batch node stats: {e}", operation="get_batch", table="node_stats"
+            ) from e
+
+    def get_failed_docs_for_batch(self, *, job_run_id: str, batch_id: str) -> list:
+        """
+        Retrieve all node stats rows scoped to a single batch.
+
+        Args:
+            job_run_id: Job run identifier
+            batch_id: Batch identifier to scope the query
+
+        Returns:
+            List of model instances with matching job_run_id and batch_id
+
+        Raises:
+            PostgresOperationException: If query fails
+        """
+        try:
+            model = self._dao.model
+            query = (
+                select(model).where(model.job_run_id == job_run_id).where(model.batch_id == batch_id)  # type: ignore[union-attr]
+            )
+            return self._dao.get_by_query(query=query)
+        except Exception as e:
+            logger.error(f"Failed to get failed docs for batch: {e}")
+            raise PostgresOperationException(
+                message=f"Failed to get failed docs for batch: {e}",
+                operation="get_failed_docs_for_batch",
+                table="node_stats",
             ) from e
 
     def get_all_node_stats(self, *, job_run_id: str):

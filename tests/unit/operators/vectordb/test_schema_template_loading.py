@@ -614,12 +614,11 @@ class TestIndexingRules:
         )
 
         # Should raise DocpipeException for unknown field type
-        with pytest.raises(DocpipeException) as exc_info:
-            dimension_mapping: dict[str, int] = {}
+        dimension_mapping: dict[str, int] = {}
+        with pytest.raises(DocpipeException, match="Unknown field type 'nonexistent_type'") as exc_info:
             manager.build_index_body(dimension_mapping=dimension_mapping)
 
         # Verify error message contains helpful information
-        assert "Unknown field type 'nonexistent_type'" in str(exc_info.value)
         assert "content" in str(exc_info.value)
         assert "Available field types" in str(exc_info.value)
 

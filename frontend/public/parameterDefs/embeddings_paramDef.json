@@ -1,0 +1,25 @@
+{
+  "parameters": [
+    { "id": "provider" },
+    { "id": "provider_config" },
+    { "id": "overlap_ratio" },
+    { "id": "token_limit" },
+    { "id": "output_features_to_drop", "type": "array", "default": [] }
+  ],
+  "uihints": {
+    "editor_size": "medium",
+    "id": "embeddings_cpd_uihints",
+    "parameter_info": [
+      { "parameter_ref": "provider" },
+      { "parameter_ref": "provider_config" },
+      { "parameter_ref": "overlap_ratio" },
+      { "parameter_ref": "token_limit" }
+    ],
+    "group_info": [
+      {
+        "id": "common_properties_panel",
+        "type": "customPanel"
+      }
+    ]
+  }
+}

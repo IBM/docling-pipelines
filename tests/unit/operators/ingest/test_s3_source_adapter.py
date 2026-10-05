@@ -205,6 +205,14 @@ class TestS3SourceAdapter:
                 },
             )
 
+    def test_build_config_with_null_credentials(self, adapter):
+        """Null credentials from UI defaults must not raise AttributeError."""
+        with pytest.raises(ValueError, match="Missing required credential"):
+            adapter.build_config_from_operator_params(
+                connection_params={"bucket": "my-bucket"},
+                credentials=None,
+            )
+
     @pytest.mark.asyncio
     async def test_test_connection_success(self, adapter, config):
         """Test successful connection test."""

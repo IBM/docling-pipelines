@@ -1,0 +1,22 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+
+// Full-page canvas container — fills the entire page content area.
+// Mirrors .canvasContainer in Canvas.module.scss so ReadOnlyCanvas
+// (position:absolute inset:0 inside its own parent) fills correctly.
+.runDetailsPage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+// Centered state for loading / error — shown before canvas mounts
+.stateContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: $spacing-07;
+}

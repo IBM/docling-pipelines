@@ -276,7 +276,7 @@ def test_extract_operator_docling_serve_mode(sample_pdf_files):
         "text_extraction": {
             "provider": "docling_serve",
             "provider_config": {
-                "base_url": "http://docpipe-worker1.fyre.ibm.com:30501/",
+                "base_url": "http://localhost:30501/",
                 "timeout": 300,
                 "poll_interval": 2,
                 "max_retries": 3,
@@ -322,7 +322,7 @@ def test_extract_operator_docling_serve_config_validation():
         "text_extraction": {
             "provider": "docling_serve",
             "provider_config": {
-                "base_url": "http://docpipe-worker1.fyre.ibm.com:30501/",
+                "base_url": "http://localhost:30501/",
             },
         },
         "entity_extraction": {"provider": "none"},
@@ -344,7 +344,7 @@ def test_extract_operator_docling_serve_with_api_key():
         "text_extraction": {
             "provider": "docling_serve",
             "provider_config": {
-                "base_url": "http://docpipe-worker1.fyre.ibm.com:30501/",
+                "base_url": "http://localhost:30501/",
                 "api_key": "test-api-key-12345",  # pragma: allowlist secret
                 "timeout": 600,
             },
@@ -366,7 +366,7 @@ def test_extract_operator_docling_serve_with_ocr_languages():
         "text_extraction": {
             "provider": "docling_serve",
             "provider_config": {
-                "base_url": "http://docpipe-worker1.fyre.ibm.com:30501/",
+                "base_url": "http://localhost:30501/",
                 "do_ocr": True,
                 "ocr_engine": "easyocr",
                 "ocr_languages": ["en", "es", "fr"],
@@ -474,7 +474,7 @@ def test_extract_operator_docling_serve_with_entity_extraction():
             "text_extraction": {
                 "provider": "docling_serve",
                 "provider_config": {
-                    "base_url": "http://docpipe-worker1.fyre.ibm.com:30501/",
+                    "base_url": "http://localhost:30501/",
                     "timeout": 300,
                 },
                 "doc_column": "doc_content",
@@ -897,7 +897,7 @@ def test_extract_operator_docling_serve_all_parameters():
         "text_extraction": {
             "provider": "docling_serve",
             "provider_config": {
-                "base_url": "http://docpipe-worker1.fyre.ibm.com:30501/",
+                "base_url": "http://localhost:30501/",
                 "api_key": "secret-key",  # pragma: allowlist secret
                 "timeout": 600,
                 "poll_interval": 5,
@@ -2312,7 +2312,8 @@ def test_streaming_pipeline_happy_path():
 
     # Every document has non-empty text content
     for row_content in result["doc_content"].to_pylist():
-        assert row_content and "text for" in row_content
+        assert row_content is not None
+        assert "text for" in row_content
 
     # Every entity column is valid JSON
     for row_entities in result["entities"].to_pylist():

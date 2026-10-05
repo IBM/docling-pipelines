@@ -8,7 +8,6 @@ Tests cover sanitization, configuration, URL building, header management,
 HTTP methods, retry logic, and error handling.
 """
 
-import os
 from unittest.mock import Mock, patch
 
 import pytest
@@ -47,8 +46,8 @@ class TestSanitizeSensitiveData:
     def test_redact_passwords_in_dict(self):
         """Test redacting passwords in dictionary."""
         data = {
-            "password": os.environ.get("TEST_REDACT_VALUE", "test-redact-value"),
-            "user_password": os.environ.get("TEST_REDACT_VALUE", "test-redact-value"),
+            "password": "secret123",  # pragma: allowlist secret
+            "user_password": "pass456",  # pragma: allowlist secret
             "username": "john",
         }
         result = sanitize_sensitive_data(data)

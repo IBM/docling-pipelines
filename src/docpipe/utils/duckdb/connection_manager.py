@@ -2,6 +2,7 @@
 
 import logging
 import threading
+from collections import defaultdict
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Generator
@@ -15,7 +16,7 @@ class DuckDBConnectionManager:
     """Manage DuckDB connections with shared in-memory support."""
 
     _instance: "DuckDBConnectionManager | None" = None
-    _lock = threading.Lock()
+    _lock = threading.RLock()
 
     def __new__(cls) -> "DuckDBConnectionManager":
         if cls._instance is None:
@@ -29,7 +30,18 @@ class DuckDBConnectionManager:
             return
         self._initialized = True
         self._connections: dict[str, duckdb.DuckDBPyConnection] = {}
+        self._file_locks: dict[str, threading.Lock] = defaultdict(threading.Lock)
         logger.debug("DuckDB connection manager initialized")
+
+    def _get_file_lock(self, database_path: str) -> threading.Lock:
+        """Return the per-path lock, creating it if needed.
+
+        Serializes connection creation and access per database path. DuckDB
+        does not allow concurrent connections to the same database file with
+        different configurations, so all access to a given file is serialized.
+        """
+        with self._lock:
+            return self._file_locks[database_path]
 
     @contextmanager
     def get_connection(
@@ -47,6 +59,9 @@ class DuckDBConnectionManager:
                     logger.debug("Created persistent in-memory DuckDB connection")
             yield connection
             return
+
+        lock = self._get_file_lock(database_path)
+        lock.acquire()
 
         connection = None
         try:
@@ -66,6 +81,7 @@ class DuckDBConnectionManager:
                     logger.debug("Closed DuckDB connection: %s", database_path)
                 except Exception:
                     logger.exception("Error closing connection %s", database_path)
+            lock.release()
 
     def close_all(self) -> None:
         """Close all persistent connections."""

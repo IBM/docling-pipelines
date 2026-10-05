@@ -1,0 +1,34 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+
+// Figma tile body: label / title / subtitle / CTA button
+.tileContent {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-03;
+  padding: $spacing-05;
+  block-size: 100%;
+}
+
+.tileLabel {
+  @include type-style('label-01');
+  color: $text-secondary;
+}
+
+.tileTitle {
+  @include type-style('productive-heading-03');
+  color: $text-primary;
+  margin: 0;
+}
+
+.tileSubtitle {
+  @include type-style('body-short-01');
+  color: $text-secondary;
+  margin: 0;
+  flex: 1; // push button to bottom
+}
+
+.tileAction {
+  margin-block-start: $spacing-05;
+}

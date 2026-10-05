@@ -22,7 +22,7 @@ matched spans are replaced with a masking character in the original content colu
 - LLM-based detection via LiteLLM (100+ providers including Ollama) or WatsonX native API
 - Separate detection and redaction toggles for PII and HAP
 - Configurable confidence thresholds for both PII and HAP
-- Selectable PII types to detect (6 built-in categories)
+- Selectable PII types to detect (13 built-in categories)
 - Debug mode (`display_pii`) to surface detected values in output columns
 - Graceful per-document error handling — failed documents are logged and skipped
 
@@ -62,7 +62,7 @@ matched spans are replaced with a masking character in the original content colu
 | `redaction` | boolean | No | `false` | Replace detected PII spans with `redaction_character` |
 | `hap_redaction` | boolean | No | `false` | Replace detected HAP spans with `hap_redaction_character` |
 | `expected_redactions` | list | No | `["pii","hap"]` | Detection types to run: any subset of `["pii","hap"]` |
-| `pii_list` | list | No | all 6 types | PII types to detect (see supported types below) |
+| `pii_list` | list | No | all 13 types | PII types to detect (see supported types below) |
 | `redaction_character` | string | No | `"*"` | Masking character for PII redaction |
 | `hap_redaction_character` | string | No | `"*"` | Masking character for HAP redaction |
 | `pii_threshold` | float | No | `0.5` | Confidence threshold for PII detection (0.0–1.0) |
@@ -90,7 +90,23 @@ matched spans are replaced with a masking character in the original content colu
 
 ### Supported PII types (`pii_list`)
 
-`BankAccountNumber`, `CreditCardNumber`, `EmailAddress`, `IPAddress`, `PhoneNumber`, `SocialSecurityNumber`
+| Type | Description |
+|---|---|
+| `BankAccountNumber` | Bank account numbers |
+| `CreditCardNumber` | Credit/debit card numbers |
+| `EmailAddress` | Email addresses |
+| `IPAddress` | IPv4 and IPv6 addresses |
+| `PhoneNumber` | Phone and fax numbers |
+| `SocialSecurityNumber` | US Social Security Numbers |
+| `PersonName` | Full or partial person names |
+| `DateOfBirth` | Dates of birth |
+| `Address` | Physical addresses |
+| `PassportNumber` | Passport numbers |
+| `DriverLicenseNumber` | Driver's license numbers |
+| `NationalID` | National identity numbers |
+| `MedicalRecordNumber` | Medical record numbers |
+
+When `pii_list` is omitted, all 13 types are detected by default.
 
 ---
 
@@ -106,9 +122,16 @@ All original columns are preserved. The operator appends:
 | `pii_ip_address` | `int64` | Count of IP addresses detected |
 | `pii_phone_number` | `int64` | Count of phone numbers detected |
 | `pii_ssn_details` | `int64` | Count of Social Security Numbers detected |
+| `pii_person_name` | `int64` | Count of person names detected |
+| `pii_date_of_birth` | `int64` | Count of dates of birth detected |
+| `pii_address` | `int64` | Count of physical addresses detected |
+| `pii_passport_number` | `int64` | Count of passport numbers detected |
+| `pii_driver_license` | `int64` | Count of driver's license numbers detected |
+| `pii_national_id` | `int64` | Count of national identity numbers detected |
+| `pii_medical_record` | `int64` | Count of medical record numbers detected |
 | `hap` | `int64` | Count of HAP instances detected |
 
-When `display_pii: true`, additional `*_info_column` columns are added containing the actual detected values. **Never enable in production.**
+When `display_pii: true`, additional `*_info` columns are added for each PII type containing the actual detected values. **Never enable in production.**
 
 ---
 
@@ -200,10 +223,12 @@ When `display_pii: true`, additional `*_info_column` columns are added containin
 
 ### Detection paths
 
-The operator implements two internal detection paths through a shared service layer:
+The operator uses a decorator-based adapter registry. Each provider adapter self-registers with `PIIAndHAPDetectionFactory` via `@register_pii_and_hap_detection_adapter` and fully encapsulates its own detection path behind the unified `PIIAndHAPDetectionPort.detect()` interface:
 
-1. **WatsonX path**: Uses the native `/ml/v1/text/detection` API — optimised for PII/HAP
-2. **LiteLLM path**: Prompt-based detection via chat completion — supports 100+ providers
+1. **WatsonX** (`WatsonxPIIAndHAPAdapter`): Uses the native `/ml/v1/text/detection` API — optimised for PII/HAP, no prompt engineering required.
+2. **LiteLLM** (`LiteLLMPIIAndHAPAdapter`): Prompt-based detection via chat completion — supports 100+ providers including Ollama.
+
+Adding a new provider is a single-file change: create the adapter module, decorate it with `@register_pii_and_hap_detection_adapter`, and it is automatically discoverable.
 
 ### Migration from legacy Ollama provider
 

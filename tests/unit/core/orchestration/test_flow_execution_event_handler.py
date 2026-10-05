@@ -107,9 +107,10 @@ class TestAfterFlowExecutionComplete:
         job_stats_mock = MagicMock()
         job_stats_mock.node_stats = {}
         mock_job_stats_service.get_job.return_value = job_stats_mock
-        handler.after_flow_execution_complete(
-            op_flow=[], present_job_status=ExecutionStatus.CANCELING, message="Canceled"
-        )
+        with patch.object(handler, "_start_background_report_generation"):
+            handler.after_flow_execution_complete(
+                op_flow=[], present_job_status=ExecutionStatus.CANCELING, message="Canceled"
+            )
         mock_job_stats_service.end_job.assert_called_once()
         call_kwargs = mock_job_stats_service.end_job.call_args[1]
         assert call_kwargs["status"] == ExecutionStatus.CANCELED.value
@@ -118,7 +119,10 @@ class TestAfterFlowExecutionComplete:
         job_stats_mock = MagicMock()
         job_stats_mock.node_stats = {}
         mock_job_stats_service.get_job.return_value = job_stats_mock
-        handler.after_flow_execution_complete(op_flow=[], present_job_status=ExecutionStatus.FAILING, message="Error")
+        with patch.object(handler, "_start_background_report_generation"):
+            handler.after_flow_execution_complete(
+                op_flow=[], present_job_status=ExecutionStatus.FAILING, message="Error"
+            )
         mock_job_stats_service.end_job.assert_called_once()
         call_kwargs = mock_job_stats_service.end_job.call_args[1]
         assert call_kwargs["status"] == ExecutionStatus.FAILED.value

@@ -1,0 +1,11 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type';
+@use '@carbon/react/scss/theme' as *;
+
+.container {
+  padding: $spacing-05 $spacing-07;
+}
+
+.linkNameField {
+  margin-bottom: $spacing-06;
+}

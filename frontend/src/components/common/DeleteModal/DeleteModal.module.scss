@@ -1,0 +1,39 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as *;
+@use '@carbon/react/scss/theme' as *;
+
+// 480px wide — matches Figma confirmation modal width
+.modal {
+  inline-size: 480px;
+}
+
+.body {
+  padding-bottom: $spacing-07;
+
+  p {
+    @include type-style('body-01');
+    margin: 0;
+  }
+}
+
+// ── Footer — 1-1 grid ─────────────────────────────────────────────────
+// Carbon ModalFooter is display:flex — override to grid
+.footer {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  padding: 0 !important; // Carbon adds default padding to .cds--modal-footer; remove so buttons fill the grid
+  border-top: 1px solid $border-subtle-01;
+
+  > * {
+    min-height: 4rem;
+    max-inline-size: unset !important; // Carbon caps button width at 320px via .cds--btn; remove cap
+  }
+}
+
+.footerBtn {
+  border-left: 1px solid $border-subtle-01;
+
+  &:first-child {
+    border-left: none;
+  }
+}

@@ -9,7 +9,9 @@ class BoxSourceConfig(BaseModel):
     """Configuration for Box source."""
 
     # OAuth credentials
-    credentials_path: str = Field(..., description="Path to Box app/JWT config file")
+    credentials_path: str = Field(
+        ..., description="Path to Box app/JWT config file", json_schema_extra={"sensitive": True}
+    )
 
     # Box folder configuration
     folder_id: str = Field("0", description="Box folder ID to start ingestion from. Default '0' is root folder.")

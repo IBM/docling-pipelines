@@ -559,7 +559,9 @@ class TestStageBasedProgressAggregation:
         metadata = aggregated.node_metadata["node_metadata"]
         assert "classification_running" not in metadata
         assert "classification_completed" not in metadata
-        assert "progress_percentage" not in metadata
+        # progress_percentage is now always written as a float by _add_progress_field
+        assert metadata["progress_percentage"] == 50.0  # 1 of 2 batches finished
+        assert isinstance(metadata["progress_percentage"], float)
 
         # Check aggregated persistent fields (4 completed out of 5 total)
         assert metadata["documents_in_scope"] == 5
@@ -634,3 +636,148 @@ class TestStageBasedProgressAggregation:
         assert classify_metadata["processed_docs"] == 2
         assert "Documents Classified" in classify_metadata
         assert "2 of 3" in classify_metadata["Documents Classified"]
+
+
+class TestInjectProgressPercentageNonBatch:
+    """Tests for _inject_progress_percentage in the non-batch aggregation path."""
+
+    def _make_store_with(self, records):
+        store = MockJobStatsStore()
+        store.node_stats_data = records
+        return store
+
+    def _make_node(
+        self, *, node_id=NODE_1_ID, total_docs, docs_completed, failed_docs=None, skipped_docs=None, node_metadata=None
+    ):
+        return NodeStats(
+            id=node_id,
+            name="TestOp",
+            node_status="Completed",
+            total_docs=total_docs,
+            docs_completed=docs_completed,
+            failed_docs=failed_docs or [],
+            skipped_docs=skipped_docs or [],
+            node_metadata=node_metadata
+            if node_metadata is not None
+            else {
+                "id": node_id,
+                "operator": "TestOp",
+                "node_metadata": {"node_status": "Completed"},
+            },
+        )
+
+    def test_injects_100_when_all_docs_completed(self):
+        """All docs completed → progress_percentage == 100.0."""
+        record = self._make_node(
+            total_docs=["doc1", "doc2", "doc3"],
+            docs_completed=["doc1", "doc2", "doc3"],
+        )
+        aggregator = NodeStatsAggregator(job_stats_store=self._make_store_with([record]))
+        result = aggregator.get_aggregated_node_stats(job_id=JOB_ID, job_run_id=RUN_ID)
+
+        inner = result[NODE_1_ID].node_metadata["node_metadata"]
+        assert inner["progress_percentage"] == 100.0
+        assert isinstance(inner["progress_percentage"], float)
+
+    def test_injects_partial_progress(self):
+        """2 of 4 docs completed → progress_percentage == 50.0."""
+        record = self._make_node(
+            total_docs=["doc1", "doc2", "doc3", "doc4"],
+            docs_completed=["doc1", "doc2"],
+        )
+        aggregator = NodeStatsAggregator(job_stats_store=self._make_store_with([record]))
+        result = aggregator.get_aggregated_node_stats(job_id=JOB_ID, job_run_id=RUN_ID)
+
+        inner = result[NODE_1_ID].node_metadata["node_metadata"]
+        assert inner["progress_percentage"] == 50.0
+
+    def test_counts_failed_and_skipped_as_processed(self):
+        """completed + failed + skipped all count towards processed."""
+        record = self._make_node(
+            total_docs=["doc1", "doc2", "doc3", "doc4"],
+            docs_completed=["doc1"],
+            failed_docs=["doc2"],
+            skipped_docs=["doc3"],
+        )
+        aggregator = NodeStatsAggregator(job_stats_store=self._make_store_with([record]))
+        result = aggregator.get_aggregated_node_stats(job_id=JOB_ID, job_run_id=RUN_ID)
+
+        inner = result[NODE_1_ID].node_metadata["node_metadata"]
+        assert inner["progress_percentage"] == 75.0  # 3 of 4
+
+    def test_falls_back_to_metadata_integer_when_list_empty(self):
+        """When total_docs list is empty, falls back to integer counts in node_metadata."""
+        record = self._make_node(
+            total_docs=[],
+            docs_completed=[],
+            node_metadata={
+                "id": NODE_1_ID,
+                "operator": "TestOp",
+                "node_metadata": {
+                    "node_status": "Running",
+                    "documents_in_scope": 10,
+                    "processed_docs": 6,
+                },
+            },
+        )
+        aggregator = NodeStatsAggregator(job_stats_store=self._make_store_with([record]))
+        result = aggregator.get_aggregated_node_stats(job_id=JOB_ID, job_run_id=RUN_ID)
+
+        inner = result[NODE_1_ID].node_metadata["node_metadata"]
+        assert inner["progress_percentage"] == 60.0  # 6 of 10
+
+    def test_skips_when_zero_total_docs(self):
+        """Node with no total docs (list or metadata) does not get progress_percentage."""
+        record = self._make_node(
+            total_docs=[],
+            docs_completed=[],
+            node_metadata={
+                "id": NODE_1_ID,
+                "operator": "TestOp",
+                "node_metadata": {"node_status": "Running"},
+            },
+        )
+        aggregator = NodeStatsAggregator(job_stats_store=self._make_store_with([record]))
+        result = aggregator.get_aggregated_node_stats(job_id=JOB_ID, job_run_id=RUN_ID)
+
+        inner = result[NODE_1_ID].node_metadata["node_metadata"]
+        assert "progress_percentage" not in inner
+
+    def test_skips_without_inner_node_metadata_dict(self):
+        """Node whose node_metadata has no nested dict is left unchanged."""
+        record = self._make_node(
+            total_docs=["doc1"],
+            docs_completed=["doc1"],
+            node_metadata={"id": NODE_1_ID, "operator": "TestOp"},
+        )
+        aggregator = NodeStatsAggregator(job_stats_store=self._make_store_with([record]))
+        result = aggregator.get_aggregated_node_stats(job_id=JOB_ID, job_run_id=RUN_ID)
+
+        assert "node_metadata" not in result[NODE_1_ID].node_metadata
+
+    def test_skips_with_none_node_metadata(self):
+        """Node with node_metadata=None is left unchanged without error."""
+        record = NodeStats(
+            id=NODE_1_ID,
+            name="TestOp",
+            node_status="Completed",
+            total_docs=["doc1"],
+            docs_completed=["doc1"],
+            node_metadata=None,
+        )
+        aggregator = NodeStatsAggregator(job_stats_store=self._make_store_with([record]))
+        result = aggregator.get_aggregated_node_stats(job_id=JOB_ID, job_run_id=RUN_ID)
+
+        assert result[NODE_1_ID].node_metadata is None
+
+    def test_multiple_non_batch_nodes_all_get_progress(self):
+        """All non-batch nodes in a result get progress_percentage injected."""
+        records = [
+            self._make_node(node_id=NODE_1_ID, total_docs=["a", "b"], docs_completed=["a", "b"]),
+            self._make_node(node_id=NODE_2_ID, total_docs=["c", "d", "e", "f"], docs_completed=["c"]),
+        ]
+        aggregator = NodeStatsAggregator(job_stats_store=self._make_store_with(records))
+        result = aggregator.get_aggregated_node_stats(job_id=JOB_ID, job_run_id=RUN_ID)
+
+        assert result[NODE_1_ID].node_metadata["node_metadata"]["progress_percentage"] == 100.0
+        assert result[NODE_2_ID].node_metadata["node_metadata"]["progress_percentage"] == 25.0

@@ -172,11 +172,39 @@ class TestHuggingFaceLLMClient:
         assert client.use_local is True
         mock_st.assert_called_once()
 
+    @patch("sentence_transformers.SentenceTransformer")
+    def test_initialization_local_uses_cached_model(self, mock_st):
+        """Test that a second client with the same model uses the cached instance."""
+        import numpy as np
+
+        mock_model = MagicMock()
+        mock_model.encode.return_value = np.array([0.1, 0.2])
+        mock_st.return_value = mock_model
+
+        HuggingFaceLLMClient._loaded_models.clear()
+        # Load once — populates cache
+        HuggingFaceLLMClient(model_name="sentence-transformers/all-MiniLM-L6-v2", use_local=True)
+        # Load again — should reuse cache, not call SentenceTransformer again
+        HuggingFaceLLMClient(model_name="sentence-transformers/all-MiniLM-L6-v2", use_local=True)
+
+        assert mock_st.call_count == 1
+
     def test_initialization_api_mode_without_token_raises_error(self):
         """Test that API mode without token raises ConfigurationError."""
         with patch.dict(os.environ, {}, clear=True):
             with pytest.raises(ConfigurationError, match="HuggingFace API token required"):
                 HuggingFaceLLMClient(model_name="sentence-transformers/all-MiniLM-L6-v2", use_local=False)
+
+    def test_initialization_api_mode_with_token(self):
+        """Test API mode initializes InferenceClient when token is present."""
+        with patch("huggingface_hub.InferenceClient") as mock_client_cls:
+            client = HuggingFaceLLMClient(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                use_local=False,
+                api_token="fake-token",  # pragma: allowlist secret
+            )
+            assert client.use_local is False
+            mock_client_cls.assert_called_once_with(token="fake-token")  # pragma: allowlist secret
 
     @patch("sentence_transformers.SentenceTransformer")
     def test_generate_embeddings_local(self, mock_st):
@@ -198,6 +226,131 @@ class TestHuggingFaceLLMClient:
 
         assert embeddings == [0.1, 0.2, 0.3]
         mock_model.encode.assert_called_once()
+
+    @patch("sentence_transformers.SentenceTransformer")
+    def test_generate_embeddings_local_model_none_raises(self, mock_st):
+        """Test that generate_embeddings raises when local model is None."""
+        HuggingFaceLLMClient._loaded_models.clear()
+        mock_st.return_value = MagicMock()
+        client = HuggingFaceLLMClient(model_name="sentence-transformers/all-MiniLM-L6-v2", use_local=True)
+        client.model = None  # force model to None
+
+        from docpipe.exceptions.docpipe_exceptions import ExternalServiceError
+
+        with pytest.raises(ExternalServiceError):
+            client.generate_embeddings("test")
+
+    def test_generate_embeddings_api(self):
+        """Test API-mode single embedding generation."""
+        with patch("huggingface_hub.InferenceClient") as mock_client_cls:
+            mock_hf_client = MagicMock()
+            mock_hf_client.feature_extraction.return_value = [0.1, 0.2, 0.3]
+            mock_client_cls.return_value = mock_hf_client
+
+            client = HuggingFaceLLMClient(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                use_local=False,
+                api_token="fake-token",  # pragma: allowlist secret
+            )
+            embeddings = client.generate_embeddings("hello")
+
+        assert embeddings == [0.1, 0.2, 0.3]
+
+    @patch("sentence_transformers.SentenceTransformer")
+    def test_generate_embeddings_batch_local(self, mock_st):
+        """Test local batch embedding generation."""
+        import numpy as np
+
+        HuggingFaceLLMClient._loaded_models.clear()
+        mock_model = MagicMock()
+        mock_model.encode.return_value = np.array([[0.1, 0.2], [0.3, 0.4]])
+        mock_st.return_value = mock_model
+
+        client = HuggingFaceLLMClient(model_name="sentence-transformers/all-MiniLM-L6-v2", use_local=True)
+        result = client.generate_embeddings_batch(["text one", "text two"])
+
+        assert result == [[0.1, 0.2], [0.3, 0.4]]
+
+    @patch("sentence_transformers.SentenceTransformer")
+    def test_generate_embeddings_batch_empty_raises(self, mock_st):
+        """Test that empty batch raises ConfigurationError."""
+        HuggingFaceLLMClient._loaded_models.clear()
+        mock_st.return_value = MagicMock()
+        client = HuggingFaceLLMClient(model_name="sentence-transformers/all-MiniLM-L6-v2", use_local=True)
+
+        with pytest.raises(ConfigurationError, match="non-empty list"):
+            client.generate_embeddings_batch([])
+
+    @patch("sentence_transformers.SentenceTransformer")
+    def test_generate_embeddings_batch_invalid_text_raises(self, mock_st):
+        """Test that a batch with empty strings raises ConfigurationError."""
+        HuggingFaceLLMClient._loaded_models.clear()
+        mock_st.return_value = MagicMock()
+        client = HuggingFaceLLMClient(model_name="sentence-transformers/all-MiniLM-L6-v2", use_local=True)
+
+        with pytest.raises(ConfigurationError, match="non-empty strings"):
+            client.generate_embeddings_batch(["valid", ""])
+
+    def test_generate_embeddings_batch_api(self):
+        """Test API-mode batch embedding generation."""
+        with patch("huggingface_hub.InferenceClient") as mock_client_cls:
+            mock_hf_client = MagicMock()
+            mock_hf_client.feature_extraction.side_effect = [
+                [0.1, 0.2],
+                [0.3, 0.4],
+            ]
+            mock_client_cls.return_value = mock_hf_client
+
+            client = HuggingFaceLLMClient(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                use_local=False,
+                api_token="fake-token",  # pragma: allowlist secret
+                batch_size=2,
+            )
+            result = client.generate_embeddings_batch(["a", "b"])
+
+        assert result == [[0.1, 0.2], [0.3, 0.4]]
+
+    def test_parse_feature_extraction_response_numpy(self):
+        """Test _parse_feature_extraction_response with numpy-like object."""
+        import numpy as np
+
+        arr = np.array([0.1, 0.2, 0.3])
+        result = HuggingFaceLLMClient._parse_feature_extraction_response(arr)
+        assert result == [0.1, 0.2, 0.3]
+
+    def test_parse_feature_extraction_response_nested_numpy(self):
+        """Test _parse_feature_extraction_response with nested numpy array."""
+        import numpy as np
+
+        arr = np.array([[0.1, 0.2, 0.3]])
+        result = HuggingFaceLLMClient._parse_feature_extraction_response(arr)
+        assert result == [0.1, 0.2, 0.3]
+
+    def test_parse_feature_extraction_response_flat_list(self):
+        """Test _parse_feature_extraction_response with a flat list."""
+        result = HuggingFaceLLMClient._parse_feature_extraction_response([0.1, 0.2, 0.3])
+        assert result == [0.1, 0.2, 0.3]
+
+    def test_parse_feature_extraction_response_nested_list(self):
+        """Test _parse_feature_extraction_response with a nested list."""
+        result = HuggingFaceLLMClient._parse_feature_extraction_response([[0.1, 0.2, 0.3]])
+        assert result == [0.1, 0.2, 0.3]
+
+    def test_parse_feature_extraction_response_unexpected_type_raises(self):
+        """Test _parse_feature_extraction_response raises on unexpected type."""
+        from docpipe.exceptions.docpipe_exceptions import ExternalServiceError
+
+        with pytest.raises(ExternalServiceError, match="Unexpected response format"):
+            HuggingFaceLLMClient._parse_feature_extraction_response("not-a-list")
+
+    def test_validate_configuration_api_without_token_raises(self):
+        """Test validate_configuration raises when API mode has no token."""
+        with patch("huggingface_hub.InferenceClient"):
+            with patch.dict(os.environ, {}, clear=True):
+                # Inject a client with use_local=False and no api_token
+                with pytest.raises(ConfigurationError, match="HuggingFace API token required"):
+                    HuggingFaceLLMClient(model_name="m", use_local=False)
 
     def test_get_model_token_limit(self):
         """Test token limit retrieval."""
@@ -228,6 +381,28 @@ class TestLiteLLMLLMClient:
             assert client.api_key == "test-key"  # pragma: allowlist secret
 
     @patch("litellm.embedding")
+    def test_initialization_with_api_base_sets_litellm(self, mock_embedding):
+        """Test that api_base is applied to litellm when provided."""
+        import litellm
+
+        client = LiteLLMLLMClient(
+            model_name="text-embedding-ada-002",
+            api_base="http://localhost:8080",
+        )
+        assert client.api_base == "http://localhost:8080"
+        assert litellm.api_base == "http://localhost:8080"
+
+    @patch("litellm.embedding")
+    def test_initialization_sets_provider_api_key(self, mock_embedding):
+        """Test that api_key parameter sets the provider env var."""
+        client = LiteLLMLLMClient(
+            model_name="text-embedding-ada-002",
+            api_key="explicit-key",  # pragma: allowlist secret
+        )
+        assert client.api_key == "explicit-key"  # pragma: allowlist secret
+        assert os.environ.get("OPENAI_API_KEY") == "explicit-key"  # pragma: allowlist secret
+
+    @patch("litellm.embedding")
     def test_generate_embeddings(self, mock_embedding):
         """Test embeddings generation."""
         mock_response = MagicMock()
@@ -240,6 +415,74 @@ class TestLiteLLMLLMClient:
 
         assert embeddings == [0.1, 0.2, 0.3]
         mock_embedding.assert_called_once()
+
+    @patch("litellm.embedding")
+    def test_generate_embeddings_dict_response(self, mock_embedding):
+        """Test embeddings generation with dict-style response."""
+        mock_embedding.return_value = {"data": [{"embedding": [0.4, 0.5]}]}
+
+        client = LiteLLMLLMClient(model_name="text-embedding-ada-002")
+        embeddings = client.generate_embeddings("test")
+
+        assert embeddings == [0.4, 0.5]
+
+    @patch("litellm.embedding")
+    def test_generate_embeddings_unexpected_response_raises(self, mock_embedding):
+        """Test that unexpected response format raises ExternalServiceError."""
+        from docpipe.exceptions.docpipe_exceptions import ExternalServiceError
+
+        mock_embedding.return_value = "bad-response"
+
+        client = LiteLLMLLMClient(model_name="text-embedding-ada-002")
+        with pytest.raises(ExternalServiceError):
+            client.generate_embeddings("test")
+
+    @patch("litellm.embedding")
+    def test_generate_embeddings_batch(self, mock_embedding):
+        """Test batch embeddings generation."""
+        mock_response = MagicMock()
+        mock_response.data = [{"embedding": [0.1, 0.2]}, {"embedding": [0.3, 0.4]}]
+        mock_embedding.return_value = mock_response
+
+        client = LiteLLMLLMClient(model_name="text-embedding-ada-002", batch_size=10)
+        result = client.generate_embeddings_batch(["a", "b"])
+
+        assert result == [[0.1, 0.2], [0.3, 0.4]]
+
+    @patch("litellm.embedding")
+    def test_generate_embeddings_batch_dict_response(self, mock_embedding):
+        """Test batch embeddings with dict-style response."""
+        mock_embedding.return_value = {"data": [{"embedding": [0.9, 0.8]}]}
+
+        client = LiteLLMLLMClient(model_name="text-embedding-ada-002")
+        result = client.generate_embeddings_batch(["hello"])
+
+        assert result == [[0.9, 0.8]]
+
+    @patch("litellm.embedding")
+    def test_generate_embeddings_batch_unexpected_response_raises(self, mock_embedding):
+        """Test that batch with unexpected response format raises ExternalServiceError."""
+        from docpipe.exceptions.docpipe_exceptions import ExternalServiceError
+
+        mock_embedding.return_value = "bad-response"
+
+        client = LiteLLMLLMClient(model_name="text-embedding-ada-002")
+        with pytest.raises(ExternalServiceError):
+            client.generate_embeddings_batch(["text"])
+
+    @patch("litellm.embedding")
+    def test_generate_embeddings_batch_empty_raises(self, mock_embedding):
+        """Test that empty batch raises ConfigurationError."""
+        client = LiteLLMLLMClient(model_name="text-embedding-ada-002")
+        with pytest.raises(ConfigurationError, match="non-empty list"):
+            client.generate_embeddings_batch([])
+
+    @patch("litellm.embedding")
+    def test_generate_embeddings_batch_invalid_text_raises(self, mock_embedding):
+        """Test that batch with empty string raises ConfigurationError."""
+        client = LiteLLMLLMClient(model_name="text-embedding-ada-002")
+        with pytest.raises(ConfigurationError, match="non-empty strings"):
+            client.generate_embeddings_batch(["ok", ""])
 
     @patch("litellm.completion")
     def test_chat(self, mock_completion):
@@ -255,6 +498,83 @@ class TestLiteLLMLLMClient:
 
         assert response == "response text"
         mock_completion.assert_called_once()
+
+    @patch("litellm.completion")
+    def test_chat_streaming(self, mock_completion):
+        """Test chat completion with streaming response."""
+        chunk1 = MagicMock()
+        chunk1.choices = [MagicMock(delta=MagicMock(content="hello "))]
+        chunk2 = MagicMock()
+        chunk2.choices = [MagicMock(delta=MagicMock(content="world"))]
+        mock_completion.return_value = iter([chunk1, chunk2])
+
+        client = LiteLLMLLMClient(model_name="gpt-4")
+        response = client.chat([{"role": "user", "content": "hi"}], stream=True)
+
+        assert response == "hello world"
+
+    @patch("litellm.completion")
+    def test_chat_non_streaming_dict_response(self, mock_completion):
+        """Test chat with dict-style non-streaming response."""
+        mock_completion.return_value = {"choices": [{"message": {"content": "dict reply"}}]}
+
+        client = LiteLLMLLMClient(model_name="gpt-4")
+        response = client.chat([{"role": "user", "content": "hi"}])
+
+        assert response == "dict reply"
+
+    @patch("litellm.completion")
+    def test_chat_non_streaming_unexpected_response_raises(self, mock_completion):
+        """Test that unexpected non-streaming response raises ExternalServiceError."""
+        from docpipe.exceptions.docpipe_exceptions import ExternalServiceError
+
+        mock_completion.return_value = "bad"
+
+        client = LiteLLMLLMClient(model_name="gpt-4")
+        with pytest.raises(ExternalServiceError):
+            client.chat([{"role": "user", "content": "hi"}])
+
+    @patch("litellm.completion")
+    def test_chat_empty_messages_raises(self, mock_completion):
+        """Test that empty messages list raises ConfigurationError."""
+        client = LiteLLMLLMClient(model_name="gpt-4")
+        with pytest.raises(ConfigurationError, match="non-empty list"):
+            client.chat([])
+
+    @patch("litellm.completion")
+    def test_chat_empty_response_raises(self, mock_completion):
+        """Test that empty content in response raises ExternalServiceError."""
+        from docpipe.exceptions.docpipe_exceptions import ExternalServiceError
+
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock(message=MagicMock(content=""))]
+        mock_completion.return_value = mock_response
+
+        client = LiteLLMLLMClient(model_name="gpt-4")
+        with pytest.raises(ExternalServiceError, match="Empty response"):
+            client.chat([{"role": "user", "content": "hi"}])
+
+    @patch("litellm.completion")
+    def test_generate(self, mock_completion):
+        """Test generate delegates to chat."""
+        mock_response = MagicMock()
+        mock_response.choices = [MagicMock(message=MagicMock(content="generated"))]
+        mock_completion.return_value = mock_response
+
+        client = LiteLLMLLMClient(model_name="gpt-4")
+        result = client.generate("my prompt")
+
+        assert result == "generated"
+
+    @patch("litellm.embedding")
+    def test_validate_configuration(self, mock_embedding):
+        """Test validate_configuration runs without error for a valid client."""
+        client = LiteLLMLLMClient(model_name="text-embedding-ada-002")
+        client.validate_configuration()  # should not raise
+
+    def test_get_embedding_dimension_returns_zero(self):
+        """Test that get_embedding_dimension always returns 0 (runtime-determined)."""
+        assert LiteLLMLLMClient.get_embedding_dimension("any-model") == 0
 
     def test_get_model_token_limit(self):
         """Test token limit retrieval."""

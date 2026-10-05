@@ -3,6 +3,36 @@
 from docpipe.core.orchestration.global_config_metadata import GlobalConfigMetadata, GlobalConfigParam
 
 
+def _group_params_by_category(
+    params: dict[str, GlobalConfigParam],
+    *,
+    category_filter: str | None,
+) -> dict[str, list[tuple[str, GlobalConfigParam]]]:
+    """Group params by category, applying an optional category filter."""
+    by_category: dict[str, list[tuple[str, GlobalConfigParam]]] = {}
+    for key, param in params.items():
+        if category_filter and param.category != category_filter:
+            continue
+        by_category.setdefault(param.category, []).append((key, param))
+    return by_category
+
+
+def _format_param_detail(key: str, param: GlobalConfigParam) -> list[str]:
+    """Return the detail lines for a single parameter."""
+    lines = [
+        f"\n{'-' * 100}",
+        f"Parameter: {key}",
+        f"{'-' * 100}",
+        f"Name: {param.name}",
+        f"Type: {param.type}",
+        f"Required: {'Yes' if param.required else 'No'}",
+    ]
+    if param.default is not None:
+        lines.append(f"Default: {param.default}")
+    lines += ["\nDescription:", f"  {param.description}"]
+    return lines
+
+
 def format_global_config_details(params: dict[str, GlobalConfigParam], *, category_filter: str | None = None) -> str:
     """
     Format global configuration parameters into a human-readable detailed view.
@@ -14,43 +44,40 @@ def format_global_config_details(params: dict[str, GlobalConfigParam], *, catego
     Returns:
         Formatted string representation of the parameters
     """
-    lines = []
-
-    # Group by category
-    by_category: dict[str, list[tuple[str, GlobalConfigParam]]] = {}
-    for key, param in params.items():
-        if category_filter and param.category != category_filter:
-            continue
-        if param.category not in by_category:
-            by_category[param.category] = []
-        by_category[param.category].append((key, param))
+    by_category = _group_params_by_category(params, category_filter=category_filter)
 
     if not by_category:
         if category_filter:
             return f"\nNo parameters found in category: {category_filter}"
         return "\nNo global configuration parameters found"
 
-    # Display each category
+    lines: list[str] = []
     for category in sorted(by_category.keys()):
-        category_items = sorted(by_category[category], key=lambda item: item[1].name)
-
-        lines.append(f"\n{'=' * 100}")
-        lines.append(f"CATEGORY: {category}")
-        lines.append(f"{'=' * 100}")
-
-        for key, param in category_items:
-            lines.append(f"\n{'-' * 100}")
-            lines.append(f"Parameter: {key}")
-            lines.append(f"{'-' * 100}")
-            lines.append(f"Name: {param.name}")
-            lines.append(f"Type: {param.type}")
-            lines.append(f"Required: {'Yes' if param.required else 'No'}")
-            if param.default is not None:
-                lines.append(f"Default: {param.default}")
-            lines.append("\nDescription:")
-            lines.append(f"  {param.description}")
+        lines += [f"\n{'=' * 100}", f"CATEGORY: {category}", f"{'=' * 100}"]
+        for key, param in sorted(by_category[category], key=lambda item: item[1].name):
+            lines += _format_param_detail(key, param)
 
     return "\n".join(lines)
+
+
+def _truncate_default(value: object) -> str:
+    """Return a display-safe string for a default value, capped at 22 characters."""
+    if value is None:
+        return ""
+    text = str(value)
+    return text[:19] + "..." if len(text) > 22 else text
+
+
+def _empty_summary_message(*, category_filter: str | None) -> str:
+    """Return the appropriate message when no parameters match the filter."""
+    if category_filter:
+        return "\n".join(
+            [
+                f"\nNo parameters found in category: {category_filter}",
+                f"\nAvailable categories: {', '.join(GlobalConfigMetadata.get_categories())}",
+            ]
+        )
+    return "\nNo global configuration parameters found"
 
 
 def display_global_config_summary(*, category_filter: str | None = None) -> str:
@@ -64,48 +91,32 @@ def display_global_config_summary(*, category_filter: str | None = None) -> str:
         Formatted summary table
     """
     params = GlobalConfigMetadata.get_all_config_metadata()
-    lines = []
 
-    # Filter by category if specified
-    filtered_params = {}
-    for name, param in params.items():
-        if category_filter and param.category != category_filter:
-            continue
-        filtered_params[name] = param
+    filtered_params = {
+        name: param for name, param in params.items() if not category_filter or param.category == category_filter
+    }
 
     if not filtered_params:
-        if category_filter:
-            lines.append(f"\nNo parameters found in category: {category_filter}")
-            lines.append(f"\nAvailable categories: {', '.join(GlobalConfigMetadata.get_categories())}")
-            return "\n".join(lines)
-        return "\nNo global configuration parameters found"
+        return _empty_summary_message(category_filter=category_filter)
 
-    if category_filter:
-        lines.append(f"GLOBAL CONFIGURATION PARAMETERS - CATEGORY: {category_filter}")
-    else:
-        lines.append("GLOBAL CONFIGURATION PARAMETERS SUMMARY")
-    lines.append("=" * 120)
+    title = (
+        f"GLOBAL CONFIGURATION PARAMETERS - CATEGORY: {category_filter}"
+        if category_filter
+        else "GLOBAL CONFIGURATION PARAMETERS SUMMARY"
+    )
+
+    lines = [title, "=" * 120]
     lines.append(f"\n{'Parameter':<63} {'Type':<15} {'Category':<30} {'Required':<10} {'Default':<25}")
     lines.append("-" * 130)
 
-    # Sort by category, then by name
     sorted_items = sorted(filtered_params.items(), key=lambda item: (item[1].category, item[1].name))
 
     for key, param in sorted_items:
-        # Truncate long default values
-        if param.default is None:
-            default_str = ""
-        else:
-            default_str = str(param.default)
-            if len(default_str) > 22:
-                default_str = default_str[:19] + "..."
-
         required_str = "Yes" if param.required else "No"
-
-        # Display name with key in brackets
         display_name = f"{param.name} ({key})"
-
-        lines.append(f"{display_name:<63} {param.type:<15} {param.category:<30} {required_str:<10} {default_str:<25}")
+        lines.append(
+            f"{display_name:<63} {param.type:<15} {param.category:<30} {required_str:<10} {_truncate_default(param.default):<25}"
+        )
 
     lines.append("-" * 130)
     lines.append(f"\nTotal parameters: {len(filtered_params)}")
@@ -144,6 +155,7 @@ def list_global_config(*, verbose: bool = False, category: str | None = None) ->
 
 # For testing
 def main():  # pragma: no cover
+    """Run a quick demo of all global config display modes."""
     print("=== SUMMARY VIEW ===")
     print(list_global_config(verbose=False))
     print("\n\n=== DETAILED VIEW ===")

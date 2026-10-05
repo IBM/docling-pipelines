@@ -18,17 +18,17 @@ def client():
     return TestClient(app)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def temp_db_path(tmp_path):
     """Create unique temporary database path for each test."""
     db_file = tmp_path / f"test_{uuid.uuid4().hex[:8]}.duckdb"
     return str(db_file)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def cleanup_document_sets(client):
     """Clean up test document sets after each test."""
-    created_ids = []
+    created_ids: list[str] = []
 
     yield created_ids
 
@@ -465,7 +465,7 @@ class TestDocumentSetEdgeCases:
         cleanup_document_sets.append(doc_set_id)
 
         # Update with empty metadata
-        update_payload = {"metadata": {}}
+        update_payload: dict[str, dict] = {"metadata": {}}
         response = client.patch(f"/api/v1/document-sets/{doc_set_id}", json=update_payload)
         assert response.status_code == 200
 

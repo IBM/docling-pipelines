@@ -4,6 +4,7 @@ Milvus Batch Processor
 Handles bulk operations including indexing, updates, and deletes with batching logic.
 """
 
+import hashlib
 import json
 from typing import Any
 
@@ -148,10 +149,6 @@ class MilvusBatchProcessor:
             # Prepare document
             prepared_doc = self.prepare_document(row_data=doc_data)
 
-            logger.info(
-                f"Prepared document {doc_id}: fields={list(prepared_doc.keys())}, has_pk={self.primary_key_field in prepared_doc}"
-            )
-
             # Add primary key
             prepared_doc[self.primary_key_field] = doc_id
 
@@ -163,6 +160,10 @@ class MilvusBatchProcessor:
                 batches.append(current_batch)
                 current_batch = []
                 current_size = 0
+
+            logger.debug(
+                f"Prepared document {doc_id}: fields={list(prepared_doc.keys())}, has_pk={self.primary_key_field in prepared_doc}"
+            )
 
             current_batch.append(prepared_doc)
             current_size += doc_size
@@ -316,48 +317,39 @@ class MilvusBatchProcessor:
             return 0
 
     def get_chunk_ids_for_documents(self, *, doc_ids: list[str]) -> dict[str, set[str]]:
-        """Return all existing chunk PKs grouped by doc ID.
+        """Return all existing chunk PKs grouped by file ID.
 
-        Queries the collection for every entry whose stored doc_id_hash field
-        matches any of the supplied doc IDs and returns their primary key values
-        grouped by parent doc ID.
-
-        The stored field name for doc_id_hash is resolved from feature_mappings
-        so user-overridden field names are handled correctly.
+        Chunk PKs are stored as ``{sha3_512(file_id)}_{content_hash}``.
+        Each ``doc_id`` is hashed here to reconstruct the stored prefix,
+        then a ``like`` filter retrieves all chunks belonging to that file.
 
         Args:
-            doc_ids: List of doc_id_hash values to look up.
+            doc_ids: List of file IDs (``id`` column values) to look up.
 
         Returns:
-            Mapping of doc_id -> set of chunk PKs. Doc IDs with no indexed
+            Mapping of file_id -> set of chunk PKs. File IDs with no indexed
             chunks are omitted from the result.
         """
         if not doc_ids:
             return {}
 
-        # Resolve the stored field name via feature_mappings (default: "doc_id_hash").
-        doc_id_field: str = self._mapping_dict.get(
-            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
-            OperatorConstants.Columns.DOC_ID_HASH_DEFAULT,
-        )
-
         try:
-            # Build filter expression using IN operator for the doc_id field
-            ids_str = "[" + ", ".join(f'"{d}"' for d in doc_ids) + "]"
-            filter_expr = f"{doc_id_field} in {ids_str}"
-
-            rows: list[dict[str, Any]] = self.client.query(
-                collection_name=self.collection_name,
-                filter=filter_expr,
-                output_fields=[self.primary_key_field, doc_id_field],
-            )
-
             result: dict[str, set[str]] = {}
-            for row in rows:
-                chunk_pk: str = str(row.get(self.primary_key_field, ""))
-                parent_doc_id: str | None = row.get(doc_id_field)
-                if chunk_pk and parent_doc_id:
-                    result.setdefault(str(parent_doc_id), set()).add(chunk_pk)
+
+            # Chunk PKs are "{sha3_512(file_id)}_{sha3_512(chunk_content)}".
+            # Hash each file_id to reconstruct the stored prefix, then prefix-match.
+            for doc_id in doc_ids:
+                file_hash_prefix: str = hashlib.sha3_512(doc_id.encode()).hexdigest()
+                filter_expr = f'{self.primary_key_field} like "{file_hash_prefix}_%"'
+                rows: list[dict[str, Any]] = self.client.query(
+                    collection_name=self.collection_name,
+                    filter=filter_expr,
+                    output_fields=[self.primary_key_field],
+                )
+                for row in rows:
+                    chunk_pk: str = str(row.get(self.primary_key_field, ""))
+                    if chunk_pk:
+                        result.setdefault(doc_id, set()).add(chunk_pk)
 
             return result
 

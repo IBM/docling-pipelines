@@ -140,8 +140,9 @@ class FastTextModelManager:
                     logger.info("Model downloaded successfully with unverified SSL")
 
             except Exception as e:
-                logger.error(f"Failed to download FastText model: {e}")
-                raise RuntimeError(f"Download failed. Manual download: curl -L {model_url} -o {model_path}") from e
+                logger.error("Failed to download FastText model: %s", e)
+                msg = f"Download failed. Manual download: curl -L {model_url} -o {model_path}"
+                raise RuntimeError(msg) from e
 
     def _load_model(self):
         """
@@ -156,15 +157,42 @@ class FastTextModelManager:
 
         try:
             import fasttext
+            import numpy as np
+            from fasttext.FastText import _FastText
+
+            # Patch fasttext predict for NumPy 2.x compatibility where copy=False is disallowed
+            if not getattr(_FastText, "_numpy2_patched", False):
+
+                def _patched_predict(self, text, k=1, threshold=0.0, on_unicode_error="strict"):
+                    def check(entry):
+                        if entry.find("\n") != -1:
+                            raise ValueError("predict processes one line at a time (remove '\\n')")
+                        entry += "\n"
+                        return entry
+
+                    if isinstance(text, list):
+                        text = [check(entry) for entry in text]
+                        return self.f.multilinePredict(text, k, threshold, on_unicode_error)
+
+                    text = check(text)
+                    predictions = self.f.predict(text, k, threshold, on_unicode_error)
+                    if predictions:
+                        probs, labels = zip(*predictions, strict=False)
+                    else:
+                        probs, labels = ((), ())
+                    return labels, np.asarray(probs)
+
+                _FastText.predict = _patched_predict
+                _FastText._numpy2_patched = True
 
             model_path = self._get_model_path()
 
             # Download if not present (local mode only)
             if not model_path.exists():
-                logger.info(f"Model not found at {model_path}")
+                logger.info("Model not found at %s", model_path)
                 self._download_model(model_path)
 
-            logger.info(f"Loading FastText model from {model_path}")
+            logger.info("Loading FastText model from %s", model_path)
             self._model = fasttext.load_model(str(model_path))
             logger.info("FastText model loaded successfully")
             # Clear any previous error state on successful load
@@ -172,11 +200,12 @@ class FastTextModelManager:
             self._load_error = None
 
         except Exception as e:
-            logger.error(f"Failed to load FastText model: {e}")
+            logger.error("Failed to load FastText model: %s", e)
             self._load_failed = True
             self._load_error = e  # Store error for later reporting
             self._model = None
-            raise RuntimeError(f"Failed to load FastText model: {e}") from e
+            msg = f"Failed to load FastText model: {e}"
+            raise RuntimeError(msg) from e
 
     def acquire_model(self, timeout: float = 60.0):
         """
@@ -194,23 +223,24 @@ class FastTextModelManager:
         """
         # Try to acquire lock with timeout
         if not self._model_lock.acquire(timeout=timeout):
-            raise RuntimeError(
+            msg = (
                 f"Failed to acquire model lock within {timeout} seconds. "
                 "Another thread may be loading the model or the system is overloaded."
             )
+            raise RuntimeError(msg)
 
         try:
             # Check if a previous load attempt failed
             if self._load_failed and self._load_error is not None:
                 logger.error(
-                    f"Model loading previously failed. Not attempting to reload. Original error: {self._load_error}"
+                    "Model loading previously failed. Not attempting to reload. Original error: %s",
+                    self._load_error,
                 )
-                raise RuntimeError(
-                    f"FastText model loading previously failed: {self._load_error}"
-                ) from self._load_error
+                msg = f"FastText model loading previously failed: {self._load_error}"
+                raise RuntimeError(msg) from self._load_error
 
             self._ref_count += 1
-            logger.info(f"FastText model acquired. Reference count: {self._ref_count}")
+            logger.info("FastText model acquired. Reference count: %d", self._ref_count)
 
             if self._model is None and not self._load_failed:
                 logger.info("First acquisition - loading FastText model")
@@ -236,12 +266,13 @@ class FastTextModelManager:
             RuntimeError: If lock cannot be acquired within timeout
         """
         if not self._model_lock.acquire(timeout=timeout):
-            raise RuntimeError(f"Failed to acquire model lock for release within {timeout} seconds")
+            msg = f"Failed to acquire model lock for release within {timeout} seconds"
+            raise RuntimeError(msg)
 
         try:
             if self._ref_count > 0:
                 self._ref_count -= 1
-                logger.info(f"FastText model released. Reference count: {self._ref_count}")
+                logger.info("FastText model released. Reference count: %d", self._ref_count)
 
                 if self._ref_count == 0:
                     logger.info("Reference count reached zero - unloading FastText model")

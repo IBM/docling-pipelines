@@ -19,7 +19,7 @@ from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.job_management.domain.models.node_stats import NodeMetadataItem
 from docpipe.core.operators.abstract_operator import AbstractOperator
 from docpipe.core.operators.functional.doc_id_hash import DocIdHashOperator
-from docpipe.core.operators.operator_utils import OperatorUtils
+from docpipe.core.operators.operator_utils import OperatorUtils, format_failed_docs_summary
 from docpipe.utils.data.transform import TransformUtils
 from docpipe.utils.infrastructure.logging import get_logger
 from docpipe.utils.operators.non_recoverable_utils import is_non_recoverable_error, process_non_recoverable_errors
@@ -215,7 +215,6 @@ class TextExtractionPort(ABC):
         Returns:
             Tuple of (list of transformed tables, metadata dictionary)
         """
-
         # Check if extraction features already exist
         if self._check_existing_features(table=table):
             metadata[OperatorConstants.Extraction.MESSAGE] = (
@@ -240,24 +239,80 @@ class TextExtractionPort(ABC):
         remove_row_idx: list[int] = []
         non_recoverable_doc_ids: list[int] = []  # Track non-recoverable failed document indices
 
-        # Progress tracking variables
+        completed_count, _failed_count = self._run_parallel_extraction(
+            doc_tasks=doc_tasks,
+            doc_contents=doc_contents,
+            doc_metadata_list=doc_metadata_list,
+            format_lists=format_lists,
+            doc_pages_processed=doc_pages_processed,
+            remove_row_idx=remove_row_idx,
+            non_recoverable_doc_ids=non_recoverable_doc_ids,
+            metadata=metadata,
+        )
+
+        # Save original table before removing rows (needed for non-recoverable error processing)
+        original_table = table
+        table = self._apply_extracted_content(
+            table=table,
+            doc_contents=doc_contents,
+            doc_pages_processed=doc_pages_processed,
+            format_lists=format_lists,
+            remove_row_idx=remove_row_idx,
+            completed_count=completed_count,
+            total_files=len(doc_tasks),
+            metadata=metadata,
+        )
+
+        # Process non-recoverable errors before returning
+        # This populates metadata[NON_RECOVERABLE_DOCS_TABLE] for the orchestrator to save
+        # Use original_table (before row removal) since non_recoverable_doc_ids contains original indices
+        metadata = process_non_recoverable_errors(
+            table=original_table,
+            non_recoverable_doc_ids=non_recoverable_doc_ids,
+            metadata=metadata,
+            common_log_arguments=self.common_log_arguments,
+        )
+
+        # Set final status
+        metadata[Metrics.External.NODE_STATUS] = (
+            ExecutionStatus.COMPLETED_WITH_ERRORS.value
+            if metadata[Metrics.External.FAILED_DOCS_COUNT] > 0
+            else ExecutionStatus.COMPLETED.value
+        )
+
+        return [table], metadata
+
+    def _run_parallel_extraction(
+        self,
+        *,
+        doc_tasks: list[dict[str, Any]],
+        doc_contents: list[str],
+        doc_metadata_list: list[dict[str, Any]],
+        format_lists: dict[str, list[str | None]],
+        doc_pages_processed: list[int],
+        remove_row_idx: list[int],
+        non_recoverable_doc_ids: list[int],
+        metadata: dict[str, Any],
+    ) -> tuple[int, int]:
+        """Submit all extraction tasks to a thread/process pool and collect results.
+
+        Returns (completed_count, failed_count).
+        """
+        total_files = len(doc_tasks)
         completed_count = 0
         failed_count = 0
-        total_files = len(doc_tasks)
         last_update_time = 0.0
-        update_interval = 5  # Update progress every 5 seconds
+        update_interval = 5  # seconds between progress updates
 
-        # Select executor type
         executor_class = ProcessPoolExecutor if self.use_processes else ThreadPoolExecutor
 
         logger.info(
             "Processing %s documents in parallel with %s workers using %s",
-            len(doc_tasks),
+            total_files,
             self.max_workers,
             self.ADAPTER_DISPLAY_NAME,
         )
 
-        # Process documents in parallel
         with executor_class(max_workers=self.max_workers) as executor:
             future_to_task: dict[Future, dict[str, Any]] = {}
 
@@ -272,7 +327,6 @@ class TextExtractionPort(ABC):
                     )
                     failed_count += 1
                     continue
-
                 future = self._submit_extraction_task(executor=executor, task=task)
                 future_to_task[future] = task
 
@@ -280,7 +334,6 @@ class TextExtractionPort(ABC):
             for future in as_completed(future_to_task):
                 task = future_to_task[future]
                 idx = task["idx"]
-
                 try:
                     result = future.result()
                     self._process_extraction_result(
@@ -295,13 +348,10 @@ class TextExtractionPort(ABC):
                         non_recoverable_doc_ids=non_recoverable_doc_ids,
                         metadata=metadata,
                     )
-
-                    # Track successful completion
                     if result.get(OperatorConstants.Extraction.SUCCESS):
                         completed_count += 1
                     else:
                         failed_count += 1
-
                 except Exception as e:
                     logger.error("Error processing document at index %s: %s", idx, e)
                     AbstractOperator.record_failed_document(
@@ -314,10 +364,9 @@ class TextExtractionPort(ABC):
 
                 # Update progress periodically (every update_interval seconds)
                 current_time = time.time()
-                if (current_time - last_update_time) >= update_interval and (
-                    completed_count + failed_count
-                ) < total_files:
-                    progress_percentage = ((completed_count + failed_count) / total_files) * 100
+                done_so_far = completed_count + failed_count
+                if (current_time - last_update_time) >= update_interval and done_so_far < total_files:
+                    progress_percentage = (done_so_far / total_files) * 100
                     self._update_extraction_progress(
                         completed=completed_count,
                         total=total_files,
@@ -327,7 +376,7 @@ class TextExtractionPort(ABC):
                     last_update_time = current_time
                     logger.info(
                         "Extraction progress: %s/%s files (%.1f%%)",
-                        completed_count + failed_count,
+                        done_so_far,
                         total_files,
                         progress_percentage,
                         extra=self.common_log_arguments,
@@ -350,70 +399,65 @@ class TextExtractionPort(ABC):
                     extra=self.common_log_arguments,
                 )
 
-        # Save original table before removing rows (needed for non-recoverable error processing)
-        original_table = table
+        return completed_count, failed_count
 
+    def _apply_extracted_content(
+        self,
+        *,
+        table: pa.Table,
+        doc_contents: list[str],
+        doc_pages_processed: list[int],
+        format_lists: dict[str, list[str | None]],
+        remove_row_idx: list[int],
+        completed_count: int,
+        total_files: int,
+        metadata: dict[str, Any],
+    ) -> pa.Table:
+        """Remove failed rows, attach extracted content columns, and hash document IDs.
+
+        Raises ValueError if no documents were successfully extracted.
+        """
         if remove_row_idx:
             table = OperatorUtils.remove_rows(table=table, remove_row_idx=remove_row_idx)
-            doc_contents = [content for idx, content in enumerate(doc_contents) if idx not in remove_row_idx]
+            doc_contents[:] = [c for i, c in enumerate(doc_contents) if i not in remove_row_idx]
             # Remove rows from format lists
             for fmt in format_lists:
-                format_lists[fmt] = [
-                    content for idx, content in enumerate(format_lists[fmt]) if idx not in remove_row_idx
-                ]
-            doc_pages_processed = [pages for idx, pages in enumerate(doc_pages_processed) if idx not in remove_row_idx]
+                format_lists[fmt] = [c for i, c in enumerate(format_lists[fmt]) if i not in remove_row_idx]
+            doc_pages_processed[:] = [p for i, p in enumerate(doc_pages_processed) if i not in remove_row_idx]
 
-        # Add content column only if at least one document was successfully extracted
-        if completed_count > 0:
-            # Add extracted content to table
-            if doc_contents:
-                table = TransformUtils.add_column(table=table, name=self.doc_column, content=doc_contents)
-
-            # Add additional format columns dynamically based on requested formats
-            for fmt, content_list in format_lists.items():
-                if fmt in OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING:
-                    column_name = OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING[fmt]
-                    # Only add column if it contains at least one non-None value
-                    if any(content is not None for content in content_list):
-                        table = TransformUtils.add_column(table=table, name=column_name, content=content_list)
-
-            # Add pages_processed column
-            if doc_pages_processed:
-                table = TransformUtils.add_column(
-                    table=table, name=OperatorConstants.Columns.PAGES_PROCESSED, content=doc_pages_processed
-                )
-            # Generate document hash IDs
-            logger.info("Generating hash id and adding it to table")
-            hash_operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: self.doc_column})
-            table_list, _ = hash_operator.transform(table)
-            table = table_list[0]
-        else:
-            # All extractions failed - stop pipeline
+        if completed_count == 0:
+            # All extractions failed - stop pipeline.
+            suffix = format_failed_docs_summary(failed_docs=metadata.get(Metrics.External.FAILED_DOCS, []))
             error_msg = (
                 f"All {total_files} document(s) failed extraction. "
-                f"No content was extracted. Cannot continue pipeline with empty content."
+                f"No content was extracted. Cannot continue pipeline with empty content.{suffix}"
             )
             logger.error(error_msg, extra=self.common_log_arguments)
             raise ValueError(error_msg)
 
-        # Process non-recoverable errors before returning
-        # This populates metadata[NON_RECOVERABLE_DOCS_TABLE] for the orchestrator to save
-        # Use original_table (before row removal) since non_recoverable_doc_ids contains original indices
-        metadata = process_non_recoverable_errors(
-            table=original_table,
-            non_recoverable_doc_ids=non_recoverable_doc_ids,
-            metadata=metadata,
-            common_log_arguments=self.common_log_arguments,
-        )
+        # Add extracted content to table
+        if doc_contents:
+            table = TransformUtils.add_column(table=table, name=self.doc_column, content=doc_contents)
 
-        # Set final status
-        metadata[Metrics.External.NODE_STATUS] = (
-            ExecutionStatus.COMPLETED_WITH_ERRORS.value
-            if metadata[Metrics.External.FAILED_DOCS_COUNT] > 0
-            else ExecutionStatus.COMPLETED.value
-        )
+        # Add additional format columns dynamically based on requested formats
+        for fmt, content_list in format_lists.items():
+            if fmt in OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING:
+                column_name = OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING[fmt]
+                # Only add column if it contains at least one non-None value
+                if any(content is not None for content in content_list):
+                    table = TransformUtils.add_column(table=table, name=column_name, content=content_list)
 
-        return [table], metadata
+        # Add pages_processed column
+        if doc_pages_processed:
+            table = TransformUtils.add_column(
+                table=table, name=OperatorConstants.Columns.PAGES_PROCESSED, content=doc_pages_processed
+            )
+
+        # Generate document hash IDs
+        logger.info("Generating hash id and adding it to table")
+        hash_operator = DocIdHashOperator({OperatorConstants.Columns.DOC_COLUMN: self.doc_column})
+        table_list, _ = hash_operator.transform(table)
+        return table_list[0]
 
     def _submit_extraction_task(
         self, executor: ProcessPoolExecutor | ThreadPoolExecutor, task: dict[str, Any]
