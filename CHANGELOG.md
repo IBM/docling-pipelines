@@ -20,7 +20,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 ### Fixed
 
 
-- **Default VLM and ASR pipeline configuration** — Empty `vlm_pipeline` and `asr_pipeline` objects now enable their respective pipelines with default settings, while omitted or `null` blocks keep them disabled.
+- **Default VLM and ASR pipeline configuration** — Empty `vlm_pipeline` and `asr_pipeline` objects now enable their respective pipelines with default settings, while omitted or `null` blocks keep them disabled. The default VLM preset is `granite_docling`.
 
 - **Docling Serve Markdown chunking** — Send extracted Markdown with a `.md` filename instead of the original source extension, preserving the original document name in chunk metadata (#64).
 

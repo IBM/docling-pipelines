@@ -182,7 +182,7 @@ class TextExtractionAdapterFactory:
                 {
                     OperatorConstants.Config.USE_VLM_PIPELINE: vlm_pipeline is not None,
                     OperatorConstants.Config.VLM_PRESET: vlm_pipeline_config.get(
-                        OperatorConstants.Config.PRESET, OperatorConstants.Config.DEFAULT
+                        OperatorConstants.Config.PRESET, OperatorConstants.Config.VLM_PRESET_DEFAULT
                     ),
                     OperatorConstants.Config.VLM_ENGINE_TYPE: vlm_pipeline_config.get(
                         OperatorConstants.Config.ENGINE, OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS

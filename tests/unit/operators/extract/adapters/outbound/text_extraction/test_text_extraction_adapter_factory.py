@@ -1,5 +1,7 @@
 """Tests for text extraction adapter configuration."""
 
+from docling.datamodel.pipeline_options import VlmConvertOptions
+
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.extract.adapters.outbound.factories.text_extraction_adapter_factory import (
     TextExtractionAdapterFactory,
@@ -33,7 +35,8 @@ def test_empty_pipeline_blocks_enable_defaults() -> None:
     )
 
     assert result[OperatorConstants.Config.USE_VLM_PIPELINE] is True
-    assert result[OperatorConstants.Config.VLM_PRESET] == OperatorConstants.Config.DEFAULT
+    assert result[OperatorConstants.Config.VLM_PRESET] == OperatorConstants.Config.VLM_PRESET_DEFAULT
+    VlmConvertOptions.from_preset(result[OperatorConstants.Config.VLM_PRESET])
     assert result[OperatorConstants.Config.VLM_ENGINE_TYPE] == OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS
     assert result[OperatorConstants.Config.VLM_PROVIDER_CONFIG] is None
     assert result[OperatorConstants.Config.USE_ASR_PIPELINE] is True
