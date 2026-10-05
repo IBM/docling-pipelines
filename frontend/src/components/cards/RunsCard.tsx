@@ -50,7 +50,7 @@ function formatRunTime(epochSeconds: number): string {
  */
 function RunRow({ run }: { run: JobRun }): React.JSX.Element {
   const storeFlowName = useAppSelector(makeSelectFlowName(String(run.jobId ?? '')));
-  const flowName = run.flowName || storeFlowName;
+  const flowName = run.flowName ?? storeFlowName;
   const { Icon, className: iconClass } = getStatusIcon(String(run.status ?? ''));
   const startEpoch = run.startTime ? Math.floor(new Date(run.startTime).getTime() / 1000) : 0;
   const isSuccess = ['completed', 'success'].includes((run.status ?? '').toLowerCase());
