@@ -23,7 +23,7 @@
  * decide which controller attribute(s) to write to once.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   NumberInput,
   TextInput,
@@ -124,6 +124,10 @@ function NullableNumberInput({
 }: NullableNumberInputProps): React.JSX.Element {
   const isEnabled = value !== null && value !== undefined;
   const [draft, setDraft] = useState<number | string>(isEnabled ? value : '');
+
+  useEffect(() => {
+    setDraft(isEnabled ? value : '');
+  }, [isEnabled, value]);
 
   const outOfRange = isOutOfRange(draft, minValue, maxValue);
 
@@ -227,6 +231,9 @@ export function ProviderFieldsForm({
 
         const isNumeric = keyInfo.type === 'int64' || keyInfo.type === 'double';
         const isNullable = isNumeric && keyInfo.default === null;
+        const currentNum = asNumber(values[fieldKey]);
+        const numOutOfRange = currentNum !== '' && isOutOfRange(currentNum, keyInfo.min_value, keyInfo.max_value);
+        const numRangeText = buildRangeText(keyInfo.min_value, keyInfo.max_value);
 
         return (
           <div key={fieldKey} className={common.formField}>
@@ -265,29 +272,23 @@ export function ProviderFieldsForm({
               />
             )}
 
-            {/* int64 / double, required (non-null default) → NumberInput */}
-            {isNumeric && !isNullable && (() => {
-              const currentNum = asNumber(values[fieldKey]);
-              const hasValue = currentNum !== '';
-              const outOfRange = hasValue && isOutOfRange(currentNum, keyInfo.min_value, keyInfo.max_value);
-              const rangeText = buildRangeText(keyInfo.min_value, keyInfo.max_value);
-              return (
-                <NumberInput
-                  id={inputId}
-                  label={label}
-                  hideLabel
-                  value={currentNum ?? keyInfo.default}
-                  {...(keyInfo.min_value !== undefined && { min: keyInfo.min_value })}
-                  {...(keyInfo.max_value !== undefined && { max: keyInfo.max_value })}
-                  helperText={!outOfRange ? rangeText : undefined}
-                  invalid={outOfRange}
-                  invalidText={outOfRange ? rangeText : undefined}
-                  onChange={(_e: unknown, { value }: { value: number | string }) => {
-                    onChange(fieldKey, value === '' ? undefined : Number(value));
-                  }}
-                />
-              );
-            })()}
+            {/* int64 / double, non-null default → NumberInput */}
+            {isNumeric && !isNullable && (
+              <NumberInput
+                id={inputId}
+                label={label}
+                hideLabel
+                value={currentNum !== '' ? currentNum : keyInfo.default as number | undefined}
+                {...(keyInfo.min_value !== undefined && { min: keyInfo.min_value })}
+                {...(keyInfo.max_value !== undefined && { max: keyInfo.max_value })}
+                helperText={!numOutOfRange ? numRangeText : undefined}
+                invalid={numOutOfRange}
+                invalidText={numOutOfRange ? numRangeText : undefined}
+                onChange={(_e: unknown, { value }: { value: number | string }) => {
+                  onChange(fieldKey, value === '' ? undefined : Number(value));
+                }}
+              />
+            )}
 
             {/* list → TagInput */}
             {keyInfo.type === 'list' && (
