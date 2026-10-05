@@ -725,12 +725,11 @@ class ChunkerOperator(AbstractOperator):
         try:
             # Base64 encode the markdown content
             encoded_content = base64.b64encode(content.encode("utf-8")).decode("utf-8")
+            markdown_filename = str(Path(doc_name).with_suffix(".md")) if doc_name else DEFAULT_DOCUMENT_NAME
 
             # Prepare JSON payload for /v1/chunk/hybrid/source endpoint
             payload = {
-                "sources": [
-                    {"kind": "file", "base64_string": encoded_content, "filename": doc_name or DEFAULT_DOCUMENT_NAME}
-                ],
+                "sources": [{"kind": "file", "base64_string": encoded_content, "filename": markdown_filename}],
                 "convert_options": {"from_formats": ["md"], "to_formats": ["md"]},
                 "include_converted_doc": False,
                 "target": {"kind": "inbody"},

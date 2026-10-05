@@ -307,3 +307,55 @@ class TestJobManagementFactory:
         factory.initialize_storage()
         mock_migrate.assert_not_called()
         assert factory.config.get("storage_initialized") is True
+
+
+@pytest.mark.parametrize(
+    ("service_config", "expected_backend", "expected_framework"),
+    [
+        ({}, StorageBackend.FILESYSTEM, FrameworkType.DEFAULT),
+        ({"storage_backend": "inmemory"}, StorageBackend.IN_MEMORY, FrameworkType.DEFAULT),
+        (
+            {
+                "storage_backend": "filesystem",
+                "store": {"type": "inmemory"},
+                "framework_type": "invalid-legacy",
+                "framework": {"type": "default"},
+            },
+            StorageBackend.IN_MEMORY,
+            FrameworkType.DEFAULT,
+        ),
+    ],
+)
+def test_yaml_configuration_precedence(*, tmp_path, service_config, expected_backend, expected_framework):
+    """Extracted factory helpers preserve backend, framework and merge precedence."""
+    import yaml
+
+    config_path = tmp_path / "job-management.yaml"
+    config_path.write_text(
+        yaml.safe_dump(
+            {
+                "global_storage": {
+                    "type": "filesystem",
+                    "config": {"global_only": True, "shared": "global"},
+                    "postgres": {"host": "global-host"},
+                },
+                "job_management": {
+                    **service_config,
+                    "storage_config": {"storage_only": True, "shared": "storage"},
+                    "framework_config": {"framework_only": True, "shared": "framework"},
+                    "postgres": {"host": "service-host"},
+                },
+            }
+        )
+    )
+    factory = JobManagementFactory.from_config_file(str(config_path))
+
+    assert factory.storage_backend == expected_backend
+    assert factory.framework_type == expected_framework
+    assert factory.config == {
+        "global_only": True,
+        "storage_only": True,
+        "framework_only": True,
+        "shared": "framework",
+        "postgres": {"host": "service-host"},
+    }

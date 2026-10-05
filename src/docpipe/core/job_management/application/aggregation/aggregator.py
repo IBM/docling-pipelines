@@ -144,7 +144,8 @@ class MetadataAggregator:
 
         return result
 
-    def _apply_numeric_strategy(self, *, values: list[Any], strategy: AggregationStrategy) -> Any:
+    @staticmethod
+    def _apply_numeric_strategy(*, values: list[Any], strategy: AggregationStrategy) -> Any:
         """Apply SUM / AVERAGE / WEIGHTED_AVERAGE / MIN / MAX strategies."""
         numeric = [v for v in values if isinstance(v, (int, float))]
         if strategy == AggregationStrategy.SUM:
@@ -244,7 +245,8 @@ class MetadataAggregator:
 
         return values[-1]
 
-    def _apply_union_strategy(self, *, values: list[Any]) -> list[Any]:
+    @staticmethod
+    def _apply_union_strategy(*, values: list[Any]) -> list[Any]:
         """Apply UNION strategy - union of lists, preserving order."""
         result: list[Any] = []
         seen: set[Any] = set()
