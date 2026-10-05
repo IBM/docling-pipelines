@@ -36,9 +36,10 @@ def consume() -> None:
             message = consumer.poll(timeout=1.0)
             if message is None:
                 continue
-            if message.error():
-                if message.error().code() != KafkaError._PARTITION_EOF:
-                    print(f"Consumer error: {message.error()}")
+            error = message.error()
+            if error is not None:
+                if error.code() != KafkaError._PARTITION_EOF:
+                    print(f"Consumer error: {error}")
                 continue
             print(json.dumps(message.value()), flush=True)
     except KeyboardInterrupt:
