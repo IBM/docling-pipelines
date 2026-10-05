@@ -11,6 +11,9 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Changed
 
+- **`IngestSourceOperator` — unified `provider_config`** — Migrated `IngestSourceOperator` from the legacy two-key `connection_params` + `credentials` config pattern to the unified `provider_config` dict used by all other operators (`VectorDBOperator`, `ExtractOperator`, `PIIAndHAPAnnotator`, `ChunkerOperator`). All 8 source adapters (`s3`, `filesystem`, `sharepoint`, `onedrive`, `google_drive`, `box`, `web`, `dropbox`) updated accordingly. `DocumentSourcePort.build_config_from_operator_params` and `fetch_binary_content` now accept only `provider_config`. `binary_content_fetcher.py` updated to pass `provider_config` through the adapter call chain. All sample flows, example flows, and frontend parameter definitions migrated. **Breaking change** — flows using `connection_params` or `credentials` must be updated to use `provider_config`.
+
+
 - **`PIIAndHAPAnnotator` — decorator-based adapter registry** — Replaced the `if/elif` provider chain in `PIIHAPService` with a `PIIAndHAPDetectionFactory` backed by a `@register_pii_and_hap_detection_adapter` decorator. Each provider adapter (`WatsonxPIIAndHAPAdapter`, `LiteLLMPIIAndHAPAdapter`) now self-registers at import time and fully encapsulates its own detection path behind `PIIAndHAPDetectionPort`. `PIIHAPService` is reduced to a thin wrapper that receives an adapter via constructor injection — no provider branching, no `use_specialized_api` flag. Adding a new provider is now a single-file change.
 
 ### Fixed

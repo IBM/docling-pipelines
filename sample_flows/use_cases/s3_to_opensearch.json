@@ -14,11 +14,10 @@
       "type": "ingest_source",
       "config": {
         "provider": "s3",
-        "connection_params": {
+        "provider_config": {
           "bucket": "${S3_BUCKET_NAME}",
-          "prefix": "${S3_PREFIX:}"
-        },
-        "credentials": {
+          "prefix": "${S3_PREFIX:}",
+          "endpoint_url": "${S3_ENDPOINT_URL}",
           "access_key": "${S3_ACCESS_KEY}",
           "secret_key": "${S3_SECRET_ACCESS_KEY}"
         },
