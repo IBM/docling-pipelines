@@ -94,6 +94,4 @@ class StaticDocumentClassProvider(DocumentClassProvider):
     ) -> dict[str, dict[str, Any]]:
         from docpipe.utils.document_class_utils import DocumentClassUtils
 
-        return DocumentClassUtils.generate_docling_templates_for_types(
-            document_types, include_nested=include_nested
-        )
+        return DocumentClassUtils.generate_docling_templates_for_types(document_types, include_nested=include_nested)

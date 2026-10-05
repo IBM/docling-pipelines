@@ -5,8 +5,11 @@ Tests the operator with sample PDF files from the fixtures directory.
 """
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock, Mock, patch
+
+if TYPE_CHECKING:
+    from docpipe.core.operators.extract.extract_operator import ExtractOperator
 
 import pytest
 

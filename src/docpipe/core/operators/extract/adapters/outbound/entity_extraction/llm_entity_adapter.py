@@ -17,8 +17,8 @@ from docpipe.core.adapters.llm_adapter_factory import LLMAdapterFactory
 from docpipe.core.constants import OperatorConstants
 from docpipe.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from docpipe.core.operators.extract.services.entity_extraction_service import EntityExtractionService
-from docpipe.core.ports.llm_inference_port import LLMInferencePort
 from docpipe.core.ports.document_class_provider import DocumentClassProvider, StaticDocumentClassProvider
+from docpipe.core.ports.llm_inference_port import LLMInferencePort
 from docpipe.utils.document_class_utils import DocumentClassUtils
 from docpipe.utils.infrastructure.logging import get_logger
 from docpipe.utils.llm import parse_llm_json_response

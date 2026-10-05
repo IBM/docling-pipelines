@@ -19,8 +19,8 @@ from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator
 from docpipe.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from docpipe.core.operators.functional.doc_id_hash import DocIdHashOperator
-from docpipe.utils.data.transform import TransformUtils
 from docpipe.core.ports.document_class_provider import DocumentClassProvider, StaticDocumentClassProvider
+from docpipe.utils.data.transform import TransformUtils
 from docpipe.utils.infrastructure.concurrency import submit_task_with_context_propagation
 from docpipe.utils.infrastructure.logging import get_logger
 
