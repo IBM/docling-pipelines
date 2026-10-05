@@ -195,6 +195,7 @@ const getFlowsByProject = async (req: Request, res: Response) => {
     const params = new URLSearchParams({
       limit: limit.toString(),
       offset: offset.toString(),
+      is_elyra: 'true',
     });
 
     if (name) params.append('name', name as string);

@@ -115,7 +115,7 @@ export function Home(): React.JSX.Element {
               title="See how it works"
               subtitle="View demos and documents"
               buttonLabel="Learn more"
-              href="https://github.com/IBM/docling-pipelines"
+              href="https://ibm.github.io/docling-pipelines/book/site/docling-pipelines/1.0/index.html"
             />
           ),
         },
