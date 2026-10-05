@@ -24,6 +24,7 @@ dependencies = [
     "data-prep-toolkit-transforms==1.1.8",
     "datatrove==0.10.0",
     "datefinder==1.0.0",
+    "defusedxml==0.7.1",
     "docling[rapidocr]==2.130.0",
     "dropbox==12.2.1",
     "duckdb==1.3.2",
