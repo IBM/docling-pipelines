@@ -25,15 +25,15 @@ The page SHALL fetch the flow definition as it was at run time via `GET /api/job
 - **THEN** an inline error notification is shown: "Flow definition not available for this run."
 
 ### Requirement: Poller bootstrap on mount
-After the snapshot and initial run status are fetched, the page SHALL dispatch `setCurrentRun` (with `jobId` and `jobRunId`) and start the background poller via `startPoll(runId)` so execution logs are kept up to date. Stale logs from previous viewer sessions SHALL be cleared (`setExecutionLogs(null)`) before the poller starts.
+After the snapshot and initial run status are fetched, the page SHALL: (1) dispatch `setExecutionLogs(null)` to clear any stale logs from a previous viewer session, (2) dispatch `setCurrentRun` (with `jobId` and `jobRunId`), (3) call `startPoll(runId)` to arm the background poller, and (4) dispatch `setExecutionLogs(runRes.data)` with the initial run status response so the viewer renders immediately without waiting for the first poll cycle.
 
 #### Scenario: Poller started after bootstrap
 - **WHEN** the snapshot and initial run fetch both succeed
-- **THEN** `setCurrentRun` is dispatched and `startPoll(runId)` is called
+- **THEN** `setCurrentRun` is dispatched, `startPoll(runId)` is called, and `setExecutionLogs` is immediately populated with the initial run status response
 
 #### Scenario: Stale logs cleared before new poller
 - **WHEN** the bootstrap sequence starts
-- **THEN** `setExecutionLogs(null)` is dispatched before polling begins
+- **THEN** `setExecutionLogs(null)` is dispatched before `setCurrentRun` and `startPoll` are called
 
 ### Requirement: Loading and error guards
 The page SHALL show an `InlineLoading` spinner while the snapshot is being fetched. It SHALL show an `InlineNotification` with `kind="error"` when the bootstrap sequence fails (API error or missing definition). The canvas SHALL NOT be rendered until the snapshot is available.
@@ -58,7 +58,7 @@ When the user triggers "Run again", the page SHALL update Redux with the new job
 
 #### Scenario: Run-again updates URL and starts new poll
 - **WHEN** the user clicks "Run again" and a new job run ID is returned
-- **THEN** `setCurrentRun` is dispatched with the new IDs, `startPoll` is called, and the URL is replaced with the new run route
+- **THEN** `setRunning(true)` is dispatched, `setCurrentRun` is dispatched with the new IDs, `startPoll` is called for the new run ID, and the URL is replaced with the new run route
 
 ### Requirement: Stop cancels run and resumes polling
 When the user stops an in-progress run, the page SHALL stop the poller, call `cancelJobRun`, and restart the poller to observe the terminal status.
