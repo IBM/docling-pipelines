@@ -1,3 +1,9 @@
+<p align="center">
+  <a href="https://github.com/IBM/docling-pipelines">
+    <img loading="lazy" alt="Docling Pipelines" src="https://github.com/IBM/docling-pipelines/raw/main/docs/assets/docling-pipelines.png" width="100%"/>
+  </a>
+</p>
+
 # Docling pipelines
 
 [![PyPI version](https://img.shields.io/pypi/v/docling-pipelines)](https://pypi.org/project/docling-pipelines/)
