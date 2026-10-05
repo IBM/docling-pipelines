@@ -33,6 +33,10 @@ _FIXTURES_DIR = Path(__file__).parents[1] / "fixtures" / "customer_support_docs"
 
 
 def _skip_if_no_fixtures() -> None:
+    import importlib
+
+    if importlib.util.find_spec("docling") is None:
+        pytest.skip("docling not installed")
     if not _FIXTURES_DIR.exists():
         pytest.skip(f"Fixture directory not found: {_FIXTURES_DIR}")
 
