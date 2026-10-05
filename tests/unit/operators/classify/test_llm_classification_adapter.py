@@ -464,9 +464,7 @@ class TestClassificationServiceProviderInjection:
         mock_adapter = Mock()
         mock_adapter.validate.return_value = {"valid": True, "errors": [], "warnings": []}
 
-        service = ClassificationService(
-            llm_adapter=mock_adapter, model_id="my-model", provider_name="gateway"
-        )
+        service = ClassificationService(llm_adapter=mock_adapter, model_id="my-model", provider_name="gateway")
 
         assert service.model_id == "my-model"
         assert service.provider_name == "gateway"
