@@ -188,8 +188,13 @@ class RedactionOperator(AbstractOperator):
         if not content:
             return content, 0
 
-        if self.doc_format == OperatorConstants.DocFormat.DOCLANG and content.lstrip().startswith("<"):
-            return self._redact_doclang_xml(content)
+        if self.doc_format == OperatorConstants.DocFormat.DOCLANG:
+            if content.lstrip().startswith("<"):
+                return self._redact_doclang_xml(content)
+            logger.debug(
+                "doc_format is doclang but content does not appear to be XML; applying plain-text redaction.",
+                extra=self.common_log_arguments,
+            )
 
         matches = self.pattern.findall(content) if self.pattern else []
         if matches:
