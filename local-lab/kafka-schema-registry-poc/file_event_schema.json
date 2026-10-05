@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://docpipe/kafka/file-event/v1",
+  "title": "FileEvent",
+  "type": "object",
+  "required": ["event_id", "event_type", "event_timestamp", "connection_id", "flow_id", "file_path"],
+  "additionalProperties": false,
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event (UUID v4)."
+    },
+    "event_type": {
+      "type": "string",
+      "enum": ["created", "modified", "deleted"],
+      "description": "The file lifecycle action that triggered this event."
+    },
+    "event_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 UTC timestamp of when the event was emitted."
+    },
+    "connection_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the source connection where the file resides."
+    },
+    "flow_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID of the docpipe flow to trigger for this event."
+    },
+    "file_path": {
+      "type": "string",
+      "description": "Fully qualified path or URI to the file in its storage"
+    }
+  },
+  "examples": [
+    {
+      "event_id": "3f2504e0-4f89-11d3-9a0c-0305e82c3301",
+      "event_type": "created",
+      "event_timestamp": "2025-07-14T10:30:00Z",
+      "connection_id": "a1b2c3d4-1234-5678-abcd-ef0123456789",
+      "flow_id": "b5e7f8a0-9876-4321-dcba-fedcba987654",
+      "file_path": "/sites/finance/Shared Documents/quarterly_report.pdf"
+    }
+  ]
+}

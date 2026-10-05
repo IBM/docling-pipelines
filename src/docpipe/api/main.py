@@ -51,6 +51,8 @@ from docpipe.api.openapi import build_custom_openapi
 from docpipe.core.constants.constants import EnvironmentVariables
 from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.integrations.kafka.consumer import KafkaFileEventConsumer
+from docpipe.integrations.kafka.schema_registry import KafkaSchemaRegistryInitializer
 from docpipe.utils.infrastructure.logging import (
     configure_third_party_loggers,
     set_dpk_log_level_from_ds_log_level,
@@ -165,6 +167,10 @@ async def lifespan(app: FastAPI):
     from docpipe.integrations.secrets.vault_initializer import initialize_secret_providers
 
     initialize_secret_providers()
+
+    KafkaSchemaRegistryInitializer.initialize()
+    kafka_consumer = KafkaFileEventConsumer()
+
     bff_process, started_bff_url = _start_bff()
     # Shared AsyncClient — reused across all proxy_to_bff requests so the
     # connection pool is maintained and TCP overhead is paid once, not per request.
@@ -183,7 +189,12 @@ async def lifespan(app: FastAPI):
         custom_op_paths.append(custom_operators_dir)
         os.environ[EnvironmentVariables.DOCPIPE_CUSTOM_OPERATORS] = ",".join(custom_op_paths)
 
-    yield
+    kafka_consumer.start()
+
+    try:
+        yield
+    finally:
+        kafka_consumer.stop()
     if app.state.bff_client is not None:
         await app.state.bff_client.aclose()
     if bff_process:

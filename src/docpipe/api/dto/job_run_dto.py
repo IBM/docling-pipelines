@@ -90,6 +90,9 @@ from .node_stats_dto import NodeMetadataItem
 class JobRunConfigurationModel(BaseModel):
     """Execution-time configuration overrides for a job run."""
 
+    event_streaming: bool = False
+    file_path: str | None = None
+
     user_id: str | None = Field(
         default=None,
         description=USER_ID_DESC,
