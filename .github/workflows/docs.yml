@@ -2,7 +2,7 @@ name: Docs — Build & Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [docs/main]
     paths:
       - 'docs/**'
   workflow_dispatch:   # allow manual trigger from the Actions tab
