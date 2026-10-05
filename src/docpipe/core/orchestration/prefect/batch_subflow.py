@@ -101,13 +101,13 @@ def batch_subflow(
         # This provides the necessary infrastructure for PrefectEngine.
         # Reconstruct lineage observer from env vars so operator-level events
         # are emitted even when running inside a Prefect batch subflow worker.
-        from docpipe.core.lineage.application import lineage_factory as _lineage_factory
+        from docpipe.core.lineage.application import lineage_factory
 
-        _observer = _lineage_factory.create_lineage_observer()
+        observer = lineage_factory.create_lineage_observer()
         orchestrator = PythonOrchestrator(
             job_stats_service=job_stats_service,
             job_run_manager=job_run_manager,
-            observer=_observer,
+            observer=observer,
         )
         orchestrator.initialize(job_id=job_id, job_run_id=job_run_id)
 

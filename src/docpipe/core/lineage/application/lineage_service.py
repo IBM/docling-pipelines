@@ -1,9 +1,6 @@
 """Application service that bridges execution context to OpenLineage events."""
 
-import hashlib
-import json
-import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 from docpipe.core.constants.constants import ExecutionStatus, LineageConstants
@@ -12,6 +9,7 @@ from docpipe.core.lineage.domain.models.event_type import LineageEventType
 from docpipe.core.lineage.domain.models.job import LineageJob
 from docpipe.core.lineage.domain.models.run import LineageRun
 from docpipe.core.lineage.domain.ports.lineage_publisher import LineagePublisherPort
+from docpipe.core.lineage.utils import LineageUtils
 from docpipe.core.orchestration.models.execution_event_context import (
     FlowAbortContext,
     FlowCompleteContext,
@@ -27,10 +25,6 @@ from docpipe.core.orchestration.models.execution_event_context import (
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
-
-_CREDENTIALS_KEYS = frozenset(
-    {"credentials", "password", "token", "secret", "api_key", "access_key", "private_key"}
-)  # pragma: allowlist secret
 
 # Internal keys produced by the orchestrator — never surface in lineage events.
 _INTERNAL_LINEAGE_KEYS = frozenset(
@@ -83,7 +77,7 @@ class LineageService:
             }
         run = LineageRun(
             run_id=context.job_run_id,
-            start_time=context.start_time or _now(),
+            start_time=context.start_time or LineageUtils.now(),
             facets=self._build_nominal_time_facet(start_time=context.start_time),
         )
         self._publish(event_type=LineageEventType.START, run=run, job=job)
@@ -119,7 +113,7 @@ class LineageService:
         run = LineageRun(
             run_id=context.job_run_id,
             start_time=context.start_time,
-            end_time=context.end_time or _now(),
+            end_time=context.end_time or LineageUtils.now(),
             status=context.status,
             facets=run_facets,
         )
@@ -140,7 +134,7 @@ class LineageService:
         run = LineageRun(
             run_id=context.job_run_id,
             start_time=context.start_time,
-            end_time=context.end_time or _now(),
+            end_time=context.end_time or LineageUtils.now(),
             status=context.status,
             facets=self._build_error_facet(message=context.error_message, exception=context.exception),
         )
@@ -152,7 +146,7 @@ class LineageService:
         run = LineageRun(
             run_id=context.job_run_id,
             start_time=context.start_time,
-            end_time=context.end_time or _now(),
+            end_time=context.end_time or LineageUtils.now(),
             status=context.status,
         )
         self._publish(event_type=LineageEventType.ABORT, run=run, job=job)
@@ -166,7 +160,7 @@ class LineageService:
         job = self._build_node_job(context=context)
         run = LineageRun(
             run_id=self._node_run_id(job_run_id=context.job_run_id, node_id=context.node_id),
-            start_time=context.start_time or _now(),
+            start_time=context.start_time or LineageUtils.now(),
             facets=self._build_parent_run_facet(
                 flow_name=context.flow_name,
                 job_run_id=context.job_run_id,
@@ -174,7 +168,19 @@ class LineageService:
         )
         inputs = []
         if context.input_summary is not None:
-            inputs = [self._build_dataset_from_summary(summary=context.input_summary, name=context.node_name)]
+            # Ingest nodes carry their source path as the input dataset name
+            # (e.g. filesystem://./tests/fixtures/customer_support_docs) so the
+            # Marquez graph shows where data originates.  All other nodes use the
+            # predecessor's output dataset name to stitch the chain together.
+            if context.ingest_source_dataset_name:
+                input_name = context.ingest_source_dataset_name
+            else:
+                input_name = self._build_node_input_dataset_name(
+                    flow_name=context.flow_name,
+                    predecessor_node_ids=context.predecessor_node_ids,
+                    node_name=context.node_name,
+                )
+            inputs = [self._build_dataset_from_summary(summary=context.input_summary, name=input_name)]
         self._publish(event_type=LineageEventType.START, run=run, job=job, inputs=inputs)
 
     def emit_node_complete(self, *, context: NodeCompleteContext) -> None:
@@ -183,7 +189,7 @@ class LineageService:
         run = LineageRun(
             run_id=self._node_run_id(job_run_id=context.job_run_id, node_id=context.node_id),
             start_time=context.start_time,
-            end_time=context.end_time or _now(),
+            end_time=context.end_time or LineageUtils.now(),
             facets={
                 **self._build_parent_run_facet(
                     flow_name=context.flow_name,
@@ -193,7 +199,14 @@ class LineageService:
             },
         )
         outputs = [
-            self._build_dataset_from_summary(summary=s, name=f"{context.node_name}/output_{i}")
+            self._build_dataset_from_summary(
+                summary=s,
+                name=self._build_node_output_dataset_name(
+                    flow_name=context.flow_name,
+                    node_name=context.node_name,
+                    index=i,
+                ),
+            )
             for i, s in enumerate(context.output_summaries)
         ]
         self._publish(event_type=LineageEventType.COMPLETE, run=run, job=job, outputs=outputs)
@@ -204,7 +217,7 @@ class LineageService:
         run = LineageRun(
             run_id=self._node_run_id(job_run_id=context.job_run_id, node_id=context.node_id),
             start_time=context.start_time,
-            end_time=context.end_time or _now(),
+            end_time=context.end_time or LineageUtils.now(),
             facets={
                 **self._build_parent_run_facet(
                     flow_name=context.flow_name,
@@ -218,7 +231,12 @@ class LineageService:
         )
         inputs = []
         if context.input_summary is not None:
-            inputs = [self._build_dataset_from_summary(summary=context.input_summary, name=context.node_name)]
+            input_name = self._build_node_input_dataset_name(
+                flow_name=context.flow_name,
+                predecessor_node_ids=context.predecessor_node_ids,
+                node_name=context.node_name,
+            )
+            inputs = [self._build_dataset_from_summary(summary=context.input_summary, name=input_name)]
         self._publish(event_type=LineageEventType.FAIL, run=run, job=job, inputs=inputs)
 
     def emit_node_skip(self, *, context: NodeSkipContext) -> None:
@@ -227,7 +245,7 @@ class LineageService:
         run = LineageRun(
             run_id=self._node_run_id(job_run_id=context.job_run_id, node_id=context.node_id),
             start_time=context.start_time,
-            end_time=context.end_time or _now(),
+            end_time=context.end_time or LineageUtils.now(),
             facets={
                 **self._build_parent_run_facet(
                     flow_name=context.flow_name,
@@ -287,19 +305,12 @@ class LineageService:
     def _build_node_job(self, *, context: Any) -> LineageJob:
         """Build a LineageJob for a DAG node (operator mode).
 
-        Job name uses human-readable edge identity:
-        - With predecessors: ``{flow_name}/{predecessor_name}/to/{node_name}``
-        - No predecessors (ingest): ``{flow_name}/{node_name}``
+        Job name is ``{flow_name}/{node_name}`` — stable across START/COMPLETE/FAIL
+        so Marquez can correlate all events for the same operator under one job entry.
         """
         flow_name = getattr(context, "flow_name", "") or getattr(context, "flow_id", "") or ""
         node_name = getattr(context, "node_name", "") or getattr(context, "node_id", "") or ""
-        predecessor_ids: list[str] = getattr(context, "predecessor_node_ids", []) or []
-
-        if predecessor_ids:
-            predecessor_name = predecessor_ids[0]
-            job_name = f"{flow_name}/{predecessor_name}/to/{node_name}"
-        else:
-            job_name = f"{flow_name}/{node_name}"
+        job_name = f"{flow_name}/{node_name}"
 
         job_type_facet: dict[str, Any] = {
             "_producer": self._producer,
@@ -322,6 +333,27 @@ class LineageService:
             name=job_name,
             facets={"jobType": job_type_facet},
         )
+
+    def _build_node_input_dataset_name(self, *, flow_name: str, predecessor_node_ids: list[str], node_name: str) -> str:
+        """Derive the input dataset name for a node.
+
+        When predecessors exist the input dataset name matches the predecessor's
+        output dataset name — this is what makes Marquez draw an edge between them.
+        Falls back to the node's own name when there are no predecessors (ingest).
+        """
+        if predecessor_node_ids:
+            return f"{flow_name}/{predecessor_node_ids[0]}/output"
+        return f"{flow_name}/{node_name}/input"
+
+    def _build_node_output_dataset_name(self, *, flow_name: str, node_name: str, index: int = 0) -> str:
+        """Derive the output dataset name for a node.
+
+        Must match ``_build_node_input_dataset_name`` of the downstream node so
+        Marquez stitches the two jobs together with a shared dataset edge.
+        """
+        if index == 0:
+            return f"{flow_name}/{node_name}/output"
+        return f"{flow_name}/{node_name}/output_{index}"
 
     def _build_dataset_from_summary(self, *, summary: NodeTableSummary, name: str) -> LineageDataset:
         """Build a dataset from a lightweight NodeTableSummary (no live Arrow data required)."""
@@ -387,7 +419,7 @@ class LineageService:
             if not isinstance(value, (int, float, str, bool)):
                 continue
             # Convert snake_case → camelCase for idiomatic facet field names.
-            camel = _to_camel_case(key)
+            camel = LineageUtils.to_camel_case(key)
             stats[camel] = value
 
         if not stats:
@@ -428,54 +460,20 @@ class LineageService:
     @staticmethod
     def _resolve_flow_id(*, flow_id: str, flow_def: dict[str, Any]) -> str:
         """Use flow_id directly; fall back to SHA-256 of credentials-stripped flow_def."""
-        if flow_id:
-            return flow_id
-        stripped = LineageService._strip_credentials(flow_def)
-        return hashlib.sha256(json.dumps(stripped, sort_keys=True).encode()).hexdigest()
+        return LineageUtils.resolve_flow_id(flow_id=flow_id, flow_def=flow_def)
 
     @staticmethod
     def _strip_credentials(flow_def: dict[str, Any]) -> dict[str, Any]:
         """Recursively remove credential keys from a flow definition dict."""
-        if not isinstance(flow_def, dict):
-            return flow_def
-        return {
-            k: LineageService._strip_credentials(v) for k, v in flow_def.items() if k.lower() not in _CREDENTIALS_KEYS
-        }
+        return LineageUtils.strip_credentials(flow_def)
 
     @staticmethod
     def _node_run_id(*, job_run_id: str, node_id: str) -> str:
         """Derive a deterministic UUID for a node run from the job run ID and node ID."""
-        return str(uuid.uuid5(uuid.UUID(job_run_id) if _is_valid_uuid(job_run_id) else uuid.NAMESPACE_URL, node_id))
+        return LineageUtils.node_run_id(job_run_id=job_run_id, node_id=node_id)
 
     @staticmethod
     def resolve_status(*, status: str | ExecutionStatus) -> LineageEventType:
         """Map an ExecutionStatus value to a LineageEventType."""
         value = status.value if isinstance(status, ExecutionStatus) else status
         return _STATUS_MAP.get(value, LineageEventType.OTHER)
-
-
-def _now() -> str:
-    return datetime.now(tz=UTC).isoformat()
-
-
-def _is_valid_uuid(value: str) -> bool:
-    try:
-        uuid.UUID(value)
-        return True
-    except ValueError:
-        return False
-
-
-def _to_camel_case(snake: str) -> str:
-    """Convert ``snake_case`` to ``camelCase`` for facet field names.
-
-    Examples::
-
-        "processed_docs"          -> "processedDocs"
-        "docs_before_filter"      -> "docsBeforeFilter"
-        "chunks_indexed_successfully" -> "chunksIndexedSuccessfully"
-        "node_status"             -> "nodeStatus"
-        "nrows"                   -> "nrows"   (single word, unchanged)
-    """
-    parts = snake.split("_")
-    return parts[0] + "".join(word.capitalize() for word in parts[1:])

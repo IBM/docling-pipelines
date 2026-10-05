@@ -81,13 +81,15 @@ class OpenLineagePublisherAdapter(LineagePublisherPort):
 
             from datetime import UTC, datetime
 
+            from docpipe.core.lineage.utils import LineageUtils
+
             raw_time = run.start_time or run.end_time
             if isinstance(raw_time, (int, float)):
                 event_time = datetime.fromtimestamp(raw_time, tz=UTC).isoformat()
             elif raw_time is not None:
                 event_time = str(raw_time)
             else:
-                event_time = datetime.now(tz=UTC).isoformat()
+                event_time = LineageUtils.now()
             event = run_event_cls(
                 eventType=state,
                 eventTime=event_time,

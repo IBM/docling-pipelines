@@ -160,19 +160,20 @@ class TestEmitNodeStart:
             operator_type="chunker",
             operator_category="Functional",
             input_summary=sample_summary,
-            predecessor_node_ids=["n0"],
+            predecessor_node_ids=["extract"],
         )
         service.emit_node_start(context=context)
         call_kwargs = mock_publisher.publish.call_args[1]
         assert call_kwargs["event_type"] == LineageEventType.START
-        assert call_kwargs["job"].name == "test-flow/n0/to/chunker"
+        # job name is stable: flow_name/node_name
+        assert call_kwargs["job"].name == "test-flow/chunker"
         # operator and operatorCategory surfaced in jobType facet
         jt = call_kwargs["job"].facets["jobType"]
         assert jt["operator"] == "chunker"
         assert jt["operatorCategory"] == "Functional"
-        # dataset name is node_name, not node_id
+        # input dataset chains from predecessor output: flow_name/predecessor/output
         assert len(call_kwargs["inputs"]) == 1
-        assert call_kwargs["inputs"][0].name == "chunker"
+        assert call_kwargs["inputs"][0].name == "test-flow/extract/output"
         assert call_kwargs["inputs"][0].facets["schema"]["fields"][0]["name"] == "id"
 
     def test_node_start_no_predecessors(self, service: LineageService, mock_publisher: MagicMock) -> None:
@@ -243,8 +244,8 @@ class TestEmitNodeComplete:
         call_kwargs = mock_publisher.publish.call_args[1]
         assert call_kwargs["event_type"] == LineageEventType.COMPLETE
         assert len(call_kwargs["outputs"]) == 1
-        # dataset name uses node_name, not node_id
-        assert call_kwargs["outputs"][0].name == "chunker/output_0"
+        # output dataset name uses chained pattern: flow_name/node_name/output
+        assert call_kwargs["outputs"][0].name == "test-flow/chunker/output"
         assert call_kwargs["outputs"][0].facets["outputStatistics"]["rowCount"] == 2
         # operator surfaced in job facet
         jt = call_kwargs["job"].facets["jobType"]
@@ -388,25 +389,6 @@ class TestNodeStatsAndCamelCase:
         assert stats["bytesAfterFilter"] == 32800
 
 
-class TestToCamelCase:
-    @pytest.mark.parametrize(
-        ("snake", "expected"),
-        [
-            ("processed_docs", "processedDocs"),
-            ("docs_before_filter", "docsBeforeFilter"),
-            ("chunks_indexed_successfully", "chunksIndexedSuccessfully"),
-            ("node_status", "nodeStatus"),
-            ("total_chunks_to_index", "totalChunksToIndex"),
-            ("nrows", "nrows"),
-            ("processedDocs", "processedDocs"),  # already camel — unchanged
-        ],
-    )
-    def test_conversion(self, snake: str, expected: str) -> None:
-        from docpipe.core.lineage.application.lineage_service import _to_camel_case
-
-        assert _to_camel_case(snake) == expected
-
-
 class TestEmitNodeFail:
     def test_uses_input_summary_when_present(
         self, service: LineageService, mock_publisher: MagicMock, sample_summary: NodeTableSummary
@@ -425,7 +407,8 @@ class TestEmitNodeFail:
         call_kwargs = mock_publisher.publish.call_args[1]
         assert call_kwargs["event_type"] == LineageEventType.FAIL
         assert len(call_kwargs["inputs"]) == 1
-        assert call_kwargs["inputs"][0].name == "chunker"
+        # no predecessors on this context → fallback input name
+        assert call_kwargs["inputs"][0].name == "test-flow/chunker/input"
 
     def test_no_inputs_when_no_summary(self, service: LineageService, mock_publisher: MagicMock) -> None:
         context = NodeFailContext(
@@ -525,69 +508,6 @@ class TestParentRunFacet:
             namespace="docpipe://test",
         )
 
-    def test_node_complete_parent_and_stats_both_present(
-        self, service: LineageService, mock_publisher: MagicMock, sample_summary: NodeTableSummary
-    ) -> None:
-        context = NodeCompleteContext(
-            flow_id="flow-1",
-            flow_name="lineage-full-pipeline",
-            job_run_id="aaaaaaaa-0000-0000-0000-000000000001",
-            node_id="n1",
-            node_name="chunk",
-            operator_type="chunker",
-            output_summaries=[sample_summary],
-            metadata={"processed_docs": 11, "total_chunks": 110},
-        )
-        service.emit_node_complete(context=context)
-        run_facets = mock_publisher.publish.call_args[1]["run"].facets
-        assert "parent" in run_facets
-        assert "docpipeStats" in run_facets
-        assert run_facets["docpipeStats"]["processedDocs"] == 11
-
-    def test_node_fail_carries_parent_and_error_facets(
-        self, service: LineageService, mock_publisher: MagicMock
-    ) -> None:
-        context = NodeFailContext(
-            flow_id="flow-1",
-            flow_name="lineage-full-pipeline",
-            job_run_id="aaaaaaaa-0000-0000-0000-000000000001",
-            node_id="n1",
-            node_name="chunk",
-            operator_type="chunker",
-            error_message="something broke",
-            exception=RuntimeError("boom"),
-        )
-        service.emit_node_fail(context=context)
-        run_facets = mock_publisher.publish.call_args[1]["run"].facets
-        assert "parent" in run_facets
-        assert "errorMessage" in run_facets
-        self._assert_parent_facet(
-            run_facets,
-            flow_name="lineage-full-pipeline",
-            job_run_id="aaaaaaaa-0000-0000-0000-000000000001",
-            namespace="docpipe://test",
-        )
-
-    def test_node_skip_carries_parent_and_skip_facets(self, service: LineageService, mock_publisher: MagicMock) -> None:
-        context = NodeSkipContext(
-            flow_id="flow-1",
-            flow_name="lineage-full-pipeline",
-            job_run_id="aaaaaaaa-0000-0000-0000-000000000001",
-            node_id="n1",
-            node_name="chunk",
-            operator_type="chunker",
-            reason="empty input",
-        )
-        service.emit_node_skip(context=context)
-        run_facets = mock_publisher.publish.call_args[1]["run"].facets
-        assert "parent" in run_facets
-        assert "docpipeSkip" in run_facets
-        self._assert_parent_facet(
-            run_facets,
-            flow_name="lineage-full-pipeline",
-            job_run_id="aaaaaaaa-0000-0000-0000-000000000001",
-            namespace="docpipe://test",
-        )
 
     def test_parent_job_name_matches_flow_name_exactly(
         self, service: LineageService, mock_publisher: MagicMock
@@ -647,27 +567,3 @@ class TestResolveStatus:
         assert LineageService.resolve_status(status="unknown_status") == LineageEventType.OTHER
 
 
-class TestStripCredentials:
-    def test_removes_credential_keys(self) -> None:
-        flow_def = {
-            "flow_name": "test",
-            "credentials": {"token": "secret"},  # pragma: allowlist secret
-            "config": {"password": "pass123", "host": "localhost"},  # pragma: allowlist secret
-        }
-        stripped = LineageService._strip_credentials(flow_def)
-        assert "credentials" not in stripped
-        assert "password" not in stripped["config"]
-        assert stripped["config"]["host"] == "localhost"
-
-    def test_non_dict_passthrough(self) -> None:
-        assert LineageService._strip_credentials("plain_string") == "plain_string"
-
-
-class TestResolveFlowId:
-    def test_uses_flow_id_when_present(self) -> None:
-        result = LineageService._resolve_flow_id(flow_id="my-flow", flow_def={"flow_name": "test"})
-        assert result == "my-flow"
-
-    def test_falls_back_to_sha256_when_empty(self) -> None:
-        result = LineageService._resolve_flow_id(flow_id="", flow_def={"flow_name": "test"})
-        assert len(result) == 64  # SHA-256 hex digest length

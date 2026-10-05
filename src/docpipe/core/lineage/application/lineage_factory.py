@@ -30,8 +30,28 @@ def create_lineage_observer() -> ExecutionLifecycleObserverPort | None:
         from docpipe.core.lineage.adapters.openlineage.observer import OpenLineageExecutionObserver
         from docpipe.core.lineage.adapters.openlineage.publisher import OpenLineagePublisherAdapter
         from docpipe.core.lineage.application.lineage_service import LineageService
+        from docpipe.core.lineage.domain.ports.lineage_publisher import LineagePublisherPort
 
-        publisher = OpenLineagePublisherAdapter()
+        publisher: LineagePublisherPort
+        try:
+            publisher = OpenLineagePublisherAdapter()
+        except ImportError as exc:
+            from docpipe.core.lineage.adapters.noop.publisher import NoOpLineagePublisherAdapter
+
+            logger.warning(
+                "Lineage enabled but openlineage-python is not installed; falling back to NoOpLineagePublisherAdapter: %s",
+                exc,
+            )
+            publisher = NoOpLineagePublisherAdapter()
+        except Exception as exc:
+            from docpipe.core.lineage.adapters.noop.publisher import NoOpLineagePublisherAdapter
+
+            logger.warning(
+                "Failed to initialize OpenLineagePublisherAdapter; falling back to NoOpLineagePublisherAdapter: %s",
+                exc,
+            )
+            publisher = NoOpLineagePublisherAdapter()
+
         service = LineageService(
             publisher=publisher,
             namespace=LineageConstants.DEFAULT_NAMESPACE,
@@ -42,9 +62,6 @@ def create_lineage_observer() -> ExecutionLifecycleObserverPort | None:
         logger.info("Lineage observer created: mode=%s namespace=%s", mode, LineageConstants.DEFAULT_NAMESPACE)
         return observer
 
-    except ImportError as exc:
-        logger.warning("Lineage enabled but openlineage-python is not installed — lineage will not be emitted: %s", exc)
-        return None
     except Exception as exc:
         logger.warning("Failed to create lineage observer — lineage will not be emitted: %s", exc)
         return None

@@ -128,6 +128,69 @@ class TestFlowModeObserver:
         mock_service.emit_node_skip.assert_not_called()
 
 
+class TestOperatorModeFlowEvents:
+    """Flow RUNNING and COMPLETE pass the full context in both modes.
+
+    The flow job acts as a summary edge — it always carries dataset edges so
+    Marquez can display it in the lineage graph regardless of mode.
+    """
+
+    def test_on_flow_running_passes_context_unchanged_in_operator_mode(
+        self,
+        operator_observer: OpenLineageExecutionObserver,
+        mock_service: MagicMock,
+    ) -> None:
+        import pyarrow as pa
+
+        context = FlowRunningContext(
+            flow_id="f1",
+            flow_name="test",
+            job_run_id="r1",
+            ingested_table=pa.table({"id": ["a"]}),
+            ingest_node_id="ingest_documents",
+        )
+        operator_observer.on_flow_running(context=context)
+        mock_service.emit_flow_running.assert_called_once_with(context=context)
+
+    def test_on_flow_complete_passes_context_unchanged_in_operator_mode(
+        self,
+        operator_observer: OpenLineageExecutionObserver,
+        mock_service: MagicMock,
+    ) -> None:
+        import pyarrow as pa
+
+        context = FlowCompleteContext(
+            flow_id="f1",
+            flow_name="test",
+            job_run_id="r1",
+            flow_def={},
+            output_tables=[pa.table({"id": ["a"]})],
+            completed_docs=5,
+            failed_docs=0,
+            skipped_docs=0,
+            total_docs=5,
+        )
+        operator_observer.on_flow_complete(context=context)
+        mock_service.emit_flow_complete.assert_called_once_with(context=context)
+
+    def test_on_flow_running_passes_context_unchanged_in_flow_mode(
+        self,
+        flow_observer: OpenLineageExecutionObserver,
+        mock_service: MagicMock,
+    ) -> None:
+        import pyarrow as pa
+
+        context = FlowRunningContext(
+            flow_id="f1",
+            flow_name="test",
+            job_run_id="r1",
+            ingested_table=pa.table({"id": ["a"]}),
+            ingest_node_id="ingest_documents",
+        )
+        flow_observer.on_flow_running(context=context)
+        mock_service.emit_flow_running.assert_called_once_with(context=context)
+
+
 class TestOperatorModeObserver:
     """Operator mode delegates all node events directly to the service."""
 

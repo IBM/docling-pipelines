@@ -1,4 +1,4 @@
-"""Lineage adapters package."""
+"""NoOp lineage adapter package."""
 
 from docpipe.core.lineage.adapters.noop.publisher import NoOpLineagePublisherAdapter
 

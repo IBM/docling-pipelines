@@ -117,6 +117,7 @@ class NodeStartContext:
     predecessor_node_ids: list[str] = field(default_factory=list)
     parent_run_id: str | None = None
     start_time: datetime | str | None = None
+    ingest_source_dataset_name: str | None = None
 
 
 @dataclass
@@ -132,6 +133,7 @@ class NodeCompleteContext:
     operator_category: str | None = None
     output_summaries: list[NodeTableSummary] = field(default_factory=list)
     metadata: dict[str, Any] = field(default_factory=dict)
+    predecessor_node_ids: list[str] = field(default_factory=list)
     start_time: datetime | str | None = None
     end_time: datetime | str | None = None
     batch_id: str | None = None
@@ -151,6 +153,7 @@ class NodeFailContext:
     error_message: str
     exception: Exception | None = None
     input_summary: NodeTableSummary | None = None
+    predecessor_node_ids: list[str] = field(default_factory=list)
     start_time: datetime | str | None = None
     end_time: datetime | str | None = None
 

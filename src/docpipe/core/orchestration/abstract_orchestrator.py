@@ -458,6 +458,20 @@ class AbstractOrchestrator(ABC):
             if job_stats:
                 self.job_status = ExecutionStatus(job_stats.status)
 
+    def _resolve_predecessor_names(self, *, op_def: dict) -> list[str]:
+        """Return the human-readable names of upstream nodes for a given op_def.
+
+        Reads ``input_edges[*].node_id_ref`` and resolves each ID to its name
+        using the ``_node_id_to_name`` map built at the start of ``execute_flow``.
+        Falls back to the raw ID when the map is absent (e.g. batch subflows).
+        """
+        lookup: dict[str, str] = getattr(self, "_node_id_to_name", {})
+        return [
+            lookup.get(edge[DocpipeConstants.NODE_ID_REF], edge[DocpipeConstants.NODE_ID_REF])
+            for edge in op_def.get(DocpipeConstants.INPUT_EDGES, [])
+            if DocpipeConstants.NODE_ID_REF in edge
+        ]
+
     def _execute_step(
         self,
         *,
@@ -554,6 +568,7 @@ class AbstractOrchestrator(ABC):
                 self.last_output_table = tables[0]
 
             end_time = get_current_timestamp()
+            predecessor_node_ids = self._resolve_predecessor_names(op_def=op_def)
             self._notify_observer(
                 "on_node_complete",
                 context=NodeCompleteContext(
@@ -568,6 +583,7 @@ class AbstractOrchestrator(ABC):
                     metadata=metadata,
                     start_time=start,
                     end_time=end_time,
+                    predecessor_node_ids=predecessor_node_ids,
                 ),
             )
 
@@ -1005,6 +1021,7 @@ class AbstractOrchestrator(ABC):
             _, prev_table = self._unpack_prev_results(prev_results=prev_results)
             raw_table = prev_table[0] if isinstance(prev_table, list) and prev_table else prev_table
             input_summary = NodeTableSummary.from_table(raw_table) if isinstance(raw_table, pa.Table) else None
+            predecessor_node_ids = self._resolve_predecessor_names(op_def=op_def)
             self._notify_observer(
                 "on_node_start",
                 context=NodeStartContext(
@@ -1015,6 +1032,7 @@ class AbstractOrchestrator(ABC):
                     node_name=op_def[OperatorConstants.Columns.NAME],
                     operator_type=op_def.get(OperatorConstants.Misc.OPERATOR, ""),
                     input_summary=input_summary,
+                    predecessor_node_ids=predecessor_node_ids,
                     parent_run_id=self.job_run_id or "",
                     start_time=node_start_time,
                 ),
@@ -1122,17 +1140,11 @@ class AbstractOrchestrator(ABC):
     def _derive_ingest_dataset_name(self, *, ingest_operator: dict) -> str:
         """Derive a human-readable dataset name from the ingest operator config.
 
-        Produces names like ``filesystem://tests/fixtures`` or ``s3://my-bucket``
-        so the lineage graph shows a meaningful source rather than a UUID.
+        Delegates to LineageUtils.derive_ingest_dataset_name.
         """
-        operator_config = ingest_operator.get(OperatorConstants.Config.CONFIG, {})
-        provider = operator_config.get(OperatorConstants.Config.PROVIDER, "unknown")
-        connection_params = operator_config.get(OperatorConstants.Config.CONNECTION_PARAMS, {})
-        paths: list[str] = connection_params.get("paths", [])
-        if paths:
-            first_path = str(paths[0]).rstrip("/")
-            return f"{provider}://{first_path}"
-        return f"{provider}://source"
+        from docpipe.core.lineage.utils import LineageUtils
+
+        return LineageUtils.derive_ingest_dataset_name(ingest_operator=ingest_operator)
 
     def _populate_ingest_source_config(self, *, ingest_operator, global_config):
         """
@@ -1202,10 +1214,22 @@ class AbstractOrchestrator(ABC):
         # Execute ingest operator to get initial table
         ingest_operator = op_flow[0]
 
+        # Build id → name lookup once so predecessor names are human-readable in lineage events.
+        self._node_id_to_name: dict[str, str] = {
+            node[OperatorConstants.Columns.ID]: node[OperatorConstants.Columns.NAME]
+            for node in op_flow
+            if OperatorConstants.Columns.ID in node and OperatorConstants.Columns.NAME in node
+        }
+
+        # Derive the ingest source name early — it is available from config alone,
+        # before execution, and is needed for the ingest node's input dataset label.
+        self.ingest_dataset_name = self._derive_ingest_dataset_name(ingest_operator=ingest_operator)
+
         # Emit node START for ingest before execution — ingest bypasses _inner_task
-        # so on_node_start must be fired manually here.  No input data exists yet
-        # (ingest is the source), so input_summary is None.
+        # so on_node_start must be fired manually here.  The input dataset is the
+        # ingest source itself (e.g. filesystem://./tests/fixtures/customer_support_docs).
         from docpipe.core.orchestration.models.execution_event_context import NodeStartContext as _NodeStartContext
+        from docpipe.core.orchestration.models.execution_event_context import NodeTableSummary as _NodeTableSummary
 
         ingest_start_time = get_current_timestamp()
         self._notify_observer(
@@ -1217,6 +1241,11 @@ class AbstractOrchestrator(ABC):
                 node_id=ingest_operator[OperatorConstants.Columns.ID],
                 node_name=ingest_operator[OperatorConstants.Columns.NAME],
                 operator_type=ingest_operator.get(OperatorConstants.Misc.OPERATOR, ""),
+                # Use ingest source path as the input dataset so Marquez shows
+                # where data originates (e.g. filesystem://./tests/fixtures/...).
+                # No table exists yet so we pass a zero-row placeholder summary.
+                input_summary=_NodeTableSummary(schema_fields=[], row_count=0),
+                ingest_source_dataset_name=self.ingest_dataset_name,
                 parent_run_id=self.job_run_id or "",
                 start_time=ingest_start_time,
             ),
@@ -1245,9 +1274,6 @@ class AbstractOrchestrator(ABC):
 
         # Get the ingested table
         ingested_table = ingest_results.tables[0]
-
-        # Derive a meaningful ingest source name for lineage (provider://paths)
-        self.ingest_dataset_name = self._derive_ingest_dataset_name(ingest_operator=ingest_operator)
 
         # Notify observer that ingest is complete and active processing begins
         from docpipe.core.orchestration.models.execution_event_context import FlowRunningContext
