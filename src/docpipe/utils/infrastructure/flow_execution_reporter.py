@@ -56,9 +56,9 @@ class FlowExecutionReporter:
         self._flow_start_time = datetime.now(tz=UTC)
         logger.info("")
         logger.info("=" * 80)
-        logger.info(f" FLOW: {flow_name}")
-        logger.info(f" Operators: {operator_count}")
-        logger.info(f" Started: {self._flow_start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(" FLOW: %s", flow_name)
+        logger.info(" Operators: %s", operator_count)
+        logger.info(" Started: %s", self._flow_start_time.strftime("%Y-%m-%d %H:%M:%S"))
         logger.info("=" * 80)
         logger.info("")
 
@@ -69,7 +69,7 @@ class FlowExecutionReporter:
             step_name: Name/ID of the operator step
             operator_type: Type of operator (e.g., 'extract_operator', 'embeddings')
         """
-        logger.info(f"[{step_name}] Starting {operator_type}...")
+        logger.info("[%s] Starting %s...", step_name, operator_type)
 
     def print_operator_summary(self, *, step_name: str, node_stats: NodeStats, tables=None) -> None:
         """Print operator execution summary card.
@@ -135,14 +135,25 @@ class FlowExecutionReporter:
         """Log the Data Columns header line reflecting what changed."""
         if new_cols_count > 0 and removed_cols_count > 0:
             logger.info(
-                f" Data Columns: {total_cols} total ({new_cols_count} added, {removed_cols_count} removed by this operator)"
+                " Data Columns: %s total (%s added, %s removed by this operator)",
+                total_cols,
+                new_cols_count,
+                removed_cols_count,
             )
         elif new_cols_count > 0:
-            logger.info(f" Data Columns: {total_cols} total ({new_cols_count} added by this operator)")
+            logger.info(
+                " Data Columns: %s total (%s added by this operator)",
+                total_cols,
+                new_cols_count,
+            )
         elif removed_cols_count > 0:
-            logger.info(f" Data Columns: {total_cols} total ({removed_cols_count} removed by this operator)")
+            logger.info(
+                " Data Columns: %s total (%s removed by this operator)",
+                total_cols,
+                removed_cols_count,
+            )
         else:
-            logger.info(f" Data Columns: {total_cols} total")
+            logger.info(" Data Columns: %s total", total_cols)
 
     def _print_schema_info(self, *, col_names: list[str], step_name: str) -> None:
         """Print schema/column information in a user-friendly format.
@@ -168,21 +179,21 @@ class FlowExecutionReporter:
         )
 
         if new_columns:
-            logger.info(f"   Added ({new_cols_count}):")
+            logger.info("   Added (%s):", new_cols_count)
             self._print_column_list(new_columns)
             if removed_columns or existing_columns:
                 logger.info("")
 
         if removed_columns:
-            logger.info(f"   Removed ({removed_cols_count}):")
+            logger.info("   Removed (%s):", removed_cols_count)
             self._print_column_list(removed_columns)
             if existing_columns:
                 logger.info("")
 
         if existing_columns:
-            logger.info(f"   Existing ({len(existing_columns)}): {', '.join(existing_columns[:10])}")
+            logger.info("   Existing (%s): %s", len(existing_columns), ", ".join(existing_columns[:10]))
             if len(existing_columns) > 10:
-                logger.info(f"      ... and {len(existing_columns) - 10} more")
+                logger.info("      ... and %s more", len(existing_columns) - 10)
 
         if not new_columns and not removed_columns and not existing_columns:
             # No columns at all (shouldn't happen, but handle gracefully)
@@ -198,7 +209,7 @@ class FlowExecutionReporter:
         col_count = len(columns)
         if col_count <= 10:
             # Simple comma-separated list
-            logger.info(f"{indent}{', '.join(columns)}")
+            logger.info("%s%s", indent, ", ".join(columns))
         elif col_count <= 20:
             # Wrapped list without grouping
             self._print_wrapped_columns(columns, indent=indent)
@@ -315,7 +326,7 @@ class FlowExecutionReporter:
             return
 
         for group_name, cols in groups.items():
-            logger.info(f"{indent}{group_name} ({len(cols)}):")
+            logger.info("%s%s (%s):", indent, group_name, len(cols))
             self._print_wrapped_columns(cols, indent=indent + "  ")
 
     def _group_columns_by_prefix(self, columns: list[str]) -> dict[str, list[str]]:
@@ -445,7 +456,7 @@ class FlowExecutionReporter:
         logger.info(" Operator Metrics:")
         for field, value in sorted(fields.items()):
             display_name = field.replace("_", " ").title()
-            logger.info(f"   {display_name}: {value}")
+            logger.info("   %s: %s", display_name, value)
 
     def _print_dict_fields(self, fields: dict[str, Any], *, has_numeric: bool) -> None:
         """Print dictionary metadata fields."""
@@ -461,14 +472,14 @@ class FlowExecutionReporter:
 
     def _print_nested_dict_field(self, *, display_name: str, value: dict) -> None:
         """Print a dict field that contains nested dict values."""
-        logger.info(f"   {display_name}:")
+        logger.info("   %s:", display_name)
         for k, v in value.items():
             if isinstance(v, dict):
-                logger.info(f"      {k}:")
+                logger.info("      %s:", k)
                 for nested_k, nested_v in v.items():
-                    logger.info(f"         {nested_k}: {nested_v}")
+                    logger.info("         %s: %s", nested_k, nested_v)
             else:
-                logger.info(f"      {k}: {v}")
+                logger.info("      %s: %s", k, v)
 
     def _format_dict_field(self, display_name: str, value: dict) -> None:
         """Format and print a dictionary field."""
@@ -476,13 +487,13 @@ class FlowExecutionReporter:
             self._print_nested_dict_field(display_name=display_name, value=value)
         elif len(value) <= 10:
             formatted = ", ".join(f"{k}={v}" for k, v in value.items())
-            logger.info(f"   {display_name}: {formatted}")
+            logger.info("   %s: %s", display_name, formatted)
         else:
-            logger.info(f"   {display_name}:")
+            logger.info("   %s:", display_name)
             for k, v in list(value.items())[:10]:
-                logger.info(f"      {k}: {v}")
+                logger.info("      %s: %s", k, v)
             if len(value) > 10:
-                logger.info(f"      ... and {len(value) - 10} more")
+                logger.info("      ... and %s more", len(value) - 10)
 
     def _print_other_fields(self, fields: dict[str, Any]) -> None:
         """Print string/other metadata fields."""
@@ -494,7 +505,7 @@ class FlowExecutionReporter:
             str_value = str(value)
             if len(str_value) > 100:
                 str_value = str_value[:97] + "..."
-            logger.info(f"   {display_name}: {str_value}")
+            logger.info("   %s: %s", display_name, str_value)
 
     def _print_list_fields(self, fields: dict[str, Any]) -> None:
         """Print list metadata fields."""
@@ -540,12 +551,12 @@ class FlowExecutionReporter:
         if value:
             if len(value) <= 5:
                 formatted_list = ", ".join(str(v) for v in value)
-                logger.info(f"   {display_name}: {formatted_list}")
+                logger.info("   %s: %s", display_name, formatted_list)
             else:
                 preview = ", ".join(str(v) for v in value[:3])
-                logger.info(f"   {display_name} ({len(value)} items): {preview}, ...")
+                logger.info("   %s (%s items): %s, ...", display_name, len(value), preview)
         else:
-            logger.info(f"   {display_name}: []")
+            logger.info("   %s: []", display_name)
 
     def _extract_name_from_row(self, *, table: Any, idx: int, search_id: str) -> str | None:
         """Extract a usable display name from a matched row.
