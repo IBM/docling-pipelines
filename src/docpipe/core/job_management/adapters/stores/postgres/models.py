@@ -164,6 +164,13 @@ class JobStatsModel(SQLModel, table=True):  # type: ignore[call-arg]
         min_length=0,
         max_length=255,
     )
+    flow_name: str | None = Field(
+        default=None,
+        title="Flow Name",
+        description="Human-readable name of the flow for which job run was created",
+        min_length=0,
+        max_length=255,
+    )
 
     # User & Account Context (optional in open-source)
     user_id: str | None = Field(

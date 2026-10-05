@@ -68,6 +68,7 @@ def upgrade() -> None:
             sa.Column("container_kind", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
             sa.Column("container_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
             sa.Column("flow_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
+            sa.Column("flow_name", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
             sa.Column("user_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
             sa.Column("account_id", sqlmodel.sql.sqltypes.AutoString(), nullable=True),
             sa.Column("execution_time", sa.Integer(), nullable=True),

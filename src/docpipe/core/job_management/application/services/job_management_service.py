@@ -288,9 +288,8 @@ class JobManagementService:
                     DocpipeConstants.ORCHESTRATOR,
                 }
             )
-            # flow_id attribute on JobStats holds the flow_name set during start_tracking_job
-            raw_flow_name = getattr(job_run, DocpipeConstants.FLOW_ID, None)
-            if not raw_flow_name or raw_flow_name.lower() == "unknown" or raw_flow_name == job_run.job_id:
+            raw_flow_name = getattr(job_run, "flow_name", None)
+            if not raw_flow_name or raw_flow_name.lower() == "unknown":
                 try:
                     matched_flow = self.flow_service.get_flow(job_run.job_id)
                     if matched_flow and matched_flow.name:

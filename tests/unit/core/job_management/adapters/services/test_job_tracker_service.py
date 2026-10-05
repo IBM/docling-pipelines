@@ -498,7 +498,8 @@ class TestStartTrackingJob:
 
         assert job_stats.job_id == JOB_ID
         assert job_stats.job_run_id == JOB_RUN_ID
-        assert job_stats.flow_id == "test_flow"
+        assert job_stats.flow_id == JOB_ID
+        assert job_stats.flow_name == "test_flow"
         assert job_stats.user_id == "test_user"
         assert job_stats.status == ExecutionStatus.RUNNING
         assert job_stats.start_time is not None

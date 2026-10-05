@@ -53,6 +53,7 @@ class JobStats(BaseModel):
     container_kind: str | None = None
     container_id: str | None = ""
     flow_id: str | None = ""
+    flow_name: str | None = None
 
     # User & Account Context
     user_id: str | None = None

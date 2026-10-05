@@ -167,6 +167,7 @@ ORCHESTRATOR_DESC = "Orchestrator type used for execution (e.g., Python)"
 CONTAINER_TYPE_DESC = "Container type (PROJECT, SPACE, etc.)"
 CONTAINER_ID_DESC_JOB = "Container identifier"
 FLOW_ID_DESC_JOB = "Flow definition ID"
+FLOW_NAME_DESC_JOB = "Human-readable name of the flow for which the job run was created"
 ACCOUNT_ID_DESC = "Account/tenant identifier"
 USER_ENTITLEMENTS_DESC = "User entitlements and permissions for this job run"
 

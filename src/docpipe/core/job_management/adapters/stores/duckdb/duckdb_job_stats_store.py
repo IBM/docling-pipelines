@@ -111,11 +111,18 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                     container_kind VARCHAR,
                     container_id VARCHAR,
                     flow_id VARCHAR,
+                    flow_name VARCHAR,
                     user_id VARCHAR,
                     account_id VARCHAR,
                     user_entitlements JSON
                 )
             """)
+
+            # Add flow_name column to existing databases that pre-date this field
+            try:
+                conn.execute("ALTER TABLE job_stats ADD COLUMN IF NOT EXISTS flow_name VARCHAR")
+            except Exception:  # nosec B110
+                pass  # DuckDB < 0.9 doesn't support IF NOT EXISTS on ALTER -- ignore
 
             # Create node_stats table with auto-incrementing primary key
             conn.execute("""
@@ -182,9 +189,9 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                         total_docs, processed_docs, completed_docs, failed_docs,
                         skipped_docs, deleted_doc_count, total_pages_processed,
                         page_type_stats, execution_time, orchestrator,
-                        container_kind, container_id, flow_id,
+                        container_kind, container_id, flow_id, flow_name,
                         user_id, account_id, user_entitlements
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     [
                         data["job_run_id"],
@@ -208,6 +215,7 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                         data.get("container_kind"),
                         data.get("container_id"),
                         data.get("flow_id"),
+                        data.get("flow_name"),
                         data.get("user_id"),
                         data.get("account_id"),
                         data.get("user_entitlements"),

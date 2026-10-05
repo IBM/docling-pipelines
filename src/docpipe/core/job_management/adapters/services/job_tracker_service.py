@@ -83,7 +83,8 @@ class JobTrackerService(JobStatsService):
         job_stats: JobStats = JobStats(
             job_id=job_id,
             job_run_id=job_run_id,
-            flow_id=flow_name,  # Store flow_name in flow_id field
+            flow_id=job_id,
+            flow_name=flow_name,
             user_id=user_id,
             status=initial_status,
             start_time=round(datetime.now(tz=UTC).timestamp()),

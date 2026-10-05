@@ -55,6 +55,7 @@ class DummyJobRunItem:
         self.payload = payload
         self.job_id = payload.get(DocpipeConstants.JOB_ID)
         self.flow_id = payload.get(DocpipeConstants.FLOW_ID)
+        self.flow_name: str | None = None
 
     def model_dump(self, *, include: set[str]):
         return {key: self.payload[key] for key in include if key in self.payload}
@@ -219,7 +220,7 @@ class TestJobManagementService:
                 DocpipeConstants.MESSAGE: "done",
             }
         )
-        dummy_run.flow_id = "My Test Flow"
+        dummy_run.flow_name = "My Test Flow"
         self.job_stats_service.list_job_runs.return_value = [dummy_run]
 
         result = self.service.list_job_runs(job_id="job-1", status=ExecutionStatus.COMPLETED, limit=10)
