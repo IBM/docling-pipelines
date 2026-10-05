@@ -20,7 +20,7 @@ Docling-pipelines is a modular, operator-based data processing framework for bui
 | Authoring Flows — The flow JSON format, global configuration, dependency syntax, and annotated examples.
 
 | xref:04_ingesting_data.adoc[4]
-| Ingesting Data — `ingest_local`, `ingest_source`, cloud provider connectors, and document libraries.
+| Ingesting Data — `ingest_source`, cloud provider connectors, and document libraries.
 
 | xref:05_extracting_and_processing_documents.adoc[5]
 | Extracting & Processing — `extract_operator`, `chunker`, `embeddings`, and document classification.
