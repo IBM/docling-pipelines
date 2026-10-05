@@ -1,0 +1,14 @@
+{
+  "name": "Docling-pipelines-docs",
+  "version": "1.0.0",
+  "description": "Docling-pipelines documentation website",
+  "private": true,
+  "scripts": {
+    "build": "antora antora-playbook.yml",
+    "serve": "node -e \"const h=require('http'),fs=require('fs'),path=require('path'),PORT=8080,ROOT='site';h.createServer((req,res)=>{let f=path.join(ROOT,req.url==='/'?'/index.html':req.url);if(!fs.existsSync(f))f=path.join(ROOT,'404.html');const ext=path.extname(f).slice(1);const mime={html:'text/html',css:'text/css',js:'application/javascript',png:'image/png',svg:'image/svg+xml',woff2:'font/woff2'};res.writeHead(fs.existsSync(f)?200:404,{'Content-Type':mime[ext]||'text/plain'});fs.createReadStream(f).pipe(res)}).listen(PORT,()=>console.log('Serving on http://localhost:'+PORT))\""
+  },
+  "devDependencies": {
+    "@antora/cli": "^3.1.9",
+    "@antora/site-generator": "^3.1.9"
+  }
+}

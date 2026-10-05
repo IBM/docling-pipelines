@@ -1,0 +1,561 @@
+== Data Quality and Enrichment
+
+The quality operator suite filters, enriches, and sanitises document tables before
+they are chunked, embedded, or stored. Operators in this category add columns and/or remove
+rows; they never modify downstream operator contracts.
+
+=== Quality Operator Overview
+
+[cols="1,2,3",options="header"]
+|===
+|Short name |Operator |Purpose
+
+|`ededup`
+|`EdedupOperator`
+|Remove exact duplicate documents by SHA-256 hash.
+
+|`lang_detect`
+|`LanguageDetect`
+|Append ISO 639-1 language code and confidence score.
+
+|`doc_quality`
+|`DocQuality`
+|Compute 11 content-quality metrics.
+
+|`ml_enrichment`
+|`MLEnrichmentOperator`
+|Compute 30 statistical text features.
+
+|`readability`
+|`ReadabilityOperator`
+|Compute up to 13 readability scores.
+
+|`pii_and_hap`
+|`PIIAndHAPAnnotator`
+|Detect and optionally redact PII and hate/abuse/profanity.
+
+|`redaction`
+|`RedactionOperator`
+|Mask text matching a regex pattern with a configurable character.
+
+|`sql_filter`
+|`SQLFilterOperator`
+|Row-level filtering using SQL-style WHERE expressions.
+|===
+
+A typical quality pipeline:
+
+----
+Extract → Dedup → Language → Enrich → Readability → PII/HAP → Filter → Chunk → Embed
+----
+
+=== EdedupOperator — Exact Deduplication
+
+* **Short name:** `ededup`
+
+Removes rows that share the same `doc_id_hash` value, keeping only the first occurrence.
+No configuration is required.
+
+[source,json]
+----
+{
+  "type": "ededup",
+  "name": "deduplicate",
+  "depends_on": ["extract"],
+  "config": {}
+}
+----
+
+The `doc_id_hash` column is produced automatically by `ExtractOperator` and `ChunkerOperator`.
+If it is missing, the operator raises `KeyError: doc_id_hash`.
+
+=== LanguageDetect — Language Detection
+
+* **Short name:** `lang_detect`
+
+Detects the language of each document's text and appends two columns.
+
+==== Output Columns
+
+[cols="2,1,3",options="header"]
+|===
+|Column |Type |Description
+
+|`lang_name`
+|`string`
+|ISO 639-1 language code (e.g. `"en"`, `"fr"`) or `"UNKNOWN"` on failure.
+
+|`lang_score`
+|`float32`
+|Confidence score 0.0–1.0; `0.0` for `UNKNOWN`.
+|===
+
+==== Configuration
+
+[source,json]
+----
+{
+  "type": "lang_detect",
+  "name": "detect_language",
+  "depends_on": ["extract"],
+  "config": {
+    "language_provider": "fasttext",
+    "filter_unknown_language": false
+  }
+}
+----
+
+[cols="2,1,3",options="header"]
+|===
+|Parameter |Default |Description
+
+|`language_provider`
+|`"fasttext"`
+|`"fasttext"` (176+ languages) or `"langdetect"` (55 languages, no setup).
+
+|`filter_unknown_language`
+|`false`
+|When `true`, rows where detection fails are removed.
+
+|`doc_column`
+|`"content"`
+|Input text column.
+|===
+
+==== Provider Comparison
+
+[cols="1,1,1",options="header"]
+|===
+|Property |fasttext |langdetect
+
+|Languages |176+ |55+
+|Accuracy (short text) |High |Moderate
+|Setup |Downloads ~131 MB model on first use |No setup required
+|Thread safety |Singleton model (thread-safe) |Stateless
+|===
+
+=== DocQuality — 11 Quality Metrics
+
+* **Short name:** `doc_quality`
+
+Computes 11 content-quality metric columns per document in a single pass.
+
+==== Configuration
+
+[source,json]
+----
+{
+  "type": "doc_quality",
+  "name": "quality_metrics",
+  "depends_on": ["extract"],
+  "config": {
+    "text_lang": "en"
+  }
+}
+----
+
+`text_lang` affects profanity detection only (default `"en"`).
+
+==== Output Columns
+
+[cols="2,1,3",options="header"]
+|===
+|Column |Type |Description
+
+|`docq_total_words` |`int` |Total word count
+|`docq_mean_word_len` |`float` |Mean word length in characters
+|`docq_symbol_to_word_ratio` |`float` |Ratio of symbols to words
+|`docq_sentence_count` |`int` |Number of sentences
+|`docq_lorem_ipsum_ratio` |`float` |Ratio of lorem ipsum placeholder text
+|`docq_contain_bad_word` |`bool` |`true` if document contains profanity
+|`docq_bullet_point_ratio` |`float` |Ratio of lines starting with bullet points
+|`docq_curly_bracket_ratio` |`float` |Signal for code/JSON content
+|`docq_ellipsis_line_ratio` |`float` |Ratio of lines ending with `...`
+|`docq_alphabet_word_ratio` |`float` |Ratio of words containing at least one letter
+|`docq_contain_common_en_words` |`float` |`1.0` if text contains common English words
+|===
+
+Pipe into `sql_filter` to remove low-quality documents:
+
+[source,json]
+----
+{
+  "type": "sql_filter",
+  "name": "quality_gate",
+  "depends_on": ["quality_metrics"],
+  "config": {
+    "criteria_list": [
+      "docq_total_words >= 50",
+      "docq_contain_bad_word = false",
+      "docq_lorem_ipsum_ratio < 0.1"
+    ]
+  }
+}
+----
+
+=== MLEnrichmentOperator — 30 Statistical Features
+
+* **Short name:** `ml_enrichment`
+
+Appends 30 statistical text-quality feature columns. Best used before `sql_filter` for
+word-count, ratio, and n-gram-based filtering, or to enrich a dataset for downstream ML.
+
+==== Configuration
+
+[source,json]
+----
+{
+  "type": "ml_enrichment",
+  "name": "enrich",
+  "depends_on": ["detect_language"],
+  "config": {
+    "lang_column": "lang_name",
+    "output_column_prefix": ""
+  }
+}
+----
+
+The `lang_column` parameter names the column that provides ISO 639-1 codes for
+language-aware tokenisation. Run `lang_detect` before `ml_enrichment`.
+
+Selected output columns: `num_words`, `num_chars`, `alphanumeric_char_ratio`,
+`dup_paragraphs_ratio`, `top_2_gram_char_ratio` … (30 total). Use
+`output_column_prefix` to avoid name collisions when running multiple enrichment passes.
+
+Example filter after enrichment:
+
+[source,json]
+----
+{
+  "type": "sql_filter",
+  "name": "filter",
+  "depends_on": ["enrich"],
+  "config": {
+    "criteria_list": [
+      "num_words >= 100",
+      "dup_paragraphs_ratio < 0.3",
+      "alphanumeric_char_ratio >= 0.7"
+    ]
+  }
+}
+----
+
+=== ReadabilityOperator — Reading-Level Scores
+
+* **Short name:** `readability`
+
+Computes up to 13 readability scores and adds a `<score_name>_textstat` column for each.
+
+==== Configuration
+
+[source,json]
+----
+{
+  "type": "readability",
+  "name": "readability_scores",
+  "depends_on": ["extract"],
+  "config": {
+    "readability_score_list": [
+      "flesch_ease",
+      "flesch_kincaid",
+      "gunning_fog"
+    ]
+  }
+}
+----
+
+==== Available Scores
+
+[cols="2,1,2",options="header"]
+|===
+|Score name |Output type |Description
+
+|`flesch_ease` |`float` |0–100 scale; higher = easier to read
+|`flesch_kincaid` |`float` |US grade level
+|`gunning_fog` |`float` |Grade level from complex words
+|`smog_index` |`float` |Grade level from polysyllabic words
+|`coleman_liau_index` |`float` |Grade level from letter counts
+|`automated_readability_index` |`float` |Grade level from char/word ratios
+|`dale_chall_readability_score` |`float` |Grade level from uncommon words
+|`difficult_words` |`int` |Count of uncommon words
+|`linsear_write_formula` |`float` |Grade level for technical writing
+|`text_standard` |`float` |Consensus grade from multiple formulas
+|`spache_readability` |`float` |Primary school grade level (grades 1–4)
+|`mcalpine_eflaw` |`float` |Readability for ESL/EFL learners
+|`reading_time` |`float` |Estimated reading time in seconds
+|===
+
+Filter to readable documents:
+
+[source,json]
+----
+{
+  "type": "sql_filter",
+  "name": "readability_gate",
+  "depends_on": ["readability_scores"],
+  "config": {
+    "criteria_list": [
+      "flesch_ease_textstat >= 60",
+      "flesch_kincaid_textstat <= 10"
+    ]
+  }
+}
+----
+
+=== PIIAndHAPAnnotator — PII and Hate/Abuse/Profanity Detection
+
+* **Short name:** `pii_and_hap`
+
+Uses an LLM (LiteLLM or WatsonX) to detect 13 PII types and HAP language.
+Can optionally redact detected spans in the content column.
+
+==== Configuration
+
+[source,json]
+----
+{
+  "type": "pii_and_hap",
+  "name": "detect_pii_hap",
+  "depends_on": ["extract"],
+  "config": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/granite4",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "<ollama>"
+    },
+    "expected_redactions": ["pii", "hap"],
+    "redaction": true,
+    "hap_redaction": true,
+    "pii_threshold": 0.5,
+    "hap_threshold": 0.8
+  }
+}
+----
+
+==== Key Parameters
+
+[cols="2,1,3",options="header"]
+|===
+|Parameter |Default |Description
+
+|`expected_redactions`
+|`["pii","hap"]`
+|Which detection types to run: any subset of `["pii","hap"]`.
+
+|`redaction`
+|`false`
+|Replace detected PII spans with `redaction_character`.
+
+|`hap_redaction`
+|`false`
+|Replace detected HAP spans with `hap_redaction_character`.
+
+|`pii_list`
+|All 13 types
+|PII types to detect.
+
+|`pii_threshold`
+|`0.5`
+|Confidence threshold for PII (0.0–1.0).
+
+|`hap_threshold`
+|`0.8`
+|Confidence threshold for HAP (0.0–1.0).
+
+|`display_pii`
+|`false`
+|Add `*_info` columns with actual detected values. **Never enable in production.**
+|===
+
+==== Supported PII Types
+
+`BankAccountNumber`, `CreditCardNumber`, `EmailAddress`, `IPAddress`, `PhoneNumber`,
+`SocialSecurityNumber`, `PersonName`, `DateOfBirth`, `Address`, `PassportNumber`,
+`DriverLicenseNumber`, `NationalID`, `MedicalRecordNumber`.
+
+==== Output Columns
+
+One `int64` count column per PII type (e.g. `pii_email_address`, `pii_phone_number`) plus
+`hap` (count of HAP instances). When `redaction: true`, the `content` column is modified
+in-place.
+
+=== RedactionOperator — Pattern-Based Redaction
+
+* **Short name:** `redaction`
+
+Masks text matching a regular expression with a configurable character.
+Use this as a lightweight complement to `pii_and_hap` for known structured patterns
+(emails, phone numbers, SSNs) that do not need LLM-based detection.
+
+==== Configuration
+
+[source,json]
+----
+{
+  "type": "redaction",
+  "name": "redact_emails",
+  "depends_on": ["extract"],
+  "config": {
+    "redaction_regex": "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
+    "redaction_masking_character": "*"
+  }
+}
+----
+
+Chain multiple instances for different PII types:
+
+[source,json]
+----
+[
+  {
+    "type": "redaction",
+    "name": "redact_emails",
+    "depends_on": ["extract"],
+    "config": {
+      "redaction_regex": "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"
+    }
+  },
+  {
+    "type": "redaction",
+    "name": "redact_phones",
+    "depends_on": ["redact_emails"],
+    "config": {
+      "redaction_regex": "\\b\\d{3}-\\d{3}-\\d{4}\\b",
+      "redaction_masking_character": "#"
+    }
+  }
+]
+----
+
+==== Common Patterns
+
+[cols="2,3",options="header"]
+|===
+|Target |Regex
+
+|Email address |`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]\{2,}`
+|US phone (dashes) |`\\b\\d\{3}-\\d\{3}-\\d\{4}\\b`
+|SSN |`\\b\\d\{3}-\\d\{2}-\\d\{4}\\b`
+|16-digit credit card |`\\b\\d\{4}[\\s-]?\\d\{4}[\\s-]?\\d\{4}[\\s-]?\\d\{4}\\b`
+|IPv4 address |`\\b(?:\\d\{1,3}\\.)\{3}\\d\{1,3}\\b`
+|===
+
+=== SQLFilterOperator — Row-Level Filtering
+
+* **Short name:** `sql_filter`
+
+Applies SQL-style WHERE conditions to a PyArrow table and keeps only matching rows.
+Works on any column present in the input table.
+
+==== Configuration
+
+[source,json]
+----
+{
+  "type": "sql_filter",
+  "name": "filter",
+  "depends_on": ["previous_op"],
+  "config": {
+    "criteria_list": [
+      "lang_name = 'en'",
+      "docq_total_words >= 50"
+    ],
+    "logical_operator": "AND"
+  }
+}
+----
+
+[cols="2,1,3",options="header"]
+|===
+|Parameter |Default |Description
+
+|`criteria_list`
+|`[]`
+|SQL WHERE expressions as strings. At least one of `criteria_list` or `criteria_json` is required.
+
+|`logical_operator`
+|`"AND"`
+|How to join multiple `criteria_list` items: `"AND"` or `"OR"`.
+
+|`criteria_json`
+|—
+|Structured filter with nested logical groups (see below).
+
+|`features_to_drop`
+|`[]`
+|Column names to remove from the output.
+|===
+
+==== Nested Filter Syntax (`criteria_json`)
+
+[source,json]
+----
+{
+  "criteria_json": {
+    "logical_operator": "AND",
+    "criteria_list": [
+      { "variable": "lang_name", "operator": "in", "value": ["en", "fr"] },
+      {
+        "logical_operator": "OR",
+        "criteria_list": [
+          { "variable": "num_words", "operator": ">", "value": 100 },
+          { "variable": "page_count", "operator": ">", "value": 5 }
+        ]
+      }
+    ]
+  }
+}
+----
+
+Supported operators: `=` `==` `!=` `<>` `>` `<` `>=` `<=` `LIKE` `NOT LIKE` `IN`
+`NOT IN` `IS NULL` `IS NOT NULL` `BETWEEN`.
+
+NOTE: You cannot drop the `id`, `content`, `pages_processed`, `allowed_users`, or
+`chunked_content` columns via `features_to_drop`.
+
+=== Composing a Full Quality Pipeline
+
+[source,json]
+----
+{
+  "flow_name": "quality-enrichment-rag",
+  "flow": [
+    { "type": "ingest_source", "name": "ingest", "config": { "provider": "filesystem", "connection_params": { "paths": ["./corpus"] } } },
+    { "type": "extract_operator", "name": "extract", "depends_on": ["ingest"],
+      "config": { "text_extraction": { "provider": "docling_library" }, "entity_extraction": { "provider": "none" } } },
+    { "type": "ededup",      "name": "dedup",     "depends_on": ["extract"], "config": {} },
+    { "type": "lang_detect", "name": "lang",      "depends_on": ["dedup"],   "config": { "language_provider": "fasttext" } },
+    { "type": "doc_quality", "name": "quality",   "depends_on": ["lang"],    "config": { "text_lang": "en" } },
+    { "type": "sql_filter",  "name": "gate",      "depends_on": ["quality"],
+      "config": { "criteria_list": [ "lang_name = 'en'", "docq_total_words >= 50", "docq_contain_bad_word = false" ] } },
+    { "type": "chunker",     "name": "chunk",     "depends_on": ["gate"],    "config": { "chunk_type": "hybrid", "chunk_size": 512 } },
+    { "type": "embeddings",  "name": "embed",     "depends_on": ["chunk"],
+      "config": { "provider": "litellm", "provider_config": { "model_id": "openai/nomic-embed-text", "api_base": "http://localhost:11434" } } },
+    { "type": "vectordb",    "name": "index",     "depends_on": ["embed"],
+      "config": { "provider": "opensearch", "vector_dimension": 768, "provider_config": { "index_name": "corpus", "host": "localhost", "port": 9200, "use_ssl": false, "verify_certs": false } } }
+  ]
+}
+----
+
+=== Troubleshooting
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Fix
+
+|All `docq_*` columns are `0` or `null`
+|The `content` column is empty. Ensure `ExtractOperator` produced text content upstream.
+
+|`lang_column` not found in `ml_enrichment`
+|Run `lang_detect` before `ml_enrichment`, or set `lang_column` to the correct column name.
+
+|All documents filtered by `sql_filter`
+|Threshold is too strict. Start loose and tighten after inspecting column value distributions.
+
+|PII detection slow
+|LLM inference latency. For high throughput, use a locally hosted model via Ollama.
+
+|`redaction_masking_character` error
+|Only single characters are accepted. Using a multi-character string raises a validation error.
+|===

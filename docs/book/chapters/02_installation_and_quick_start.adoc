@@ -1,0 +1,301 @@
+== Installation and Quick Start
+
+This chapter walks you from a bare machine to a running document-processing pipeline.
+
+=== Prerequisites
+
+[cols="1,2",options="header"]
+|===
+|Requirement |Notes
+
+|Python 3.12 (exactly)
+|Python 3.13+ is not yet supported. Use `pyenv` or a system package if needed.
+
+|`uv` package manager
+|Install: `curl -LsSf https://astral.sh/uv/install.sh \| sh`
+
+|Git
+|To clone the repository.
+
+|Ollama (optional but recommended)
+|Required for local LLM-based extraction, embeddings, PII detection, and classification.
+Install from https://ollama.com.
+
+|OpenSearch or Milvus (optional)
+|Required only if a `vectordb` operator is included in your flow.
+|===
+
+=== Installing Docling-pipelines
+
+==== From the repository (development)
+
+[source,bash]
+----
+git clone https://github.com/IBM/docling-pipelines.git
+cd docling-pipelines
+
+# Create a virtual environment and install all development dependencies
+uv pip install -e ".[dev]"
+
+# Activate the environment
+source .venv/bin/activate
+----
+
+Verify the installation:
+
+[source,bash]
+----
+docling-pipelines --list-operators
+----
+
+You should see all 21 built-in operators printed to stdout.
+
+==== Slim variant (production / lightweight)
+
+The `docling-pipelines-slim` package excludes the Docling library and HuggingFace
+dependencies to reduce install size. Use it when you do not need `extract_operator` or
+hybrid chunking.
+
+[source,bash]
+----
+pip install docling-pipelines-slim
+
+# Optionally re-add extraction support:
+pip install "docling-pipelines-slim[extract]"
+----
+
+All imports and usage are identical to the full package.
+
+=== Setting Up Ollama (Local LLM)
+
+Ollama provides a local OpenAI-compatible inference server for models such as
+`nomic-embed-text`, `llama3.2`, and `granite`. It is used by several operators
+for embeddings, entity extraction, PII detection, and classification.
+
+[source,bash]
+----
+# macOS / Linux — install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Start the server (runs on http://localhost:11434)
+ollama serve
+
+# Pull the embedding model used in the quick-start example
+ollama pull nomic-embed-text
+----
+
+Verify Ollama is running:
+
+[source,bash]
+----
+curl http://localhost:11434/api/version
+----
+
+=== Setting Up OpenSearch (Local Vector Database)
+
+OpenSearch is the recommended vector database for local development. The fastest way
+to run it is with Docker or Podman.
+
+[source,bash]
+----
+docker run -d --name opensearch \
+  -p 9200:9200 -p 9600:9600 \
+  -e "discovery.type=single-node" \
+  -e "OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin@12345" \
+  opensearchproject/opensearch:2.13.0
+----
+
+Verify OpenSearch is running:
+
+[source,bash]
+----
+curl -k -u admin:Admin@12345 https://localhost:9200/_cluster/health
+----
+
+TIP: For Milvus setup, see <<_vector_storage_and_retrieval>>.
+
+=== Your First Pipeline
+
+The following end-to-end example ingests documents from a local directory, extracts
+text with Docling, generates embeddings with Ollama, and indexes them into OpenSearch.
+
+==== Step 1 — Create the flow file
+
+Save the following as `quickstart_flow.json`:
+
+[source,json]
+----
+{
+  "flow_name": "quickstart",
+  "global_config": {
+    "doc_column": "content",
+    "storage": "in-memory",
+    "execute_type": "local",
+    "enable_micro_batching": false
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest",
+      "config": {
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": ["./sample_documents"]
+        },
+        "include_filter": "pdf,docx,txt"
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract",
+      "depends_on": ["ingest"],
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library"
+        },
+        "entity_extraction": {
+          "provider": "none"
+        }
+      }
+    },
+    {
+      "type": "chunker",
+      "name": "chunk",
+      "depends_on": ["extract"],
+      "config": {
+        "chunk_type": "hybrid",
+        "chunk_size": 512,
+        "chunk_overlap": 50
+      }
+    },
+    {
+      "type": "embeddings",
+      "name": "embed",
+      "depends_on": ["chunk"],
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/nomic-embed-text",
+          "api_base": "http://localhost:11434"
+        }
+      }
+    },
+    {
+      "type": "vectordb",
+      "name": "index",
+      "depends_on": ["embed"],
+      "config": {
+        "provider": "opensearch",
+        "vector_dimension": 768,
+        "provider_config": {
+          "index_name": "quickstart_docs",
+          "host": "localhost",
+          "port": 9200,
+          "use_ssl": false,
+          "verify_certs": false
+        }
+      }
+    }
+  ]
+}
+----
+
+==== Step 2 — Prepare sample documents
+
+[source,bash]
+----
+mkdir -p sample_documents
+# Copy any PDF, DOCX, or TXT files you want to process
+cp /path/to/your/docs/*.pdf sample_documents/
+----
+
+==== Step 3 — Run the pipeline
+
+[source,bash]
+----
+source .venv/bin/activate
+docling-pipelines --flow-file quickstart_flow.json
+----
+
+A successful run produces output similar to:
+
+----
+INFO  FlowExecutor       Starting flow: quickstart
+INFO  IngestSourceOperator  Ingested 5 documents
+INFO  ExtractOperator    Extracted text from 5 documents
+INFO  ChunkerOperator    Created 47 chunks
+INFO  EmbeddingsOperator Generated 47 embeddings
+INFO  VectorDBOperator   Indexed 47 documents into OpenSearch index 'quickstart_docs'
+INFO  FlowExecutor       Flow completed successfully
+----
+
+==== Step 4 — Validate without running
+
+To check a flow for errors before executing:
+
+[source,bash]
+----
+docling-pipelines --flow-file quickstart_flow.json --validate
+----
+
+=== Environment Variables Reference
+
+[cols="2,1,3",options="header"]
+|===
+|Variable |Default |Description
+
+|`DS_LOG_LEVEL`
+|`INFO`
+|Log verbosity: `DEBUG`, `INFO`, `WARNING`, `ERROR`
+
+|`OLLAMA_HOST`
+|`http://localhost:11434`
+|Ollama server base URL
+
+|`DOCPIPE_STORAGE_BACKEND`
+|`duckdb`
+|Job stats backend: `duckdb`, `postgres`, `filesystem`
+
+|`DOCPIPE_FRAMEWORK_TYPE`
+|`local`
+|Execution framework: `local`, `prefect`
+
+|`DOCPIPE_CONFIG_PATH`
+|—
+|Path to `docling-pipelines-config.yaml` for centralised configuration
+
+|`DOCPIPE_ENABLE_CUSTOM_OPERATORS`
+|`true`
+|Whether external operator packages are loaded
+
+|`DOCPIPE_CUSTOM_OPERATORS`
+|—
+|Comma-separated module paths for additional operator packages
+|===
+
+=== Common CLI Commands
+
+[source,bash]
+----
+# Run a flow
+docling-pipelines --flow-file my_flow.json
+
+# Validate a flow without running it
+docling-pipelines --flow-file my_flow.json --validate
+
+# List all registered operators
+docling-pipelines --list-operators
+
+# List operators with full parameter details
+docling-pipelines --list-operators --verbose
+
+# Enable debug logging
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file my_flow.json
+----
+
+=== Next Steps
+
+* <<_authoring_flows>> — learn the complete flow JSON format and `global_config` options.
+* <<_ingesting_data>> — configure cloud connectors and document libraries.
+* <<_extracting_and_processing_documents>> — tune Docling extraction and set up ASR.
+* <<_python_api_and_programmatic_usage>> — embed pipelines in your Python code or Jupyter notebooks.

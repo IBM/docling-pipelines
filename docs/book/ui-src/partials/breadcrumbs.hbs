@@ -1,0 +1,8 @@
+{{#if page.breadcrumbs.length}}
+<nav class="breadcrumbs" aria-label="breadcrumbs">
+  {{#each page.breadcrumbs}}
+  {{#if url}}<a href="{{relativizeUrlPath url ../pageUrl}}">{{content}}</a>{{else}}<span class="current">{{content}}</span>{{/if}}
+  {{#unless @last}}<span class="separator">›</span>{{/unless}}
+  {{/each}}
+</nav>
+{{/if}}

@@ -1,0 +1,11 @@
+<nav class="nav-sidebar" aria-label="Site navigation">
+  {{#each site.components}}
+  {{#each versions}}
+  {{#each navigation}}
+  <ul class="nav-list">
+    {{> nav-item items=items currentPageUrl=@root.page.url}}
+  </ul>
+  {{/each}}
+  {{/each}}
+  {{/each}}
+</nav>

@@ -1,0 +1,482 @@
+== Production Deployment and Observability
+
+This chapter covers job statistics storage backends, distributed execution with Prefect,
+OpenTelemetry tracing, OpenShift deployment, and OAuth2/OIDC authentication.
+
+=== Job Stats Storage Backends
+
+Docling-pipelines persists job run state, node metadata, and micro-batch progress in a
+configurable backend. Choose the backend that matches your environment.
+
+[cols="1,1,3",options="header"]
+|===
+|Backend |Env var value |Best for
+
+|In-memory
+|`memory`
+|Tests and development; no persistence.
+
+|Filesystem (JSON)
+|`filesystem`
+|Single-host deployments; easy to inspect.
+
+|DuckDB
+|`duckdb`
+|Local development with SQL querying; no server required.
+
+|PostgreSQL
+|`postgres`
+|Production; multi-worker concurrent access; durable.
+|===
+
+==== Selecting a Backend
+
+Set `DOCPIPE_STORAGE_BACKEND` before starting the process:
+
+[source,bash]
+----
+# DuckDB (default)
+export DOCPIPE_STORAGE_BACKEND=duckdb
+export DOCPIPE_JOB_STATS_BASE_DIR=./data/job_stats
+
+# PostgreSQL
+export DOCPIPE_STORAGE_BACKEND=postgres
+export DOCPIPE_POSTGRES_HOST=db.example.com
+export DOCPIPE_POSTGRES_PORT=5432
+export DOCPIPE_POSTGRES_DB=docpipe
+export DOCPIPE_POSTGRES_USER=docpipe_user
+export DOCPIPE_POSTGRES_PASSWORD=${DB_PASSWORD}
+----
+
+==== DuckDB Notes
+
+* Default backend for local development.
+* All data in a single file at `DOCPIPE_JOB_STATS_BASE_DIR` (default:
+  `data/duckdb/job_stats.duckdb`).
+* Not recommended for distributed execution — use PostgreSQL instead.
+
+==== PostgreSQL Notes
+
+* Required when multiple Prefect workers update job stats concurrently.
+* Workers do not need to share a filesystem.
+* Connection parameters can also be set in `docling-pipelines-config.yaml`.
+
+=== Incremental Metadata Storage
+
+Incremental metadata tracks which documents were processed in previous runs. Configure
+the backend in `docling-pipelines-config.yaml`:
+
+[source,yaml]
+----
+incremental_metadata:
+  storage:
+    type: "filesystem"      # json | parquet | filesystem | postgresql
+    config:
+      base_dir: "./data/incremental_metadata"
+      lock_timeout: 30.0
+----
+
+For PostgreSQL:
+
+[source,yaml]
+----
+incremental_metadata:
+  storage:
+    type: "postgresql"
+    config:
+      base_dir: "./data"
+      lock_timeout: 30.0
+  postgres:
+    host: "${INCR_META_DB_HOST:-localhost}"
+    port: "${INCR_META_DB_PORT:-5432}"
+    database: "${INCR_META_DB_NAME:-docpipe}"
+    user: "${INCR_META_DB_USER:-docpipe_user}"
+    password: "${INCR_META_DB_PASSWORD}"
+    schema: "${INCR_META_DB_SCHEMA:-incremental_metadata}"
+----
+
+Use `+${VAR:-default}+` for optional values with safe defaults. Never commit credentials.
+
+=== Distributed Execution with Prefect
+
+==== Execution Modes
+
+[cols="1,3",options="header"]
+|===
+|Mode |Description
+
+|Ephemeral (default)
+|Prefect runs in-memory. No external server needed. Suitable for development and
+workloads under ~1000 documents.
+
+|Server mode
+|Connects to a running Prefect server. Enables distributed work pools, workers, and
+the Prefect UI. Required for multi-machine processing.
+|===
+
+==== Zero-Setup Ephemeral Mode
+
+The default — no configuration needed:
+
+[source,bash]
+----
+docling-pipelines --flow-file my_flow.json
+----
+
+==== Setting Up Server Mode
+
+[source,bash]
+----
+# 1. Start Prefect server
+prefect server start
+
+# 2. Create a work pool
+prefect work-pool create my-pool --type process
+
+# 3. Start a worker
+prefect worker start --pool my-pool
+
+# 4. Configure environment
+export PREFECT_MODE=server
+export PREFECT_API_URL=http://localhost:4200/api
+----
+
+Add Prefect configuration to `global_config`:
+
+[source,json]
+----
+{
+  "global_config": {
+    "prefect": {
+      "work_pool_name": "my-pool",
+      "deployment_name": "my-deployment"
+    }
+  }
+}
+----
+
+==== Batch Storage Configuration
+
+In distributed mode, micro-batches must be serialised so that workers can access them.
+Choose between inline (small datasets) and filesystem/S3 (large datasets):
+
+[source,json]
+----
+{
+  "global_config": {
+    "prefect": {
+      "work_pool_name": "my-pool"
+    },
+    "batch_storage": {
+      "type": "local",
+      "path": "/shared/batches"
+    }
+  }
+}
+----
+
+For S3:
+
+[source,json]
+----
+{
+  "batch_storage": {
+    "type": "s3",
+    "path": "s3://my-bucket/batches"
+  }
+}
+----
+
+IMPORTANT: For distributed workers, `batch_storage.path` must resolve to the same
+shared path on both the submitter and all worker machines.
+
+For full Prefect configuration including Docker work pools, see
+`docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md`.
+
+=== OpenTelemetry Tracing
+
+Docling-pipelines ships built-in OpenTelemetry instrumentation for HTTP requests
+(automatic) and operator execution spans.
+
+==== Quick Start with Jaeger
+
+[source,bash]
+----
+# Start Jaeger (all-in-one)
+docker run -d --name jaeger \
+  -p 16686:16686 \
+  -p 4317:4317 \
+  -p 4318:4318 \
+  jaegertracing/all-in-one:latest
+
+# Configure docpipe
+export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
+export OTEL_SERVICE_NAME=docpipe
+export DS_OTEL_ENABLED=true
+
+docling-pipelines --flow-file my_flow.json
+----
+
+View traces at `http://localhost:16686`.
+
+==== Environment Variables
+
+[cols="2,1,3",options="header"]
+|===
+|Variable |Default |Description
+
+|`DS_OTEL_ENABLED`
+|`false`
+|Enable OpenTelemetry instrumentation.
+
+|`OTEL_EXPORTER_OTLP_ENDPOINT`
+|—
+|OTLP exporter endpoint (gRPC port 4317 or HTTP port 4318).
+
+|`OTEL_SERVICE_NAME`
+|`docpipe`
+|Service name shown in traces.
+
+|`OTEL_TRACES_SAMPLER`
+|`always_on`
+|Sampling strategy: `always_on`, `always_off`, `traceidratio`.
+
+|`OTEL_TRACES_SAMPLER_ARG`
+|`1.0`
+|Sampling ratio (0.0–1.0) for `traceidratio`.
+|===
+
+==== Supported Monitoring Backends
+
+[cols="1,2",options="header"]
+|===
+|Backend |Notes
+
+|Jaeger |Local development. All-in-one Docker image available.
+|Grafana Tempo (managed) |Grafana Cloud. Configure with `OTLP_ENDPOINT` and base64-encoded credentials.
+|Grafana Tempo (self-hosted) |Self-hosted. Same OTLP configuration.
+|Datadog |Use `DD_TRACE_AGENT_URL` with Datadog's OTLP endpoint.
+|AWS X-Ray |Use AWS Distro for OpenTelemetry.
+|===
+
+=== OpenShift Deployment
+
+==== Prerequisites
+
+* `oc` CLI installed and logged in.
+* Permissions to create deployments and services in the target namespace.
+* Git repository accessible from the cluster (public or with credentials).
+
+==== Quick Deployment
+
+[source,bash]
+----
+git clone https://github.com/IBM/docling-pipelines.git
+cd docling-pipelines
+
+# Deploy to OpenShift
+bash scripts/deploy_openshift.sh \
+  --project my-docpipe-project \
+  --app-name docpipe-api
+
+# Monitor deployment
+oc rollout status deployment/docpipe-api -n my-docpipe-project
+
+# Get the route URL
+oc get route docpipe-api -n my-docpipe-project
+----
+
+==== Environment Variables on OpenShift
+
+[source,bash]
+----
+oc set env deployment/docpipe-api \
+  DS_LOG_LEVEL=INFO \
+  DOCPIPE_STORAGE_BACKEND=postgres \
+  DOCPIPE_POSTGRES_HOST=postgresql.svc.cluster.local \
+  CORS_ORIGINS=https://my-frontend.apps.cluster.example.com \
+  -n my-docpipe-project
+----
+
+==== Resource Limits
+
+[source,yaml]
+----
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "2000m"
+    memory: "4Gi"
+----
+
+==== Scaling
+
+[source,bash]
+----
+# Scale to 3 replicas
+oc scale deployment/docpipe-api --replicas=3 -n my-docpipe-project
+
+# Auto-scaling
+oc autoscale deployment/docpipe-api \
+  --min=2 --max=10 --cpu-percent=70 \
+  -n my-docpipe-project
+----
+
+For the full OpenShift guide including BuildConfig, ImageStream, persistent storage,
+CI/CD webhooks, and troubleshooting, see `docs/deployment/OPENSHIFT.md`.
+
+=== OAuth2 / OIDC Authentication
+
+The REST API supports two authentication paths:
+
+[cols="1,2,2",options="header"]
+|===
+|Path |Mechanism |Use when
+
+|LDAP
+|`POST /auth/login` with username/password.
+|Internal deployments with an LDAP directory.
+
+|OAuth2 / OIDC
+|Authorization Code flow with PKCE.
+|SSO providers: Google, Azure AD, Okta, Keycloak.
+|===
+
+Both paths produce a short-lived JWT passed as `Authorization: Bearer <token>`.
+
+==== Configuring OAuth2
+
+[source,bash]
+----
+# Google
+OAUTH2_ENABLED=true
+OAUTH2_PROVIDER=google
+OAUTH2_CLIENT_ID=your-client-id.apps.googleusercontent.com
+OAUTH2_CLIENT_SECRET=${OAUTH2_CLIENT_SECRET}
+OAUTH2_REDIRECT_URI=https://your-domain.com/auth/oauth2/callback
+JWT_SECRET_KEY=${JWT_SECRET_KEY}
+
+# Azure AD
+OAUTH2_PROVIDER=azure
+AZURE_TENANT_ID=your-tenant-id
+OAUTH2_CLIENT_ID=your-application-id
+OAUTH2_CLIENT_SECRET=${OAUTH2_CLIENT_SECRET}
+
+# Generic OIDC (Okta, Keycloak, Auth0, GitLab)
+OAUTH2_PROVIDER=generic
+OAUTH2_DISCOVERY_URL=https://your-provider.com/.well-known/openid-configuration
+OIDC_ISSUER=https://your-provider.com
+OIDC_AUDIENCE=your-client-id
+----
+
+==== OAuth2 Flow
+
+[source]
+----
+1. Client → GET /auth/oauth2/authorize?provider=google
+2. Server → Redirect to OAuth2 provider
+3. User authenticates with provider
+4. Provider → Redirect to /auth/oauth2/callback?code=xxx&state=xxx
+5. Server exchanges code for tokens, validates ID token
+6. Server creates JWT and returns it to the client
+7. Client uses JWT for all subsequent API requests
+----
+
+==== Security Best Practices
+
+* Always use HTTPS in production. Set `OAUTH2_REDIRECT_URI` to an `https://` URL.
+* Use a strong, random `JWT_SECRET_KEY`:
+  `python -c "import secrets; print(secrets.token_urlsafe(32))"`
+* Set `JWT_ACCESS_TOKEN_EXPIRE_MINUTES` and `OAUTH2_SESSION_EXPIRE_MINUTES` to short
+  values appropriate for your security policy.
+* Restrict `CORS_ORIGINS` to your frontend domain only.
+* For production state storage, use Redis instead of in-memory state.
+
+For the complete OAuth2/OIDC configuration guide, see `docs/api/OAUTH2_AUTHENTICATION.md`.
+
+=== Security Hardening
+
+The REST server applies several hardening measures out of the box:
+
+* **Security headers** — `X-Content-Type-Options`, `X-Frame-Options`,
+  `Content-Security-Policy`, and `Referrer-Policy` on every response.
+* **Payload size limit** — POST/PUT/PATCH requests exceeding 5 MB are rejected (HTTP 413).
+* **ACL enforcement** — document endpoints filter by `allowed_users` at query time;
+  unauthorised resources return 404 (not 403) to prevent information leakage.
+* **JWT validation** — short-lived tokens validated on every protected request.
+
+Additional production hardening:
+
+* Terminate TLS at a reverse proxy (nginx, HAProxy) — never expose the uvicorn process directly.
+* Set `DOCPIPE_POSTGRES_*` for a durable job stats backend.
+* Use HashiCorp Vault for secrets — see `docs/integrations/vault/README.md`.
+* Enable audit logging via the telemetry stack (OTEL + Jaeger/Grafana).
+
+=== Monitoring and Alerting
+
+Key metrics to monitor in production:
+
+[cols="2,3",options="header"]
+|===
+|Metric |Alert threshold
+
+|Job run failure rate
+|Alert when `>5%` of runs in any 1-hour window fail.
+
+|Operator `failed_docs_count`
+|Alert when any operator reports `>10%` failed documents.
+
+|API error rate (`5xx`)
+|Alert when `>1%` of API requests return 5xx.
+
+|OpenSearch cluster health
+|Alert on `red` cluster status.
+
+|Queue depth (Prefect)
+|Alert when work pool queue exceeds 100 pending flows.
+|===
+
+=== Environment Variables — Production Reference
+
+[cols="2,1,3",options="header"]
+|===
+|Variable |Default |Description
+
+|`DS_LOG_LEVEL`
+|`INFO`
+|Log verbosity.
+
+|`DOCPIPE_STORAGE_BACKEND`
+|`duckdb`
+|Job stats backend.
+
+|`DOCPIPE_FRAMEWORK_TYPE`
+|`local`
+|Execution framework: `local` or `prefect`.
+
+|`DOCPIPE_CONFIG_PATH`
+|—
+|Path to `docling-pipelines-config.yaml`.
+
+|`CORS_ORIGINS`
+|`http://localhost:3000`
+|Comma-separated allowed CORS origins.
+
+|`PREFECT_API_URL`
+|—
+|Prefect server URL.
+
+|`PREFECT_MODE`
+|`ephemeral`
+|`ephemeral` or `server`.
+
+|`DS_OTEL_ENABLED`
+|`false`
+|Enable OpenTelemetry tracing.
+
+|`OTEL_EXPORTER_OTLP_ENDPOINT`
+|—
+|OTLP exporter endpoint.
+|===

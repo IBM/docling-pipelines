@@ -1,0 +1,624 @@
+== Extracting and Processing Documents
+
+After ingestion, documents pass through a chain of functional operators that extract text
+and entities, split content into chunks, and generate embeddings ready for vector storage.
+This chapter covers `ExtractOperator`, `ChunkerOperator`, `EmbeddingsOperator`, and the
+`DocumentClassifierOperator`.
+
+=== ExtractOperator
+
+* **Short name:** `extract_operator`
+* **Category:** Extract
+
+`ExtractOperator` converts the raw binary document bytes produced by `IngestSourceOperator`
+into structured text and optionally structured entities.
+
+==== Key Features
+
+* Multi-format support: PDF, DOCX, XLSX, PPTX, HTML, images, audio, video
+* Two text-extraction providers: `docling_library` (local) and `docling_serve` (remote)
+* Four entity-extraction providers: `none`, `docling` (VLM), `litellm`, `watsonx`
+* OCR support for scanned documents (EasyOCR, Tesseract, RapidOCR)
+* ASR (Automatic Speech Recognition) for audio and video files
+
+==== Output Columns
+
+[cols="2,1,3",options="header"]
+|===
+|Column |Type |Description
+
+|`content`
+|`string`
+|Extracted text in Markdown format.
+
+|`doc_id_hash`
+|`string`
+|SHA-256 hash of the document content; used as the primary key downstream.
+
+|`entities`
+|`string`
+|JSON string of extracted key-value pairs (empty `"{}"` when entity extraction is disabled).
+
+|`document_type`
+|`string`
+|Classified document type (when entity extraction is enabled).
+
+|`pages_processed`
+|`int64`
+|Number of pages processed.
+|===
+
+==== Configuration
+
+[source,json]
+----
+{
+  "type": "extract_operator",
+  "name": "extract",
+  "depends_on": ["ingest"],
+  "config": {
+    "text_extraction": {
+      "provider": "docling_library"
+    },
+    "entity_extraction": {
+      "provider": "none"
+    }
+  }
+}
+----
+
+==== Text Extraction Providers
+
+===== docling_library (default)
+
+Runs the Docling library in-process. No external service required.
+
+[source,json]
+----
+"text_extraction": {
+  "provider": "docling_library",
+  "options": {
+    "do_ocr": false,
+    "do_table_structure": true,
+    "generate_page_images": false
+  }
+}
+----
+
+[cols="2,1,3",options="header"]
+|===
+|Option |Default |Description
+
+|`do_ocr`
+|`false`
+|Enable OCR for scanned documents.
+
+|`do_table_structure`
+|`true`
+|Extract table structure.
+
+|`generate_page_images`
+|`false`
+|Render page images (increases memory usage).
+|===
+
+===== docling_serve (remote)
+
+Delegates extraction to a remote `docling-serve` HTTP service.
+Use this when you want to offload GPU-intensive extraction to a separate host.
+
+[source,json]
+----
+"text_extraction": {
+  "provider": "docling_serve",
+  "provider_config": {
+    "api_base": "https://docling-serve.example.com",
+    "api_key": "${DOCLING_SERVE_API_KEY}",
+    "timeout": 300,
+    "verify_ssl": true
+  }
+}
+----
+
+==== OCR Configuration
+
+OCR is disabled by default. Enable it for scanned PDFs and image-based documents.
+
+[source,json]
+----
+"text_extraction": {
+  "provider": "docling_library",
+  "ocr": {
+    "enabled": true,
+    "engine": "easyocr",
+    "lang": ["en", "fr"]
+  }
+}
+----
+
+[cols="1,3",options="header"]
+|===
+|Engine |Notes
+
+|`easyocr`
+|Default OCR engine. GPU-accelerated when CUDA is available. Supports 80+ languages.
+
+|`tesseract`
+|Requires the `tesseract-ocr` system package to be installed.
+
+|`rapidocr`
+|Lightweight, CPU-only alternative.
+|===
+
+==== Entity Extraction Providers
+
+Entity extraction augments text extraction with structured key-value pairs.
+
+===== none (default)
+
+Disables entity extraction. Recommended unless you specifically need structured fields.
+
+[source,json]
+----
+"entity_extraction": { "provider": "none" }
+----
+
+===== docling (VLM-based)
+
+Uses Docling's visual language model for document-type-aware entity extraction.
+Best for structured forms, invoices, and receipts.
+
+[source,json]
+----
+"entity_extraction": {
+  "provider": "docling",
+  "provider_config": {
+    "document_type": "invoice",
+    "template_path": "./templates/invoice.json"
+  }
+}
+----
+
+===== litellm
+
+Prompt-based entity extraction via any LiteLLM-compatible provider (Ollama, OpenAI, etc.).
+
+[source,json]
+----
+"entity_extraction": {
+  "provider": "litellm",
+  "provider_config": {
+    "model_id": "openai/llama3.2",
+    "api_base": "http://localhost:11434/v1",
+    "api_key": "<ollama>",
+    "document_types": {
+      "invoice": "Extract: invoice_number, date, total_amount, vendor_name"
+    }
+  }
+}
+----
+
+===== watsonx
+
+Uses IBM WatsonX.ai for entity extraction.
+
+[source,json]
+----
+"entity_extraction": {
+  "provider": "watsonx",
+  "provider_config": {
+    "model_id": "ibm/granite-13b-chat-v2",
+    "api_key": "${WATSONX_API_KEY}",
+    "api_base": "${WATSONX_API_BASE}",
+    "container_kind": "project",
+    "container_id": "${WATSONX_PROJECT_ID}",
+    "document_types": {
+      "invoice": "Extract: invoice_number, date, total"
+    }
+  }
+}
+----
+
+==== ASR (Audio and Video Transcription)
+
+`ExtractOperator` can transcribe audio and video files using Whisper-compatible ASR.
+
+[source,json]
+----
+{
+  "type": "extract_operator",
+  "name": "transcribe",
+  "depends_on": ["ingest"],
+  "config": {
+    "text_extraction": {
+      "provider": "docling_library",
+      "asr": {
+        "enabled": true,
+        "model": "openai/whisper-large-v3",
+        "language": "en"
+      }
+    },
+    "entity_extraction": { "provider": "none" }
+  }
+}
+----
+
+Requirements: `ffmpeg` must be installed on the host; install ASR dependencies with
+`uv pip install -e ".[asr]"`.
+
+=== ChunkerOperator
+
+* **Short name:** `chunker`
+* **Category:** Functional
+
+`ChunkerOperator` splits the extracted `content` column into overlapping text chunks
+sized for embedding models.
+
+==== Chunking Strategies
+
+[cols="1,3,2",options="header"]
+|===
+|Strategy |Best for |Dependencies
+
+|`simple`
+|Quick prototyping, plain text. Fixed character-based splits.
+|None
+
+|`semantic`
+|Narrative text where sentence boundaries matter. Uses embedding similarity to detect topic shifts.
+|Ollama
+
+|`hybrid`
+|Structured documents (PDFs with sections, tables). Uses Docling's document structure.
+|Docling library or docling-serve
+|===
+
+==== Parameters
+
+[cols="2,1,3",options="header"]
+|===
+|Parameter |Default |Description
+
+|`chunk_type`
+|`"simple"`
+|Chunking strategy: `simple`, `semantic`, or `hybrid`.
+
+|`chunk_size`
+|`2048`
+|Max chunk size — characters for `simple`, tokens for `hybrid`.
+
+|`chunk_overlap`
+|`200`
+|Overlap between consecutive chunks. Maximum 512.
+
+|`doc_column`
+|`"content"`
+|Input column containing text to chunk.
+
+|`retain_original_content`
+|`false`
+|Keep the original `content` column alongside `chunked_content`.
+
+|`docling_tokenizer`
+|`"sentence-transformers/all-MiniLM-L6-v2"`
+|HuggingFace tokenizer for `hybrid` chunking.
+|===
+
+==== Output Columns
+
+[cols="2,1,3",options="header"]
+|===
+|Column |Type |Description
+
+|`chunked_content`
+|`list<struct<chunk: string, start_index: int64, summary: string?>>`
+|Array of chunk objects.
+
+|`chunk_sequence_number`
+|`int64`
+|Sequential chunk index within the source document.
+
+|`start_index`
+|`int64`
+|Token/character position of the chunk in the source document.
+|===
+
+==== Examples
+
+.Hybrid chunking (recommended for PDFs)
+[source,json]
+----
+{
+  "type": "chunker",
+  "name": "chunk",
+  "depends_on": ["extract"],
+  "config": {
+    "chunk_type": "hybrid",
+    "chunk_size": 512,
+    "chunk_overlap": 50,
+    "provider": "docling_library"
+  }
+}
+----
+
+.Semantic chunking
+[source,json]
+----
+{
+  "type": "chunker",
+  "name": "chunk",
+  "depends_on": ["extract"],
+  "config": {
+    "chunk_type": "semantic",
+    "semantic_embeddings_model": "nomic-embed-text",
+    "breakpoint_threshold_type": "percentile",
+    "breakpoint_threshold_amount": 95.0
+  }
+}
+----
+
+.With LLM summarisation per chunk
+[source,json]
+----
+{
+  "type": "chunker",
+  "name": "chunk",
+  "depends_on": ["extract"],
+  "config": {
+    "chunk_type": "hybrid",
+    "chunk_size": 512,
+    "summarization": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/llama3.2",
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "<ollama>"
+      },
+      "summary_sentences": 2
+    }
+  }
+}
+----
+
+==== Chunk Size Guidance
+
+* **512–1024 tokens** — better for precise retrieval; use for Q&A and exact-match search.
+* **1024–2048 tokens** — better for preserving context; use for summarisation and RAG.
+* **Overlap** — recommend 10–25% of chunk size (e.g. 128 for a 512-token chunk).
+
+=== EmbeddingsOperator
+
+* **Short name:** `embeddings`
+* **Category:** Functional
+
+`EmbeddingsOperator` converts text (or pre-chunked content) into dense float vectors
+for similarity search and RAG pipelines.
+
+==== Providers
+
+[cols="1,2,2",options="header"]
+|===
+|Provider key |Description |Best for
+
+|`huggingface`
+|Local inference via sentence-transformers. No API key. GPU/CPU/MPS.
+|Privacy-sensitive, offline, high-concurrency workloads.
+
+|`litellm`
+|100+ providers via LiteLLM proxy (Ollama, OpenAI, Azure, Cohere, AWS Bedrock).
+|Flexible, cloud-friendly deployments.
+
+|`watsonx`
+|IBM WatsonX.ai embedding models.
+|IBM enterprise workloads.
+|===
+
+==== Common Parameters
+
+[cols="2,1,3",options="header"]
+|===
+|Parameter |Default |Description
+
+|`provider`
+|`"litellm"`
+|Provider: `huggingface`, `litellm`, or `watsonx`.
+
+|`embeddings_column`
+|`"embeddings"`
+|Output column name.
+
+|`doc_column`
+|`"content"`
+|Input column containing text to embed.
+
+|`token_limit`
+|`8192`
+|Text exceeding this limit is auto-chunked and averaged.
+
+|`overlap_ratio`
+|`0.2`
+|Overlap ratio when auto-chunking long text (0.0–0.5).
+|===
+
+==== Provider Examples
+
+.Ollama via LiteLLM (local)
+[source,json]
+----
+{
+  "type": "embeddings",
+  "name": "embed",
+  "depends_on": ["chunk"],
+  "config": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/nomic-embed-text",
+      "api_base": "http://localhost:11434"
+    }
+  }
+}
+----
+
+.HuggingFace local inference
+[source,json]
+----
+{
+  "type": "embeddings",
+  "name": "embed",
+  "depends_on": ["chunk"],
+  "config": {
+    "provider": "huggingface",
+    "provider_config": {
+      "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+      "use_local": true,
+      "device": "cpu"
+    }
+  }
+}
+----
+
+.WatsonX
+[source,json]
+----
+{
+  "type": "embeddings",
+  "name": "embed",
+  "depends_on": ["chunk"],
+  "config": {
+    "provider": "watsonx",
+    "provider_config": {
+      "model_id": "ibm/slate-125m-english-rtrvr",
+      "api_key": "${WATSONX_API_KEY}",
+      "api_base": "${WATSONX_API_BASE}",
+      "container_id": "${WATSONX_PROJECT_ID}",
+      "container_kind": "project"
+    }
+  }
+}
+----
+
+==== LiteLLM Model Prefix Reference
+
+[cols="1,1,2",options="header"]
+|===
+|Provider |Prefix |Example
+
+|Ollama |`openai/` |`openai/nomic-embed-text`
+|OpenAI |`openai/` |`openai/text-embedding-3-small`
+|Azure OpenAI |`azure/` |`azure/text-embedding-ada-002`
+|Cohere |`cohere/` |`cohere/embed-english-v3.0`
+|AWS Bedrock |`bedrock/` |`bedrock/amazon.titan-embed-text-v1`
+|WatsonX via LiteLLM |`watsonx/` |`watsonx/ibm/slate-125m-english-rtrvr`
+|===
+
+=== DocumentClassifierOperator
+
+* **Short name:** `document_classifier`
+* **Category:** Quality
+
+`DocumentClassifierOperator` uses an LLM to assign each document to one of a
+user-defined set of document types. It works with any LiteLLM or WatsonX provider.
+
+==== Configuration
+
+[source,json]
+----
+{
+  "type": "document_classifier",
+  "name": "classify",
+  "depends_on": ["extract"],
+  "config": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/llama3.2",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "<ollama>"
+    },
+    "document_types": {
+      "invoice": "A supplier invoice with line items and totals",
+      "contract": "A legal agreement between two parties",
+      "report": "A periodic business or technical report"
+    },
+    "confidence_threshold": 0.7
+  }
+}
+----
+
+==== Output Columns
+
+[cols="2,1,3",options="header"]
+|===
+|Column |Type |Description
+
+|`document_type`
+|`string`
+|Predicted document type (one of the keys in `document_types`).
+
+|`classification_confidence`
+|`float32`
+|Confidence score (0.0–1.0).
+
+|`classification_reasoning`
+|`string`
+|LLM-generated reasoning string.
+|===
+
+After classification, use `sql_filter` or `branching` to route documents by type:
+
+[source,json]
+----
+{
+  "type": "sql_filter",
+  "name": "filter_invoices",
+  "depends_on": ["classify"],
+  "config": {
+    "criteria_list": ["document_type = 'invoice'"]
+  }
+}
+----
+
+=== Typical Processing Pipeline
+
+----
+IngestSourceOperator
+    └── ExtractOperator        (text + optional entities)
+            └── ChunkerOperator     (split into chunks)
+                    └── EmbeddingsOperator   (generate vectors)
+                            └── VectorDBOperator   (index)
+----
+
+For entity-curation workflows:
+
+----
+IngestSourceOperator
+    └── ExtractOperator (entity_extraction enabled)
+            └── EntityCurationOperator   (schema-driven field normalisation)
+                    └── EmbeddingsOperator
+                            └── VectorDBOperator
+----
+
+See <<_llm_integration>> for the LLM adapter architecture used by `ExtractOperator`,
+`ChunkerOperator`, `EmbeddingsOperator`, `DocumentClassifierOperator`, and
+`PIIAndHAPAnnotator`.
+
+=== Troubleshooting
+
+[cols="2,3",options="header"]
+|===
+|Symptom |Fix
+
+|`content` column is empty after extract
+|Verify the input file is not password-protected; enable OCR if the file is a scanned image.
+
+|`chunked_content column not found` error in embeddings
+|Ensure `ChunkerOperator` runs before `EmbeddingsOperator` in the flow.
+
+|Semantic chunking hangs
+|Ollama is not running. Start it: `ollama serve && ollama pull <model>`.
+
+|Vector dimension mismatch in VectorDB
+|Remove the `vector_dimension` field from the VectorDB config to enable auto-detection.
+
+|ASR transcription produces no output
+|Verify `ffmpeg` is installed and on the `PATH`; check audio codec support.
+|===
