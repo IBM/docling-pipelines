@@ -1734,6 +1734,49 @@ class TestRequestDeleteJobRun:
         assert JOB_RUN_ID in result
 
 
+class TestDeleteJobRunsByJobId:
+    """Tests for JobTrackerService.delete_job_runs_by_job_id."""
+
+    def test_no_runs_returns_zero(self, *, job_tracker_service, mock_store):
+        """Returns 0 immediately when no job runs exist for the given job_id."""
+        mock_store.list_job_runs.return_value = []
+        result = job_tracker_service.delete_job_runs_by_job_id(job_id=JOB_ID)
+        assert result == 0
+        mock_store.delete_job_stats.assert_not_called()
+
+    def test_deletes_all_runs_for_job_id(self, *, job_tracker_service, mock_store):
+        """Deletes every run returned by list_job_runs and returns the count."""
+        run_id_1 = "aaaaaaaa-0000-0000-0000-000000000001"
+        run_id_2 = "aaaaaaaa-0000-0000-0000-000000000002"
+        mock_store.list_job_runs.return_value = [
+            JobStats(job_id=JOB_ID, job_run_id=run_id_1),
+            JobStats(job_id=JOB_ID, job_run_id=run_id_2),
+        ]
+        result = job_tracker_service.delete_job_runs_by_job_id(job_id=JOB_ID)
+        assert result == 2
+        mock_store.delete_job_stats.assert_any_call(run_id_1)
+        mock_store.delete_job_stats.assert_any_call(run_id_2)
+        assert mock_store.delete_job_stats.call_count == 2
+
+    def test_partial_failure_continues_and_returns_deleted_count(self, *, job_tracker_service, mock_store):
+        """A failing delete for one run does not abort others; only successful count is returned."""
+        run_id_ok = "bbbbbbbb-0000-0000-0000-000000000001"
+        run_id_bad = "bbbbbbbb-0000-0000-0000-000000000002"
+        mock_store.list_job_runs.return_value = [
+            JobStats(job_id=JOB_ID, job_run_id=run_id_ok),
+            JobStats(job_id=JOB_ID, job_run_id=run_id_bad),
+        ]
+        mock_store.delete_job_stats.side_effect = [None, RuntimeError("store error")]
+        result = job_tracker_service.delete_job_runs_by_job_id(job_id=JOB_ID)
+        assert result == 1
+
+    def test_list_called_with_correct_job_id(self, *, job_tracker_service, mock_store):
+        """list_job_runs is called with the provided job_id."""
+        mock_store.list_job_runs.return_value = []
+        job_tracker_service.delete_job_runs_by_job_id(job_id=JOB_ID)
+        mock_store.list_job_runs.assert_called_once_with(job_id=JOB_ID, limit=100_000)
+
+
 class TestBuildBatchSummaryLines:
     def test_empty_batch_stats_returns_empty(self, *, job_tracker_service):
         """Line 910-911: empty dict."""
