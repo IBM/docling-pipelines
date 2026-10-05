@@ -47,15 +47,19 @@ After each flows fetch completes, if the project's `flowCount` does not match th
 - **THEN** `setProject` is dispatched with the corrected `flowCount`
 
 ### Requirement: Collapsible project header
-The project header SHALL display the project name, description, creation date, last-updated date, flow count, and tags. The description and meta section SHALL be collapsible via a toggle chevron. Tags SHALL remain visible in both collapsed and expanded states.
+The project header SHALL display the project name, description, creation date, last-updated date, flow count, and tags. The description, creation date, last-updated date, and flow count are grouped in a collapsible `detailsRow` that is hidden when collapsed. Tags and the collapse chevron SHALL remain visible in both collapsed and expanded states.
 
 #### Scenario: Header collapses on chevron click
 - **WHEN** the user clicks the collapse chevron
-- **THEN** the description and meta row is hidden and the chevron changes to expand
+- **THEN** the description, creation date, last-updated date, and flow count are hidden and the chevron changes to expand
 
 #### Scenario: Tags always visible
 - **WHEN** the header is collapsed
 - **THEN** project tags are still rendered
+
+#### Scenario: Flow count hidden when collapsed
+- **WHEN** the header is collapsed
+- **THEN** the flow count is not visible (it is part of the collapsible detailsRow)
 
 ### Requirement: Flows content states
 The content zone SHALL show `FlowsTable` with a skeleton while loading, `NoDataEmptyState` when there are no flows and loading has settled, and the full table when flows exist.

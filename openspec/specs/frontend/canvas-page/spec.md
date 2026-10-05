@@ -22,7 +22,7 @@ The canvas page SHALL present exactly one of two mutually exclusive visual modes
 - **THEN** edit mode is restored and the canvas definition is unchanged
 
 #### Scenario: Re-enter run from toolbar
-- **WHEN** a run is already in progress (`isRunning && currentJobRunId`) and the user clicks the Run button
+- **WHEN** a run is already in progress (`isRunning && currentJobRunId`) and the user clicks the "View run" button (the toolbar Run button is replaced with "View run" while a run is active)
 - **THEN** the page switches directly back to run mode without starting a new job
 
 ### Requirement: Loading and error states
@@ -127,7 +127,7 @@ The page SHALL save the current flow by reading the live canvas definition from 
 - **THEN** the pipeline flow snapshot is captured before any await, preserving the canvas state at click time
 
 ### Requirement: Node properties panel
-The page SHALL open a right-flyout properties panel when a user double-clicks an execution node or selects "Edit" from the context menu. The panel SHALL load parameter definitions (cached per operator type), merge any existing node parameter values, and display them via `CommonProperties`. While features are loading asynchronously, the panel SHALL show a loading state. Auto-save SHALL occur when the panel switches to a different node.
+The page SHALL open a right-flyout properties panel when a user double-clicks an execution node or selects "Edit" from the context menu. The panel SHALL load parameter definitions (cached per operator type), merge any existing node parameter values, and display them via `CommonProperties`. While features are loading asynchronously, the panel SHALL show a loading state. When the panel switches to a different node, the current node's form values SHALL be committed to the canvas model by calling `applyPropertiesEditing(false)` on the Elyra properties controller (this is a canvas-model commit, not a backend network save).
 
 #### Scenario: Panel opens on double-click
 - **WHEN** the user double-clicks an execution node
@@ -258,7 +258,7 @@ The page SHALL render `FlowInfoPanel`, `EditDetailsModal`, `FlowRunPropertiesTea
 - **THEN** `PATCH /api/flows/:id` is called and both `currentFlow` in the store and the flows list card are updated
 
 ### Requirement: Breadcrumb actions
-The page SHALL inject "Flow run history" and "About this flow" icon buttons into the breadcrumb bar during edit mode. These buttons SHALL be removed from the breadcrumb bar while run mode is active and cleared entirely on unmount.
+The page SHALL inject "Flow run history" and "About flow" icon buttons into the breadcrumb bar during edit mode. These buttons SHALL be removed from the breadcrumb bar while run mode is active and cleared entirely on unmount.
 
 #### Scenario: Breadcrumb actions hidden in run mode
 - **WHEN** `isRunMode` is `true`

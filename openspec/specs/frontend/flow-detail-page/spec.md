@@ -43,14 +43,14 @@ The page SHALL fetch job runs for the flow via `GET /api/job-runs?job_id=:flowId
 - **THEN** `GET /api/job-runs?job_id=:flowId` is called again
 
 ### Requirement: Run metrics tiles
-The page SHALL compute and display five run-count metrics from the local run list: total, successful (`run`), in-progress, run with issues, failed, and cancelled. Metrics SHALL update reactively when the run list changes.
+The page SHALL compute and display six run-count metrics from the local run list: total, successful (`run`), in-progress, run with issues, failed, and cancelled. Metrics SHALL update reactively when the run list changes.
 
 #### Scenario: Metrics computed from run list
 - **WHEN** runs are loaded
 - **THEN** `FlowMetrics` receives counts for each status category
 
 ### Requirement: Runs content states
-The content zone SHALL show an `ErrorEmptyState` when the runs fetch fails, a `NoDataEmptyState` when there are no runs and loading has settled, and the `FlowMetrics` + `FlowRunsTable` combination when runs exist.
+The content zone SHALL show an `ErrorEmptyState` when the runs fetch fails, a `NoDataEmptyState` when there are no runs and loading has settled (i.e. `runsLoading` is false and `runs.length === 0`), and the `FlowMetrics` + `FlowRunsTable` combination otherwise. When a manual Refresh is triggered while existing rows are present, the table remains visible and `FlowRunsTable` renders its own loading state via the `isLoading` prop — no top-level loading skeleton is shown in this page.
 
 #### Scenario: Error state on fetch failure
 - **WHEN** the runs fetch fails
