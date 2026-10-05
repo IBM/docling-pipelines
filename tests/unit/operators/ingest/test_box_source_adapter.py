@@ -701,3 +701,90 @@ class TestBoxFetchBinaryContent:
                 credentials={"credentials_json_path": "/tmp/box.json"},
             )
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# box/auth.py — get_box_client
+# ---------------------------------------------------------------------------
+
+
+class TestGetBoxClient:
+    """Tests for the get_box_client helper in box/auth.py."""
+
+    def test_raises_file_not_found_when_path_missing(self, tmp_path):
+        """FileNotFoundError raised when credentials file does not exist."""
+        from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
+
+        with pytest.raises(FileNotFoundError, match="Credentials file not found"):
+            get_box_client(credentials_path=str(tmp_path / "missing.json"))
+
+    def test_raises_value_error_when_path_is_directory(self, tmp_path):
+        """ValueError raised when credentials path points to a directory."""
+        from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
+
+        with pytest.raises(ValueError, match="not a file"):
+            get_box_client(credentials_path=str(tmp_path))
+
+    def test_raises_permission_error_on_unreadable_file(self, tmp_path):
+        """PermissionError is re-raised with a descriptive message."""
+        from unittest.mock import mock_open, patch
+
+        from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
+
+        creds_file = tmp_path / "box.json"
+        creds_file.write_text("{}")
+
+        with patch("builtins.open", mock_open()) as m:
+            m.side_effect = PermissionError("denied")
+            with pytest.raises(PermissionError, match="Permission denied accessing credentials file"):
+                get_box_client(credentials_path=str(creds_file))
+
+    def test_raises_value_error_on_invalid_json(self, tmp_path):
+        """ValueError raised when credentials file contains invalid JSON."""
+        from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
+
+        bad_json = tmp_path / "bad.json"
+        bad_json.write_text("{ this is not json }")
+
+        with pytest.raises(ValueError, match="Invalid JSON in credentials file"):
+            get_box_client(credentials_path=str(bad_json))
+
+    def test_raises_value_error_when_jwt_auth_fails(self, tmp_path):
+        """ValueError raised when Box JWT authentication fails."""
+        from unittest.mock import patch
+
+        from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
+
+        creds_file = tmp_path / "box.json"
+        creds_file.write_text('{"boxAppSettings": {}}')
+
+        with patch("docpipe.core.operators.ingest.adapters.outbound.sources.box.auth.JWTConfig") as mock_jwt_config:
+            mock_jwt_config.from_config_json_string.side_effect = Exception("invalid jwt config")
+            with pytest.raises(ValueError, match="Failed to authenticate with Box"):
+                get_box_client(credentials_path=str(creds_file))
+
+    def test_returns_box_client_on_success(self, tmp_path):
+        """Returns a BoxClient instance when credentials are valid."""
+        from unittest.mock import MagicMock, patch
+
+        from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
+
+        creds_file = tmp_path / "box.json"
+        creds_file.write_text('{"boxAppSettings": {}}')
+
+        mock_client = MagicMock()
+
+        with (
+            patch("docpipe.core.operators.ingest.adapters.outbound.sources.box.auth.JWTConfig") as mock_jwt_config,
+            patch("docpipe.core.operators.ingest.adapters.outbound.sources.box.auth.BoxJWTAuth") as mock_jwt_auth,
+            patch(
+                "docpipe.core.operators.ingest.adapters.outbound.sources.box.auth.BoxClient",
+                return_value=mock_client,
+            ),
+        ):
+            mock_jwt_config.from_config_json_string.return_value = MagicMock()
+            mock_jwt_auth.return_value = MagicMock()
+
+            result = get_box_client(credentials_path=str(creds_file))
+
+        assert result is mock_client
