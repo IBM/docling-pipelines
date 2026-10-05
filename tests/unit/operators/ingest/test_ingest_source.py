@@ -1901,3 +1901,113 @@ class TestMicrosoftGraphLoaderLazyLoad:
         ):
             with pytest.raises(ValueError, match="not found"):
                 list(loader.lazy_load())
+
+
+@pytest.mark.parametrize("running_loop", [False, True])
+def test_async_runner_preserves_original_runtime_error(*, running_loop):
+    """Adapter RuntimeErrors must propagate without retrying a consumed coroutine."""
+    import asyncio
+
+    from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+    operator = IngestSourceOperator({"provider": "filesystem"})
+    failure = RuntimeError("adapter connection failed")
+    calls = []
+
+    async def fail():
+        calls.append(True)
+        raise failure
+
+    def run():
+        with pytest.raises(RuntimeError) as exc:
+            operator._run_async_generator_in_sync_context(fail())
+        assert exc.value is failure
+
+    async def run_with_loop():
+        run()
+
+    if running_loop:
+        asyncio.run(run_with_loop())
+    else:
+        run()
+    assert calls == [True]
+
+
+@pytest.mark.asyncio
+async def test_adapter_error_in_running_loop_is_recorded():
+    """Transform records the original adapter error even inside an event loop."""
+    from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+    operator = IngestSourceOperator({"provider": "filesystem", "force_ingest": True})
+    adapter = Mock()
+
+    async def fetch_documents(config):
+        raise RuntimeError("adapter connection failed")
+        yield  # pragma: no cover
+
+    adapter.fetch_documents = fetch_documents
+    with (
+        patch.object(operator, "_build_adapter_config", return_value=(adapter, Mock())),
+        patch.object(operator, "record_failed_document", wraps=operator.record_failed_document) as record,
+    ):
+        tables, metadata = operator.transform(None)
+
+    assert tables[0].num_rows == 0
+    assert metadata["node_status"] == "Failed"
+    assert metadata["failed_docs_count"] == 1
+    assert "adapter connection failed" in record.call_args.kwargs["reason"]
+
+
+@pytest.mark.parametrize("provider", ["custom", "filesystem"])
+def test_batches_skip_filtered_documents_and_stop_at_limit(*, provider):
+    """Both ingestion paths count accepted documents and preserve global indexes."""
+    from docpipe.core.operators.ingest.domain.models import Document as DomainDocument
+    from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+    operator = IngestSourceOperator({"provider": provider, "include_filter": ".txt", "max_files": 2})
+    names = ["skip.pdf", "first.txt", "second.txt", "extra.txt", "unfetched.txt"]
+    metadata = operator.create_base_metadata(total_docs_count=0)
+    loader = Mock()
+    loader.lazy_load.return_value = iter(Document(page_content="", metadata={"source": name}) for name in names)
+    fetched = []
+
+    async def fetch_documents(config):
+        for name in names:
+            fetched.append(name)
+            yield DomainDocument(id=name, name=name, content=b"", source_url=name, extension=name.split(".")[-1])
+
+    adapter = Mock()
+    adapter.fetch_documents = fetch_documents
+    with (
+        patch.object(operator, "_get_loader", return_value=loader),
+        patch.object(operator, "_build_adapter_config", return_value=(adapter, Mock())),
+        patch.object(operator, "process_document", wraps=operator.process_document) as process,
+    ):
+        result = operator.process_documents(metadata)
+
+    assert [doc["name"] for doc in result] == ["first.txt", "second.txt"]
+    assert metadata["skipped_docs_count"] == 1
+    assert [call.args[1] for call in process.call_args_list] == [0, 1, 2]
+    if provider == "filesystem":
+        assert fetched == names[:4]
+
+
+def test_float_timestamp_does_not_skip_a_changed_document():
+    """Custom loaders may return timestamp() floats for incremental comparisons."""
+    import hashlib
+
+    from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+    operator = IngestSourceOperator({"provider": "custom", "include_filter": ".txt"})
+    source = "changed.txt"
+    doc_id = hashlib.md5(source.encode(), usedforsecurity=False).hexdigest()
+    operator.previously_processed_docs_dict = {doc_id: {"modified_time": 100}}
+    metadata = operator.create_base_metadata(total_docs_count=0)
+    document = Document(page_content="", metadata={"source": source, "last_modified": 100.5})
+
+    result = operator.process_document(document, 0, metadata)
+
+    assert result is not None
+    assert metadata["skipped_docs_count"] == 0
+    # Preserve the existing integer-only output schema for custom loader metadata.
+    assert result["modified_time"] == 0
