@@ -192,6 +192,31 @@ Never import an `adapters/` class from `domain/` or `application/`. Domain ports
 12. External operator providers registered via `register_operator_provider()` — never mutate `DOCPIPE_OPERATORS` directly
 13. Operators never call DuckDB or any DB directly — use storage abstraction layer
 14. API handlers use DTOs only — never return domain model instances from routes
+15. **Use `@staticmethod` or `@classmethod` unless `self`/`cls` is genuinely needed** — instance methods are the last resort, not the default. Apply the following decision tree when writing or reviewing any method:
+
+    ```
+    Does the method read or write instance state (self.x)?
+    ├── Yes → instance method  (def foo(self, ...))
+    └── No → does it need the class itself (cls) or class-level state?
+             ├── Yes → @classmethod  (def foo(cls, ...))
+             └── No → is it useful outside this class AND has no coupling to class internals?
+                       ├── Yes → module-level function
+                       └── No  → @staticmethod  (def foo(...))  ← default for pure helpers
+    ```
+
+    **Concrete rules:**
+    - Every pure helper (formula, hash, type-mapping, formatting, graph utility) that takes only plain arguments → `@staticmethod`
+    - Private helpers (`_` prefix) that don't read `self` → `@staticmethod` on the class; do NOT promote to module-level just because they're pure — keep them where they logically belong
+    - Factory/constructor alternatives that use `cls` → `@classmethod`
+    - `transform()`, `__init__`, lifecycle hooks, anything reading `self.*` → instance method
+    - Never add `self` to a method signature just to satisfy a linter or to match surrounding style
+    - Known violations being tracked in [#127](https://github.com/IBM/docling-pipelines/issues/127)
+
+16. **Use `_` and `__` name prefixes correctly** — they have distinct meanings and must not be used interchangeably:
+    - `_name` (single underscore) — **internal by convention**: accessible from outside the class but signals "do not use directly". Use for private helpers, internal state, and implementation details that subclasses may legitimately access.
+    - `__name` (double underscore) — **name-mangled**: Python rewrites it to `_ClassName__name`, making it genuinely inaccessible from outside the class and invisible to subclasses. Use only when you explicitly need to prevent subclass access or avoid accidental attribute collisions in deep inheritance hierarchies — **not** as a stronger form of `_`.
+    - In practice, almost all private methods and attributes in this codebase should use `_` (single). Reserve `__` for the rare case where name mangling is the explicit intent.
+    - Never use `__name__` (dunder) style for anything other than Python special/magic methods (`__init__`, `__repr__`, `__enter__`, etc.).
 
 ## Environment Variables
 

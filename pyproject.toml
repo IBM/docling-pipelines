@@ -76,7 +76,7 @@ dependencies = [
     "milvus-lite==3.2.1",
     "pymilvus==2.6.13",
     "pyopenssl==26.4.0",
-    "pypdf==6.16.1",
+    "pypdf==6.19.0",
     "pyphen==0.17.2",
     "python-dotenv==1.2.2",
     "python-jose[cryptography]==3.5.0",
@@ -180,15 +180,10 @@ docling-pipelines-docs-mcp = "docs_mcp.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/docpipe", "docs_mcp"]
-# TODO: After adding npm to CI pipeline, change 'artifacts' to 'force-include' to ensure
-# frontend assets are always built and included (build will fail if static dir is missing)
-# force-include = { "src/docpipe/api/static" = "docpipe/api/static" }
-artifacts = [
-    "src/docpipe/api/static/**/*",
-    "src/docpipe/api/bff/**/*",
-]
 
 [tool.hatch.build.targets.wheel.force-include]
+"src/docpipe/api/static" = "docpipe/api/static"
+"src/docpipe/api/bff" = "docpipe/api/bff"
 # Bundle the documentation corpus so the installed MCP server has content to serve.
 # resolve_docs_root() in docs_mcp/utils.py detects this corpus via importlib.resources.
 "docs" = "docs_mcp/corpus/docs"

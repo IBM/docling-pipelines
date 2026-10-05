@@ -3,7 +3,7 @@
  *
  * Renders the configuration UI for the `document_classifier` operator node.
  *
- * **Pattern** (mirrors docling-pipelines-ui `Chunking` / `LanguageAnnotator`):
+ * **UI conventions**:
  * - `DefinitionTooltip` with `openOnHover` → description on hover, no `helperText` clutter
  * - `hideLabel` on every Carbon input → prevents duplicate label text
  * - Each field wrapped in `.formField` → consistent vertical spacing
