@@ -78,6 +78,7 @@ dependencies = [
     "python-dotenv==1.2.2",
     "python-jose[cryptography]==3.5.0",
     "python-ldap==3.4.5",
+    "python-multipart==0.0.32",
     "pyyaml==6.0.3",
     "requests==2.33.0",
     "setuptools==83.0.0",
