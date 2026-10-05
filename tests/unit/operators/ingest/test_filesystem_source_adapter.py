@@ -296,3 +296,179 @@ class TestFilesystemSourceAdapter:
             success, message = asyncio.run(adapter.test_connection(config))
             assert success is False
             assert "Permission denied" in message
+
+    def test_build_config_with_provider_config(self, tmp_path):
+        """build_config_from_operator_params accepts the unified provider_config key."""
+        adapter = FilesystemSourceAdapter()
+        config = adapter.build_config_from_operator_params(
+            provider_config={
+                "paths": [str(tmp_path)],
+                "recursive": False,
+                "exclude_patterns": ["*.log"],
+                "follow_symlinks": False,
+                "max_file_size_mb": 10,
+            },
+            included_extensions=["pdf"],
+        )
+        assert config.paths == [str(tmp_path)]
+        assert config.recursive is False
+        assert config.file_extensions == [".pdf"]
+        assert config.max_file_size_mb == 10
+
+    def test_fetch_documents_single_file_mode(self, tmp_path):
+        """Single file path yields exactly one document with correct metadata."""
+        import asyncio
+
+        file_path = tmp_path / "single.pdf"
+        file_path.write_text("content")
+        config = FilesystemSourceConfig(
+            paths=[str(file_path)],
+            recursive=False,
+            max_file_size_mb=None,
+            follow_symlinks=False,
+        )
+        adapter = FilesystemSourceAdapter()
+        docs = asyncio.run(collect_async(adapter.fetch_documents(config)))
+
+        assert len(docs) == 1
+        doc = docs[0]
+        assert doc.name == "single.pdf"
+        assert doc.content == b""
+        assert doc.extension == ".pdf"
+        assert "absolute_path" in doc.metadata
+        assert "parent_directory" in doc.metadata
+        assert "relative_path" not in doc.metadata  # single-file mode, no relative_path
+
+    def test_fetch_documents_single_file_skipped_if_too_large(self, tmp_path):
+        """Single file exceeding max_file_size_mb is skipped (yields nothing)."""
+        import asyncio
+        import os
+        from unittest.mock import patch
+
+        file_path = tmp_path / "big.pdf"
+        file_path.write_text("x")
+        config = FilesystemSourceConfig(
+            paths=[str(file_path)],
+            recursive=False,
+            max_file_size_mb=1,
+            follow_symlinks=False,
+        )
+        adapter = FilesystemSourceAdapter()
+
+        real_stat = file_path.stat()
+
+        def fake_stat(self):
+            if str(self) == str(file_path):
+                return os.stat_result(
+                    (
+                        real_stat.st_mode,
+                        real_stat.st_ino,
+                        real_stat.st_dev,
+                        real_stat.st_nlink,
+                        real_stat.st_uid,
+                        real_stat.st_gid,
+                        2 * 1024 * 1024,  # 2 MB
+                        int(real_stat.st_atime),
+                        int(real_stat.st_mtime),
+                        int(real_stat.st_ctime),
+                    )
+                )
+            return type(self).stat(self)
+
+        with patch("pathlib.Path.stat", fake_stat):
+            docs = asyncio.run(collect_async(adapter.fetch_documents(config)))
+
+        assert docs == []
+
+    def test_fetch_documents_walk_recursive(self, tmp_path):
+        """Recursive walk yields files in nested subdirectories."""
+        import asyncio
+
+        sub = tmp_path / "sub"
+        sub.mkdir()
+        (tmp_path / "root.txt").write_text("root")
+        (sub / "nested.txt").write_text("nested")
+
+        config = FilesystemSourceConfig(
+            paths=[str(tmp_path)],
+            recursive=True,
+            file_extensions=[".txt"],
+            max_file_size_mb=None,
+            follow_symlinks=False,
+        )
+        adapter = FilesystemSourceAdapter()
+        docs = asyncio.run(collect_async(adapter.fetch_documents(config)))
+
+        names = {doc.name for doc in docs}
+        assert "root.txt" in names
+        assert "nested.txt" in names
+
+    def test_fetch_binary_content_relative_path_resolved_via_base(self, tmp_path):
+        """Relative source_id is resolved against the first path in connection_params."""
+        file_path = tmp_path / "doc.txt"
+        file_path.write_text("relative content")
+
+        adapter = FilesystemSourceAdapter()
+        content = adapter.fetch_binary_content(
+            source_id="doc.txt",
+            connection_params={"paths": [str(tmp_path)]},
+            credentials={},
+        )
+        assert content == b"relative content"
+
+    def test_fetch_binary_content_returns_none_for_missing_file(self, tmp_path):
+        """Returns None when the file does not exist."""
+        adapter = FilesystemSourceAdapter()
+        result = adapter.fetch_binary_content(
+            source_id=str(tmp_path / "nonexistent.txt"),
+            connection_params={},
+            credentials={},
+        )
+        assert result is None
+
+    def test_fetch_binary_content_returns_none_for_directory(self, tmp_path):
+        """Returns None when source_id points to a directory, not a file."""
+        adapter = FilesystemSourceAdapter()
+        result = adapter.fetch_binary_content(
+            source_id=str(tmp_path),
+            connection_params={},
+            credentials={},
+        )
+        assert result is None
+
+    def test_fetch_binary_content_returns_none_on_permission_error(self, tmp_path):
+        """Returns None when the file cannot be read due to a PermissionError."""
+        from unittest.mock import patch
+
+        file_path = tmp_path / "secret.txt"
+        file_path.write_text("secret")
+
+        adapter = FilesystemSourceAdapter()
+        with patch("builtins.open", side_effect=PermissionError("denied")):
+            result = adapter.fetch_binary_content(
+                source_id=str(file_path),
+                connection_params={},
+                credentials={},
+            )
+        assert result is None
+
+    def test_fetch_binary_content_returns_none_on_unexpected_error(self, tmp_path):
+        """Returns None on any unexpected exception during file reading."""
+        from unittest.mock import patch
+
+        file_path = tmp_path / "file.txt"
+        file_path.write_text("data")
+
+        adapter = FilesystemSourceAdapter()
+        with patch("builtins.open", side_effect=OSError("disk error")):
+            result = adapter.fetch_binary_content(
+                source_id=str(file_path),
+                connection_params={},
+                credentials={},
+            )
+        assert result is None
+
+    def test_get_config_schema_returns_filesystem_config(self):
+        """get_config_schema returns FilesystemSourceConfig."""
+        adapter = FilesystemSourceAdapter()
+        assert adapter.get_config_schema() is FilesystemSourceConfig
