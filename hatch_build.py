@@ -25,11 +25,6 @@ class CustomBuildHook(BuildHookInterface):
         build_script = Path(__file__).parent / "scripts" / "build_frontend.py"
 
         try:
-            result = subprocess.run([sys.executable, str(build_script)], capture_output=True, text=True, check=True)
-            print(result.stdout)
-            if result.stderr:
-                print(result.stderr, file=sys.stderr)
+            subprocess.run([sys.executable, str(build_script)], text=True, check=True)
         except subprocess.CalledProcessError as e:
-            print(f"Frontend build failed: {e.stderr}", file=sys.stderr)
-            # Don't fail the build if frontend build fails
-            print("Warning: Continuing without frontend assets")
+            raise RuntimeError("Frontend build failed — see output above for details") from e

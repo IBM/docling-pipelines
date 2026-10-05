@@ -49,8 +49,7 @@ function computeNodeCounts(jobStats: JobStats) {
  */
 /**
  * Derive progress bar fill class from the top-level run status.
- * Mirrors docling-pipelines-ui getProgressClassName(progressStatus) exactly —
- * the bar colour is driven by the job's overall status, never by node counts.
+ * The bar colour is driven by the job's overall status, never by node counts.
  */
 function getProgressFillClass(status: string): string {
   switch (status) {
@@ -182,10 +181,9 @@ export function RunStatusTopPanel({
                 <div className={progressFillClass} style={{ width: `${nodeCounts.progress}%` }} />
               </div>
               <div className={styles.progressAction}>
-                {/* Single button — mirrors docling-pipelines-ui: isRunning drives label+handler,
+                {/* Single button — isRunning drives the label and click handler.
                     isStopDisabled only controls the disabled attribute.
-                    "Run Again" only appears once isRunning=false, which happens after
-                    the final 5-second confirmation poll completes. */}
+                    "Run Again" appears once isRunning=false (after the final confirmation poll). */}
                 <Button
                   kind="secondary"
                   size="sm"

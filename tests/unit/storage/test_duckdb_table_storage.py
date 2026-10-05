@@ -456,3 +456,48 @@ class TestDuckDBTableStorageExceptionReraise:
         with patch.object(storage.connection_manager, "get_connection", return_value=mock_ctx):
             with pytest.raises(StorageException):
                 storage.upsert_data(table_name="valid_table", data=sample_table)
+
+
+class TestDuckDBTableStorageTypeMapping:
+    """Verify _pyarrow_to_duckdb_type is a pure static type-mapping helper."""
+
+    def test_pyarrow_to_duckdb_type_is_static(self):
+        """The type mapper must be a staticmethod (no instance state needed)."""
+        import inspect
+
+        assert isinstance(inspect.getattr_static(DuckDBTableStorage, "_pyarrow_to_duckdb_type"), staticmethod)
+
+    @pytest.mark.parametrize(
+        "pa_type,expected",
+        [
+            (pa.string(), "VARCHAR"),
+            (pa.large_string(), "VARCHAR"),
+            (pa.int64(), "BIGINT"),
+            (pa.int32(), "INTEGER"),
+            (pa.int16(), "SMALLINT"),
+            (pa.int8(), "TINYINT"),
+            (pa.float64(), "DOUBLE"),
+            (pa.float32(), "FLOAT"),
+            (pa.bool_(), "BOOLEAN"),
+            (pa.binary(), "BLOB"),
+            (pa.timestamp("us"), "TIMESTAMP"),
+            (pa.date32(), "DATE"),
+            (pa.time32("s"), "TIME"),
+            (pa.list_(pa.string()), "JSON"),
+            (pa.struct([("a", pa.string())]), "JSON"),
+        ],
+    )
+    def test_known_type_mappings(self, pa_type, expected):
+        """Known PyArrow types map to the documented DuckDB type strings."""
+        assert DuckDBTableStorage._pyarrow_to_duckdb_type(pa_type=pa_type) == expected
+
+    def test_unknown_type_defaults_to_varchar(self):
+        """Unmapped PyArrow types fall back to VARCHAR."""
+        # decimal128 is not present in the mapping table
+        assert DuckDBTableStorage._pyarrow_to_duckdb_type(pa_type=pa.decimal128(10, 2)) == "VARCHAR"
+
+    def test_instance_and_class_calls_agree(self, storage):
+        """Instance access and class access return identical mappings."""
+        assert storage._pyarrow_to_duckdb_type(pa_type=pa.int64()) == (
+            DuckDBTableStorage._pyarrow_to_duckdb_type(pa_type=pa.int64())
+        )

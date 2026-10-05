@@ -195,8 +195,7 @@ export function LinkConditionTearsheet({
 
     if (activeTab === TAB_SIMPLE) {
       if (conditions.length === 0) {
-        // No conditions set — allow save only if link name changed
-        // (matches docling-pipelines-ui: `return !isLinkNameChanged && !trimmedLinkName`)
+        // No conditions set — allow save only if the link name changed
         return !isLinkNameChanged;
       }
 

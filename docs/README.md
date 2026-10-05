@@ -2,6 +2,10 @@
 
 Welcome to the Docling Pipelines documentation! This guide will help you navigate our comprehensive documentation and find exactly what you need.
 
+## 📚 Documentation Book
+
+The [Docling-pipelines Book](book/site/docling-pipelines/1.0/index.html) is a 12-chapter guide covering architecture, installation, flow authoring, document processing, vector storage, LLM integration, deployment, and more. It is authored in AsciiDoc and built with Antora into a static website (hosted on GitHub Pages) and a PDF.
+
 ## 🚀 Getting Started
 
 **New to Docling Pipelines?** Start here:

@@ -40,7 +40,7 @@ export interface SummaryRow {
 interface VectorDBSummaryTableProps {
   savedResourceName: string;
   rows: SummaryRow[];
-  /** Called with the feature names to remove — matches docling-pipelines-ui's batchActions pattern. */
+  /** Called with the feature names to remove when the user selects rows and clicks "Remove". */
   onRemove: (featureNames: string[]) => void;
   onEdit: () => void;
   /** When true the enrich API is still in-flight — show a skeleton instead of the table. */

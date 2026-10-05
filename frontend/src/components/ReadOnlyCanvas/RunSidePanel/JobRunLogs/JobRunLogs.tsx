@@ -1,7 +1,8 @@
 /**
  * @fileoverview Job run logs accordion component.
  * Displays one accordion item per node with log text, copy button, and "Show detailed log" link.
- * Mirrors docling-pipelines-ui JobRunLogs behaviour:
+ *
+ * Behaviour:
  *  - All accordion items open by default
  *  - Non-GUID nodeIds are skipped (e.g. error_logs key)
  *  - CopyButton per accordion item
@@ -44,7 +45,7 @@ export function JobRunLogs({
     return map;
   }, [node_sequence, job_stats.node_stats]);
 
-  // Per-item ref map for reliable scroll-to-selected (mirrors docling-pipelines-ui)
+  // Per-item ref map for reliable scroll-to-selected behaviour
   const itemRefs = useRef<Map<string, HTMLDivElement | null>>(new Map());
   const setItemRef = useCallback((nodeId: string, el: HTMLDivElement | null) => {
     if (el) { itemRefs.current.set(nodeId, el); }
@@ -57,7 +58,7 @@ export function JobRunLogs({
     const timer = setTimeout(() => {
       const el = itemRefs.current.get(selectedNodeId);
       if (!el) { return; }
-      // Scroll within the nearest [class*="tabContent"] ancestor (mirrors docling-pipelines-ui)
+      // Scroll within the nearest [class*="tabContent"] ancestor
       const scrollContainer = el.closest('[class*="tabContent"]');
       if (scrollContainer) {
         const elRect = el.getBoundingClientRect();
@@ -101,7 +102,7 @@ export function JobRunLogs({
     <div className={styles.logsContainer}>
       <Accordion>
         {node_sequence?.map((nodeId) => {
-          // Skip non-GUID keys (e.g. "error_logs", "job_stats") — matches docling-pipelines-ui
+          // Skip non-GUID keys (e.g. "error_logs", "job_stats") — only actual node IDs are GUIDs
           if (!isValidGuid(nodeId)) { return null; }
 
           const logText = (executionLogs as Record<string, unknown>)[nodeId];
@@ -119,7 +120,7 @@ export function JobRunLogs({
             >
               <AccordionItem
                 title={nodeName}
-                open  // all items open by default — matches docling-pipelines-ui
+                open  // all items open by default
               >
                 <div className={styles.logContent}>
                   <div className={styles.logRow}>

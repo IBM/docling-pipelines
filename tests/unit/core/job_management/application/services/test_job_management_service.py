@@ -53,6 +53,8 @@ class DummyJobRunItem:
 
     def __init__(self, payload: dict):
         self.payload = payload
+        self.job_id = payload.get(DocpipeConstants.JOB_ID)
+        self.flow_id = payload.get(DocpipeConstants.FLOW_ID)
 
     def model_dump(self, *, include: set[str]):
         return {key: self.payload[key] for key in include if key in self.payload}
@@ -122,7 +124,8 @@ class TestJobManagementService:
         mock_from_dict,
     ):
         """Test _create_job_run compiles authoring flows and submits async execution."""
-        flow = Mock(job_id="job-123", definition={DocpipeConstants.FLOW_NAME: "Flow", "flow": []})
+        flow = Mock(name="Flow", job_id="job-123", definition={DocpipeConstants.FLOW_NAME: "Flow", "flow": []})
+        flow.name = "Flow"
         self.flow_service.get_flow.return_value = flow
         self.job_run_manager.create_job_run.return_value = {
             DocpipeConstants.JOB_ID: "job-123",
@@ -154,7 +157,8 @@ class TestJobManagementService:
     @patch("docpipe.core.job_management.application.services.job_management_service.get_session_info")
     def test_create_job_run_transforms_elyra_flow(self, mock_get_session_info, mock_transform):
         """Test _create_job_run transforms Elyra flows and submits async execution."""
-        flow = Mock(job_id=None, definition={"doc_type": "pipeline"})
+        flow = Mock(name="Flow", job_id=None, definition={"doc_type": "pipeline"})
+        flow.name = "Flow"
         self.flow_service.get_flow.return_value = flow
         self.job_run_manager.create_job_run.return_value = {
             DocpipeConstants.JOB_ID: "flow-1",
@@ -207,22 +211,23 @@ class TestJobManagementService:
 
     def test_list_job_runs_formats_response(self):
         """Test list_job_runs transforms results into API payload."""
-        self.job_stats_service.list_job_runs.return_value = [
-            DummyJobRunItem(
-                {
-                    DocpipeConstants.JOB_RUN_ID: "run-1",
-                    DocpipeConstants.JOB_ID: "job-1",
-                    DocpipeConstants.STATUS: ExecutionStatus.COMPLETED.value,
-                    DocpipeConstants.MESSAGE: "done",
-                }
-            )
-        ]
+        dummy_run = DummyJobRunItem(
+            {
+                DocpipeConstants.JOB_RUN_ID: "run-1",
+                DocpipeConstants.JOB_ID: "job-1",
+                DocpipeConstants.STATUS: ExecutionStatus.COMPLETED.value,
+                DocpipeConstants.MESSAGE: "done",
+            }
+        )
+        dummy_run.flow_id = "My Test Flow"
+        self.job_stats_service.list_job_runs.return_value = [dummy_run]
 
         result = self.service.list_job_runs(job_id="job-1", status=ExecutionStatus.COMPLETED, limit=10)
 
         assert result["count"] == 1
         assert result["total"] == 1
         assert result["list"][0][DocpipeConstants.JOB_RUN_ID] == "run-1"
+        assert result["list"][0][DocpipeConstants.FLOW_NAME] == "My Test Flow"
         self.job_stats_service.list_job_runs.assert_called_once_with(
             job_id="job-1", status=ExecutionStatus.COMPLETED, limit=10
         )

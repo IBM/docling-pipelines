@@ -1,7 +1,7 @@
 /**
  * @fileoverview Redux slice for the global notification system.
  *
- * Mirrors the three-tier pattern used in the reference repo:
+ * Three-tier notification pattern:
  *   - Global toasts  → `addNotification` dispatched from `useNotify()` hook
  *   - Canvas toasts  → same hook, called after save/run
  *   - Inline notices → `@carbon/react` `InlineNotification` in component JSX (not this slice)

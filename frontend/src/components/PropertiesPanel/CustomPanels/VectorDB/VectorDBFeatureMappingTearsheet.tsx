@@ -86,8 +86,6 @@ interface VectorDBFeatureMappingTearsheetProps {
 /**
  * Derive the initial rows for the mappings table on tearsheet open.
  *
- * Matches docling-pipelines-ui's `deriveInitialRows` + `processMappingsAndRows` pattern:
- *
  * Priority:
  * 1. currentFeatureMappings (user's saved edits) when they exist — preserves
  *    column edits the user made on a previous save for the same resource.
