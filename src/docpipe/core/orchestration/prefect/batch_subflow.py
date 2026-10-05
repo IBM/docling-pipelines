@@ -114,8 +114,15 @@ def batch_subflow(
         # Set context_id for incremental update functionality
         # This matches the behavior in AbstractOrchestrator.execute() (line 99)
         orchestrator.context_id = job_id
-        # Restore flow_name so node-level lineage events use the human-readable name
-        orchestrator.flow_name = batch_config.get(DocpipeConstants.FLOW_NAME, "")
+        # Restore flow_name so node-level lineage events use the human-readable name.
+        # flow_name is nested under FLOW_DEFINITION (mirrors prefect_engine.py:280-283);
+        # fall back to the top-level key for legacy / edge-case configs.
+        flow_def = batch_config.get(DocpipeConstants.FLOW_DEFINITION, {})
+        orchestrator.flow_name = (
+            flow_def.get(DocpipeConstants.FLOW_NAME)
+            or flow_def.get(DocpipeConstants.NAME)
+            or batch_config.get(DocpipeConstants.FLOW_NAME, "")
+        )
 
         # 6. Set session info for the worker
         session_info: SessionInfo = SessionInfo(
