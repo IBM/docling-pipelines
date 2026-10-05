@@ -6,9 +6,7 @@ import ldap
 import pytest
 
 from docpipe.api.auth.ldap_auth import LDAPAuthenticator, LDAPConfig
-from docpipe.api.auth.models import User
 from docpipe.exceptions.docpipe_exceptions import ConfigurationError, ExternalServiceError
-
 
 # ---------------------------------------------------------------------------
 # LDAPConfig tests
@@ -178,9 +176,7 @@ def test_ad_authenticate_missing_email(mock_initialize):
 
     mock_client = MagicMock()
     mock_initialize.return_value = mock_client
-    mock_client.search_s.return_value = [
-        ("CN=Test User,OU=Users,DC=example,DC=com", {"cn": [b"Test User"]})
-    ]
+    mock_client.search_s.return_value = [("CN=Test User,OU=Users,DC=example,DC=com", {"cn": [b"Test User"]})]
 
     user = authenticator.authenticate("testuser", "password123")
 
@@ -261,9 +257,7 @@ def test_standard_ldap_authenticate_invalid_credentials(mock_initialize):
     mock_client_user = MagicMock()
     mock_initialize.side_effect = [mock_client_admin, mock_client_user]
 
-    mock_client_admin.search_s.return_value = [
-        ("uid=testuser,ou=users,dc=example,dc=com", {"cn": [b"Test User"]})
-    ]
+    mock_client_admin.search_s.return_value = [("uid=testuser,ou=users,dc=example,dc=com", {"cn": [b"Test User"]})]
     mock_client_user.simple_bind_s.side_effect = ldap.INVALID_CREDENTIALS
 
     user = authenticator.authenticate("testuser", "wrongpassword")
@@ -288,9 +282,7 @@ def test_standard_ldap_authenticate_with_ssl(mock_initialize):
     mock_client_user = MagicMock()
     mock_initialize.side_effect = [mock_client_admin, mock_client_user]
 
-    mock_client_admin.search_s.return_value = [
-        ("uid=testuser,ou=users,dc=example,dc=com", {"cn": [b"Test User"]})
-    ]
+    mock_client_admin.search_s.return_value = [("uid=testuser,ou=users,dc=example,dc=com", {"cn": [b"Test User"]})]
 
     user = authenticator.authenticate("testuser", "password123")
 
@@ -316,9 +308,7 @@ def test_standard_ldap_authenticate_missing_attributes(mock_initialize):
     mock_client_user = MagicMock()
     mock_initialize.side_effect = [mock_client_admin, mock_client_user]
 
-    mock_client_admin.search_s.return_value = [
-        ("uid=testuser,ou=users,dc=example,dc=com", {"uid": [b"testuser"]})
-    ]
+    mock_client_admin.search_s.return_value = [("uid=testuser,ou=users,dc=example,dc=com", {"uid": [b"testuser"]})]
 
     user = authenticator.authenticate("testuser", "password123")
 
@@ -400,9 +390,7 @@ def test_authenticate_unbind_error_is_logged(mock_initialize, caplog):
 
     mock_client = MagicMock()
     mock_initialize.return_value = mock_client
-    mock_client.search_s.return_value = [
-        ("CN=Test User,OU=Users,DC=example,DC=com", {"cn": [b"Test User"]})
-    ]
+    mock_client.search_s.return_value = [("CN=Test User,OU=Users,DC=example,DC=com", {"cn": [b"Test User"]})]
     mock_client.unbind_s.side_effect = Exception("Unbind failed")
 
     with caplog.at_level("ERROR"):
@@ -434,7 +422,8 @@ def test_verify_connection_success(mock_initialize):
 
     assert result is True
     mock_client.simple_bind_s.assert_called_once_with(
-        "cn=admin,dc=example,dc=com", "adminpass"  # pragma: allowlist secret
+        "cn=admin,dc=example,dc=com",
+        "adminpass",  # pragma: allowlist secret
     )
 
 
@@ -516,9 +505,7 @@ def test_authenticate_logs_success(mock_initialize, caplog):
 
     mock_client = MagicMock()
     mock_initialize.return_value = mock_client
-    mock_client.search_s.return_value = [
-        ("CN=Test User,OU=Users,DC=example,DC=com", {"cn": [b"Test User"]})
-    ]
+    mock_client.search_s.return_value = [("CN=Test User,OU=Users,DC=example,DC=com", {"cn": [b"Test User"]})]
 
     with caplog.at_level("INFO"):
         authenticator.authenticate("testuser", "password123")
