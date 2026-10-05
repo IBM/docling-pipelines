@@ -4,7 +4,17 @@ import pytest
 
 from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
-EXPECTED_PROVIDERS = {"filesystem", "s3", "ibm_cos", "google_drive", "onedrive", "sharepoint", "box_driver", "web"}
+EXPECTED_PROVIDERS = {
+    "filesystem",
+    "s3",
+    "ibm_cos",
+    "google_drive",
+    "onedrive",
+    "sharepoint",
+    "box_driver",
+    "dropbox",
+    "web",
+}
 
 EXPECTED_SENSITIVE_FIELDS: dict[str, set[str]] = {
     "s3": {"access_key", "secret_key"},
@@ -19,6 +29,7 @@ EXPECTED_SENSITIVE_FIELDS: dict[str, set[str]] = {
         "service_account_json",
     },
     "box_driver": {"credentials_path", "credentials_json"},
+    "dropbox": set(),
     "filesystem": set(),
     "web": set(),
 }
