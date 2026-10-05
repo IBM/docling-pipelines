@@ -1,7 +1,7 @@
 /**
  * Theme type definitions shared across the application.
  *
- * `ThemeType` mirrors the Carbon Design System theme tokens supported by this app.
+ * `ThemeType` enumerates the Carbon Design System theme tokens supported by this app.
  * `ThemeContextType` is the shape of the React context value exposed by {@link ThemeProvider}.
  */
 

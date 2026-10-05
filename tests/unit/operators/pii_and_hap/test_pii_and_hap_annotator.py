@@ -771,6 +771,71 @@ def test_configuration_validation():
         pytest.fail(f"Unexpected exception with custom configuration: {e!s}")
 
 
+def test_validate_method_missing_provider_config(mock_pii_hap_service):
+    """Test validate() appends error when provider_config is empty or missing."""
+    operator = PIIAndHAPAnnotator({"doc_column": "content", "provider": "litellm"})
+    errors: list[str] = []
+    warnings: list[str] = []
+    operator.validate(errors, warnings, [OperatorConstants.Columns.DOC_COLUMN_DEFAULT])
+    assert any("provider_config is required" in e for e in errors)
+
+
+def test_validate_method_missing_model_id(mock_pii_hap_service):
+    """Test validate() appends error when provider_config is missing model_id."""
+    operator = PIIAndHAPAnnotator(
+        {
+            "doc_column": "content",
+            "provider": "litellm",
+            "provider_config": {
+                "api_base": "http://localhost:11434/v1",
+                "api_key": "ollama",  # pragma: allowlist secret
+            },
+        }
+    )
+    errors: list[str] = []
+    warnings: list[str] = []
+    operator.validate(errors, warnings, [OperatorConstants.Columns.DOC_COLUMN_DEFAULT])
+    assert any("provider_config.model_id is required" in e for e in errors)
+
+
+def test_validate_method_valid_litellm_config(mock_pii_hap_service):
+    """Test validate() succeeds with valid provider_config."""
+    operator = PIIAndHAPAnnotator(
+        {
+            "doc_column": "content",
+            "provider": "litellm",
+            "provider_config": {
+                "model_id": "openai/granite4",
+                "api_base": "http://localhost:11434/v1",
+                "api_key": "ollama",  # pragma: allowlist secret
+            },
+            "redaction": False,
+            "hap_redaction": False,
+        }
+    )
+    errors: list[str] = []
+    warnings: list[str] = []
+    operator.validate(errors, warnings, [OperatorConstants.Columns.DOC_COLUMN_DEFAULT])
+    assert len(errors) == 0
+
+
+def test_validate_method_watsonx_missing_keys(mock_pii_hap_service):
+    """Test validate() appends error when watsonx is missing required fields."""
+    operator = PIIAndHAPAnnotator(
+        {
+            "doc_column": "content",
+            "provider": "watsonx",
+            "provider_config": {
+                "model_id": "ibm/granite-guardian-3-8b",
+            },
+        }
+    )
+    errors: list[str] = []
+    warnings: list[str] = []
+    operator.validate(errors, warnings, [OperatorConstants.Columns.DOC_COLUMN_DEFAULT])
+    assert any("WatsonX provider requires" in e for e in errors)
+
+
 def test_config_validation_invalid_pii_threshold():
     """Test that invalid pii_threshold raises ValueError."""
     # Test pii_threshold > 1

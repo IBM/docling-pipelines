@@ -22,7 +22,7 @@ function generateUUID(): string {
 /**
  * Builds the default `definition` block for a newly created flow.
  *
- * The structure mirrors the canonical template payload used by the BFF/backend
+ * The structure matches the canonical template payload expected by the BFF/backend
  * (doc_type "pipeline", version "3.0", one empty pipeline with ds_flow app_data).
  *
  * A fresh UUID is generated for the pipeline `id` on every call — required

@@ -820,7 +820,7 @@ pyparsing==3.3.3
     # via
     #   httplib2
     #   pyiceberg
-pypdf==6.16.1
+pypdf==6.19.0
     # via docling-pipelines
 pypdfium2==5.13.0
     # via docling-slim

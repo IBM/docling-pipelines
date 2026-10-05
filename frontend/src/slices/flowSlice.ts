@@ -3,7 +3,6 @@
  * Owns the full lifecycle of flow data: loading, error, CRUD operations.
  *
  * - `items` — map of `flow_id → FlowRow` for table display (ProjectDetail, FlowDetail).
- *   Mirrors the `items` pattern in `projectsSlice`.
  * - `currentFlow` — the full `Flow` object (with `definition`) used by Canvas.
  * - `flowRunProperties` — Canvas run-time settings.
  */

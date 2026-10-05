@@ -44,13 +44,13 @@ def main():
     try:
         subprocess.run(["npm", "--version"], capture_output=True, check=True)
     except (subprocess.CalledProcessError, FileNotFoundError):
-        print("Warning: npm not found. Skipping frontend build.")
-        print("To include the frontend, install Node.js and npm, then rebuild.")
-        return
+        print("Error: npm not found. Cannot build frontend for wheel.")
+        print("Ensure Node.js is installed and npm is on PATH before running uv build --wheel.")
+        sys.exit(1)
 
-    # Install dependencies
+    # Install dependencies (npm ci respects package-lock.json exactly — correct for CI)
     print("\n1. Installing frontend dependencies...")
-    run_command(["npm", "install"], frontend_dir)
+    run_command(["npm", "ci"], frontend_dir)
 
     # Build the React frontend
     print("\n2. Building frontend for production...")
