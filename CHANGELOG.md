@@ -15,6 +15,8 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Fixed
 
+- **Docling Serve Markdown chunking** — Send extracted Markdown with a `.md` filename instead of the original source extension, preserving the original document name in chunk metadata (#64).
+
 - **Execution-granularity benchmark flow size** — S3 benchmark flows now use the configured prefix and `max_files` limit without embedding a corpus-wide exclusion list, avoiding Prefect validation payload-size failures.
 
 - **`docling-pipelines-api` console command** — The entry point previously pointed at the FastAPI `app` object (`docpipe.api.main:app`), causing a `TypeError` on invocation. A `run()` launcher function has been added to `src/docpipe/api/main.py` and `pyproject.toml` now registers `docpipe.api.main:run` as the entry point. Running `docling-pipelines-api` now correctly starts a Uvicorn server on `127.0.0.1:8080`.
