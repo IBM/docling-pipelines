@@ -491,6 +491,56 @@ class TestBatchAttributeAccess:
         assert result == "default_value"
 
 
+class TestStaticMethodConversion:
+    """Verify per-document helpers are staticmethods callable without an instance."""
+
+    def test_get_timestamp_from_modified_time_is_static(self):
+        import inspect
+
+        assert isinstance(inspect.getattr_static(JobReportGenerator, "_get_timestamp_from_modified_time"), staticmethod)
+
+    def test_create_doc_entry_is_static(self):
+        import inspect
+
+        assert isinstance(inspect.getattr_static(JobReportGenerator, "_create_doc_entry"), staticmethod)
+
+    def test_get_timestamp_from_modified_time_class_call(self):
+        """Static call converts epoch seconds without needing an instance."""
+        result = JobReportGenerator._get_timestamp_from_modified_time(1704067200, "doc1")
+
+        assert result == "2024-01-01:00:00:00"
+
+    def test_create_doc_entry_class_call(self):
+        """Static call builds the expected document entry dict."""
+        entry = JobReportGenerator._create_doc_entry(
+            doc_name="report.pdf", modified_time=1704067200, timestamp_str="2024-01-01:00:00:00"
+        )
+
+        assert entry == {
+            "name": "report.pdf",
+            "status": "",
+            "reason": "",
+            "timestamp": "2024-01-01:00:00:00",
+            "pages": "",
+            "processing_time": "",
+            "modified_time": 1704067200,
+        }
+
+    def test_instance_and_class_calls_agree(self):
+        """Instance access and class access return identical results."""
+        job_stats = JobStats(
+            job_id=JOB_ID,
+            job_run_id=JOB_RUN_ID,
+            status=ExecutionStatus.COMPLETED,
+            node_stats={},
+        )
+        generator = JobReportGenerator(job_stats=job_stats)
+
+        assert generator._get_timestamp_from_modified_time(
+            1704067200, "doc1"
+        ) == JobReportGenerator._get_timestamp_from_modified_time(1704067200, "doc1")
+
+
 class TestReasonExtraction:
     """Test failure/skip reason extraction."""
 
