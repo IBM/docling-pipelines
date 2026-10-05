@@ -29,7 +29,7 @@ EXPECTED_SENSITIVE_FIELDS: dict[str, set[str]] = {
         "service_account_json",
     },
     "box_driver": {"credentials_path", "credentials_json"},
-    "dropbox": set(),
+    "dropbox": {"access_token", "refresh_token", "app_key", "app_secret"},
     "filesystem": set(),
     "web": set(),
 }
