@@ -76,11 +76,9 @@ class TestS3IngestExtractPipeline:
         # Configure S3 ingest operator
         config = {
             "provider": "s3",
-            "connection_params": {
+            "provider_config": {
                 "bucket": "test-bucket",
                 "prefix": "documents/",
-            },
-            "credentials": {
                 "access_key": "test-access-key",
                 "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
@@ -168,11 +166,9 @@ class TestS3IngestExtractPipeline:
         # Step 1: S3 Ingest
         ingest_config = {
             "provider": "s3",
-            "connection_params": {
+            "provider_config": {
                 "bucket": "test-bucket",
                 "prefix": "documents/",
-            },
-            "credentials": {
                 "access_key": "test-access-key",
                 "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
@@ -202,11 +198,9 @@ class TestS3IngestExtractPipeline:
             "entity_extraction": {"provider": "none"},
             "ingest_source": {
                 "provider": "s3",
-                "connection_params": {
+                "provider_config": {
                     "bucket": "test-bucket",
                     "prefix": "documents/",
-                },
-                "credentials": {
                     "access_key": "test-access-key",
                     "secret_key": "test-secret-key",  # pragma: allowlist secret
                 },
@@ -283,11 +277,9 @@ class TestS3IngestExtractPipeline:
         # Configure operators
         ingest_config = {
             "provider": "s3",
-            "connection_params": {
+            "provider_config": {
                 "bucket": "test-bucket",
                 "prefix": "documents/",
-            },
-            "credentials": {
                 "access_key": "test-access-key",  # pragma: allowlist secret
                 "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
@@ -307,11 +299,9 @@ class TestS3IngestExtractPipeline:
             "entity_extraction": {"provider": "none"},
             "ingest_source": {
                 "provider": "s3",
-                "connection_params": {
+                "provider_config": {
                     "bucket": "test-bucket",
                     "prefix": "documents/",
-                },
-                "credentials": {
                     "access_key": "test-access-key",
                     "secret_key": "test-secret-key",  # pragma: allowlist secret
                 },
@@ -384,11 +374,9 @@ class TestS3IngestExtractPipeline:
 
         config = {
             "provider": "s3",
-            "connection_params": {
+            "provider_config": {
                 "bucket": "test-bucket",
                 "prefix": "nonexistent/",
-            },
-            "credentials": {
                 "access_key": "test-key",
                 "secret_key": "test-secret",  # pragma: allowlist secret
             },
