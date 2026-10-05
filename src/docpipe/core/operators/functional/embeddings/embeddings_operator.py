@@ -423,7 +423,8 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
 
         return str(chunk_text)
 
-    def _generate_document_hash(self, content: str) -> str:
+    @staticmethod
+    def _generate_document_hash(content: str) -> str:
         """
         Generate a SHA-256 hash for document content.
 
