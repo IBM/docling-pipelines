@@ -257,7 +257,7 @@ MAX_FILES_DEFAULT_VALUE: int = 100
 INCLUDE_FILTER_KEY: str = "include_filter"
 EXCLUDE_FILTER_KEY: str = "exclude_filter"
 ADAPTER_MANAGED_PROVIDERS: frozenset[str] = frozenset(
-    {"s3", "ibm_cos", "sharepoint", "onedrive", "google_drive", "box_driver", "filesystem", "web"}
+    {"s3", "ibm_cos", "sharepoint", "onedrive", "google_drive", "box_driver", "dropbox", "filesystem", "web"}
 )
 
 logger = get_logger()
@@ -878,6 +878,7 @@ class IngestSourceOperator(AbstractOperator):
     def _get_provider_schemas() -> dict[str, Any]:
         """Return provider-specific connection field schemas in docpipe metadata vocabulary."""
         from docpipe.core.operators.ingest.adapters.outbound.sources.box.config import BoxSourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.dropbox.config import DropboxSourceConfig
         from docpipe.core.operators.ingest.adapters.outbound.sources.filesystem.config import FilesystemSourceConfig
         from docpipe.core.operators.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
         from docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.config import OneDriveSourceConfig
@@ -894,6 +895,7 @@ class IngestSourceOperator(AbstractOperator):
             "onedrive": OperatorUtils.model_schema_to_docpipe(schema=OneDriveSourceConfig.model_json_schema()),
             "sharepoint": OperatorUtils.model_schema_to_docpipe(schema=SharePointSourceConfig.model_json_schema()),
             "box_driver": OperatorUtils.model_schema_to_docpipe(schema=BoxSourceConfig.model_json_schema()),
+            "dropbox": OperatorUtils.model_schema_to_docpipe(schema=DropboxSourceConfig.model_json_schema()),
             "web": OperatorUtils.model_schema_to_docpipe(schema=WebPageSourceConfig.model_json_schema()),
         }
 
@@ -971,13 +973,13 @@ class IngestSourceOperator(AbstractOperator):
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: IngestSourceOperator.category.value,
             OperatorConstants.Misc.LABEL: "Remote Source Ingest",
-            OperatorConstants.Config.DESCRIPTION: "Ingest documents from remote storage sources (S3, IBM COS, SharePoint, OneDrive, Google Drive).",
+            OperatorConstants.Config.DESCRIPTION: "Ingest documents from remote storage sources (S3, IBM COS, SharePoint, OneDrive, Google Drive, Box, Dropbox, filesystem, web).",
             OperatorConstants.Config.FEATURES: metadata_features,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: IngestSourceOperator.is_available(),
             OperatorConstants.Config.ATTRIBUTES: {
                 PROVIDER_KEY: {
                     OperatorConstants.Columns.NAME: "Provider",
-                    OperatorConstants.Config.DESCRIPTION: "Storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, custom)",
+                    OperatorConstants.Config.DESCRIPTION: "Storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, box_driver, dropbox, filesystem, web, custom)",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                     OperatorConstants.Config.VALID_VALUES: sorted(ADAPTER_MANAGED_PROVIDERS | {"custom"}),

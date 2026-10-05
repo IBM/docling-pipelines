@@ -385,8 +385,6 @@ See the [Usage](#usage) section above and per-provider configuration in [Support
 |---|---|---|---|---|
 | `provider` | string | **Yes** | — | Source provider: `filesystem`, `s3`, `ibm_cos`, `sharepoint`, `onedrive`, `google_drive`, `box_driver`, `dropbox`, `web` |
 | `provider_config` | object | **Yes** | — | All provider-specific parameters including credentials in a single dict |
-| `connection_params` | object | No | — | **Deprecated.** Use `provider_config` instead |
-| `credentials` | object | No | — | **Deprecated.** Use `provider_config` instead |
 | `include_filter` | string | No | all types | Comma-separated file extensions to include (no dot) |
 | `max_files` | integer | No | `100` | Maximum files to ingest |
 | `force_ingest` | boolean | No | `false` | Re-ingest previously processed files |
@@ -747,8 +745,7 @@ Initialize the operator with configuration.
 **Parameters:**
 - `node_config` (dict): Configuration dictionary containing:
   - `provider` (str): Provider identifier (s3, google_drive, sharepoint, onedrive, box_driver, dropbox, filesystem, web, custom)
-  - `connection_params` (dict): Provider-specific connection parameters
-  - `credentials` (dict): Authentication credentials
+  - `provider_config` (dict): All provider-specific parameters including credentials in a single dict
   - `job_id` (str, optional): Job identifier for tracking
   - `job_run_id` (str, optional): Job run identifier
   - `max_files` (int, optional): Maximum number of files to process (default: 100)
@@ -785,7 +782,7 @@ Get operator metadata including features and attributes.
 ```python
 node_config = {
     'provider': 'filesystem',
-    'connection_params': {
+    'provider_config': {
         'paths': ['/data/customer_support_docs'],
         'recursive': True,
         'exclude_patterns': ['*.tmp', '__pycache__/*'],
@@ -801,7 +798,7 @@ node_config = {
 ```python
 node_config = {
     'provider': 'filesystem',
-    'connection_params': {
+    'provider_config': {
         'paths': [
             '/data/invoices',
             '/data/contracts',
@@ -824,7 +821,7 @@ node_config = {
   "type": "ingest_source",
   "config": {
     "provider": "filesystem",
-    "connection_params": {
+    "provider_config": {
       "paths": [
         "./data/invoices",
         "./data/contracts"
@@ -845,11 +842,9 @@ node_config = {
 ```python
 node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'company-documents',
-        'prefix': '2024/invoices/'  # Ingests all files in this folder
-    },
-    'credentials': {
+        'prefix': '2024/invoices/',  # Ingests all files in this folder
         'access_key': os.getenv('AWS_ACCESS_KEY'),
         'secret_key': os.getenv('AWS_SECRET_KEY')
     }
@@ -860,11 +855,9 @@ node_config = {
 ```python
 node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'company-documents',
-        'prefix': '2024/invoices/report.pdf'  # Ingests only this specific file
-    },
-    'credentials': {
+        'prefix': '2024/invoices/report.pdf',  # Ingests only this specific file
         'access_key': os.getenv('AWS_ACCESS_KEY'),
         'secret_key': os.getenv('AWS_SECRET_KEY')
     }
@@ -875,12 +868,10 @@ node_config = {
 ```python
 node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'enterprise-data',
         'prefix': 'contracts/',
-        'endpoint_url': 'https://s3.eu-gb.cloud-object-storage.appdomain.cloud'
-    },
-    'credentials': {
+        'endpoint_url': 'https://s3.eu-gb.cloud-object-storage.appdomain.cloud',
         'access_key': os.getenv('IBM_COS_ACCESS_KEY'),
         'secret_key': os.getenv('IBM_COS_SECRET_KEY')
     }
@@ -891,11 +882,9 @@ node_config = {
 ```python
 node_config = {
     'provider': 'google_drive',
-    'connection_params': {
+    'provider_config': {
         'folder_id': '1DKN_mxnoW1Uaacghz8vyEeqw-j4IOSFK',
-        'recursive': True
-    },
-    'credentials': {
+        'recursive': True,
         'credentials_json_path': os.getenv('GOOGLE_CREDENTIALS_PATH'),
         'token_path': os.path.expanduser('~/.credentials/gdrive_token.json'),
         'scopes': ['https://www.googleapis.com/auth/drive.readonly']
@@ -907,13 +896,11 @@ node_config = {
 ```python
 node_config = {
     'provider': 'box_driver',
-    'connection_params': {
+    'provider_config': {
         'folder_id': '123456789',  # Specific Box folder ID (use '0' for root)
         'recursive': True,
         'max_file_size_mb': 50,
-        'exclude_patterns': ['*.tmp', 'Trash/*']
-    },
-    'credentials': {
+        'exclude_patterns': ['*.tmp', 'Trash/*'],
         'credentials_json_path': os.getenv('BOX_JWT_CONFIG_FILE')
     },
     'include_filter': 'pdf,docx,txt,pptx,xlsx',  # File extensions to include
@@ -925,13 +912,11 @@ node_config = {
 ```python
 node_config = {
     'provider': 'dropbox',
-    'connection_params': {
+    'provider_config': {
         'folder_path': '/Reports/2026',
         'recursive': True,
         'max_file_size_mb': 50,
-        'exclude_patterns': ['*.tmp', '*/Archive/*']
-    },
-    'credentials': {
+        'exclude_patterns': ['*.tmp', '*/Archive/*'],
         'access_token': os.getenv('DROPBOX_ACCESS_TOKEN')
     },
     'include_filter': 'pdf,docx,txt',

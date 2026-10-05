@@ -163,6 +163,53 @@ class TestIngestSourceOperatorInitialization:
 class TestGetMetadata:
     """Test cases for get_metadata method."""
 
+    def test_all_adapter_managed_providers_are_consistent(self):
+        """Every provider in ADAPTER_MANAGED_PROVIDERS must be consistent across three surfaces:
+        1. Registered in SourceAdapterFactory (or covered by a factory alias)
+        2. Listed in get_metadata() provider valid_values
+        3. Has a schema entry in get_metadata() provider_config.providers
+
+        This is a single regression guard that will catch any future provider that
+        is added to one place but forgotten in another.
+        """
+        import docpipe.core.operators.ingest.adapters.outbound.sources  # noqa: F401 — triggers adapter registration
+        from docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory import (
+            SourceAdapterFactory,
+        )
+        from docpipe.core.operators.ingest.ingest_source import (
+            ADAPTER_MANAGED_PROVIDERS,
+            IngestSourceOperator,
+        )
+
+        metadata = IngestSourceOperator.get_metadata()
+        valid_values = set(metadata["attributes"]["provider"]["valid_values"])
+        provider_schemas = metadata["attributes"]["provider_config"]["providers"]
+        registered = set(SourceAdapterFactory.get_registered_names())
+
+        missing_from_factory: list[str] = []
+        missing_from_valid_values: list[str] = []
+        missing_from_schemas: list[str] = []
+
+        for provider in sorted(ADAPTER_MANAGED_PROVIDERS):
+            if provider not in registered:
+                missing_from_factory.append(provider)
+            if provider not in valid_values:
+                missing_from_valid_values.append(provider)
+            if provider not in provider_schemas:
+                missing_from_schemas.append(provider)
+
+        assert not missing_from_factory, (
+            f"Providers in ADAPTER_MANAGED_PROVIDERS but not registered in SourceAdapterFactory: {missing_from_factory}"
+        )
+        assert not missing_from_valid_values, (
+            f"Providers in ADAPTER_MANAGED_PROVIDERS but missing from get_metadata() valid_values: "
+            f"{missing_from_valid_values}"
+        )
+        assert not missing_from_schemas, (
+            f"Providers in ADAPTER_MANAGED_PROVIDERS but missing from get_metadata() provider_config.providers: "
+            f"{missing_from_schemas}"
+        )
+
     def test_get_metadata_declares_all_output_columns(self):
         """Operator metadata must declare every column produced at runtime.
 
@@ -1151,8 +1198,7 @@ class TestIngestSourceOperatorAdditionalCoverage:
 
         config = {
             "provider": "custom",
-            "connection_params": {"loader_class_path": "pkg.Loader"},
-            "credentials": {},
+            "provider_config": {"loader_class_path": "pkg.Loader"},
         }
         config.update(overrides)
         return IngestSourceOperator(config)
@@ -1180,8 +1226,7 @@ class TestIngestSourceOperatorAdditionalCoverage:
             IngestSourceOperator(
                 {
                     "provider": "custom",
-                    "connection_params": {"loader_class_path": "pkg.Loader"},
-                    "credentials": {},
+                    "provider_config": {"loader_class_path": "pkg.Loader"},
                     "include_filter": ".unsupported",
                 }
             )
@@ -1190,8 +1235,7 @@ class TestIngestSourceOperatorAdditionalCoverage:
             IngestSourceOperator(
                 {
                     "provider": "custom",
-                    "connection_params": {"loader_class_path": "pkg.Loader"},
-                    "credentials": {},
+                    "provider_config": {"loader_class_path": "pkg.Loader"},
                     "exclude_filter": ".unsupported",
                 }
             )
@@ -1202,8 +1246,7 @@ class TestIngestSourceOperatorAdditionalCoverage:
         operator = IngestSourceOperator(
             {
                 "provider": "custom",
-                "connection_params": {"loader_class_path": "pkg.Loader"},
-                "credentials": {},
+                "provider_config": {"loader_class_path": "pkg.Loader"},
                 "include_filter": ".txt",
                 "exclude_filter": ".pdf",
             }
@@ -1268,8 +1311,7 @@ class TestIngestSourceOperatorAdditionalCoverage:
         operator = IngestSourceOperator(
             {
                 "provider": "custom",
-                "connection_params": {"loader_class_path": "pkg.Loader"},
-                "credentials": {},
+                "provider_config": {"loader_class_path": "pkg.Loader"},
                 "max_files": 2,
                 "include_filter": ".txt",
             }
