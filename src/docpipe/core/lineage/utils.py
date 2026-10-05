@@ -61,11 +61,7 @@ class LineageUtils:
         """Recursively remove credential keys from a flow definition dict."""
         if not isinstance(flow_def, dict):
             return flow_def
-        return {
-            k: LineageUtils.strip_credentials(v)
-            for k, v in flow_def.items()
-            if k.lower() not in _CREDENTIALS_KEYS
-        }
+        return {k: LineageUtils.strip_credentials(v) for k, v in flow_def.items() if k.lower() not in _CREDENTIALS_KEYS}
 
     @staticmethod
     def node_run_id(*, job_run_id: str, node_id: str) -> str:

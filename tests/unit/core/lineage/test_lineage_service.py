@@ -508,7 +508,6 @@ class TestParentRunFacet:
             namespace="docpipe://test",
         )
 
-
     def test_parent_job_name_matches_flow_name_exactly(
         self, service: LineageService, mock_publisher: MagicMock
     ) -> None:
@@ -565,5 +564,3 @@ class TestResolveStatus:
 
     def test_unknown_status_returns_other(self) -> None:
         assert LineageService.resolve_status(status="unknown_status") == LineageEventType.OTHER
-
-
