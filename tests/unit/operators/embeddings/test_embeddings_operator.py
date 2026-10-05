@@ -11,6 +11,7 @@ Tests cover:
 - Metadata validation
 """
 
+import hashlib
 from unittest.mock import Mock, patch
 
 import pyarrow as pa
@@ -768,6 +769,23 @@ class TestEmbeddingsDocumentHash:
         hash2 = operator._generate_document_hash("Content 2")
 
         assert hash1 != hash2
+
+
+class TestEmbeddingsStaticMethods:
+    """Verify _generate_document_hash is a pure static helper."""
+
+    def test_generate_document_hash_is_static(self):
+        """The hash helper must be a staticmethod (no instance state needed)."""
+        import inspect
+
+        assert isinstance(inspect.getattr_static(EmbeddingsOperator, "_generate_document_hash"), staticmethod)
+
+    def test_generate_document_hash_class_call(self):
+        """Static call produces the known SHA-256 hex digest without an instance."""
+        expected = hashlib.sha256(b"Test document content").hexdigest()
+
+        assert EmbeddingsOperator._generate_document_hash("Test document content") == expected
+        assert len(expected) == 64
 
 
 # Error Handling Tests
