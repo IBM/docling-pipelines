@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="generator" content="Antora 3.2.0">
+  <title>Docling-pipelines — The Definitive Guide</title>
+  <meta name="description" content="Docling-pipelines documentation">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DS</text></svg>">
+  <style>
+/* ============================================================
+   Docling-pipelines Documentation — Custom Antora UI Theme
+   Inspired by IBM technical book aesthetic (dark navy + cyan)
+   ============================================================ */
+
+/* ── Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
+
+/* ── CSS Variables — dark mode (default) ── */
+:root {
+  --color-bg:          #0f1117;
+  --color-bg-alt:      #161b27;
+  --color-bg-card:     #1a2035;
+  --color-surface:     #1e2740;
+  --color-border:      #2a3550;
+  --color-accent:      #33b1ff;
+  --color-accent-dim:  #1a6ea0;
+  --color-accent-glow: rgba(51,177,255,.15);
+  --color-text:        #d4dbe8;
+  --color-text-dim:    #8898aa;
+  --color-text-head:   #ffffff;
+  --color-code-bg:     #111827;
+  --color-code-text:   #e2e8f0;
+  --color-warn:        #f59e0b;
+  --color-note:        #33b1ff;
+  --color-tip:         #34d399;
+  --color-caution:     #f87171;
+  --nav-width:         280px;
+  --header-height:     60px;
+  --font-body:         'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:         'IBM Plex Mono', 'Courier New', monospace;
+  --radius:            6px;
+  --shadow:            0 4px 24px rgba(0,0,0,.45);
+}
+
+/* ── CSS Variables — light mode ── */
+html.light {
+  --color-bg:          #f8f9fb;
+  --color-bg-alt:      #ffffff;
+  --color-bg-card:     #ffffff;
+  --color-surface:     #eef1f6;
+  --color-border:      #d0d7e3;
+  --color-accent:      #0062cc;
+  --color-accent-dim:  #aac8ee;
+  --color-accent-glow: rgba(0,98,204,.10);
+  --color-text:        #1f2328;
+  --color-text-dim:    #57606a;
+  --color-text-head:   #0d1117;
+  --color-code-bg:     #f0f2f5;
+  --color-code-text:   #1f2328;
+  --color-warn:        #b45309;
+  --color-note:        #0062cc;
+  --color-tip:         #1a7f4b;
+  --color-caution:     #cf222e;
+  --shadow:            0 4px 16px rgba(0,0,0,.10);
+}
+
+/* ── Reset / Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layout shell ── */
+.site-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.site-body {
+  display: flex;
+  flex: 1;
+  padding-top: var(--header-height);
+}
+
+/* ── Top header ── */
+.site-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--header-height);
+  background: var(--color-bg-alt);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  z-index: 200;
+  gap: 16px;
+}
+
+.site-header .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.site-header .logo-mark {
+  width: 32px; height: 32px;
+  background: var(--color-accent);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-bg);
+  letter-spacing: -.5px;
+  flex-shrink: 0;
+}
+
+.site-header .logo-text {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text-head);
+  letter-spacing: -.3px;
+}
+
+.site-header .logo-subtitle {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  font-weight: 400;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.site-header .header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.site-header .version-badge {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: .5px;
+}
+
+/* ── Sidebar navigation ── */
+.nav-sidebar {
+  width: var(--nav-width);
+  flex-shrink: 0;
+  background: var(--color-bg-alt);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  height: calc(100vh - var(--header-height));
+  position: sticky;
+  top: var(--header-height);
+  padding: 24px 0 40px;
+}
+
+.nav-sidebar::-webkit-scrollbar { width: 5px; }
+.nav-sidebar::-webkit-scrollbar-track { background: transparent; }
+.nav-sidebar::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+
+.nav-list { list-style: none; }
+
+.nav-list .nav-item > .nav-link {
+  display: block;
+  padding: 7px 24px;
+  color: var(--color-text-dim);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  letter-spacing: .1px;
+  transition: color .15s, background .15s;
+  border-left: 3px solid transparent;
+}
+
+.nav-list .nav-item > .nav-link:hover {
+  color: var(--color-text);
+  background: var(--color-bg-card);
+}
+
+.nav-list .nav-item.is-current-page > .nav-link,
+.nav-list .nav-item.is-current-page > .nav-link:hover {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+  background: var(--color-accent-glow);
+  font-weight: 600;
+}
+
+/* nested nav items */
+.nav-list .nav-list .nav-item > .nav-link {
+  padding-left: 40px;
+  font-size: 12.5px;
+}
+
+.nav-title {
+  display: block;
+  padding: 6px 24px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-top: 16px;
+}
+
+/* ── Main content area ── */
+.main-content {
+  flex: 1;
+  min-width: 0;
+  padding: 48px 64px;
+  max-width: 880px;
+}
+
+/* ── Article / page content ── */
+.doc {
+  max-width: 780px;
+}
+
+/* ── Headings ── */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text-head);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 2em 0 .6em;
+}
+
+h1 { font-size: 2.2rem; margin-top: 0; border-bottom: 1px solid var(--color-border); padding-bottom: .5em; }
+h2 { font-size: 1.6rem; border-bottom: 1px solid var(--color-border); padding-bottom: .3em; }
+h3 { font-size: 1.2rem; }
+h4 { font-size: 1rem; }
+
+/* Chapter number decoration */
+.sect1 > h2::before {
+  content: attr(data-sectnum);
+  display: none;
+}
+
+/* ── Paragraph ── */
+p { margin: 0 0 1em; }
+
+/* ── Links ── */
+a { color: var(--color-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Code blocks ── */
+pre {
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  overflow-x: auto;
+  margin: 1.25em 0;
+  position: relative;
+}
+
+pre code {
+  font-family: var(--font-mono);
+  font-size: .875rem;
+  color: var(--color-code-text);
+  background: none;
+  padding: 0;
+  border: none;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: .875em;
+  background: var(--color-code-bg);
+  color: var(--color-accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+}
+
+/* Syntax highlight colours (highlight.js dark) */
+.hljs-keyword, .hljs-selector-tag  { color: #c678dd; }
+.hljs-string, .hljs-attr           { color: #98c379; }
+.hljs-number                       { color: #d19a66; }
+.hljs-comment                      { color: #5c6370; font-style: italic; }
+.hljs-variable, .hljs-template-variable { color: #e06c75; }
+.hljs-built_in, .hljs-type         { color: #61afef; }
+.hljs-literal                      { color: #56b6c2; }
+.hljs-title.function_              { color: #61afef; }
+.hljs-meta                         { color: #f59e0b; }
+
+/* ── Admonition blocks ── */
+.admonitionblock {
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin: 1.5em 0;
+  display: flex;
+  gap: 16px;
+  border-left: 4px solid;
+}
+
+.admonitionblock td.icon { flex-shrink: 0; min-width: 24px; }
+.admonitionblock td.icon .title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.admonitionblock td.content { flex: 1; }
+.admonitionblock td.content p { margin: 0; font-size: .9rem; }
+
+.admonitionblock.note   { background: rgba(51,177,255,.08); border-color: var(--color-note); }
+.admonitionblock.tip    { background: rgba(52,211,153,.08); border-color: var(--color-tip); }
+.admonitionblock.caution{ background: rgba(248,113,113,.08); border-color: var(--color-caution); }
+.admonitionblock.warning{ background: rgba(245,158,11,.08);  border-color: var(--color-warn); }
+.admonitionblock.important { background: rgba(196,141,255,.08); border-color: #c48dff; }
+
+.admonitionblock.note    .title { color: var(--color-note); }
+.admonitionblock.tip     .title { color: var(--color-tip); }
+.admonitionblock.caution .title { color: var(--color-caution); }
+.admonitionblock.warning .title { color: var(--color-warn); }
+.admonitionblock.important .title { color: #c48dff; }
+
+/* ── Tables ── */
+table.tableblock {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: .9rem;
+}
+
+table.tableblock th {
+  background: var(--color-surface);
+  color: var(--color-text-head);
+  font-weight: 600;
+  padding: 10px 16px;
+  text-align: left;
+  border: 1px solid var(--color-border);
+  letter-spacing: .3px;
+  font-size: .8rem;
+  text-transform: uppercase;
+}
+
+table.tableblock td {
+  padding: 9px 16px;
+  border: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+table.tableblock tr:nth-child(even) td {
+  background: var(--color-bg-card);
+}
+
+table.tableblock tr:hover td {
+  background: var(--color-surface);
+}
+
+/* ── Lists ── */
+ul, ol { padding-left: 1.5em; margin: 0 0 1em; }
+li { margin: .3em 0; }
+
+/* ── Definition lists ── */
+dl dt { font-weight: 600; color: var(--color-text-head); margin-top: .75em; }
+dl dd { margin-left: 1.5em; color: var(--color-text-dim); }
+
+/* ── Horizontal rule ── */
+hr { border: none; border-top: 1px solid var(--color-border); margin: 2em 0; }
+
+/* ── Breadcrumbs ── */
+.breadcrumbs {
+  font-size: 12px;
+  color: var(--color-text-dim);
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.breadcrumbs a { color: var(--color-text-dim); }
+.breadcrumbs a:hover { color: var(--color-accent); }
+.breadcrumbs .separator { color: var(--color-border); }
+.breadcrumbs .current { color: var(--color-text); }
+
+/* ── Page navigation (prev / next) ── */
+.page-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.page-nav a {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  min-width: 0;
+  flex: 1;
+  max-width: 48%;
+  transition: border-color .15s, background .15s;
+}
+
+.page-nav a:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-glow);
+}
+
+.page-nav .nav-dir {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.page-nav .nav-title {
+  font-size: 14px;
+  color: var(--color-text-head);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-nav .next { text-align: right; margin-left: auto; }
+
+/* ── Footer ── */
+.site-footer {
+  background: var(--color-bg-alt);
+  border-top: 1px solid var(--color-border);
+  padding: 16px 24px;
+  font-size: 12px;
+  color: var(--color-text-dim);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.site-footer a { color: var(--color-text-dim); }
+.site-footer a:hover { color: var(--color-accent); }
+
+/* ── TOC (right sidebar) ── */
+.toc-nav {
+  width: 220px;
+  flex-shrink: 0;
+  position: sticky;
+  top: calc(var(--header-height) + 48px);
+  align-self: flex-start;
+  max-height: calc(100vh - var(--header-height) - 80px);
+  overflow-y: auto;
+  padding: 0 16px;
+  font-size: 12px;
+}
+
+.toc-nav::-webkit-scrollbar { width: 3px; }
+.toc-nav::-webkit-scrollbar-thumb { background: var(--color-border); }
+
+.toc-nav .toc-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-bottom: 12px;
+}
+
+.toc-nav a {
+  display: block;
+  color: var(--color-text-dim);
+  padding: 4px 0 4px 8px;
+  border-left: 2px solid transparent;
+  line-height: 1.4;
+  transition: color .15s;
+}
+
+.toc-nav a:hover, .toc-nav a.is-active {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+}
+
+/* ── Hero (index page) ── */
+.hero {
+  background: linear-gradient(135deg, var(--color-bg-alt) 0%, var(--color-bg-card) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 48px 48px;
+  margin-bottom: 48px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, var(--color-accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero h1 {
+  border: none;
+  padding: 0;
+  font-size: 2.6rem;
+  background: linear-gradient(135deg, #ffffff 0%, var(--color-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: .4em;
+}
+
+.hero .hero-sub {
+  font-size: 1.1rem;
+  color: var(--color-text-dim);
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+/* ── Chip / badge ── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-dim);
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  margin: 0 4px 8px 0;
+}
+
+.chip.accent { background: var(--color-accent-glow); border-color: var(--color-accent-dim); color: var(--color-accent); }
+
+/* ── Responsive ── */
+@media (max-width: 1280px) {
+  .toc-nav { display: none; }
+  .main-content { padding: 40px 48px; }
+}
+
+@media (max-width: 900px) {
+  .nav-sidebar { display: none; }
+  .main-content { padding: 32px 24px; }
+}
+
+@media (max-width: 600px) {
+  h1 { font-size: 1.7rem; }
+  h2 { font-size: 1.3rem; }
+  .hero { padding: 32px 24px; }
+  .hero h1 { font-size: 2rem; }
+}
+
+/* ── Copy button (injected by JS) ── */
+.copy-btn {
+  position: absolute;
+  top: 10px; right: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  padding: 4px 6px;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 1;
+  transition: opacity .2s, color .15s;
+}
+pre:hover .copy-btn { opacity: 1; }
+.copy-btn:hover { color: var(--color-accent); border-color: var(--color-accent-dim); }
+
+/* ── Theme toggle button ── */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  border-radius: var(--radius);
+  width: 34px; height: 34px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: 12px;
+  transition: color .2s, border-color .2s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover { color: var(--color-accent); border-color: var(--color-accent-dim); }
+.theme-toggle .icon-sun  { display: none; }
+.theme-toggle .icon-moon { display: block; }
+html.light .theme-toggle .icon-sun  { display: block; }
+html.light .theme-toggle .icon-moon { display: none; }
+
+/* ── Light mode: override highlight.js dark theme ── */
+html.light pre code.hljs,
+html.light pre code[class*="language-"] {
+  background: var(--color-code-bg);
+  color: var(--color-code-text);
+}
+html.light .hljs-keyword, html.light .hljs-selector-tag  { color: #7c3aed; }
+html.light .hljs-string,  html.light .hljs-attr          { color: #166534; }
+html.light .hljs-number                                   { color: #9a3412; }
+html.light .hljs-comment                                  { color: #6b7280; font-style: italic; }
+html.light .hljs-variable, html.light .hljs-template-variable { color: #b91c1c; }
+html.light .hljs-built_in, html.light .hljs-type         { color: #1d4ed8; }
+html.light .hljs-literal                                  { color: #0891b2; }
+html.light .hljs-meta                                     { color: #b45309; }
+
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
+  <script>
+/* Docling-pipelines Documentation — Site JS */
+
+(function () {
+  'use strict';
+
+  // ── Theme: restore saved preference before first paint (runs immediately) ──
+  var saved = localStorage.getItem('dp-theme');
+  if (saved === 'light') document.documentElement.classList.add('light');
+
+  // ── Everything else needs the DOM to exist ─────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function () {
+
+    // ── Highlight.js ──────────────────────────────────────────────────────────
+    if (window.hljs) {
+      hljs.configure({ ignoreUnescapedHTML: true });
+      document.querySelectorAll('pre code').forEach(function (block) {
+        hljs.highlightElement(block);
+      });
+    }
+
+    // ── Active TOC link on scroll ─────────────────────────────────────────────
+    var headings = document.querySelectorAll('.doc h2, .doc h3');
+    var tocLinks = document.querySelectorAll('.toc-nav a');
+
+    if (tocLinks.length && headings.length) {
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            var id = entry.target.id;
+            tocLinks.forEach(function (a) {
+              a.classList.toggle('is-active', a.getAttribute('href') === '#' + id);
+            });
+          }
+        });
+      }, { rootMargin: '-60px 0px -70% 0px' });
+
+      headings.forEach(function (h) { if (h.id) observer.observe(h); });
+    }
+
+    // ── Keyboard shortcut: / focuses search (future) ──────────────────────────
+    document.addEventListener('keydown', function (e) {
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        var searchInput = document.getElementById('search-input');
+        if (searchInput) searchInput.focus();
+      }
+    });
+
+    // ── Theme toggle click ────────────────────────────────────────────────────
+    var toggleBtn = document.getElementById('theme-toggle-btn');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', function () {
+        var isLight = document.documentElement.classList.toggle('light');
+        localStorage.setItem('dp-theme', isLight ? 'light' : 'dark');
+      });
+    }
+
+    // ── Copy button on code blocks ────────────────────────────────────────────
+    document.querySelectorAll('pre').forEach(function (pre) {
+      var btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.title = 'Copy to clipboard';
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+      pre.style.position = 'relative';
+      pre.appendChild(btn);
+
+      btn.addEventListener('click', function () {
+        var code = pre.querySelector('code');
+        if (code) {
+          navigator.clipboard.writeText(code.innerText).then(function () {
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+            setTimeout(function () {
+              btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+            }, 1800);
+          });
+        }
+      });
+    });
+
+    // ── Fix chapter section numbering ────────────────────────────────────────
+    // sectnums always resets to 1 per page in Antora. Read the chapter number
+    // from the filename (e.g. 05_extracting… → 5) and replace the leading "1."
+    // on every heading text node with the correct chapter number.
+    (function () {
+      var m = window.location.pathname.match(/\/(\d{2})_[^/]+\.html$/);
+      if (!m) return;
+      var chap = parseInt(m[1], 10);
+      if (chap === 1) return;
+      document.querySelectorAll('.doc h2, .doc h3, .doc h4').forEach(function (h) {
+        for (var i = 0; i < h.childNodes.length; i++) {
+          var node = h.childNodes[i];
+          if (node.nodeType === 3 && /^\d+\./.test(node.textContent)) {
+            node.textContent = node.textContent.replace(/^\d+\./, chap + '.');
+            break;
+          }
+        }
+      });
+    }());
+
+  }); // end DOMContentLoaded
+})();
+
+  </script>
+</head>
+<body>
+  <div class="site-wrapper">
+    <header class="site-header">
+  <a href="../../index.html" class="logo">
+    <div class="logo-mark">DS</div>
+    <div>
+      <div class="logo-text">Docling-pipelines </div>
+      <div class="logo-subtitle">The Definitive Guide</div>
+    </div>
+  </a>
+  <div class="header-right">
+    <span class="version-badge">v1.0</span>
+    <button id="theme-toggle-btn" class="theme-toggle" title="Toggle light / dark mode" aria-label="Toggle theme">
+      <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun"  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+</header>
+    <div class="site-body">
+      <nav class="nav-sidebar" aria-label="Site navigation">
+  <ul class="nav-list">
+    <li class="nav-item is-expandable ">
+  <a class="nav-link" href="index.html">Docling-pipelines Guide</a>
+  <ul class="nav-list">
+    <li class="nav-item ">
+  <a class="nav-link" href="01_introduction_and_architecture.html">1. Introduction &amp; Architecture</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="02_installation_and_quick_start.html">2. Installation &amp; Quick Start</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="03_authoring_flows.html">3. Authoring Flows</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="04_ingesting_data.html">4. Ingesting Data</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="05_extracting_and_processing_documents.html">5. Extracting &amp; Processing Documents</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="06_data_quality_and_enrichment.html">6. Data Quality &amp; Enrichment</a>
+</li>
+<li class="nav-item is-current-page">
+  <a class="nav-link" href="#">7. Vector Storage &amp; Retrieval</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="08_llm_integration.html">8. LLM Integration</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="09_python_api_and_programmatic_usage.html">9. Python API</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="10_extending_docling_pipelines.html">10. Extending Docling-pipelines</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="11_production_deployment_and_observability.html">11. Production Deployment</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="12_troubleshooting_and_contributing.html">12. Troubleshooting &amp; Contributing</a>
+</li>
+  </ul>
+</li>
+  </ul>
+</nav>
+      <main class="main-content" id="main-content">
+        <nav class="breadcrumbs" aria-label="breadcrumbs">
+  <a href="index.html">Docling-pipelines Guide</a>
+  <span class="separator">›</span>
+  <a href="#">7. Vector Storage &amp; Retrieval</a>
+
+</nav>
+        <article class="doc">
+          <div class="sect1">
+<h2 id="_vector_storage_and_retrieval"><a class="anchor" href="#_vector_storage_and_retrieval"></a>1. Vector Storage and Retrieval</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p><code>VectorDBOperator</code> indexes document embeddings into a vector database for similarity
+search, semantic retrieval, and RAG. It supports OpenSearch and Milvus through a
+ports-and-adapters design — switching providers requires only a configuration change.</p>
+</div>
+<div class="sect2">
+<h3 id="_vectordboperator_overview"><a class="anchor" href="#_vectordboperator_overview"></a>1.1. VectorDBOperator Overview</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Short name:</strong> <code>vectordb</code></p>
+</li>
+<li>
+<p><strong>Category:</strong> VectorDB</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>The operator sits at the end of the standard RAG pipeline:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>Ingest → Extract → [Quality] → Chunk → Embed → VectorDBOperator</pre>
+</div>
+</div>
+<div class="paragraph">
+<p>It does not add or remove columns — the input table is returned unchanged to allow
+chaining with downstream operators such as <code>document_set</code>.</p>
+</div>
+<div class="sect3">
+<h4 id="_core_parameters"><a class="anchor" href="#_core_parameters"></a>1.1.1. Core Parameters</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Parameter</th>
+<th class="tableblock halign-left valign-top">Default</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>provider</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Required</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Vector DB provider: <code>opensearch</code> or <code>milvus</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>create_index</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Create the index/collection if it does not exist. Safe to set <code>true</code> on re-runs.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>vector_dimension</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">auto</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Embedding dimension. Auto-detected from data if omitted (recommended).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>doc_id_column</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"doc_id_hash"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Column used as the primary key.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>embeddings_column</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"embeddings"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Column containing dense embeddings.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sparse_embeddings_column</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Column containing sparse embeddings for hybrid search.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>provider_config</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Required</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Provider-specific settings (see sections below).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_opensearch"><a class="anchor" href="#_opensearch"></a>1.2. OpenSearch</h3>
+<div class="sect3">
+<h4 id="_quick_start_example"><a class="anchor" href="#_quick_start_example"></a>1.2.1. Quick-Start Example</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "vectordb",
+  "name": "index_documents",
+  "depends_on": ["embed"],
+  "config": {
+    "provider": "opensearch",
+    "vector_dimension": 768,
+    "provider_config": {
+      "index_name": "my_documents",
+      "host": "localhost",
+      "port": 9200,
+      "use_ssl": false,
+      "verify_certs": false
+    }
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_opensearch_provider_config_fields"><a class="anchor" href="#_opensearch_provider_config_fields"></a>1.2.2. OpenSearch <code>provider_config</code> Fields</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Default</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>index_name</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Required</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Name of the OpenSearch index.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>host</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"localhost"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OpenSearch host.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>port</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>9200</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OpenSearch port.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>username</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Authentication username.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>password</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Authentication password.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>use_ssl</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Enable SSL/TLS.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>verify_certs</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Verify SSL certificates.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>engine</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"nmslib"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">KNN engine: <code>nmslib</code>, <code>faiss</code>, or <code>lucene</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>algorithm</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"hnsw"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Index algorithm.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>space_type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"l2"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Distance metric: <code>l2</code>, <code>cosinesimil</code>, <code>innerproduct</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>batch_size</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>100</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Documents indexed per batch.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>engine_parameters.ef_construction</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>512</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Accuracy/speed tradeoff during indexing.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>engine_parameters.m</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>16</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Number of bi-directional links per node.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>index_settings.number_of_shards</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>1</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Number of OpenSearch shards.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>index_settings.number_of_replicas</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>0</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Number of OpenSearch replicas.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>aws_auth</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Use AWS SigV4 auth for AWS OpenSearch Service.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>aws_region</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">AWS region (required when <code>aws_auth: true</code>).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_engine_selection_guide"><a class="anchor" href="#_engine_selection_guide"></a>1.2.3. Engine Selection Guide</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Engine</th>
+<th class="tableblock halign-left valign-top">Best for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>nmslib</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">General use, balanced accuracy/speed (default recommendation).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>faiss</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Large-scale datasets (millions of documents).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>lucene</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Smaller datasets; no native C++ dependency.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_with_authentication"><a class="anchor" href="#_with_authentication"></a>1.2.4. With Authentication</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "provider": "opensearch",
+  "vector_dimension": 1536,
+  "provider_config": {
+    "index_name": "research_papers",
+    "host": "opensearch.example.com",
+    "port": 9200,
+    "username": "admin",
+    "password": "${OPENSEARCH_PASSWORD}",
+    "use_ssl": true,
+    "verify_certs": true,
+    "engine": "faiss",
+    "engine_parameters": {
+      "ef_construction": 512,
+      "m": 16
+    }
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_aws_opensearch_service"><a class="anchor" href="#_aws_opensearch_service"></a>1.2.5. AWS OpenSearch Service</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "provider": "opensearch",
+  "vector_dimension": 1536,
+  "provider_config": {
+    "index_name": "documents",
+    "host": "search-domain.us-east-1.es.amazonaws.com",
+    "port": 443,
+    "use_ssl": true,
+    "verify_certs": true,
+    "aws_auth": true,
+    "aws_region": "us-east-1",
+    "engine": "faiss"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_hybrid_search_dense_sparse"><a class="anchor" href="#_hybrid_search_dense_sparse"></a>1.2.6. Hybrid Search (Dense + Sparse)</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "provider": "opensearch",
+  "embeddings_column": "dense_embeddings",
+  "sparse_embeddings_column": "sparse_embeddings",
+  "vector_dimension": 768,
+  "provider_config": {
+    "index_name": "hybrid_search",
+    "host": "localhost",
+    "port": 9200,
+    "engine": "nmslib"
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_milvus"><a class="anchor" href="#_milvus"></a>1.3. Milvus</h3>
+<div class="sect3">
+<h4 id="_auth_types"><a class="anchor" href="#_auth_types"></a>1.3.1. Auth Types</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top"><code>auth_type</code></th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>lite</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Milvus Lite — embedded, container-free local mode. Uses a <code>.db</code> file. Only <code>FLAT</code> index type supported.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>standalone</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Standard Milvus server. Connect by host/port.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>grpc</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">gRPC connection.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>uri</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Pre-constructed URI string.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>token</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Token-based authentication (Zilliz Cloud).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_milvus_lite_container_free"><a class="anchor" href="#_milvus_lite_container_free"></a>1.3.2. Milvus Lite (Container-Free)</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "vectordb",
+  "name": "index_documents",
+  "depends_on": ["embed"],
+  "config": {
+    "provider": "milvus",
+    "create_index": true,
+    "provider_config": {
+      "collection_name": "local_docs",
+      "auth_type": "lite",
+      "uri": "./data/milvus/local_docs.db",
+      "index_type": "FLAT",
+      "metric_type": "COSINE",
+      "batch_size": 100
+    }
+  }
+}</code></pre>
+</div>
+</div>
+<div class="admonitionblock important">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-important" title="Important"></i>
+</td>
+<td class="content">
+Set <code>enable_micro_batching: false</code> in <code>global_config</code> when using Milvus Lite
+because it holds a single-process file lock that is incompatible with concurrent batches.
+</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_milvus_standalone"><a class="anchor" href="#_milvus_standalone"></a>1.3.3. Milvus Standalone</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "vectordb",
+  "name": "index_documents",
+  "depends_on": ["embed"],
+  "config": {
+    "provider": "milvus",
+    "create_index": true,
+    "provider_config": {
+      "collection_name": "my_collection",
+      "auth_type": "standalone",
+      "host": "localhost",
+      "port": 19530,
+      "username": "${MILVUS_USER}",
+      "password": "${MILVUS_PASSWORD}",
+      "database": "default",
+      "index_type": "HNSW",
+      "metric_type": "L2"
+    }
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_milvus_provider_config_fields"><a class="anchor" href="#_milvus_provider_config_fields"></a>1.3.4. Milvus <code>provider_config</code> Fields</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Default</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>collection_name</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Required</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Name of the Milvus collection.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>auth_type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"standalone"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Auth mode: <code>lite</code>, <code>standalone</code>, <code>grpc</code>, <code>uri</code>, <code>token</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>uri</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Local <code>.db</code> path for <code>lite</code>; pre-constructed URI for <code>uri</code> auth_type.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>host</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"localhost"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Milvus host.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>port</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>19530</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Milvus port.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>username</code> / <code>password</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Authentication credentials.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>database</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"default"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Database name.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>secure</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Enable SSL/TLS.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>index_type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"HNSW"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>FLAT</code>, <code>HNSW</code>, <code>IVF_FLAT</code>, <code>IVF_SQ8</code>. Only <code>FLAT</code> is supported for <code>lite</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>metric_type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"L2"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Distance metric: <code>L2</code>, <code>IP</code>, <code>COSINE</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>batch_size</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>100</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Documents indexed per batch.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>add_sparse_vector</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Enable BM25 sparse vector hybrid search. Not supported for <code>lite</code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_documentsetoperator_persistent_storage"><a class="anchor" href="#_documentsetoperator_persistent_storage"></a>1.4. DocumentSetOperator — Persistent Storage</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Short name:</strong> <code>document_set</code></p>
+</li>
+<li>
+<p><strong>Category:</strong> Storage</p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p><code>DocumentSetOperator</code> stores pipeline data at rest in DuckDB using an upsert-based
+get-or-create pattern. It is pass-through — the input table is returned unchanged.</p>
+</div>
+<div class="paragraph">
+<p>Use it to checkpoint processed documents at any pipeline stage before or after indexing.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "document_set",
+  "name": "store_documents",
+  "depends_on": ["extract"],
+  "config": {
+    "document_set_name": "research_papers",
+    "description": "Processed research papers",
+    "metadata": {
+      "department": "research",
+      "year": 2024
+    }
+  }
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Parameter</th>
+<th class="tableblock halign-left valign-top">Default</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>document_set_name</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Required</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Name of the document set to create or update.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>description</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>""</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Human-readable description.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>metadata</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>{}</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Arbitrary JSON stored as document set metadata.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>document_set_id</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">UUID of an existing document set to update.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>database_path</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>data/duckdb/document_sets.duckdb</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">File path for the DuckDB database.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Common placements:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-none hljs">Ingest → Extract → [DocumentSetOperator] → Quality → [DocumentSetOperator] → Chunk → Embed → VectorDB</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_acl_based_retrieval"><a class="anchor" href="#_acl_based_retrieval"></a>1.5. ACL-Based Retrieval</h3>
+<div class="paragraph">
+<p>When documents are indexed with an <code>allowed_users</code> column (produced by <code>ACLOperator</code>),
+the REST API enforces row-level access control at query time.</p>
+</div>
+<div class="sect3">
+<h4 id="_architecture"><a class="anchor" href="#_architecture"></a>1.5.1. Architecture</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-none hljs">Client → POST /api/v1/documents/search
+          └── ACLQueryBuilder
+                └── OpenSearch query with "term" filter on allowed_users
+                        └── Returns only documents where current_user ∈ allowed_users</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Key security properties:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Documents without an <code>allowed_users</code> field are <strong>not accessible</strong> (fail-closed).</p>
+</li>
+<li>
+<p>Documents with an empty <code>allowed_users</code> array are <strong>not accessible</strong>.</p>
+</li>
+<li>
+<p>The API returns <code>404 Not Found</code> for both non-existent and unauthorised documents
+(security by obscurity — prevents document ID enumeration).</p>
+</li>
+<li>
+<p>ACL filtering is applied at the OpenSearch query level, not in application code.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_index_mapping_required_for_acl"><a class="anchor" href="#_index_mapping_required_for_acl"></a>1.5.2. Index Mapping (Required for ACL)</h4>
+<div class="paragraph">
+<p>The <code>allowed_users</code> field must be a <code>keyword</code> type in the OpenSearch mapping to support
+exact-match filtering:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "mappings": {
+    "properties": {
+      "content":       { "type": "text" },
+      "allowed_users": { "type": "keyword" },
+      "embeddings":    { "type": "knn_vector", "dimension": 768 }
+    }
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_end_to_end_acl_pipeline"><a class="anchor" href="#_end_to_end_acl_pipeline"></a>1.5.3. End-to-End ACL Pipeline</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "flow_name": "acl-rag-pipeline",
+  "flow": [
+    {
+      "type": "ingest_source",  "name": "ingest",
+      "config": {
+        "provider": "sharepoint",
+        "connection_params": { "document_library_id": "b!...", "recursive": true },
+        "credentials": { "client_id": "${SP_CLIENT_ID}", "client_secret": "${SP_CLIENT_SECRET}", "tenant_id": "${SP_TENANT_ID}" }
+      }
+    },
+    { "type": "acl_operator",    "name": "acl",     "depends_on": ["ingest"],  "config": { "fail_on_error": true } },
+    { "type": "extract_operator","name": "extract",  "depends_on": ["acl"],    "config": { "text_extraction": { "provider": "docling_library" }, "entity_extraction": { "provider": "none" } } },
+    { "type": "chunker",         "name": "chunk",    "depends_on": ["extract"], "config": { "chunk_type": "hybrid", "chunk_size": 512 } },
+    { "type": "embeddings",      "name": "embed",    "depends_on": ["chunk"],   "config": { "provider": "litellm", "provider_config": { "model_id": "openai/nomic-embed-text", "api_base": "http://localhost:11434" } } },
+    { "type": "vectordb",        "name": "index",    "depends_on": ["embed"],   "config": { "provider": "opensearch", "vector_dimension": 768, "provider_config": { "index_name": "secure_docs", "host": "localhost", "port": 9200, "use_ssl": false, "verify_certs": false } } }
+  ]
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_opensearch_setup_reference"><a class="anchor" href="#_opensearch_setup_reference"></a>1.6. OpenSearch Setup Reference</h3>
+<div class="paragraph">
+<p>For local development, start OpenSearch with Docker or Podman:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">docker run -d --name opensearch \
+  -p 9200:9200 -p 9600:9600 \
+  -e "discovery.type=single-node" \
+  -e "OPENSEARCH_INITIAL_ADMIN_PASSWORD=Admin@12345" \
+  opensearchproject/opensearch:2.13.0</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Check cluster health:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">curl -k -u admin:Admin@12345 https://localhost:9200/_cluster/health</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For additional configuration options, schema templates, and environment setup scripts, see
+<code>docs/integrations/opensearch/</code> in the repository.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_milvus_setup_reference"><a class="anchor" href="#_milvus_setup_reference"></a>1.7. Milvus Setup Reference</h3>
+<div class="paragraph">
+<p>For local development, start Milvus with Docker Compose:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">curl -sfL https://raw.githubusercontent.com/milvus-io/milvus/master/scripts/standalone_embed.sh -o standalone_embed.sh
+bash standalone_embed.sh start</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Or use Milvus Lite (no Docker required) — set <code>auth_type: "lite"</code> and point <code>uri</code> to a
+local <code>.db</code> file as shown in the Milvus Lite example above.</p>
+</div>
+<div class="paragraph">
+<p>For full Milvus configuration options, see <code>docs/integrations/milvus/README.md</code>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_troubleshooting"><a class="anchor" href="#_troubleshooting"></a>1.8. Troubleshooting</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Symptom</th>
+<th class="tableblock halign-left valign-top">Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>DocpipeException: index_name is required</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Add <code>"index_name"</code> inside <code>provider_config</code> for OpenSearch.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>DocpipeException: collection_name is required</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Add <code>"collection_name"</code> inside <code>provider_config</code> for Milvus.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ConnectionError</code> to OpenSearch</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Verify <code>host</code> and <code>port</code>; ensure OpenSearch is running.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Index already exists</code> on re-run</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Safe — the operator skips creation if the index exists. <code>create_index: true</code> is idempotent.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>KeyError: doc_id_hash</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ensure <code>DocIdHashOperator</code> or <code>ExtractOperator</code> runs before <code>VectorDBOperator</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>KeyError: embeddings</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ensure <code>EmbeddingsOperator</code> runs before <code>VectorDBOperator</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Vector dimension mismatch</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Omit <code>vector_dimension</code> for auto-detection, or set it to match your model (e.g. 384, 768, 1536).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Slow indexing</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Increase <code>batch_size</code> to 500–1000 in <code>provider_config</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Milvus Lite lock error</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Set <code>enable_micro_batching: false</code> in <code>global_config</code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+        </article>
+        <nav class="page-nav" aria-label="page navigation">
+  <a href="06_data_quality_and_enrichment.html" class="prev">
+    <span class="nav-dir">← Previous</span>
+    <span class="nav-title">6. Data Quality &amp; Enrichment</span>
+  </a>
+  <a href="08_llm_integration.html" class="next">
+    <span class="nav-dir">Next →</span>
+    <span class="nav-title">8. LLM Integration</span>
+  </a>
+</nav>
+      </main>
+      <aside class="toc-nav" aria-label="Table of contents">
+  <div class="toc-title">On this page</div>
+
+</aside>
+    </div>
+    <footer class="site-footer">
+  <span>Docling-pipelines Documentation</span>
+  <span>·</span>
+  <span>Built with <a href="https://antora.org" target="_blank" rel="noopener">Antora</a></span>
+  <span>·</span>
+  <span>© 2026</span>
+</footer>
+  </div>
+</body>
+</html>

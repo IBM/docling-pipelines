@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="generator" content="Antora 3.2.0">
+  <title>Docling-pipelines — The Definitive Guide</title>
+  <meta name="description" content="Docling-pipelines documentation">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DS</text></svg>">
+  <style>
+/* ============================================================
+   Docling-pipelines Documentation — Custom Antora UI Theme
+   Inspired by IBM technical book aesthetic (dark navy + cyan)
+   ============================================================ */
+
+/* ── Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
+
+/* ── CSS Variables — dark mode (default) ── */
+:root {
+  --color-bg:          #0f1117;
+  --color-bg-alt:      #161b27;
+  --color-bg-card:     #1a2035;
+  --color-surface:     #1e2740;
+  --color-border:      #2a3550;
+  --color-accent:      #33b1ff;
+  --color-accent-dim:  #1a6ea0;
+  --color-accent-glow: rgba(51,177,255,.15);
+  --color-text:        #d4dbe8;
+  --color-text-dim:    #8898aa;
+  --color-text-head:   #ffffff;
+  --color-code-bg:     #111827;
+  --color-code-text:   #e2e8f0;
+  --color-warn:        #f59e0b;
+  --color-note:        #33b1ff;
+  --color-tip:         #34d399;
+  --color-caution:     #f87171;
+  --nav-width:         280px;
+  --header-height:     60px;
+  --font-body:         'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:         'IBM Plex Mono', 'Courier New', monospace;
+  --radius:            6px;
+  --shadow:            0 4px 24px rgba(0,0,0,.45);
+}
+
+/* ── CSS Variables — light mode ── */
+html.light {
+  --color-bg:          #f8f9fb;
+  --color-bg-alt:      #ffffff;
+  --color-bg-card:     #ffffff;
+  --color-surface:     #eef1f6;
+  --color-border:      #d0d7e3;
+  --color-accent:      #0062cc;
+  --color-accent-dim:  #aac8ee;
+  --color-accent-glow: rgba(0,98,204,.10);
+  --color-text:        #1f2328;
+  --color-text-dim:    #57606a;
+  --color-text-head:   #0d1117;
+  --color-code-bg:     #f0f2f5;
+  --color-code-text:   #1f2328;
+  --color-warn:        #b45309;
+  --color-note:        #0062cc;
+  --color-tip:         #1a7f4b;
+  --color-caution:     #cf222e;
+  --shadow:            0 4px 16px rgba(0,0,0,.10);
+}
+
+/* ── Reset / Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layout shell ── */
+.site-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.site-body {
+  display: flex;
+  flex: 1;
+  padding-top: var(--header-height);
+}
+
+/* ── Top header ── */
+.site-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--header-height);
+  background: var(--color-bg-alt);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  z-index: 200;
+  gap: 16px;
+}
+
+.site-header .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.site-header .logo-mark {
+  width: 32px; height: 32px;
+  background: var(--color-accent);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-bg);
+  letter-spacing: -.5px;
+  flex-shrink: 0;
+}
+
+.site-header .logo-text {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text-head);
+  letter-spacing: -.3px;
+}
+
+.site-header .logo-subtitle {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  font-weight: 400;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.site-header .header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.site-header .version-badge {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: .5px;
+}
+
+/* ── Sidebar navigation ── */
+.nav-sidebar {
+  width: var(--nav-width);
+  flex-shrink: 0;
+  background: var(--color-bg-alt);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  height: calc(100vh - var(--header-height));
+  position: sticky;
+  top: var(--header-height);
+  padding: 24px 0 40px;
+}
+
+.nav-sidebar::-webkit-scrollbar { width: 5px; }
+.nav-sidebar::-webkit-scrollbar-track { background: transparent; }
+.nav-sidebar::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+
+.nav-list { list-style: none; }
+
+.nav-list .nav-item > .nav-link {
+  display: block;
+  padding: 7px 24px;
+  color: var(--color-text-dim);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  letter-spacing: .1px;
+  transition: color .15s, background .15s;
+  border-left: 3px solid transparent;
+}
+
+.nav-list .nav-item > .nav-link:hover {
+  color: var(--color-text);
+  background: var(--color-bg-card);
+}
+
+.nav-list .nav-item.is-current-page > .nav-link,
+.nav-list .nav-item.is-current-page > .nav-link:hover {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+  background: var(--color-accent-glow);
+  font-weight: 600;
+}
+
+/* nested nav items */
+.nav-list .nav-list .nav-item > .nav-link {
+  padding-left: 40px;
+  font-size: 12.5px;
+}
+
+.nav-title {
+  display: block;
+  padding: 6px 24px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-top: 16px;
+}
+
+/* ── Main content area ── */
+.main-content {
+  flex: 1;
+  min-width: 0;
+  padding: 48px 64px;
+  max-width: 880px;
+}
+
+/* ── Article / page content ── */
+.doc {
+  max-width: 780px;
+}
+
+/* ── Headings ── */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text-head);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 2em 0 .6em;
+}
+
+h1 { font-size: 2.2rem; margin-top: 0; border-bottom: 1px solid var(--color-border); padding-bottom: .5em; }
+h2 { font-size: 1.6rem; border-bottom: 1px solid var(--color-border); padding-bottom: .3em; }
+h3 { font-size: 1.2rem; }
+h4 { font-size: 1rem; }
+
+/* Chapter number decoration */
+.sect1 > h2::before {
+  content: attr(data-sectnum);
+  display: none;
+}
+
+/* ── Paragraph ── */
+p { margin: 0 0 1em; }
+
+/* ── Links ── */
+a { color: var(--color-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Code blocks ── */
+pre {
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  overflow-x: auto;
+  margin: 1.25em 0;
+  position: relative;
+}
+
+pre code {
+  font-family: var(--font-mono);
+  font-size: .875rem;
+  color: var(--color-code-text);
+  background: none;
+  padding: 0;
+  border: none;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: .875em;
+  background: var(--color-code-bg);
+  color: var(--color-accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+}
+
+/* Syntax highlight colours (highlight.js dark) */
+.hljs-keyword, .hljs-selector-tag  { color: #c678dd; }
+.hljs-string, .hljs-attr           { color: #98c379; }
+.hljs-number                       { color: #d19a66; }
+.hljs-comment                      { color: #5c6370; font-style: italic; }
+.hljs-variable, .hljs-template-variable { color: #e06c75; }
+.hljs-built_in, .hljs-type         { color: #61afef; }
+.hljs-literal                      { color: #56b6c2; }
+.hljs-title.function_              { color: #61afef; }
+.hljs-meta                         { color: #f59e0b; }
+
+/* ── Admonition blocks ── */
+.admonitionblock {
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin: 1.5em 0;
+  display: flex;
+  gap: 16px;
+  border-left: 4px solid;
+}
+
+.admonitionblock td.icon { flex-shrink: 0; min-width: 24px; }
+.admonitionblock td.icon .title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.admonitionblock td.content { flex: 1; }
+.admonitionblock td.content p { margin: 0; font-size: .9rem; }
+
+.admonitionblock.note   { background: rgba(51,177,255,.08); border-color: var(--color-note); }
+.admonitionblock.tip    { background: rgba(52,211,153,.08); border-color: var(--color-tip); }
+.admonitionblock.caution{ background: rgba(248,113,113,.08); border-color: var(--color-caution); }
+.admonitionblock.warning{ background: rgba(245,158,11,.08);  border-color: var(--color-warn); }
+.admonitionblock.important { background: rgba(196,141,255,.08); border-color: #c48dff; }
+
+.admonitionblock.note    .title { color: var(--color-note); }
+.admonitionblock.tip     .title { color: var(--color-tip); }
+.admonitionblock.caution .title { color: var(--color-caution); }
+.admonitionblock.warning .title { color: var(--color-warn); }
+.admonitionblock.important .title { color: #c48dff; }
+
+/* ── Tables ── */
+table.tableblock {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: .9rem;
+}
+
+table.tableblock th {
+  background: var(--color-surface);
+  color: var(--color-text-head);
+  font-weight: 600;
+  padding: 10px 16px;
+  text-align: left;
+  border: 1px solid var(--color-border);
+  letter-spacing: .3px;
+  font-size: .8rem;
+  text-transform: uppercase;
+}
+
+table.tableblock td {
+  padding: 9px 16px;
+  border: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+table.tableblock tr:nth-child(even) td {
+  background: var(--color-bg-card);
+}
+
+table.tableblock tr:hover td {
+  background: var(--color-surface);
+}
+
+/* ── Lists ── */
+ul, ol { padding-left: 1.5em; margin: 0 0 1em; }
+li { margin: .3em 0; }
+
+/* ── Definition lists ── */
+dl dt { font-weight: 600; color: var(--color-text-head); margin-top: .75em; }
+dl dd { margin-left: 1.5em; color: var(--color-text-dim); }
+
+/* ── Horizontal rule ── */
+hr { border: none; border-top: 1px solid var(--color-border); margin: 2em 0; }
+
+/* ── Breadcrumbs ── */
+.breadcrumbs {
+  font-size: 12px;
+  color: var(--color-text-dim);
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.breadcrumbs a { color: var(--color-text-dim); }
+.breadcrumbs a:hover { color: var(--color-accent); }
+.breadcrumbs .separator { color: var(--color-border); }
+.breadcrumbs .current { color: var(--color-text); }
+
+/* ── Page navigation (prev / next) ── */
+.page-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.page-nav a {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  min-width: 0;
+  flex: 1;
+  max-width: 48%;
+  transition: border-color .15s, background .15s;
+}
+
+.page-nav a:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-glow);
+}
+
+.page-nav .nav-dir {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.page-nav .nav-title {
+  font-size: 14px;
+  color: var(--color-text-head);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-nav .next { text-align: right; margin-left: auto; }
+
+/* ── Footer ── */
+.site-footer {
+  background: var(--color-bg-alt);
+  border-top: 1px solid var(--color-border);
+  padding: 16px 24px;
+  font-size: 12px;
+  color: var(--color-text-dim);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.site-footer a { color: var(--color-text-dim); }
+.site-footer a:hover { color: var(--color-accent); }
+
+/* ── TOC (right sidebar) ── */
+.toc-nav {
+  width: 220px;
+  flex-shrink: 0;
+  position: sticky;
+  top: calc(var(--header-height) + 48px);
+  align-self: flex-start;
+  max-height: calc(100vh - var(--header-height) - 80px);
+  overflow-y: auto;
+  padding: 0 16px;
+  font-size: 12px;
+}
+
+.toc-nav::-webkit-scrollbar { width: 3px; }
+.toc-nav::-webkit-scrollbar-thumb { background: var(--color-border); }
+
+.toc-nav .toc-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-bottom: 12px;
+}
+
+.toc-nav a {
+  display: block;
+  color: var(--color-text-dim);
+  padding: 4px 0 4px 8px;
+  border-left: 2px solid transparent;
+  line-height: 1.4;
+  transition: color .15s;
+}
+
+.toc-nav a:hover, .toc-nav a.is-active {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+}
+
+/* ── Hero (index page) ── */
+.hero {
+  background: linear-gradient(135deg, var(--color-bg-alt) 0%, var(--color-bg-card) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 48px 48px;
+  margin-bottom: 48px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, var(--color-accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero h1 {
+  border: none;
+  padding: 0;
+  font-size: 2.6rem;
+  background: linear-gradient(135deg, #ffffff 0%, var(--color-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: .4em;
+}
+
+.hero .hero-sub {
+  font-size: 1.1rem;
+  color: var(--color-text-dim);
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+/* ── Chip / badge ── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-dim);
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  margin: 0 4px 8px 0;
+}
+
+.chip.accent { background: var(--color-accent-glow); border-color: var(--color-accent-dim); color: var(--color-accent); }
+
+/* ── Responsive ── */
+@media (max-width: 1280px) {
+  .toc-nav { display: none; }
+  .main-content { padding: 40px 48px; }
+}
+
+@media (max-width: 900px) {
+  .nav-sidebar { display: none; }
+  .main-content { padding: 32px 24px; }
+}
+
+@media (max-width: 600px) {
+  h1 { font-size: 1.7rem; }
+  h2 { font-size: 1.3rem; }
+  .hero { padding: 32px 24px; }
+  .hero h1 { font-size: 2rem; }
+}
+
+/* ── Copy button (injected by JS) ── */
+.copy-btn {
+  position: absolute;
+  top: 10px; right: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  padding: 4px 6px;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 1;
+  transition: opacity .2s, color .15s;
+}
+pre:hover .copy-btn { opacity: 1; }
+.copy-btn:hover { color: var(--color-accent); border-color: var(--color-accent-dim); }
+
+/* ── Theme toggle button ── */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  border-radius: var(--radius);
+  width: 34px; height: 34px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: 12px;
+  transition: color .2s, border-color .2s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover { color: var(--color-accent); border-color: var(--color-accent-dim); }
+.theme-toggle .icon-sun  { display: none; }
+.theme-toggle .icon-moon { display: block; }
+html.light .theme-toggle .icon-sun  { display: block; }
+html.light .theme-toggle .icon-moon { display: none; }
+
+/* ── Light mode: override highlight.js dark theme ── */
+html.light pre code.hljs,
+html.light pre code[class*="language-"] {
+  background: var(--color-code-bg);
+  color: var(--color-code-text);
+}
+html.light .hljs-keyword, html.light .hljs-selector-tag  { color: #7c3aed; }
+html.light .hljs-string,  html.light .hljs-attr          { color: #166534; }
+html.light .hljs-number                                   { color: #9a3412; }
+html.light .hljs-comment                                  { color: #6b7280; font-style: italic; }
+html.light .hljs-variable, html.light .hljs-template-variable { color: #b91c1c; }
+html.light .hljs-built_in, html.light .hljs-type         { color: #1d4ed8; }
+html.light .hljs-literal                                  { color: #0891b2; }
+html.light .hljs-meta                                     { color: #b45309; }
+
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
+  <script>
+/* Docling-pipelines Documentation — Site JS */
+
+(function () {
+  'use strict';
+
+  // ── Theme: restore saved preference before first paint (runs immediately) ──
+  var saved = localStorage.getItem('dp-theme');
+  if (saved === 'light') document.documentElement.classList.add('light');
+
+  // ── Everything else needs the DOM to exist ─────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function () {
+
+    // ── Highlight.js ──────────────────────────────────────────────────────────
+    if (window.hljs) {
+      hljs.configure({ ignoreUnescapedHTML: true });
+      document.querySelectorAll('pre code').forEach(function (block) {
+        hljs.highlightElement(block);
+      });
+    }
+
+    // ── Active TOC link on scroll ─────────────────────────────────────────────
+    var headings = document.querySelectorAll('.doc h2, .doc h3');
+    var tocLinks = document.querySelectorAll('.toc-nav a');
+
+    if (tocLinks.length && headings.length) {
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            var id = entry.target.id;
+            tocLinks.forEach(function (a) {
+              a.classList.toggle('is-active', a.getAttribute('href') === '#' + id);
+            });
+          }
+        });
+      }, { rootMargin: '-60px 0px -70% 0px' });
+
+      headings.forEach(function (h) { if (h.id) observer.observe(h); });
+    }
+
+    // ── Keyboard shortcut: / focuses search (future) ──────────────────────────
+    document.addEventListener('keydown', function (e) {
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        var searchInput = document.getElementById('search-input');
+        if (searchInput) searchInput.focus();
+      }
+    });
+
+    // ── Theme toggle click ────────────────────────────────────────────────────
+    var toggleBtn = document.getElementById('theme-toggle-btn');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', function () {
+        var isLight = document.documentElement.classList.toggle('light');
+        localStorage.setItem('dp-theme', isLight ? 'light' : 'dark');
+      });
+    }
+
+    // ── Copy button on code blocks ────────────────────────────────────────────
+    document.querySelectorAll('pre').forEach(function (pre) {
+      var btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.title = 'Copy to clipboard';
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+      pre.style.position = 'relative';
+      pre.appendChild(btn);
+
+      btn.addEventListener('click', function () {
+        var code = pre.querySelector('code');
+        if (code) {
+          navigator.clipboard.writeText(code.innerText).then(function () {
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+            setTimeout(function () {
+              btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+            }, 1800);
+          });
+        }
+      });
+    });
+
+    // ── Fix chapter section numbering ────────────────────────────────────────
+    // sectnums always resets to 1 per page in Antora. Read the chapter number
+    // from the filename (e.g. 05_extracting… → 5) and replace the leading "1."
+    // on every heading text node with the correct chapter number.
+    (function () {
+      var m = window.location.pathname.match(/\/(\d{2})_[^/]+\.html$/);
+      if (!m) return;
+      var chap = parseInt(m[1], 10);
+      if (chap === 1) return;
+      document.querySelectorAll('.doc h2, .doc h3, .doc h4').forEach(function (h) {
+        for (var i = 0; i < h.childNodes.length; i++) {
+          var node = h.childNodes[i];
+          if (node.nodeType === 3 && /^\d+\./.test(node.textContent)) {
+            node.textContent = node.textContent.replace(/^\d+\./, chap + '.');
+            break;
+          }
+        }
+      });
+    }());
+
+  }); // end DOMContentLoaded
+})();
+
+  </script>
+</head>
+<body>
+  <div class="site-wrapper">
+    <header class="site-header">
+  <a href="../../index.html" class="logo">
+    <div class="logo-mark">DS</div>
+    <div>
+      <div class="logo-text">Docling-pipelines </div>
+      <div class="logo-subtitle">The Definitive Guide</div>
+    </div>
+  </a>
+  <div class="header-right">
+    <span class="version-badge">v1.0</span>
+    <button id="theme-toggle-btn" class="theme-toggle" title="Toggle light / dark mode" aria-label="Toggle theme">
+      <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun"  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+</header>
+    <div class="site-body">
+      <nav class="nav-sidebar" aria-label="Site navigation">
+  <ul class="nav-list">
+    <li class="nav-item is-expandable ">
+  <a class="nav-link" href="index.html">Docling-pipelines Guide</a>
+  <ul class="nav-list">
+    <li class="nav-item ">
+  <a class="nav-link" href="01_introduction_and_architecture.html">1. Introduction &amp; Architecture</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="02_installation_and_quick_start.html">2. Installation &amp; Quick Start</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="03_authoring_flows.html">3. Authoring Flows</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="04_ingesting_data.html">4. Ingesting Data</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="05_extracting_and_processing_documents.html">5. Extracting &amp; Processing Documents</a>
+</li>
+<li class="nav-item is-current-page">
+  <a class="nav-link" href="#">6. Data Quality &amp; Enrichment</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="07_vector_storage_and_retrieval.html">7. Vector Storage &amp; Retrieval</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="08_llm_integration.html">8. LLM Integration</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="09_python_api_and_programmatic_usage.html">9. Python API</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="10_extending_docling_pipelines.html">10. Extending Docling-pipelines</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="11_production_deployment_and_observability.html">11. Production Deployment</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="12_troubleshooting_and_contributing.html">12. Troubleshooting &amp; Contributing</a>
+</li>
+  </ul>
+</li>
+  </ul>
+</nav>
+      <main class="main-content" id="main-content">
+        <nav class="breadcrumbs" aria-label="breadcrumbs">
+  <a href="index.html">Docling-pipelines Guide</a>
+  <span class="separator">›</span>
+  <a href="#">6. Data Quality &amp; Enrichment</a>
+
+</nav>
+        <article class="doc">
+          <div class="sect1">
+<h2 id="_data_quality_and_enrichment"><a class="anchor" href="#_data_quality_and_enrichment"></a>1. Data Quality and Enrichment</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>The quality operator suite filters, enriches, and sanitises document tables before
+they are chunked, embedded, or stored. Operators in this category add columns and/or remove
+rows; they never modify downstream operator contracts.</p>
+</div>
+<div class="sect2">
+<h3 id="_quality_operator_overview"><a class="anchor" href="#_quality_operator_overview"></a>1.1. Quality Operator Overview</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 16.6666%;">
+<col style="width: 33.3333%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Short name</th>
+<th class="tableblock halign-left valign-top">Operator</th>
+<th class="tableblock halign-left valign-top">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ededup</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>EdedupOperator</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Remove exact duplicate documents by SHA-256 hash.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>lang_detect</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>LanguageDetect</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Append ISO 639-1 language code and confidence score.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>doc_quality</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>DocQuality</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Compute 11 content-quality metrics.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ml_enrichment</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>MLEnrichmentOperator</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Compute 30 statistical text features.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>readability</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ReadabilityOperator</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Compute up to 13 readability scores.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>pii_and_hap</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>PIIAndHAPAnnotator</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Detect and optionally redact PII and hate/abuse/profanity.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>redaction</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>RedactionOperator</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Mask text matching a regex pattern with a configurable character.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>sql_filter</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>SQLFilterOperator</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Row-level filtering using SQL-style WHERE expressions.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>A typical quality pipeline:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>Extract → Dedup → Language → Enrich → Readability → PII/HAP → Filter → Chunk → Embed</pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_ededupoperator_exact_deduplication"><a class="anchor" href="#_ededupoperator_exact_deduplication"></a>1.2. EdedupOperator — Exact Deduplication</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Short name:</strong> <code>ededup</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Removes rows that share the same <code>doc_id_hash</code> value, keeping only the first occurrence.
+No configuration is required.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "ededup",
+  "name": "deduplicate",
+  "depends_on": ["extract"],
+  "config": {}
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>doc_id_hash</code> column is produced automatically by <code>ExtractOperator</code> and <code>ChunkerOperator</code>.
+If it is missing, the operator raises <code>KeyError: doc_id_hash</code>.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_languagedetect_language_detection"><a class="anchor" href="#_languagedetect_language_detection"></a>1.3. LanguageDetect — Language Detection</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Short name:</strong> <code>lang_detect</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Detects the language of each document&#8217;s text and appends two columns.</p>
+</div>
+<div class="sect3">
+<h4 id="_output_columns"><a class="anchor" href="#_output_columns"></a>1.3.1. Output Columns</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Column</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>lang_name</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>string</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">ISO 639-1 language code (e.g. <code>"en"</code>, <code>"fr"</code>) or <code>"UNKNOWN"</code> on failure.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>lang_score</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float32</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Confidence score 0.0–1.0; <code>0.0</code> for <code>UNKNOWN</code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_configuration"><a class="anchor" href="#_configuration"></a>1.3.2. Configuration</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "lang_detect",
+  "name": "detect_language",
+  "depends_on": ["extract"],
+  "config": {
+    "language_provider": "fasttext",
+    "filter_unknown_language": false
+  }
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Parameter</th>
+<th class="tableblock halign-left valign-top">Default</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>language_provider</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"fasttext"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"fasttext"</code> (176+ languages) or <code>"langdetect"</code> (55 languages, no setup).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>filter_unknown_language</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">When <code>true</code>, rows where detection fails are removed.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>doc_column</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"content"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Input text column.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_provider_comparison"><a class="anchor" href="#_provider_comparison"></a>1.3.3. Provider Comparison</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 33.3333%;">
+<col style="width: 33.3334%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Property</th>
+<th class="tableblock halign-left valign-top">fasttext</th>
+<th class="tableblock halign-left valign-top">langdetect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Languages</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">176+</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">55+</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Accuracy (short text)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">High</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Moderate</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Setup</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Downloads ~131 MB model on first use</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No setup required</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Thread safety</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Singleton model (thread-safe)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Stateless</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_docquality_11_quality_metrics"><a class="anchor" href="#_docquality_11_quality_metrics"></a>1.4. DocQuality — 11 Quality Metrics</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Short name:</strong> <code>doc_quality</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Computes 11 content-quality metric columns per document in a single pass.</p>
+</div>
+<div class="sect3">
+<h4 id="_configuration_2"><a class="anchor" href="#_configuration_2"></a>1.4.1. Configuration</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "doc_quality",
+  "name": "quality_metrics",
+  "depends_on": ["extract"],
+  "config": {
+    "text_lang": "en"
+  }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p><code>text_lang</code> affects profanity detection only (default <code>"en"</code>).</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_output_columns_2"><a class="anchor" href="#_output_columns_2"></a>1.4.2. Output Columns</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Column</th>
+<th class="tableblock halign-left valign-top">Type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>docq_total_words</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>int</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Total word count</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>docq_mean_word_len</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Mean word length in characters</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>docq_symbol_to_word_ratio</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ratio of symbols to words</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>docq_sentence_count</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>int</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Number of sentences</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>docq_lorem_ipsum_ratio</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ratio of lorem ipsum placeholder text</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>docq_contain_bad_word</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bool</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code> if document contains profanity</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>docq_bullet_point_ratio</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ratio of lines starting with bullet points</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>docq_curly_bracket_ratio</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Signal for code/JSON content</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>docq_ellipsis_line_ratio</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ratio of lines ending with <code>&#8230;&#8203;</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>docq_alphabet_word_ratio</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ratio of words containing at least one letter</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>docq_contain_common_en_words</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>1.0</code> if text contains common English words</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Pipe into <code>sql_filter</code> to remove low-quality documents:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "sql_filter",
+  "name": "quality_gate",
+  "depends_on": ["quality_metrics"],
+  "config": {
+    "criteria_list": [
+      "docq_total_words &gt;= 50",
+      "docq_contain_bad_word = false",
+      "docq_lorem_ipsum_ratio &lt; 0.1"
+    ]
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_mlenrichmentoperator_30_statistical_features"><a class="anchor" href="#_mlenrichmentoperator_30_statistical_features"></a>1.5. MLEnrichmentOperator — 30 Statistical Features</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Short name:</strong> <code>ml_enrichment</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Appends 30 statistical text-quality feature columns. Best used before <code>sql_filter</code> for
+word-count, ratio, and n-gram-based filtering, or to enrich a dataset for downstream ML.</p>
+</div>
+<div class="sect3">
+<h4 id="_configuration_3"><a class="anchor" href="#_configuration_3"></a>1.5.1. Configuration</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "ml_enrichment",
+  "name": "enrich",
+  "depends_on": ["detect_language"],
+  "config": {
+    "lang_column": "lang_name",
+    "output_column_prefix": ""
+  }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>The <code>lang_column</code> parameter names the column that provides ISO 639-1 codes for
+language-aware tokenisation. Run <code>lang_detect</code> before <code>ml_enrichment</code>.</p>
+</div>
+<div class="paragraph">
+<p>Selected output columns: <code>num_words</code>, <code>num_chars</code>, <code>alphanumeric_char_ratio</code>,
+<code>dup_paragraphs_ratio</code>, <code>top_2_gram_char_ratio</code> … (30 total). Use
+<code>output_column_prefix</code> to avoid name collisions when running multiple enrichment passes.</p>
+</div>
+<div class="paragraph">
+<p>Example filter after enrichment:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "sql_filter",
+  "name": "filter",
+  "depends_on": ["enrich"],
+  "config": {
+    "criteria_list": [
+      "num_words &gt;= 100",
+      "dup_paragraphs_ratio &lt; 0.3",
+      "alphanumeric_char_ratio &gt;= 0.7"
+    ]
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_readabilityoperator_reading_level_scores"><a class="anchor" href="#_readabilityoperator_reading_level_scores"></a>1.6. ReadabilityOperator — Reading-Level Scores</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Short name:</strong> <code>readability</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Computes up to 13 readability scores and adds a <code>&lt;score_name&gt;_textstat</code> column for each.</p>
+</div>
+<div class="sect3">
+<h4 id="_configuration_4"><a class="anchor" href="#_configuration_4"></a>1.6.1. Configuration</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "readability",
+  "name": "readability_scores",
+  "depends_on": ["extract"],
+  "config": {
+    "readability_score_list": [
+      "flesch_ease",
+      "flesch_kincaid",
+      "gunning_fog"
+    ]
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_available_scores"><a class="anchor" href="#_available_scores"></a>1.6.2. Available Scores</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 20%;">
+<col style="width: 40%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Score name</th>
+<th class="tableblock halign-left valign-top">Output type</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flesch_ease</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">0–100 scale; higher = easier to read</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flesch_kincaid</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">US grade level</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>gunning_fog</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Grade level from complex words</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>smog_index</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Grade level from polysyllabic words</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>coleman_liau_index</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Grade level from letter counts</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>automated_readability_index</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Grade level from char/word ratios</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>dale_chall_readability_score</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Grade level from uncommon words</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>difficult_words</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>int</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Count of uncommon words</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>linsear_write_formula</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Grade level for technical writing</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>text_standard</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Consensus grade from multiple formulas</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>spache_readability</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Primary school grade level (grades 1–4)</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>mcalpine_eflaw</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Readability for ESL/EFL learners</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>reading_time</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>float</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Estimated reading time in seconds</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Filter to readable documents:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "sql_filter",
+  "name": "readability_gate",
+  "depends_on": ["readability_scores"],
+  "config": {
+    "criteria_list": [
+      "flesch_ease_textstat &gt;= 60",
+      "flesch_kincaid_textstat &lt;= 10"
+    ]
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_piiandhapannotator_pii_and_hateabuseprofanity_detection"><a class="anchor" href="#_piiandhapannotator_pii_and_hateabuseprofanity_detection"></a>1.7. PIIAndHAPAnnotator — PII and Hate/Abuse/Profanity Detection</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Short name:</strong> <code>pii_and_hap</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Uses an LLM (LiteLLM or WatsonX) to detect 13 PII types and HAP language.
+Can optionally redact detected spans in the content column.</p>
+</div>
+<div class="sect3">
+<h4 id="_configuration_5"><a class="anchor" href="#_configuration_5"></a>1.7.1. Configuration</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "pii_and_hap",
+  "name": "detect_pii_hap",
+  "depends_on": ["extract"],
+  "config": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/granite4",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "&lt;ollama&gt;"
+    },
+    "expected_redactions": ["pii", "hap"],
+    "redaction": true,
+    "hap_redaction": true,
+    "pii_threshold": 0.5,
+    "hap_threshold": 0.8
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_key_parameters"><a class="anchor" href="#_key_parameters"></a>1.7.2. Key Parameters</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Parameter</th>
+<th class="tableblock halign-left valign-top">Default</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>expected_redactions</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>["pii","hap"]</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Which detection types to run: any subset of <code>["pii","hap"]</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>redaction</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Replace detected PII spans with <code>redaction_character</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>hap_redaction</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Replace detected HAP spans with <code>hap_redaction_character</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>pii_list</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">All 13 types</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PII types to detect.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>pii_threshold</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>0.5</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Confidence threshold for PII (0.0–1.0).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>hap_threshold</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>0.8</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Confidence threshold for HAP (0.0–1.0).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>display_pii</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Add <code>*_info</code> columns with actual detected values. <strong>Never enable in production.</strong></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_supported_pii_types"><a class="anchor" href="#_supported_pii_types"></a>1.7.3. Supported PII Types</h4>
+<div class="paragraph">
+<p><code>BankAccountNumber</code>, <code>CreditCardNumber</code>, <code>EmailAddress</code>, <code>IPAddress</code>, <code>PhoneNumber</code>,
+<code>SocialSecurityNumber</code>, <code>PersonName</code>, <code>DateOfBirth</code>, <code>Address</code>, <code>PassportNumber</code>,
+<code>DriverLicenseNumber</code>, <code>NationalID</code>, <code>MedicalRecordNumber</code>.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_output_columns_3"><a class="anchor" href="#_output_columns_3"></a>1.7.4. Output Columns</h4>
+<div class="paragraph">
+<p>One <code>int64</code> count column per PII type (e.g. <code>pii_email_address</code>, <code>pii_phone_number</code>) plus
+<code>hap</code> (count of HAP instances). When <code>redaction: true</code>, the <code>content</code> column is modified
+in-place.</p>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_redactionoperator_pattern_based_redaction"><a class="anchor" href="#_redactionoperator_pattern_based_redaction"></a>1.8. RedactionOperator — Pattern-Based Redaction</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Short name:</strong> <code>redaction</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Masks text matching a regular expression with a configurable character.
+Use this as a lightweight complement to <code>pii_and_hap</code> for known structured patterns
+(emails, phone numbers, SSNs) that do not need LLM-based detection.</p>
+</div>
+<div class="sect3">
+<h4 id="_configuration_6"><a class="anchor" href="#_configuration_6"></a>1.8.1. Configuration</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "redaction",
+  "name": "redact_emails",
+  "depends_on": ["extract"],
+  "config": {
+    "redaction_regex": "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}",
+    "redaction_masking_character": "*"
+  }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Chain multiple instances for different PII types:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">[
+  {
+    "type": "redaction",
+    "name": "redact_emails",
+    "depends_on": ["extract"],
+    "config": {
+      "redaction_regex": "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"
+    }
+  },
+  {
+    "type": "redaction",
+    "name": "redact_phones",
+    "depends_on": ["redact_emails"],
+    "config": {
+      "redaction_regex": "\\b\\d{3}-\\d{3}-\\d{4}\\b",
+      "redaction_masking_character": "#"
+    }
+  }
+]</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_common_patterns"><a class="anchor" href="#_common_patterns"></a>1.8.2. Common Patterns</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Target</th>
+<th class="tableblock halign-left valign-top">Regex</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Email address</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code><span class="a-zA-Z0-9._%+-">@[a-zA-Z0-9.-]</span>\\.[a-zA-Z]\{2,}</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">US phone (dashes)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>\\b\\d{3}-\\d{3}-\\d{4}\\b</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">SSN</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>\\b\\d{3}-\\d{2}-\\d{4}\\b</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">16-digit credit card</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>\\b\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}[\\s-]?\\d{4}\\b</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">IPv4 address</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>\\b(?:\\d\{1,3}\\.){3}\\d\{1,3}\\b</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_sqlfilteroperator_row_level_filtering"><a class="anchor" href="#_sqlfilteroperator_row_level_filtering"></a>1.9. SQLFilterOperator — Row-Level Filtering</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Short name:</strong> <code>sql_filter</code></p>
+</li>
+</ul>
+</div>
+<div class="paragraph">
+<p>Applies SQL-style WHERE conditions to a PyArrow table and keeps only matching rows.
+Works on any column present in the input table.</p>
+</div>
+<div class="sect3">
+<h4 id="_configuration_7"><a class="anchor" href="#_configuration_7"></a>1.9.1. Configuration</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "sql_filter",
+  "name": "filter",
+  "depends_on": ["previous_op"],
+  "config": {
+    "criteria_list": [
+      "lang_name = 'en'",
+      "docq_total_words &gt;= 50"
+    ],
+    "logical_operator": "AND"
+  }
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Parameter</th>
+<th class="tableblock halign-left valign-top">Default</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>criteria_list</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>[]</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">SQL WHERE expressions as strings. At least one of <code>criteria_list</code> or <code>criteria_json</code> is required.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>logical_operator</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"AND"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">How to join multiple <code>criteria_list</code> items: <code>"AND"</code> or <code>"OR"</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>criteria_json</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Structured filter with nested logical groups (see below).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>features_to_drop</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>[]</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Column names to remove from the output.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_nested_filter_syntax_criteria_json"><a class="anchor" href="#_nested_filter_syntax_criteria_json"></a>1.9.2. Nested Filter Syntax (<code>criteria_json</code>)</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "criteria_json": {
+    "logical_operator": "AND",
+    "criteria_list": [
+      { "variable": "lang_name", "operator": "in", "value": ["en", "fr"] },
+      {
+        "logical_operator": "OR",
+        "criteria_list": [
+          { "variable": "num_words", "operator": "&gt;", "value": 100 },
+          { "variable": "page_count", "operator": "&gt;", "value": 5 }
+        ]
+      }
+    ]
+  }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Supported operators: <code>=</code> <code>==</code> <code>!=</code> <code>&lt;&gt;</code> <code>&gt;</code> <code>&lt;</code> <code>&gt;=</code> <code>&#8656;</code> <code>LIKE</code> <code>NOT LIKE</code> <code>IN</code>
+<code>NOT IN</code> <code>IS NULL</code> <code>IS NOT NULL</code> <code>BETWEEN</code>.</p>
+</div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+You cannot drop the <code>id</code>, <code>content</code>, <code>pages_processed</code>, <code>allowed_users</code>, or
+<code>chunked_content</code> columns via <code>features_to_drop</code>.
+</td>
+</tr>
+</table>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_composing_a_full_quality_pipeline"><a class="anchor" href="#_composing_a_full_quality_pipeline"></a>1.10. Composing a Full Quality Pipeline</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "flow_name": "quality-enrichment-rag",
+  "flow": [
+    { "type": "ingest_source", "name": "ingest", "config": { "provider": "filesystem", "connection_params": { "paths": ["./corpus"] } } },
+    { "type": "extract_operator", "name": "extract", "depends_on": ["ingest"],
+      "config": { "text_extraction": { "provider": "docling_library" }, "entity_extraction": { "provider": "none" } } },
+    { "type": "ededup",      "name": "dedup",     "depends_on": ["extract"], "config": {} },
+    { "type": "lang_detect", "name": "lang",      "depends_on": ["dedup"],   "config": { "language_provider": "fasttext" } },
+    { "type": "doc_quality", "name": "quality",   "depends_on": ["lang"],    "config": { "text_lang": "en" } },
+    { "type": "sql_filter",  "name": "gate",      "depends_on": ["quality"],
+      "config": { "criteria_list": [ "lang_name = 'en'", "docq_total_words &gt;= 50", "docq_contain_bad_word = false" ] } },
+    { "type": "chunker",     "name": "chunk",     "depends_on": ["gate"],    "config": { "chunk_type": "hybrid", "chunk_size": 512 } },
+    { "type": "embeddings",  "name": "embed",     "depends_on": ["chunk"],
+      "config": { "provider": "litellm", "provider_config": { "model_id": "openai/nomic-embed-text", "api_base": "http://localhost:11434" } } },
+    { "type": "vectordb",    "name": "index",     "depends_on": ["embed"],
+      "config": { "provider": "opensearch", "vector_dimension": 768, "provider_config": { "index_name": "corpus", "host": "localhost", "port": 9200, "use_ssl": false, "verify_certs": false } } }
+  ]
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_troubleshooting"><a class="anchor" href="#_troubleshooting"></a>1.11. Troubleshooting</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Symptom</th>
+<th class="tableblock halign-left valign-top">Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">All <code>docq_*</code> columns are <code>0</code> or <code>null</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The <code>content</code> column is empty. Ensure <code>ExtractOperator</code> produced text content upstream.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>lang_column</code> not found in <code>ml_enrichment</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Run <code>lang_detect</code> before <code>ml_enrichment</code>, or set <code>lang_column</code> to the correct column name.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">All documents filtered by <code>sql_filter</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Threshold is too strict. Start loose and tighten after inspecting column value distributions.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PII detection slow</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">LLM inference latency. For high throughput, use a locally hosted model via Ollama.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>redaction_masking_character</code> error</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Only single characters are accepted. Using a multi-character string raises a validation error.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+        </article>
+        <nav class="page-nav" aria-label="page navigation">
+  <a href="05_extracting_and_processing_documents.html" class="prev">
+    <span class="nav-dir">← Previous</span>
+    <span class="nav-title">5. Extracting &amp; Processing Documents</span>
+  </a>
+  <a href="07_vector_storage_and_retrieval.html" class="next">
+    <span class="nav-dir">Next →</span>
+    <span class="nav-title">7. Vector Storage &amp; Retrieval</span>
+  </a>
+</nav>
+      </main>
+      <aside class="toc-nav" aria-label="Table of contents">
+  <div class="toc-title">On this page</div>
+
+</aside>
+    </div>
+    <footer class="site-footer">
+  <span>Docling-pipelines Documentation</span>
+  <span>·</span>
+  <span>Built with <a href="https://antora.org" target="_blank" rel="noopener">Antora</a></span>
+  <span>·</span>
+  <span>© 2026</span>
+</footer>
+  </div>
+</body>
+</html>

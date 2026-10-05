@@ -106,7 +106,7 @@ frontend/coverage/
 
 
 # Antora documentation book — generated output (built by CI, not committed)
-docs/book/site/
+# docs/book/site/  -- tracked on docs/main for GitHub Pages
 docs/book/ui/
 docs/book/docling-pipelines-guide.pdf
 # Synced chapter copies (source of truth is docs/book/chapters/), but keep index.adoc

@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="generator" content="Antora 3.2.0">
+  <title>Docling-pipelines — The Definitive Guide</title>
+  <meta name="description" content="Docling-pipelines documentation">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DS</text></svg>">
+  <style>
+/* ============================================================
+   Docling-pipelines Documentation — Custom Antora UI Theme
+   Inspired by IBM technical book aesthetic (dark navy + cyan)
+   ============================================================ */
+
+/* ── Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
+
+/* ── CSS Variables — dark mode (default) ── */
+:root {
+  --color-bg:          #0f1117;
+  --color-bg-alt:      #161b27;
+  --color-bg-card:     #1a2035;
+  --color-surface:     #1e2740;
+  --color-border:      #2a3550;
+  --color-accent:      #33b1ff;
+  --color-accent-dim:  #1a6ea0;
+  --color-accent-glow: rgba(51,177,255,.15);
+  --color-text:        #d4dbe8;
+  --color-text-dim:    #8898aa;
+  --color-text-head:   #ffffff;
+  --color-code-bg:     #111827;
+  --color-code-text:   #e2e8f0;
+  --color-warn:        #f59e0b;
+  --color-note:        #33b1ff;
+  --color-tip:         #34d399;
+  --color-caution:     #f87171;
+  --nav-width:         280px;
+  --header-height:     60px;
+  --font-body:         'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:         'IBM Plex Mono', 'Courier New', monospace;
+  --radius:            6px;
+  --shadow:            0 4px 24px rgba(0,0,0,.45);
+}
+
+/* ── CSS Variables — light mode ── */
+html.light {
+  --color-bg:          #f8f9fb;
+  --color-bg-alt:      #ffffff;
+  --color-bg-card:     #ffffff;
+  --color-surface:     #eef1f6;
+  --color-border:      #d0d7e3;
+  --color-accent:      #0062cc;
+  --color-accent-dim:  #aac8ee;
+  --color-accent-glow: rgba(0,98,204,.10);
+  --color-text:        #1f2328;
+  --color-text-dim:    #57606a;
+  --color-text-head:   #0d1117;
+  --color-code-bg:     #f0f2f5;
+  --color-code-text:   #1f2328;
+  --color-warn:        #b45309;
+  --color-note:        #0062cc;
+  --color-tip:         #1a7f4b;
+  --color-caution:     #cf222e;
+  --shadow:            0 4px 16px rgba(0,0,0,.10);
+}
+
+/* ── Reset / Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layout shell ── */
+.site-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.site-body {
+  display: flex;
+  flex: 1;
+  padding-top: var(--header-height);
+}
+
+/* ── Top header ── */
+.site-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--header-height);
+  background: var(--color-bg-alt);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  z-index: 200;
+  gap: 16px;
+}
+
+.site-header .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.site-header .logo-mark {
+  width: 32px; height: 32px;
+  background: var(--color-accent);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-bg);
+  letter-spacing: -.5px;
+  flex-shrink: 0;
+}
+
+.site-header .logo-text {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text-head);
+  letter-spacing: -.3px;
+}
+
+.site-header .logo-subtitle {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  font-weight: 400;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.site-header .header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.site-header .version-badge {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: .5px;
+}
+
+/* ── Sidebar navigation ── */
+.nav-sidebar {
+  width: var(--nav-width);
+  flex-shrink: 0;
+  background: var(--color-bg-alt);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  height: calc(100vh - var(--header-height));
+  position: sticky;
+  top: var(--header-height);
+  padding: 24px 0 40px;
+}
+
+.nav-sidebar::-webkit-scrollbar { width: 5px; }
+.nav-sidebar::-webkit-scrollbar-track { background: transparent; }
+.nav-sidebar::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+
+.nav-list { list-style: none; }
+
+.nav-list .nav-item > .nav-link {
+  display: block;
+  padding: 7px 24px;
+  color: var(--color-text-dim);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  letter-spacing: .1px;
+  transition: color .15s, background .15s;
+  border-left: 3px solid transparent;
+}
+
+.nav-list .nav-item > .nav-link:hover {
+  color: var(--color-text);
+  background: var(--color-bg-card);
+}
+
+.nav-list .nav-item.is-current-page > .nav-link,
+.nav-list .nav-item.is-current-page > .nav-link:hover {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+  background: var(--color-accent-glow);
+  font-weight: 600;
+}
+
+/* nested nav items */
+.nav-list .nav-list .nav-item > .nav-link {
+  padding-left: 40px;
+  font-size: 12.5px;
+}
+
+.nav-title {
+  display: block;
+  padding: 6px 24px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-top: 16px;
+}
+
+/* ── Main content area ── */
+.main-content {
+  flex: 1;
+  min-width: 0;
+  padding: 48px 64px;
+  max-width: 880px;
+}
+
+/* ── Article / page content ── */
+.doc {
+  max-width: 780px;
+}
+
+/* ── Headings ── */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text-head);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 2em 0 .6em;
+}
+
+h1 { font-size: 2.2rem; margin-top: 0; border-bottom: 1px solid var(--color-border); padding-bottom: .5em; }
+h2 { font-size: 1.6rem; border-bottom: 1px solid var(--color-border); padding-bottom: .3em; }
+h3 { font-size: 1.2rem; }
+h4 { font-size: 1rem; }
+
+/* Chapter number decoration */
+.sect1 > h2::before {
+  content: attr(data-sectnum);
+  display: none;
+}
+
+/* ── Paragraph ── */
+p { margin: 0 0 1em; }
+
+/* ── Links ── */
+a { color: var(--color-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Code blocks ── */
+pre {
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  overflow-x: auto;
+  margin: 1.25em 0;
+  position: relative;
+}
+
+pre code {
+  font-family: var(--font-mono);
+  font-size: .875rem;
+  color: var(--color-code-text);
+  background: none;
+  padding: 0;
+  border: none;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: .875em;
+  background: var(--color-code-bg);
+  color: var(--color-accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+}
+
+/* Syntax highlight colours (highlight.js dark) */
+.hljs-keyword, .hljs-selector-tag  { color: #c678dd; }
+.hljs-string, .hljs-attr           { color: #98c379; }
+.hljs-number                       { color: #d19a66; }
+.hljs-comment                      { color: #5c6370; font-style: italic; }
+.hljs-variable, .hljs-template-variable { color: #e06c75; }
+.hljs-built_in, .hljs-type         { color: #61afef; }
+.hljs-literal                      { color: #56b6c2; }
+.hljs-title.function_              { color: #61afef; }
+.hljs-meta                         { color: #f59e0b; }
+
+/* ── Admonition blocks ── */
+.admonitionblock {
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin: 1.5em 0;
+  display: flex;
+  gap: 16px;
+  border-left: 4px solid;
+}
+
+.admonitionblock td.icon { flex-shrink: 0; min-width: 24px; }
+.admonitionblock td.icon .title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.admonitionblock td.content { flex: 1; }
+.admonitionblock td.content p { margin: 0; font-size: .9rem; }
+
+.admonitionblock.note   { background: rgba(51,177,255,.08); border-color: var(--color-note); }
+.admonitionblock.tip    { background: rgba(52,211,153,.08); border-color: var(--color-tip); }
+.admonitionblock.caution{ background: rgba(248,113,113,.08); border-color: var(--color-caution); }
+.admonitionblock.warning{ background: rgba(245,158,11,.08);  border-color: var(--color-warn); }
+.admonitionblock.important { background: rgba(196,141,255,.08); border-color: #c48dff; }
+
+.admonitionblock.note    .title { color: var(--color-note); }
+.admonitionblock.tip     .title { color: var(--color-tip); }
+.admonitionblock.caution .title { color: var(--color-caution); }
+.admonitionblock.warning .title { color: var(--color-warn); }
+.admonitionblock.important .title { color: #c48dff; }
+
+/* ── Tables ── */
+table.tableblock {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: .9rem;
+}
+
+table.tableblock th {
+  background: var(--color-surface);
+  color: var(--color-text-head);
+  font-weight: 600;
+  padding: 10px 16px;
+  text-align: left;
+  border: 1px solid var(--color-border);
+  letter-spacing: .3px;
+  font-size: .8rem;
+  text-transform: uppercase;
+}
+
+table.tableblock td {
+  padding: 9px 16px;
+  border: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+table.tableblock tr:nth-child(even) td {
+  background: var(--color-bg-card);
+}
+
+table.tableblock tr:hover td {
+  background: var(--color-surface);
+}
+
+/* ── Lists ── */
+ul, ol { padding-left: 1.5em; margin: 0 0 1em; }
+li { margin: .3em 0; }
+
+/* ── Definition lists ── */
+dl dt { font-weight: 600; color: var(--color-text-head); margin-top: .75em; }
+dl dd { margin-left: 1.5em; color: var(--color-text-dim); }
+
+/* ── Horizontal rule ── */
+hr { border: none; border-top: 1px solid var(--color-border); margin: 2em 0; }
+
+/* ── Breadcrumbs ── */
+.breadcrumbs {
+  font-size: 12px;
+  color: var(--color-text-dim);
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.breadcrumbs a { color: var(--color-text-dim); }
+.breadcrumbs a:hover { color: var(--color-accent); }
+.breadcrumbs .separator { color: var(--color-border); }
+.breadcrumbs .current { color: var(--color-text); }
+
+/* ── Page navigation (prev / next) ── */
+.page-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.page-nav a {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  min-width: 0;
+  flex: 1;
+  max-width: 48%;
+  transition: border-color .15s, background .15s;
+}
+
+.page-nav a:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-glow);
+}
+
+.page-nav .nav-dir {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.page-nav .nav-title {
+  font-size: 14px;
+  color: var(--color-text-head);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-nav .next { text-align: right; margin-left: auto; }
+
+/* ── Footer ── */
+.site-footer {
+  background: var(--color-bg-alt);
+  border-top: 1px solid var(--color-border);
+  padding: 16px 24px;
+  font-size: 12px;
+  color: var(--color-text-dim);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.site-footer a { color: var(--color-text-dim); }
+.site-footer a:hover { color: var(--color-accent); }
+
+/* ── TOC (right sidebar) ── */
+.toc-nav {
+  width: 220px;
+  flex-shrink: 0;
+  position: sticky;
+  top: calc(var(--header-height) + 48px);
+  align-self: flex-start;
+  max-height: calc(100vh - var(--header-height) - 80px);
+  overflow-y: auto;
+  padding: 0 16px;
+  font-size: 12px;
+}
+
+.toc-nav::-webkit-scrollbar { width: 3px; }
+.toc-nav::-webkit-scrollbar-thumb { background: var(--color-border); }
+
+.toc-nav .toc-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-bottom: 12px;
+}
+
+.toc-nav a {
+  display: block;
+  color: var(--color-text-dim);
+  padding: 4px 0 4px 8px;
+  border-left: 2px solid transparent;
+  line-height: 1.4;
+  transition: color .15s;
+}
+
+.toc-nav a:hover, .toc-nav a.is-active {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+}
+
+/* ── Hero (index page) ── */
+.hero {
+  background: linear-gradient(135deg, var(--color-bg-alt) 0%, var(--color-bg-card) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 48px 48px;
+  margin-bottom: 48px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, var(--color-accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero h1 {
+  border: none;
+  padding: 0;
+  font-size: 2.6rem;
+  background: linear-gradient(135deg, #ffffff 0%, var(--color-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: .4em;
+}
+
+.hero .hero-sub {
+  font-size: 1.1rem;
+  color: var(--color-text-dim);
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+/* ── Chip / badge ── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-dim);
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  margin: 0 4px 8px 0;
+}
+
+.chip.accent { background: var(--color-accent-glow); border-color: var(--color-accent-dim); color: var(--color-accent); }
+
+/* ── Responsive ── */
+@media (max-width: 1280px) {
+  .toc-nav { display: none; }
+  .main-content { padding: 40px 48px; }
+}
+
+@media (max-width: 900px) {
+  .nav-sidebar { display: none; }
+  .main-content { padding: 32px 24px; }
+}
+
+@media (max-width: 600px) {
+  h1 { font-size: 1.7rem; }
+  h2 { font-size: 1.3rem; }
+  .hero { padding: 32px 24px; }
+  .hero h1 { font-size: 2rem; }
+}
+
+/* ── Copy button (injected by JS) ── */
+.copy-btn {
+  position: absolute;
+  top: 10px; right: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  padding: 4px 6px;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 1;
+  transition: opacity .2s, color .15s;
+}
+pre:hover .copy-btn { opacity: 1; }
+.copy-btn:hover { color: var(--color-accent); border-color: var(--color-accent-dim); }
+
+/* ── Theme toggle button ── */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  border-radius: var(--radius);
+  width: 34px; height: 34px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: 12px;
+  transition: color .2s, border-color .2s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover { color: var(--color-accent); border-color: var(--color-accent-dim); }
+.theme-toggle .icon-sun  { display: none; }
+.theme-toggle .icon-moon { display: block; }
+html.light .theme-toggle .icon-sun  { display: block; }
+html.light .theme-toggle .icon-moon { display: none; }
+
+/* ── Light mode: override highlight.js dark theme ── */
+html.light pre code.hljs,
+html.light pre code[class*="language-"] {
+  background: var(--color-code-bg);
+  color: var(--color-code-text);
+}
+html.light .hljs-keyword, html.light .hljs-selector-tag  { color: #7c3aed; }
+html.light .hljs-string,  html.light .hljs-attr          { color: #166534; }
+html.light .hljs-number                                   { color: #9a3412; }
+html.light .hljs-comment                                  { color: #6b7280; font-style: italic; }
+html.light .hljs-variable, html.light .hljs-template-variable { color: #b91c1c; }
+html.light .hljs-built_in, html.light .hljs-type         { color: #1d4ed8; }
+html.light .hljs-literal                                  { color: #0891b2; }
+html.light .hljs-meta                                     { color: #b45309; }
+
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
+  <script>
+/* Docling-pipelines Documentation — Site JS */
+
+(function () {
+  'use strict';
+
+  // ── Theme: restore saved preference before first paint (runs immediately) ──
+  var saved = localStorage.getItem('dp-theme');
+  if (saved === 'light') document.documentElement.classList.add('light');
+
+  // ── Everything else needs the DOM to exist ─────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function () {
+
+    // ── Highlight.js ──────────────────────────────────────────────────────────
+    if (window.hljs) {
+      hljs.configure({ ignoreUnescapedHTML: true });
+      document.querySelectorAll('pre code').forEach(function (block) {
+        hljs.highlightElement(block);
+      });
+    }
+
+    // ── Active TOC link on scroll ─────────────────────────────────────────────
+    var headings = document.querySelectorAll('.doc h2, .doc h3');
+    var tocLinks = document.querySelectorAll('.toc-nav a');
+
+    if (tocLinks.length && headings.length) {
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            var id = entry.target.id;
+            tocLinks.forEach(function (a) {
+              a.classList.toggle('is-active', a.getAttribute('href') === '#' + id);
+            });
+          }
+        });
+      }, { rootMargin: '-60px 0px -70% 0px' });
+
+      headings.forEach(function (h) { if (h.id) observer.observe(h); });
+    }
+
+    // ── Keyboard shortcut: / focuses search (future) ──────────────────────────
+    document.addEventListener('keydown', function (e) {
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        var searchInput = document.getElementById('search-input');
+        if (searchInput) searchInput.focus();
+      }
+    });
+
+    // ── Theme toggle click ────────────────────────────────────────────────────
+    var toggleBtn = document.getElementById('theme-toggle-btn');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', function () {
+        var isLight = document.documentElement.classList.toggle('light');
+        localStorage.setItem('dp-theme', isLight ? 'light' : 'dark');
+      });
+    }
+
+    // ── Copy button on code blocks ────────────────────────────────────────────
+    document.querySelectorAll('pre').forEach(function (pre) {
+      var btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.title = 'Copy to clipboard';
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+      pre.style.position = 'relative';
+      pre.appendChild(btn);
+
+      btn.addEventListener('click', function () {
+        var code = pre.querySelector('code');
+        if (code) {
+          navigator.clipboard.writeText(code.innerText).then(function () {
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+            setTimeout(function () {
+              btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+            }, 1800);
+          });
+        }
+      });
+    });
+
+    // ── Fix chapter section numbering ────────────────────────────────────────
+    // sectnums always resets to 1 per page in Antora. Read the chapter number
+    // from the filename (e.g. 05_extracting… → 5) and replace the leading "1."
+    // on every heading text node with the correct chapter number.
+    (function () {
+      var m = window.location.pathname.match(/\/(\d{2})_[^/]+\.html$/);
+      if (!m) return;
+      var chap = parseInt(m[1], 10);
+      if (chap === 1) return;
+      document.querySelectorAll('.doc h2, .doc h3, .doc h4').forEach(function (h) {
+        for (var i = 0; i < h.childNodes.length; i++) {
+          var node = h.childNodes[i];
+          if (node.nodeType === 3 && /^\d+\./.test(node.textContent)) {
+            node.textContent = node.textContent.replace(/^\d+\./, chap + '.');
+            break;
+          }
+        }
+      });
+    }());
+
+  }); // end DOMContentLoaded
+})();
+
+  </script>
+</head>
+<body>
+  <div class="site-wrapper">
+    <header class="site-header">
+  <a href="../../index.html" class="logo">
+    <div class="logo-mark">DS</div>
+    <div>
+      <div class="logo-text">Docling-pipelines </div>
+      <div class="logo-subtitle">The Definitive Guide</div>
+    </div>
+  </a>
+  <div class="header-right">
+    <span class="version-badge">v1.0</span>
+    <button id="theme-toggle-btn" class="theme-toggle" title="Toggle light / dark mode" aria-label="Toggle theme">
+      <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun"  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+</header>
+    <div class="site-body">
+      <nav class="nav-sidebar" aria-label="Site navigation">
+  <ul class="nav-list">
+    <li class="nav-item is-expandable ">
+  <a class="nav-link" href="index.html">Docling-pipelines Guide</a>
+  <ul class="nav-list">
+    <li class="nav-item ">
+  <a class="nav-link" href="01_introduction_and_architecture.html">1. Introduction &amp; Architecture</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="02_installation_and_quick_start.html">2. Installation &amp; Quick Start</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="03_authoring_flows.html">3. Authoring Flows</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="04_ingesting_data.html">4. Ingesting Data</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="05_extracting_and_processing_documents.html">5. Extracting &amp; Processing Documents</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="06_data_quality_and_enrichment.html">6. Data Quality &amp; Enrichment</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="07_vector_storage_and_retrieval.html">7. Vector Storage &amp; Retrieval</a>
+</li>
+<li class="nav-item is-current-page">
+  <a class="nav-link" href="#">8. LLM Integration</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="09_python_api_and_programmatic_usage.html">9. Python API</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="10_extending_docling_pipelines.html">10. Extending Docling-pipelines</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="11_production_deployment_and_observability.html">11. Production Deployment</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="12_troubleshooting_and_contributing.html">12. Troubleshooting &amp; Contributing</a>
+</li>
+  </ul>
+</li>
+  </ul>
+</nav>
+      <main class="main-content" id="main-content">
+        <nav class="breadcrumbs" aria-label="breadcrumbs">
+  <a href="index.html">Docling-pipelines Guide</a>
+  <span class="separator">›</span>
+  <a href="#">8. LLM Integration</a>
+
+</nav>
+        <article class="doc">
+          <div class="sect1">
+<h2 id="_llm_integration"><a class="anchor" href="#_llm_integration"></a>1. LLM Integration</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>Several operators — <code>EmbeddingsOperator</code>, <code>ChunkerOperator</code> (summarisation),
+<code>DocumentClassifierOperator</code>, <code>PIIAndHAPAnnotator</code>, and <code>ExtractOperator</code> (entity
+extraction) — all share a unified LLM adapter architecture. This chapter explains that
+architecture and provides the complete provider reference.</p>
+</div>
+<div class="sect2">
+<h3 id="_unified_adapter_architecture"><a class="anchor" href="#_unified_adapter_architecture"></a>1.1. Unified Adapter Architecture</h3>
+<div class="paragraph">
+<p>The LLM layer is built around three port interfaces:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Port</th>
+<th class="tableblock halign-left valign-top">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>LLMInferencePort</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Text generation / completion (used by classifiers, entity extraction, PII/HAP).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>LLMEmbeddingPort</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Dense vector embedding generation (used by <code>EmbeddingsOperator</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>TextDetectionPort</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PII and HAP detection (used by <code>PIIAndHAPAnnotator</code>).</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Two adapters implement one or more ports:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 16.6666%;">
+<col style="width: 33.3333%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Adapter</th>
+<th class="tableblock halign-left valign-top">Implements</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>WatsonxAdapter</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">All three ports</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">IBM WatsonX.ai native API. Optimised for PII/HAP via the <code>/ml/v1/text/detection</code>
+endpoint — no prompt engineering required.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>LiteLLMAdapter</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>LLMInferencePort</code> + <code>LLMEmbeddingPort</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Proxy adapter supporting 100+ providers (Ollama, OpenAI, Azure, Cohere, AWS Bedrock,
+HuggingFace API, etc.) via LiteLLM&#8217;s unified interface.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>The <code>LLMAdapterFactory</code> resolves the correct adapter from a <code>provider</code> string:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">from docpipe.core.adapters.llm_adapter_factory import LLMAdapterFactory
+
+adapter = LLMAdapterFactory.create_llm_adapter(
+    provider="litellm",
+    provider_config={"model_id": "openai/nomic-embed-text", "api_base": "http://localhost:11434"}
+)</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_two_integration_patterns"><a class="anchor" href="#_two_integration_patterns"></a>1.2. Two Integration Patterns</h3>
+<div class="sect3">
+<h4 id="_pattern_a_direct_port_most_operators"><a class="anchor" href="#_pattern_a_direct_port_most_operators"></a>1.2.1. Pattern A — Direct Port (most operators)</h4>
+<div class="paragraph">
+<p><code>EmbeddingsOperator</code>, <code>DocumentClassifierOperator</code>, <code>PIIAndHAPAnnotator</code>, and
+<code>ChunkerOperator</code> (summarisation) use the factory directly — no intermediate service layer:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>Operator → LLMAdapterFactory → WatsonxAdapter | LiteLLMAdapter → Provider API</pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_pattern_b_operator_specific_adapter_layer_entity_extraction_only"><a class="anchor" href="#_pattern_b_operator_specific_adapter_layer_entity_extraction_only"></a>1.2.2. Pattern B — Operator-Specific Adapter Layer (entity extraction only)</h4>
+<div class="paragraph">
+<p><code>ExtractOperator</code> entity extraction has its own adapter layer because entity extraction
+requires richer prompt engineering and document-type-specific schema handling that does not
+fit the general <code>LLMInferencePort</code> contract:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre>ExtractOperator → EntityExtractionPort → LiteLLMEntityAdapter | WatsonxEntityAdapter</pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_provider_configuration_reference"><a class="anchor" href="#_provider_configuration_reference"></a>1.3. Provider Configuration Reference</h3>
+<div class="sect3">
+<h4 id="_watsonx"><a class="anchor" href="#_watsonx"></a>1.3.1. WatsonX</h4>
+<div class="paragraph">
+<p>WatsonX is the recommended provider for IBM enterprise workloads. It is the only adapter
+that supports the native PII/HAP detection API.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "provider": "watsonx",
+  "provider_config": {
+    "model_id": "ibm/granite-13b-chat-v2",
+    "api_key": "${WATSONX_API_KEY}",
+    "api_base": "https://us-south.ml.cloud.ibm.com",
+    "container_kind": "project",
+    "container_id": "${WATSONX_PROJECT_ID}",
+    "timeout": 300
+  }
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>model_id</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">WatsonX model identifier (e.g. <code>ibm/granite-13b-chat-v2</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>api_key</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">IBM Cloud API key.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>api_base</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">WatsonX endpoint URL (e.g. <code><a href="https://us-south.ml.cloud.ibm.com" class="bare">https://us-south.ml.cloud.ibm.com</a></code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>container_kind</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"project"</code> or <code>"space"</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>container_id</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Project or space UUID.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>timeout</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>300</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Request timeout in seconds.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>For embeddings, use <code>ibm/slate-125m-english-rtrvr</code> as the model ID and set
+<code>enable_rate_limiting: true</code> for production workloads (7 req/s limit).</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_litellm"><a class="anchor" href="#_litellm"></a>1.3.2. LiteLLM</h4>
+<div class="paragraph">
+<p>LiteLLM is a unified proxy that supports 100+ providers via a single API surface.
+Use it for Ollama (local), OpenAI, Azure, Cohere, AWS Bedrock, and many others.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "provider": "litellm",
+  "provider_config": {
+    "model_id": "openai/nomic-embed-text",
+    "api_base": "http://localhost:11434",
+    "api_key": "&lt;ollama&gt;",
+    "timeout": 120,
+    "batch_size": 32
+  }
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 16.6666%;">
+<col style="width: 50.0001%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>model_id</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Model with provider prefix (see table below).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>api_key</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Depends</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">API key for the provider. Use <code>"&lt;ollama&gt;"</code> as a placeholder for Ollama.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>api_base</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Depends</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Custom endpoint URL (required for Ollama, Azure, etc.).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>timeout</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>120</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Request timeout in seconds.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>batch_size</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>32</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Texts per batch (for embeddings).</p></td>
+</tr>
+</tbody>
+</table>
+<div class="sect4">
+<h5 id="_litellm_model_prefix_reference"><a class="anchor" href="#_litellm_model_prefix_reference"></a>LiteLLM Model Prefix Reference</h5>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 25%;">
+<col style="width: 50%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Provider</th>
+<th class="tableblock halign-left valign-top">Prefix</th>
+<th class="tableblock halign-left valign-top">Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ollama</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>openai/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>openai/nomic-embed-text</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OpenAI</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>openai/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>openai/text-embedding-3-small</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Azure OpenAI</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>azure/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>azure/text-embedding-ada-002</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Cohere</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>cohere/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>cohere/embed-english-v3.0</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">AWS Bedrock</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bedrock/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>bedrock/amazon.titan-embed-text-v1</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">HuggingFace API</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>huggingface/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>huggingface/sentence-transformers/all-MiniLM-L6-v2</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">WatsonX via LiteLLM</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>watsonx/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>watsonx/ibm/slate-125m-english-rtrvr</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_huggingface_embeddings_only"><a class="anchor" href="#_huggingface_embeddings_only"></a>1.3.3. HuggingFace (Embeddings Only)</h4>
+<div class="paragraph">
+<p>HuggingFace local inference runs the sentence-transformers model in-process. No API key,
+no network call, no cost. Supports CPU, CUDA, and Apple Silicon (MPS).</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "provider": "huggingface",
+  "provider_config": {
+    "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+    "use_local": true,
+    "device": "cpu",
+    "batch_size": 32
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_operator_specific_llm_configuration"><a class="anchor" href="#_operator_specific_llm_configuration"></a>1.4. Operator-Specific LLM Configuration</h3>
+<div class="sect3">
+<h4 id="_embeddingsoperator"><a class="anchor" href="#_embeddingsoperator"></a>1.4.1. EmbeddingsOperator</h4>
+<div class="paragraph">
+<p>See <a href="#_embeddingsoperator">EmbeddingsOperator</a> for the full parameter reference. Key provider fields:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "embeddings",
+  "config": {
+    "provider": "litellm | huggingface | watsonx",
+    "provider_config": { ... },
+    "token_limit": 8192,
+    "overlap_ratio": 0.2
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_chunkeroperator_summarisation"><a class="anchor" href="#_chunkeroperator_summarisation"></a>1.4.2. ChunkerOperator (Summarisation)</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "chunker",
+  "config": {
+    "chunk_type": "hybrid",
+    "summarization": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/llama3.2",
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "&lt;ollama&gt;"
+      },
+      "summary_sentences": 2,
+      "summary_max_words": 30,
+      "max_input_tokens": 8000
+    }
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_documentclassifieroperator"><a class="anchor" href="#_documentclassifieroperator"></a>1.4.3. DocumentClassifierOperator</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "document_classifier",
+  "config": {
+    "provider": "litellm",
+    "provider_config": {
+      "model_id": "openai/granite4",
+      "api_base": "http://localhost:11434/v1",
+      "api_key": "&lt;ollama&gt;"
+    },
+    "document_types": {
+      "invoice": "A supplier invoice with line items",
+      "contract": "A legal agreement between parties"
+    },
+    "confidence_threshold": 0.7
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_piiandhapannotator"><a class="anchor" href="#_piiandhapannotator"></a>1.4.4. PIIAndHAPAnnotator</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "pii_and_hap",
+  "config": {
+    "provider": "litellm | watsonx",
+    "provider_config": { ... },
+    "expected_redactions": ["pii", "hap"],
+    "pii_threshold": 0.5,
+    "hap_threshold": 0.8
+  }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>For WatsonX, the <code>provider_config</code> is the same as the general WatsonX config above.
+WatsonX uses its native <code>/ml/v1/text/detection</code> API — no prompts needed.</p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_extractoperator_entity_extraction"><a class="anchor" href="#_extractoperator_entity_extraction"></a>1.4.5. ExtractOperator (Entity Extraction)</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "extract_operator",
+  "config": {
+    "text_extraction": { "provider": "docling_library" },
+    "entity_extraction": {
+      "provider": "litellm",
+      "provider_config": {
+        "model_id": "openai/llama3.2",
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "&lt;ollama&gt;"
+      },
+      "document_types": {
+        "invoice": "Extract: invoice_number, vendor_name, total_amount, date"
+      }
+    }
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_mlenrichmentoperator"><a class="anchor" href="#_mlenrichmentoperator"></a>1.5. MLEnrichmentOperator</h3>
+<div class="paragraph">
+<p><code>MLEnrichmentOperator</code> does not use LLM adapters — it computes statistical features
+using the Data Prep Kit library, not a language model. See <a href="#_data_quality_and_enrichment">[_data_quality_and_enrichment]</a>
+for its full parameter reference.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_entitycurationoperator"><a class="anchor" href="#_entitycurationoperator"></a>1.6. EntityCurationOperator</h3>
+<div class="paragraph">
+<p><code>EntityCurationOperator</code> applies schema-driven field filtering and type transformations
+to the raw entities produced by <code>ExtractOperator</code>. It does not call an LLM.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "type": "entity_curation",
+  "name": "curate",
+  "depends_on": ["extract"],
+  "config": {
+    "entities_column": "entities",
+    "document_type_column": "document_type"
+  }
+}</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Four built-in transformations are applied based on field definitions in 40+ bundled
+document class schemas:</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Transformation</th>
+<th class="tableblock halign-left valign-top">Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>currency_to_numeric</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Locale-aware currency parsing via Babel. <code>"$1,234.56"</code> → <code>1234.56</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>make_date_uniform</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Normalise dates to ISO 8601 <code>YYYY-MM-DD</code>. Uses <code>datefinder</code> as fallback.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>to_number</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Multi-language number word parsing. <code>"一千"</code> → <code>1000</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>weight_to_numeric</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Locale-aware weight conversion. <code>"5斤"</code> (zh_CN) → <code>2.5</code> (kg).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_choosing_an_llm_provider"><a class="anchor" href="#_choosing_an_llm_provider"></a>1.7. Choosing an LLM Provider</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Use case</th>
+<th class="tableblock halign-left valign-top">Recommendation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Local development / prototyping</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ollama via LiteLLM (<code>openai/</code> prefix). Free, no API key, offline.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Production text generation / classification</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">LiteLLM (OpenAI or Azure). Reliable, well-documented rate limits.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">IBM enterprise / regulated workloads</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">WatsonX native. Governance, audit trail, native PII/HAP detection.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">High-concurrency embedding (offline)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">HuggingFace local. No external calls; scales to 600+ parallel processes.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Multilingual embeddings</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">LiteLLM (Cohere <code>embed-multilingual-v3.0</code>).</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_environment_variables_for_llm_providers"><a class="anchor" href="#_environment_variables_for_llm_providers"></a>1.8. Environment Variables for LLM Providers</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Variable</th>
+<th class="tableblock halign-left valign-top">Provider</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>OPENAI_API_KEY</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">OpenAI via LiteLLM.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>HUGGINGFACE_API_KEY</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">HuggingFace Inference API (only when <code>use_local: false</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>WATSONX_API_KEY</code>, <code>WATSONX_API_BASE_URL</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">WatsonX native adapter.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>OLLAMA_HOST</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ollama server base URL (default <code><a href="http://localhost:11434" class="bare">http://localhost:11434</a></code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>AZURE_API_KEY</code>, <code>AZURE_API_BASE</code>, <code>AZURE_API_VERSION</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Azure OpenAI via LiteLLM.</p></td>
+</tr>
+</tbody>
+</table>
+<div class="paragraph">
+<p>Store all keys as environment variables. Use <code>${VAR_NAME}</code> substitution syntax in flow JSON:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">"api_key": "${OPENAI_API_KEY}"</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_troubleshooting"><a class="anchor" href="#_troubleshooting"></a>1.9. Troubleshooting</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Symptom</th>
+<th class="tableblock halign-left valign-top">Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ConfigurationError: Unknown provider</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Use one of: <code>huggingface</code>, <code>litellm</code>, <code>watsonx</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ExternalServiceError: Model not found</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Check <code>model_id</code> — verify the model is pulled (<code>ollama list</code>) or available on the provider.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>The api_key client option must be set</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Set the provider API key env var (<code>OPENAI_API_KEY</code>, etc.) or in <code>provider_config.api_key</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ollama <code>connection refused</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Run <code>ollama serve</code>. Check <code>OLLAMA_HOST</code> if using a non-default host.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">WatsonX <code>401 Unauthorized</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Verify <code>api_key</code>, <code>api_base</code>, <code>container_kind</code>, and <code>container_id</code> are all set correctly.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Slow embedding throughput</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">For local workloads, switch to HuggingFace <code>use_local: true</code>. For cloud, increase <code>batch_size</code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+        </article>
+        <nav class="page-nav" aria-label="page navigation">
+  <a href="07_vector_storage_and_retrieval.html" class="prev">
+    <span class="nav-dir">← Previous</span>
+    <span class="nav-title">7. Vector Storage &amp; Retrieval</span>
+  </a>
+  <a href="09_python_api_and_programmatic_usage.html" class="next">
+    <span class="nav-dir">Next →</span>
+    <span class="nav-title">9. Python API</span>
+  </a>
+</nav>
+      </main>
+      <aside class="toc-nav" aria-label="Table of contents">
+  <div class="toc-title">On this page</div>
+
+</aside>
+    </div>
+    <footer class="site-footer">
+  <span>Docling-pipelines Documentation</span>
+  <span>·</span>
+  <span>Built with <a href="https://antora.org" target="_blank" rel="noopener">Antora</a></span>
+  <span>·</span>
+  <span>© 2026</span>
+</footer>
+  </div>
+</body>
+</html>

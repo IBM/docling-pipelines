@@ -1,0 +1,1425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="generator" content="Antora 3.2.0">
+  <title>Docling-pipelines — The Definitive Guide</title>
+  <meta name="description" content="Docling-pipelines documentation">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DS</text></svg>">
+  <style>
+/* ============================================================
+   Docling-pipelines Documentation — Custom Antora UI Theme
+   Inspired by IBM technical book aesthetic (dark navy + cyan)
+   ============================================================ */
+
+/* ── Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
+
+/* ── CSS Variables — dark mode (default) ── */
+:root {
+  --color-bg:          #0f1117;
+  --color-bg-alt:      #161b27;
+  --color-bg-card:     #1a2035;
+  --color-surface:     #1e2740;
+  --color-border:      #2a3550;
+  --color-accent:      #33b1ff;
+  --color-accent-dim:  #1a6ea0;
+  --color-accent-glow: rgba(51,177,255,.15);
+  --color-text:        #d4dbe8;
+  --color-text-dim:    #8898aa;
+  --color-text-head:   #ffffff;
+  --color-code-bg:     #111827;
+  --color-code-text:   #e2e8f0;
+  --color-warn:        #f59e0b;
+  --color-note:        #33b1ff;
+  --color-tip:         #34d399;
+  --color-caution:     #f87171;
+  --nav-width:         280px;
+  --header-height:     60px;
+  --font-body:         'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:         'IBM Plex Mono', 'Courier New', monospace;
+  --radius:            6px;
+  --shadow:            0 4px 24px rgba(0,0,0,.45);
+}
+
+/* ── CSS Variables — light mode ── */
+html.light {
+  --color-bg:          #f8f9fb;
+  --color-bg-alt:      #ffffff;
+  --color-bg-card:     #ffffff;
+  --color-surface:     #eef1f6;
+  --color-border:      #d0d7e3;
+  --color-accent:      #0062cc;
+  --color-accent-dim:  #aac8ee;
+  --color-accent-glow: rgba(0,98,204,.10);
+  --color-text:        #1f2328;
+  --color-text-dim:    #57606a;
+  --color-text-head:   #0d1117;
+  --color-code-bg:     #f0f2f5;
+  --color-code-text:   #1f2328;
+  --color-warn:        #b45309;
+  --color-note:        #0062cc;
+  --color-tip:         #1a7f4b;
+  --color-caution:     #cf222e;
+  --shadow:            0 4px 16px rgba(0,0,0,.10);
+}
+
+/* ── Reset / Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layout shell ── */
+.site-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.site-body {
+  display: flex;
+  flex: 1;
+  padding-top: var(--header-height);
+}
+
+/* ── Top header ── */
+.site-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--header-height);
+  background: var(--color-bg-alt);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  z-index: 200;
+  gap: 16px;
+}
+
+.site-header .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.site-header .logo-mark {
+  width: 32px; height: 32px;
+  background: var(--color-accent);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-bg);
+  letter-spacing: -.5px;
+  flex-shrink: 0;
+}
+
+.site-header .logo-text {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text-head);
+  letter-spacing: -.3px;
+}
+
+.site-header .logo-subtitle {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  font-weight: 400;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.site-header .header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.site-header .version-badge {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: .5px;
+}
+
+/* ── Sidebar navigation ── */
+.nav-sidebar {
+  width: var(--nav-width);
+  flex-shrink: 0;
+  background: var(--color-bg-alt);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  height: calc(100vh - var(--header-height));
+  position: sticky;
+  top: var(--header-height);
+  padding: 24px 0 40px;
+}
+
+.nav-sidebar::-webkit-scrollbar { width: 5px; }
+.nav-sidebar::-webkit-scrollbar-track { background: transparent; }
+.nav-sidebar::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+
+.nav-list { list-style: none; }
+
+.nav-list .nav-item > .nav-link {
+  display: block;
+  padding: 7px 24px;
+  color: var(--color-text-dim);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  letter-spacing: .1px;
+  transition: color .15s, background .15s;
+  border-left: 3px solid transparent;
+}
+
+.nav-list .nav-item > .nav-link:hover {
+  color: var(--color-text);
+  background: var(--color-bg-card);
+}
+
+.nav-list .nav-item.is-current-page > .nav-link,
+.nav-list .nav-item.is-current-page > .nav-link:hover {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+  background: var(--color-accent-glow);
+  font-weight: 600;
+}
+
+/* nested nav items */
+.nav-list .nav-list .nav-item > .nav-link {
+  padding-left: 40px;
+  font-size: 12.5px;
+}
+
+.nav-title {
+  display: block;
+  padding: 6px 24px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-top: 16px;
+}
+
+/* ── Main content area ── */
+.main-content {
+  flex: 1;
+  min-width: 0;
+  padding: 48px 64px;
+  max-width: 880px;
+}
+
+/* ── Article / page content ── */
+.doc {
+  max-width: 780px;
+}
+
+/* ── Headings ── */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text-head);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 2em 0 .6em;
+}
+
+h1 { font-size: 2.2rem; margin-top: 0; border-bottom: 1px solid var(--color-border); padding-bottom: .5em; }
+h2 { font-size: 1.6rem; border-bottom: 1px solid var(--color-border); padding-bottom: .3em; }
+h3 { font-size: 1.2rem; }
+h4 { font-size: 1rem; }
+
+/* Chapter number decoration */
+.sect1 > h2::before {
+  content: attr(data-sectnum);
+  display: none;
+}
+
+/* ── Paragraph ── */
+p { margin: 0 0 1em; }
+
+/* ── Links ── */
+a { color: var(--color-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Code blocks ── */
+pre {
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  overflow-x: auto;
+  margin: 1.25em 0;
+  position: relative;
+}
+
+pre code {
+  font-family: var(--font-mono);
+  font-size: .875rem;
+  color: var(--color-code-text);
+  background: none;
+  padding: 0;
+  border: none;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: .875em;
+  background: var(--color-code-bg);
+  color: var(--color-accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+}
+
+/* Syntax highlight colours (highlight.js dark) */
+.hljs-keyword, .hljs-selector-tag  { color: #c678dd; }
+.hljs-string, .hljs-attr           { color: #98c379; }
+.hljs-number                       { color: #d19a66; }
+.hljs-comment                      { color: #5c6370; font-style: italic; }
+.hljs-variable, .hljs-template-variable { color: #e06c75; }
+.hljs-built_in, .hljs-type         { color: #61afef; }
+.hljs-literal                      { color: #56b6c2; }
+.hljs-title.function_              { color: #61afef; }
+.hljs-meta                         { color: #f59e0b; }
+
+/* ── Admonition blocks ── */
+.admonitionblock {
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin: 1.5em 0;
+  display: flex;
+  gap: 16px;
+  border-left: 4px solid;
+}
+
+.admonitionblock td.icon { flex-shrink: 0; min-width: 24px; }
+.admonitionblock td.icon .title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.admonitionblock td.content { flex: 1; }
+.admonitionblock td.content p { margin: 0; font-size: .9rem; }
+
+.admonitionblock.note   { background: rgba(51,177,255,.08); border-color: var(--color-note); }
+.admonitionblock.tip    { background: rgba(52,211,153,.08); border-color: var(--color-tip); }
+.admonitionblock.caution{ background: rgba(248,113,113,.08); border-color: var(--color-caution); }
+.admonitionblock.warning{ background: rgba(245,158,11,.08);  border-color: var(--color-warn); }
+.admonitionblock.important { background: rgba(196,141,255,.08); border-color: #c48dff; }
+
+.admonitionblock.note    .title { color: var(--color-note); }
+.admonitionblock.tip     .title { color: var(--color-tip); }
+.admonitionblock.caution .title { color: var(--color-caution); }
+.admonitionblock.warning .title { color: var(--color-warn); }
+.admonitionblock.important .title { color: #c48dff; }
+
+/* ── Tables ── */
+table.tableblock {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: .9rem;
+}
+
+table.tableblock th {
+  background: var(--color-surface);
+  color: var(--color-text-head);
+  font-weight: 600;
+  padding: 10px 16px;
+  text-align: left;
+  border: 1px solid var(--color-border);
+  letter-spacing: .3px;
+  font-size: .8rem;
+  text-transform: uppercase;
+}
+
+table.tableblock td {
+  padding: 9px 16px;
+  border: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+table.tableblock tr:nth-child(even) td {
+  background: var(--color-bg-card);
+}
+
+table.tableblock tr:hover td {
+  background: var(--color-surface);
+}
+
+/* ── Lists ── */
+ul, ol { padding-left: 1.5em; margin: 0 0 1em; }
+li { margin: .3em 0; }
+
+/* ── Definition lists ── */
+dl dt { font-weight: 600; color: var(--color-text-head); margin-top: .75em; }
+dl dd { margin-left: 1.5em; color: var(--color-text-dim); }
+
+/* ── Horizontal rule ── */
+hr { border: none; border-top: 1px solid var(--color-border); margin: 2em 0; }
+
+/* ── Breadcrumbs ── */
+.breadcrumbs {
+  font-size: 12px;
+  color: var(--color-text-dim);
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.breadcrumbs a { color: var(--color-text-dim); }
+.breadcrumbs a:hover { color: var(--color-accent); }
+.breadcrumbs .separator { color: var(--color-border); }
+.breadcrumbs .current { color: var(--color-text); }
+
+/* ── Page navigation (prev / next) ── */
+.page-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.page-nav a {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  min-width: 0;
+  flex: 1;
+  max-width: 48%;
+  transition: border-color .15s, background .15s;
+}
+
+.page-nav a:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-glow);
+}
+
+.page-nav .nav-dir {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.page-nav .nav-title {
+  font-size: 14px;
+  color: var(--color-text-head);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-nav .next { text-align: right; margin-left: auto; }
+
+/* ── Footer ── */
+.site-footer {
+  background: var(--color-bg-alt);
+  border-top: 1px solid var(--color-border);
+  padding: 16px 24px;
+  font-size: 12px;
+  color: var(--color-text-dim);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.site-footer a { color: var(--color-text-dim); }
+.site-footer a:hover { color: var(--color-accent); }
+
+/* ── TOC (right sidebar) ── */
+.toc-nav {
+  width: 220px;
+  flex-shrink: 0;
+  position: sticky;
+  top: calc(var(--header-height) + 48px);
+  align-self: flex-start;
+  max-height: calc(100vh - var(--header-height) - 80px);
+  overflow-y: auto;
+  padding: 0 16px;
+  font-size: 12px;
+}
+
+.toc-nav::-webkit-scrollbar { width: 3px; }
+.toc-nav::-webkit-scrollbar-thumb { background: var(--color-border); }
+
+.toc-nav .toc-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-bottom: 12px;
+}
+
+.toc-nav a {
+  display: block;
+  color: var(--color-text-dim);
+  padding: 4px 0 4px 8px;
+  border-left: 2px solid transparent;
+  line-height: 1.4;
+  transition: color .15s;
+}
+
+.toc-nav a:hover, .toc-nav a.is-active {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+}
+
+/* ── Hero (index page) ── */
+.hero {
+  background: linear-gradient(135deg, var(--color-bg-alt) 0%, var(--color-bg-card) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 48px 48px;
+  margin-bottom: 48px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, var(--color-accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero h1 {
+  border: none;
+  padding: 0;
+  font-size: 2.6rem;
+  background: linear-gradient(135deg, #ffffff 0%, var(--color-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: .4em;
+}
+
+.hero .hero-sub {
+  font-size: 1.1rem;
+  color: var(--color-text-dim);
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+/* ── Chip / badge ── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-dim);
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  margin: 0 4px 8px 0;
+}
+
+.chip.accent { background: var(--color-accent-glow); border-color: var(--color-accent-dim); color: var(--color-accent); }
+
+/* ── Responsive ── */
+@media (max-width: 1280px) {
+  .toc-nav { display: none; }
+  .main-content { padding: 40px 48px; }
+}
+
+@media (max-width: 900px) {
+  .nav-sidebar { display: none; }
+  .main-content { padding: 32px 24px; }
+}
+
+@media (max-width: 600px) {
+  h1 { font-size: 1.7rem; }
+  h2 { font-size: 1.3rem; }
+  .hero { padding: 32px 24px; }
+  .hero h1 { font-size: 2rem; }
+}
+
+/* ── Copy button (injected by JS) ── */
+.copy-btn {
+  position: absolute;
+  top: 10px; right: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  padding: 4px 6px;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 1;
+  transition: opacity .2s, color .15s;
+}
+pre:hover .copy-btn { opacity: 1; }
+.copy-btn:hover { color: var(--color-accent); border-color: var(--color-accent-dim); }
+
+/* ── Theme toggle button ── */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  border-radius: var(--radius);
+  width: 34px; height: 34px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: 12px;
+  transition: color .2s, border-color .2s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover { color: var(--color-accent); border-color: var(--color-accent-dim); }
+.theme-toggle .icon-sun  { display: none; }
+.theme-toggle .icon-moon { display: block; }
+html.light .theme-toggle .icon-sun  { display: block; }
+html.light .theme-toggle .icon-moon { display: none; }
+
+/* ── Light mode: override highlight.js dark theme ── */
+html.light pre code.hljs,
+html.light pre code[class*="language-"] {
+  background: var(--color-code-bg);
+  color: var(--color-code-text);
+}
+html.light .hljs-keyword, html.light .hljs-selector-tag  { color: #7c3aed; }
+html.light .hljs-string,  html.light .hljs-attr          { color: #166534; }
+html.light .hljs-number                                   { color: #9a3412; }
+html.light .hljs-comment                                  { color: #6b7280; font-style: italic; }
+html.light .hljs-variable, html.light .hljs-template-variable { color: #b91c1c; }
+html.light .hljs-built_in, html.light .hljs-type         { color: #1d4ed8; }
+html.light .hljs-literal                                  { color: #0891b2; }
+html.light .hljs-meta                                     { color: #b45309; }
+
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
+  <script>
+/* Docling-pipelines Documentation — Site JS */
+
+(function () {
+  'use strict';
+
+  // ── Theme: restore saved preference before first paint (runs immediately) ──
+  var saved = localStorage.getItem('dp-theme');
+  if (saved === 'light') document.documentElement.classList.add('light');
+
+  // ── Everything else needs the DOM to exist ─────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function () {
+
+    // ── Highlight.js ──────────────────────────────────────────────────────────
+    if (window.hljs) {
+      hljs.configure({ ignoreUnescapedHTML: true });
+      document.querySelectorAll('pre code').forEach(function (block) {
+        hljs.highlightElement(block);
+      });
+    }
+
+    // ── Active TOC link on scroll ─────────────────────────────────────────────
+    var headings = document.querySelectorAll('.doc h2, .doc h3');
+    var tocLinks = document.querySelectorAll('.toc-nav a');
+
+    if (tocLinks.length && headings.length) {
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            var id = entry.target.id;
+            tocLinks.forEach(function (a) {
+              a.classList.toggle('is-active', a.getAttribute('href') === '#' + id);
+            });
+          }
+        });
+      }, { rootMargin: '-60px 0px -70% 0px' });
+
+      headings.forEach(function (h) { if (h.id) observer.observe(h); });
+    }
+
+    // ── Keyboard shortcut: / focuses search (future) ──────────────────────────
+    document.addEventListener('keydown', function (e) {
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        var searchInput = document.getElementById('search-input');
+        if (searchInput) searchInput.focus();
+      }
+    });
+
+    // ── Theme toggle click ────────────────────────────────────────────────────
+    var toggleBtn = document.getElementById('theme-toggle-btn');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', function () {
+        var isLight = document.documentElement.classList.toggle('light');
+        localStorage.setItem('dp-theme', isLight ? 'light' : 'dark');
+      });
+    }
+
+    // ── Copy button on code blocks ────────────────────────────────────────────
+    document.querySelectorAll('pre').forEach(function (pre) {
+      var btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.title = 'Copy to clipboard';
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+      pre.style.position = 'relative';
+      pre.appendChild(btn);
+
+      btn.addEventListener('click', function () {
+        var code = pre.querySelector('code');
+        if (code) {
+          navigator.clipboard.writeText(code.innerText).then(function () {
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+            setTimeout(function () {
+              btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+            }, 1800);
+          });
+        }
+      });
+    });
+
+    // ── Fix chapter section numbering ────────────────────────────────────────
+    // sectnums always resets to 1 per page in Antora. Read the chapter number
+    // from the filename (e.g. 05_extracting… → 5) and replace the leading "1."
+    // on every heading text node with the correct chapter number.
+    (function () {
+      var m = window.location.pathname.match(/\/(\d{2})_[^/]+\.html$/);
+      if (!m) return;
+      var chap = parseInt(m[1], 10);
+      if (chap === 1) return;
+      document.querySelectorAll('.doc h2, .doc h3, .doc h4').forEach(function (h) {
+        for (var i = 0; i < h.childNodes.length; i++) {
+          var node = h.childNodes[i];
+          if (node.nodeType === 3 && /^\d+\./.test(node.textContent)) {
+            node.textContent = node.textContent.replace(/^\d+\./, chap + '.');
+            break;
+          }
+        }
+      });
+    }());
+
+  }); // end DOMContentLoaded
+})();
+
+  </script>
+</head>
+<body>
+  <div class="site-wrapper">
+    <header class="site-header">
+  <a href="../../index.html" class="logo">
+    <div class="logo-mark">DS</div>
+    <div>
+      <div class="logo-text">Docling-pipelines </div>
+      <div class="logo-subtitle">The Definitive Guide</div>
+    </div>
+  </a>
+  <div class="header-right">
+    <span class="version-badge">v1.0</span>
+    <button id="theme-toggle-btn" class="theme-toggle" title="Toggle light / dark mode" aria-label="Toggle theme">
+      <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun"  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+</header>
+    <div class="site-body">
+      <nav class="nav-sidebar" aria-label="Site navigation">
+  <ul class="nav-list">
+    <li class="nav-item is-expandable ">
+  <a class="nav-link" href="index.html">Docling-pipelines Guide</a>
+  <ul class="nav-list">
+    <li class="nav-item ">
+  <a class="nav-link" href="01_introduction_and_architecture.html">1. Introduction &amp; Architecture</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="02_installation_and_quick_start.html">2. Installation &amp; Quick Start</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="03_authoring_flows.html">3. Authoring Flows</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="04_ingesting_data.html">4. Ingesting Data</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="05_extracting_and_processing_documents.html">5. Extracting &amp; Processing Documents</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="06_data_quality_and_enrichment.html">6. Data Quality &amp; Enrichment</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="07_vector_storage_and_retrieval.html">7. Vector Storage &amp; Retrieval</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="08_llm_integration.html">8. LLM Integration</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="09_python_api_and_programmatic_usage.html">9. Python API</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="10_extending_docling_pipelines.html">10. Extending Docling-pipelines</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="11_production_deployment_and_observability.html">11. Production Deployment</a>
+</li>
+<li class="nav-item is-current-page">
+  <a class="nav-link" href="#">12. Troubleshooting &amp; Contributing</a>
+</li>
+  </ul>
+</li>
+  </ul>
+</nav>
+      <main class="main-content" id="main-content">
+        <nav class="breadcrumbs" aria-label="breadcrumbs">
+  <a href="index.html">Docling-pipelines Guide</a>
+  <span class="separator">›</span>
+  <a href="#">12. Troubleshooting &amp; Contributing</a>
+
+</nav>
+        <article class="doc">
+          <div class="sect1">
+<h2 id="_troubleshooting_and_contributing"><a class="anchor" href="#_troubleshooting_and_contributing"></a>1. Troubleshooting and Contributing</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>This chapter consolidates common diagnostic steps, known issues and fixes, the code
+standards that apply to all contributions, and the PR workflow.</p>
+</div>
+<div class="sect2">
+<h3 id="_diagnostics_checklist"><a class="anchor" href="#_diagnostics_checklist"></a>1.1. Diagnostics Checklist</h3>
+<div class="paragraph">
+<p>Run these checks whenever a flow fails or behaves unexpectedly.</p>
+</div>
+<div class="sect3">
+<h4 id="_environment"><a class="anchor" href="#_environment"></a>1.1.1. Environment</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash"># Python version (must be 3.12.x)
+python --version
+
+# Virtual environment active?
+which python    # should point to .venv/bin/python
+
+# Imports work?
+python -c "from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager; print('OK')"
+
+# List all operators
+docling-pipelines --list-operators</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_validate_before_running"><a class="anchor" href="#_validate_before_running"></a>1.1.2. Validate Before Running</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">docling-pipelines --flow-file my_flow.json --validate</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Validation catches:</p>
+</div>
+<div class="ulist">
+<ul>
+<li>
+<p>Unknown operator types.</p>
+</li>
+<li>
+<p>Missing required config fields.</p>
+</li>
+<li>
+<p>Circular <code>depends_on</code> references.</p>
+</li>
+<li>
+<p>DAG topology errors (no root, disjoint nodes).</p>
+</li>
+<li>
+<p>Operator-specific config errors (via each operator&#8217;s <code>validate()</code> method).</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_enable_debug_logging"><a class="anchor" href="#_enable_debug_logging"></a>1.1.3. Enable Debug Logging</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file my_flow.json 2&gt;&amp;1 | tee pipeline.log</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Look for lines containing <code>ERROR</code> or <code>WARNING</code> first:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">grep -E "ERROR|WARNING" pipeline.log | head -40</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_check_external_services"><a class="anchor" href="#_check_external_services"></a>1.1.4. Check External Services</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash"># Ollama
+curl http://localhost:11434/api/version
+ollama list
+
+# OpenSearch
+curl -k -u admin:Admin@12345 https://localhost:9200/_cluster/health
+
+# Milvus
+python -c "from pymilvus import connections; connections.connect(); print('Milvus OK')"</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_common_issues_and_fixes"><a class="anchor" href="#_common_issues_and_fixes"></a>1.2. Common Issues and Fixes</h3>
+<div class="sect3">
+<h4 id="_installation_issues"><a class="anchor" href="#_installation_issues"></a>1.2.1. Installation Issues</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Symptom</th>
+<th class="tableblock halign-left valign-top">Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ModuleNotFoundError: No module named 'docpipe'</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Set <code>PYTHONPATH</code>: <code>export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>python --version</code> shows 3.13+</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Install Python 3.12. With pyenv: <code>pyenv install 3.12 &amp;&amp; pyenv local 3.12</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>uv: command not found</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Install uv: <code>curl -LsSf <a href="https://astral.sh/uv/install.sh" class="bare">https://astral.sh/uv/install.sh</a> | sh</code></p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Import errors after dependency change</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Re-run <code>uv pip install -e ".[dev]"</code> and <code>uv lock</code></p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_flow_validation_errors"><a class="anchor" href="#_flow_validation_errors"></a>1.2.2. Flow Validation Errors</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Symptom</th>
+<th class="tableblock halign-left valign-top">Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Operator type 'xxx' not found</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Check the short name in <code>--list-operators</code>. Custom operators: verify <code>DOCPIPE_CUSTOM_OPERATORS</code> is set.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Flow must have exactly one root node</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Exactly one node must have no <code>depends_on</code>. The root must be an ingest operator.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Circular dependency detected</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Draw the dependency graph and find the cycle. Use unique node names.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>Depends-on node 'xxx' does not exist</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The name in <code>depends_on</code> must exactly match a <code>name</code> field elsewhere in the flow.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_operator_execution_errors"><a class="anchor" href="#_operator_execution_errors"></a>1.2.3. Operator Execution Errors</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Symptom</th>
+<th class="tableblock halign-left valign-top">Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>content</code> column is empty</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ExtractOperator</code> failed or the source file is unreadable. Enable OCR if the file is scanned.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>KeyError: doc_id_hash</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ExtractOperator</code> must run before any operator that requires <code>doc_id_hash</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>chunked_content column not found</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ChunkerOperator</code> must run before <code>EmbeddingsOperator</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">All documents filtered by <code>sql_filter</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The threshold is too strict. Inspect column value distributions before setting thresholds.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ConfigurationError: Unknown provider</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Check the provider name. For embeddings: <code>huggingface</code>, <code>litellm</code>, <code>watsonx</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ExternalServiceError: Model not found</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Verify the <code>model_id</code>. For Ollama: run <code>ollama pull &lt;model&gt;</code> first.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_ingest_errors"><a class="anchor" href="#_ingest_errors"></a>1.2.4. Ingest Errors</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Symptom</th>
+<th class="tableblock halign-left valign-top">Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Zero documents ingested</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Check <code>include_filter</code> — extensions must match files in the source path.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>FileNotFoundError</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Verify paths in <code>connection_params.paths</code> exist and are readable.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">S3 <code>NoCredentialsError</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Set <code>AWS_ACCESS_KEY_ID</code> and <code>AWS_SECRET_ACCESS_KEY</code> environment variables.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">SharePoint <code>401 Unauthorized</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Verify <code>client_id</code>, <code>client_secret</code>, <code>tenant_id</code>. Ensure the app has <code>Sites.Read.All</code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_vector_database_errors"><a class="anchor" href="#_vector_database_errors"></a>1.2.5. Vector Database Errors</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Symptom</th>
+<th class="tableblock halign-left valign-top">Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>ConnectionError</code> to OpenSearch</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Run OpenSearch and verify <code>host</code>/<code>port</code> in <code>provider_config</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>DocpipeException: index_name is required</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Add <code>"index_name"</code> inside <code>provider_config</code> (OpenSearch) or <code>"collection_name"</code> (Milvus).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Vector dimension mismatch</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Omit <code>vector_dimension</code> for auto-detection, or set it to match the model&#8217;s output size.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Milvus Lite lock error</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Set <code>enable_micro_batching: false</code> in <code>global_config</code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_llm_api_errors"><a class="anchor" href="#_llm_api_errors"></a>1.2.6. LLM / API Errors</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Symptom</th>
+<th class="tableblock halign-left valign-top">Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ollama <code>connection refused</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Run <code>ollama serve</code>. Check <code>OLLAMA_HOST</code> if using a non-default host.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>api_key client option must be set</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Set the API key env var (<code>OPENAI_API_KEY</code>, etc.) or in <code>provider_config.api_key</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">WatsonX <code>401 Unauthorized</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Verify <code>api_key</code>, <code>api_base</code>, <code>container_kind</code>, and <code>container_id</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Slow embedding throughput</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Switch to HuggingFace <code>use_local: true</code> for offline workloads, or increase <code>batch_size</code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_performance_issues"><a class="anchor" href="#_performance_issues"></a>1.2.7. Performance Issues</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 40%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Symptom</th>
+<th class="tableblock halign-left valign-top">Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Slow extraction on large PDFs</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Use <code>max_workers: 1</code> and GPU acceleration (<code>"device": "cuda"</code>) for heavy workloads.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">High memory usage</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Reduce <code>micro_batch_size</code>. Default is 100; try 20–50 for large documents.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Slow OpenSearch indexing</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Increase <code>batch_size</code> in <code>provider_config</code> (500–1000). Tune <code>ef_construction</code> and <code>m</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Semantic chunking hangs</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Ollama must be running. Verify with <code>curl <a href="http://localhost:11434/api/version" class="bare">http://localhost:11434/api/version</a></code>.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_code_standards"><a class="anchor" href="#_code_standards"></a>1.3. Code Standards</h3>
+<div class="paragraph">
+<p>All contributions — including custom operators — must follow these standards:</p>
+</div>
+<div class="sect3">
+<h4 id="_python_rules"><a class="anchor" href="#_python_rules"></a>1.3.1. Python Rules</h4>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>Python version:</strong> 3.12+. No 3.13+ features.</p>
+</li>
+<li>
+<p><strong>Keyword-only arguments:</strong> All functions/methods with 2+ parameters (excluding
+<code>self</code>/<code>cls</code>) must use a keyword-only separator:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">def my_method(self, *, param1: str, param2: int) -&gt; None: ...</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p><strong>Logging:</strong> Always use <code>get_logger()</code> from
+<code>docpipe.utils.infrastructure.logging</code>. Never <code>logging.getLogger()</code>.</p>
+</li>
+<li>
+<p><strong>Log format:</strong> No f-strings in <code>logger.*()</code> calls. Use <code>%s</code> format:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">logger.info("Processing %s documents", len(table))  # correct
+logger.info(f"Processing {len(table)} documents")   # wrong</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p><strong>No emoji or non-ASCII characters</strong> in any log message.</p>
+</li>
+<li>
+<p><strong>Business logic in <code>transform()</code> only</strong> — no orchestration logic, no direct DB calls.</p>
+</li>
+<li>
+<p><strong>Port interfaces for LLM</strong> — never import concrete adapter classes from operators.</p>
+</li>
+<li>
+<p><strong><code>get_metadata()</code> must be <code>@staticmethod</code></strong> — no <code>self</code>.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_documentation_rules"><a class="anchor" href="#_documentation_rules"></a>1.3.2. Documentation Rules</h4>
+<div class="ulist">
+<ul>
+<li>
+<p>Every new operator needs a <code>&lt;operator_name&gt;_readme.md</code> in
+<code>docs/operators/&lt;category&gt;/</code> with exactly 8 sections in order:
+<code>Overview</code> → <code>Key Features</code> → <code>Operator Configuration</code> → <code>Parameters</code> →
+<code>Output Columns</code> → <code>Examples</code> → <code>Troubleshooting</code> → <code>Architecture</code> (optional).</p>
+</li>
+<li>
+<p>File naming: <code>UPPER_SNAKE_CASE.md</code> for guide and reference docs; lowercase
+<code>&lt;operator_name&gt;_readme.md</code> for operator readmes.</p>
+</li>
+<li>
+<p>Every change goes in <code>CHANGELOG.md</code> under <code>## [Unreleased]</code>.</p>
+</li>
+<li>
+<p>Validate Mermaid diagrams at <a href="https://mermaid.live" class="bare">https://mermaid.live</a> before committing.</p>
+</li>
+<li>
+<p>Use relative paths in all documentation links.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_testing_standards"><a class="anchor" href="#_testing_standards"></a>1.3.3. Testing Standards</h4>
+<div class="ulist">
+<ul>
+<li>
+<p>Overall unit test coverage: <strong>80% minimum</strong> (enforced by CI).</p>
+</li>
+<li>
+<p>Core operator <code>transform()</code> methods: <strong>90%+ coverage</strong>.</p>
+</li>
+<li>
+<p>Run the full test suite before pushing:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">pytest tests/unit/ --cov=src/docpipe --cov-report=term-missing</code></pre>
+</div>
+</div>
+</li>
+<li>
+<p>Run pre-commit hooks before pushing:</p>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash">pre-commit run --all-files</code></pre>
+</div>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_pr_workflow"><a class="anchor" href="#_pr_workflow"></a>1.4. PR Workflow</h3>
+<div class="sect3">
+<h4 id="_before_opening_a_pr"><a class="anchor" href="#_before_opening_a_pr"></a>1.4.1. Before Opening a PR</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash"># 1. Create a feature branch
+git checkout -b feat/my-new-operator
+
+# 2. Make changes
+
+# 3. Run tests
+pytest tests/unit/ -v
+
+# 4. Run linting and formatting
+pre-commit run --all-files
+
+# 5. Update CHANGELOG.md under ## [Unreleased]</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_branch_naming"><a class="anchor" href="#_branch_naming"></a>1.4.2. Branch Naming</h4>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 33.3333%;">
+<col style="width: 66.6667%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Prefix</th>
+<th class="tableblock halign-left valign-top">Use for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>feat/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">New features and operators.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>fix/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Bug fixes.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>docs/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Documentation changes only.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>chore/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Non-functional changes (deps, CI, tooling).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>refactor/</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Code refactoring without behaviour change.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect3">
+<h4 id="_commit_message_format"><a class="anchor" href="#_commit_message_format"></a>1.4.3. Commit Message Format</h4>
+<div class="paragraph">
+<p>Follow the Conventional Commits specification:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-none hljs">feat(operators): add WordCountFilterOperator
+
+Adds a new Quality-category operator that filters documents below
+a configurable word count threshold. Requires ml_enrichment upstream.
+
+Closes #123</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>Format: <code>&lt;type&gt;(&lt;scope&gt;): &lt;short description&gt;</code></p>
+</div>
+<div class="paragraph">
+<p>Types: <code>feat</code>, <code>fix</code>, <code>docs</code>, <code>chore</code>, <code>refactor</code>, <code>test</code>, <code>perf</code></p>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_pr_checklist"><a class="anchor" href="#_pr_checklist"></a>1.4.4. PR Checklist</h4>
+<div class="paragraph">
+<p>Before requesting review, ensure:</p>
+</div>
+<div class="ulist checklist">
+<ul class="checklist">
+<li>
+<p><i class="fa fa-square-o"></i> All new public functions have docstrings.</p>
+</li>
+<li>
+<p><i class="fa fa-square-o"></i> New operators are registered in <code>DOCPIPE_OPERATORS</code> frozenset.</p>
+</li>
+<li>
+<p><i class="fa fa-square-o"></i> Operator readme written in <code>docs/operators/&lt;category&gt;/</code>.</p>
+</li>
+<li>
+<p><i class="fa fa-square-o"></i> Unit tests added for <code>transform()</code> with <code>&gt;=90%</code> coverage.</p>
+</li>
+<li>
+<p><i class="fa fa-square-o"></i> <code>CHANGELOG.md</code> updated.</p>
+</li>
+<li>
+<p><i class="fa fa-square-o"></i> <code>pre-commit run --all-files</code> passes with no errors.</p>
+</li>
+<li>
+<p><i class="fa fa-square-o"></i> <code>pytest tests/unit/</code> passes with no failures.</p>
+</li>
+<li>
+<p><i class="fa fa-square-o"></i> No hardcoded credentials or API keys.</p>
+</li>
+</ul>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_running_tests"><a class="anchor" href="#_running_tests"></a>1.4.5. Running Tests</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash"># All unit tests
+pytest tests/unit/ -v
+
+# Specific operator tests
+pytest tests/unit/core/operators/ -v
+
+# With coverage
+pytest --cov=src/docpipe --cov-report=html
+
+# Integration tests (requires services)
+pytest tests/integration/ -v</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_getting_help"><a class="anchor" href="#_getting_help"></a>1.5. Getting Help</h3>
+<div class="ulist">
+<ul>
+<li>
+<p><strong>GitHub Issues</strong> — report bugs or request features at
+<a href="https://github.com/IBM/docling-pipelines/issues" class="bare">https://github.com/IBM/docling-pipelines/issues</a>.</p>
+</li>
+<li>
+<p><strong>GitHub Discussions</strong> — ask questions, share use cases, discuss design.</p>
+</li>
+<li>
+<p><strong>Documentation</strong> — the <code>docs/</code> directory contains detailed guides, reference docs, and
+operator READMEs. Start with <code>docs/guides/FLOW_CONFIGURATION_GUIDE.md</code> for flow authoring
+and <code>docs/reference/OPERATORS.md</code> for the full operator parameter reference.</p>
+</li>
+<li>
+<p><strong>Sample Flows</strong> — the <code>sample_flows/</code> directory contains annotated, working pipeline
+definitions covering all major use cases.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+        </article>
+        <nav class="page-nav" aria-label="page navigation">
+  <a href="11_production_deployment_and_observability.html" class="prev">
+    <span class="nav-dir">← Previous</span>
+    <span class="nav-title">11. Production Deployment</span>
+  </a>
+</nav>
+      </main>
+      <aside class="toc-nav" aria-label="Table of contents">
+  <div class="toc-title">On this page</div>
+
+</aside>
+    </div>
+    <footer class="site-footer">
+  <span>Docling-pipelines Documentation</span>
+  <span>·</span>
+  <span>Built with <a href="https://antora.org" target="_blank" rel="noopener">Antora</a></span>
+  <span>·</span>
+  <span>© 2026</span>
+</footer>
+  </div>
+</body>
+</html>

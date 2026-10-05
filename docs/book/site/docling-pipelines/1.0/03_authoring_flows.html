@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="generator" content="Antora 3.2.0">
+  <title>Docling-pipelines — The Definitive Guide</title>
+  <meta name="description" content="Docling-pipelines documentation">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DS</text></svg>">
+  <style>
+/* ============================================================
+   Docling-pipelines Documentation — Custom Antora UI Theme
+   Inspired by IBM technical book aesthetic (dark navy + cyan)
+   ============================================================ */
+
+/* ── Fonts ── */
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
+
+/* ── CSS Variables — dark mode (default) ── */
+:root {
+  --color-bg:          #0f1117;
+  --color-bg-alt:      #161b27;
+  --color-bg-card:     #1a2035;
+  --color-surface:     #1e2740;
+  --color-border:      #2a3550;
+  --color-accent:      #33b1ff;
+  --color-accent-dim:  #1a6ea0;
+  --color-accent-glow: rgba(51,177,255,.15);
+  --color-text:        #d4dbe8;
+  --color-text-dim:    #8898aa;
+  --color-text-head:   #ffffff;
+  --color-code-bg:     #111827;
+  --color-code-text:   #e2e8f0;
+  --color-warn:        #f59e0b;
+  --color-note:        #33b1ff;
+  --color-tip:         #34d399;
+  --color-caution:     #f87171;
+  --nav-width:         280px;
+  --header-height:     60px;
+  --font-body:         'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono:         'IBM Plex Mono', 'Courier New', monospace;
+  --radius:            6px;
+  --shadow:            0 4px 24px rgba(0,0,0,.45);
+}
+
+/* ── CSS Variables — light mode ── */
+html.light {
+  --color-bg:          #f8f9fb;
+  --color-bg-alt:      #ffffff;
+  --color-bg-card:     #ffffff;
+  --color-surface:     #eef1f6;
+  --color-border:      #d0d7e3;
+  --color-accent:      #0062cc;
+  --color-accent-dim:  #aac8ee;
+  --color-accent-glow: rgba(0,98,204,.10);
+  --color-text:        #1f2328;
+  --color-text-dim:    #57606a;
+  --color-text-head:   #0d1117;
+  --color-code-bg:     #f0f2f5;
+  --color-code-text:   #1f2328;
+  --color-warn:        #b45309;
+  --color-note:        #0062cc;
+  --color-tip:         #1a7f4b;
+  --color-caution:     #cf222e;
+  --shadow:            0 4px 16px rgba(0,0,0,.10);
+}
+
+/* ── Reset / Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; scroll-behavior: smooth; }
+
+body {
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-weight: 400;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Layout shell ── */
+.site-wrapper {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.site-body {
+  display: flex;
+  flex: 1;
+  padding-top: var(--header-height);
+}
+
+/* ── Top header ── */
+.site-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  height: var(--header-height);
+  background: var(--color-bg-alt);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  padding: 0 24px;
+  z-index: 200;
+  gap: 16px;
+}
+
+.site-header .logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.site-header .logo-mark {
+  width: 32px; height: 32px;
+  background: var(--color-accent);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-bg);
+  letter-spacing: -.5px;
+  flex-shrink: 0;
+}
+
+.site-header .logo-text {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text-head);
+  letter-spacing: -.3px;
+}
+
+.site-header .logo-subtitle {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  font-weight: 400;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+}
+
+.site-header .header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.site-header .version-badge {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-accent);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: .5px;
+}
+
+/* ── Sidebar navigation ── */
+.nav-sidebar {
+  width: var(--nav-width);
+  flex-shrink: 0;
+  background: var(--color-bg-alt);
+  border-right: 1px solid var(--color-border);
+  overflow-y: auto;
+  height: calc(100vh - var(--header-height));
+  position: sticky;
+  top: var(--header-height);
+  padding: 24px 0 40px;
+}
+
+.nav-sidebar::-webkit-scrollbar { width: 5px; }
+.nav-sidebar::-webkit-scrollbar-track { background: transparent; }
+.nav-sidebar::-webkit-scrollbar-thumb { background: var(--color-border); border-radius: 3px; }
+
+.nav-list { list-style: none; }
+
+.nav-list .nav-item > .nav-link {
+  display: block;
+  padding: 7px 24px;
+  color: var(--color-text-dim);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  letter-spacing: .1px;
+  transition: color .15s, background .15s;
+  border-left: 3px solid transparent;
+}
+
+.nav-list .nav-item > .nav-link:hover {
+  color: var(--color-text);
+  background: var(--color-bg-card);
+}
+
+.nav-list .nav-item.is-current-page > .nav-link,
+.nav-list .nav-item.is-current-page > .nav-link:hover {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+  background: var(--color-accent-glow);
+  font-weight: 600;
+}
+
+/* nested nav items */
+.nav-list .nav-list .nav-item > .nav-link {
+  padding-left: 40px;
+  font-size: 12.5px;
+}
+
+.nav-title {
+  display: block;
+  padding: 6px 24px 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-top: 16px;
+}
+
+/* ── Main content area ── */
+.main-content {
+  flex: 1;
+  min-width: 0;
+  padding: 48px 64px;
+  max-width: 880px;
+}
+
+/* ── Article / page content ── */
+.doc {
+  max-width: 780px;
+}
+
+/* ── Headings ── */
+h1, h2, h3, h4, h5, h6 {
+  color: var(--color-text-head);
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 2em 0 .6em;
+}
+
+h1 { font-size: 2.2rem; margin-top: 0; border-bottom: 1px solid var(--color-border); padding-bottom: .5em; }
+h2 { font-size: 1.6rem; border-bottom: 1px solid var(--color-border); padding-bottom: .3em; }
+h3 { font-size: 1.2rem; }
+h4 { font-size: 1rem; }
+
+/* Chapter number decoration */
+.sect1 > h2::before {
+  content: attr(data-sectnum);
+  display: none;
+}
+
+/* ── Paragraph ── */
+p { margin: 0 0 1em; }
+
+/* ── Links ── */
+a { color: var(--color-accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Code blocks ── */
+pre {
+  background: var(--color-code-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  overflow-x: auto;
+  margin: 1.25em 0;
+  position: relative;
+}
+
+pre code {
+  font-family: var(--font-mono);
+  font-size: .875rem;
+  color: var(--color-code-text);
+  background: none;
+  padding: 0;
+  border: none;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: .875em;
+  background: var(--color-code-bg);
+  color: var(--color-accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border);
+}
+
+/* Syntax highlight colours (highlight.js dark) */
+.hljs-keyword, .hljs-selector-tag  { color: #c678dd; }
+.hljs-string, .hljs-attr           { color: #98c379; }
+.hljs-number                       { color: #d19a66; }
+.hljs-comment                      { color: #5c6370; font-style: italic; }
+.hljs-variable, .hljs-template-variable { color: #e06c75; }
+.hljs-built_in, .hljs-type         { color: #61afef; }
+.hljs-literal                      { color: #56b6c2; }
+.hljs-title.function_              { color: #61afef; }
+.hljs-meta                         { color: #f59e0b; }
+
+/* ── Admonition blocks ── */
+.admonitionblock {
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin: 1.5em 0;
+  display: flex;
+  gap: 16px;
+  border-left: 4px solid;
+}
+
+.admonitionblock td.icon { flex-shrink: 0; min-width: 24px; }
+.admonitionblock td.icon .title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.admonitionblock td.content { flex: 1; }
+.admonitionblock td.content p { margin: 0; font-size: .9rem; }
+
+.admonitionblock.note   { background: rgba(51,177,255,.08); border-color: var(--color-note); }
+.admonitionblock.tip    { background: rgba(52,211,153,.08); border-color: var(--color-tip); }
+.admonitionblock.caution{ background: rgba(248,113,113,.08); border-color: var(--color-caution); }
+.admonitionblock.warning{ background: rgba(245,158,11,.08);  border-color: var(--color-warn); }
+.admonitionblock.important { background: rgba(196,141,255,.08); border-color: #c48dff; }
+
+.admonitionblock.note    .title { color: var(--color-note); }
+.admonitionblock.tip     .title { color: var(--color-tip); }
+.admonitionblock.caution .title { color: var(--color-caution); }
+.admonitionblock.warning .title { color: var(--color-warn); }
+.admonitionblock.important .title { color: #c48dff; }
+
+/* ── Tables ── */
+table.tableblock {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5em 0;
+  font-size: .9rem;
+}
+
+table.tableblock th {
+  background: var(--color-surface);
+  color: var(--color-text-head);
+  font-weight: 600;
+  padding: 10px 16px;
+  text-align: left;
+  border: 1px solid var(--color-border);
+  letter-spacing: .3px;
+  font-size: .8rem;
+  text-transform: uppercase;
+}
+
+table.tableblock td {
+  padding: 9px 16px;
+  border: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+table.tableblock tr:nth-child(even) td {
+  background: var(--color-bg-card);
+}
+
+table.tableblock tr:hover td {
+  background: var(--color-surface);
+}
+
+/* ── Lists ── */
+ul, ol { padding-left: 1.5em; margin: 0 0 1em; }
+li { margin: .3em 0; }
+
+/* ── Definition lists ── */
+dl dt { font-weight: 600; color: var(--color-text-head); margin-top: .75em; }
+dl dd { margin-left: 1.5em; color: var(--color-text-dim); }
+
+/* ── Horizontal rule ── */
+hr { border: none; border-top: 1px solid var(--color-border); margin: 2em 0; }
+
+/* ── Breadcrumbs ── */
+.breadcrumbs {
+  font-size: 12px;
+  color: var(--color-text-dim);
+  margin-bottom: 28px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.breadcrumbs a { color: var(--color-text-dim); }
+.breadcrumbs a:hover { color: var(--color-accent); }
+.breadcrumbs .separator { color: var(--color-border); }
+.breadcrumbs .current { color: var(--color-text); }
+
+/* ── Page navigation (prev / next) ── */
+.page-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 64px;
+  padding-top: 24px;
+  border-top: 1px solid var(--color-border);
+}
+
+.page-nav a {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  text-decoration: none;
+  min-width: 0;
+  flex: 1;
+  max-width: 48%;
+  transition: border-color .15s, background .15s;
+}
+
+.page-nav a:hover {
+  border-color: var(--color-accent);
+  background: var(--color-accent-glow);
+}
+
+.page-nav .nav-dir {
+  font-size: 11px;
+  color: var(--color-text-dim);
+  text-transform: uppercase;
+  letter-spacing: .8px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.page-nav .nav-title {
+  font-size: 14px;
+  color: var(--color-text-head);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.page-nav .next { text-align: right; margin-left: auto; }
+
+/* ── Footer ── */
+.site-footer {
+  background: var(--color-bg-alt);
+  border-top: 1px solid var(--color-border);
+  padding: 16px 24px;
+  font-size: 12px;
+  color: var(--color-text-dim);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.site-footer a { color: var(--color-text-dim); }
+.site-footer a:hover { color: var(--color-accent); }
+
+/* ── TOC (right sidebar) ── */
+.toc-nav {
+  width: 220px;
+  flex-shrink: 0;
+  position: sticky;
+  top: calc(var(--header-height) + 48px);
+  align-self: flex-start;
+  max-height: calc(100vh - var(--header-height) - 80px);
+  overflow-y: auto;
+  padding: 0 16px;
+  font-size: 12px;
+}
+
+.toc-nav::-webkit-scrollbar { width: 3px; }
+.toc-nav::-webkit-scrollbar-thumb { background: var(--color-border); }
+
+.toc-nav .toc-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  margin-bottom: 12px;
+}
+
+.toc-nav a {
+  display: block;
+  color: var(--color-text-dim);
+  padding: 4px 0 4px 8px;
+  border-left: 2px solid transparent;
+  line-height: 1.4;
+  transition: color .15s;
+}
+
+.toc-nav a:hover, .toc-nav a.is-active {
+  color: var(--color-accent);
+  border-left-color: var(--color-accent);
+}
+
+/* ── Hero (index page) ── */
+.hero {
+  background: linear-gradient(135deg, var(--color-bg-alt) 0%, var(--color-bg-card) 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 48px 48px;
+  margin-bottom: 48px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -40px; right: -40px;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, var(--color-accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero h1 {
+  border: none;
+  padding: 0;
+  font-size: 2.6rem;
+  background: linear-gradient(135deg, #ffffff 0%, var(--color-accent) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: .4em;
+}
+
+.hero .hero-sub {
+  font-size: 1.1rem;
+  color: var(--color-text-dim);
+  max-width: 600px;
+  line-height: 1.6;
+}
+
+/* ── Chip / badge ── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 20px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-dim);
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  margin: 0 4px 8px 0;
+}
+
+.chip.accent { background: var(--color-accent-glow); border-color: var(--color-accent-dim); color: var(--color-accent); }
+
+/* ── Responsive ── */
+@media (max-width: 1280px) {
+  .toc-nav { display: none; }
+  .main-content { padding: 40px 48px; }
+}
+
+@media (max-width: 900px) {
+  .nav-sidebar { display: none; }
+  .main-content { padding: 32px 24px; }
+}
+
+@media (max-width: 600px) {
+  h1 { font-size: 1.7rem; }
+  h2 { font-size: 1.3rem; }
+  .hero { padding: 32px 24px; }
+  .hero h1 { font-size: 2rem; }
+}
+
+/* ── Copy button (injected by JS) ── */
+.copy-btn {
+  position: absolute;
+  top: 10px; right: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-dim);
+  cursor: pointer;
+  padding: 4px 6px;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 1;
+  transition: opacity .2s, color .15s;
+}
+pre:hover .copy-btn { opacity: 1; }
+.copy-btn:hover { color: var(--color-accent); border-color: var(--color-accent-dim); }
+
+/* ── Theme toggle button ── */
+.theme-toggle {
+  background: none;
+  border: 1px solid var(--color-border);
+  color: var(--color-text-dim);
+  border-radius: var(--radius);
+  width: 34px; height: 34px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  margin-left: 12px;
+  transition: color .2s, border-color .2s;
+  flex-shrink: 0;
+}
+.theme-toggle:hover { color: var(--color-accent); border-color: var(--color-accent-dim); }
+.theme-toggle .icon-sun  { display: none; }
+.theme-toggle .icon-moon { display: block; }
+html.light .theme-toggle .icon-sun  { display: block; }
+html.light .theme-toggle .icon-moon { display: none; }
+
+/* ── Light mode: override highlight.js dark theme ── */
+html.light pre code.hljs,
+html.light pre code[class*="language-"] {
+  background: var(--color-code-bg);
+  color: var(--color-code-text);
+}
+html.light .hljs-keyword, html.light .hljs-selector-tag  { color: #7c3aed; }
+html.light .hljs-string,  html.light .hljs-attr          { color: #166534; }
+html.light .hljs-number                                   { color: #9a3412; }
+html.light .hljs-comment                                  { color: #6b7280; font-style: italic; }
+html.light .hljs-variable, html.light .hljs-template-variable { color: #b91c1c; }
+html.light .hljs-built_in, html.light .hljs-type         { color: #1d4ed8; }
+html.light .hljs-literal                                  { color: #0891b2; }
+html.light .hljs-meta                                     { color: #b45309; }
+
+  </style>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js" defer></script>
+  <script>
+/* Docling-pipelines Documentation — Site JS */
+
+(function () {
+  'use strict';
+
+  // ── Theme: restore saved preference before first paint (runs immediately) ──
+  var saved = localStorage.getItem('dp-theme');
+  if (saved === 'light') document.documentElement.classList.add('light');
+
+  // ── Everything else needs the DOM to exist ─────────────────────────────────
+  document.addEventListener('DOMContentLoaded', function () {
+
+    // ── Highlight.js ──────────────────────────────────────────────────────────
+    if (window.hljs) {
+      hljs.configure({ ignoreUnescapedHTML: true });
+      document.querySelectorAll('pre code').forEach(function (block) {
+        hljs.highlightElement(block);
+      });
+    }
+
+    // ── Active TOC link on scroll ─────────────────────────────────────────────
+    var headings = document.querySelectorAll('.doc h2, .doc h3');
+    var tocLinks = document.querySelectorAll('.toc-nav a');
+
+    if (tocLinks.length && headings.length) {
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            var id = entry.target.id;
+            tocLinks.forEach(function (a) {
+              a.classList.toggle('is-active', a.getAttribute('href') === '#' + id);
+            });
+          }
+        });
+      }, { rootMargin: '-60px 0px -70% 0px' });
+
+      headings.forEach(function (h) { if (h.id) observer.observe(h); });
+    }
+
+    // ── Keyboard shortcut: / focuses search (future) ──────────────────────────
+    document.addEventListener('keydown', function (e) {
+      if (e.key === '/' && document.activeElement.tagName !== 'INPUT') {
+        e.preventDefault();
+        var searchInput = document.getElementById('search-input');
+        if (searchInput) searchInput.focus();
+      }
+    });
+
+    // ── Theme toggle click ────────────────────────────────────────────────────
+    var toggleBtn = document.getElementById('theme-toggle-btn');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', function () {
+        var isLight = document.documentElement.classList.toggle('light');
+        localStorage.setItem('dp-theme', isLight ? 'light' : 'dark');
+      });
+    }
+
+    // ── Copy button on code blocks ────────────────────────────────────────────
+    document.querySelectorAll('pre').forEach(function (pre) {
+      var btn = document.createElement('button');
+      btn.className = 'copy-btn';
+      btn.title = 'Copy to clipboard';
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+      pre.style.position = 'relative';
+      pre.appendChild(btn);
+
+      btn.addEventListener('click', function () {
+        var code = pre.querySelector('code');
+        if (code) {
+          navigator.clipboard.writeText(code.innerText).then(function () {
+            btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+            setTimeout(function () {
+              btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+            }, 1800);
+          });
+        }
+      });
+    });
+
+    // ── Fix chapter section numbering ────────────────────────────────────────
+    // sectnums always resets to 1 per page in Antora. Read the chapter number
+    // from the filename (e.g. 05_extracting… → 5) and replace the leading "1."
+    // on every heading text node with the correct chapter number.
+    (function () {
+      var m = window.location.pathname.match(/\/(\d{2})_[^/]+\.html$/);
+      if (!m) return;
+      var chap = parseInt(m[1], 10);
+      if (chap === 1) return;
+      document.querySelectorAll('.doc h2, .doc h3, .doc h4').forEach(function (h) {
+        for (var i = 0; i < h.childNodes.length; i++) {
+          var node = h.childNodes[i];
+          if (node.nodeType === 3 && /^\d+\./.test(node.textContent)) {
+            node.textContent = node.textContent.replace(/^\d+\./, chap + '.');
+            break;
+          }
+        }
+      });
+    }());
+
+  }); // end DOMContentLoaded
+})();
+
+  </script>
+</head>
+<body>
+  <div class="site-wrapper">
+    <header class="site-header">
+  <a href="../../index.html" class="logo">
+    <div class="logo-mark">DS</div>
+    <div>
+      <div class="logo-text">Docling-pipelines </div>
+      <div class="logo-subtitle">The Definitive Guide</div>
+    </div>
+  </a>
+  <div class="header-right">
+    <span class="version-badge">v1.0</span>
+    <button id="theme-toggle-btn" class="theme-toggle" title="Toggle light / dark mode" aria-label="Toggle theme">
+      <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <svg class="icon-sun"  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    </button>
+  </div>
+</header>
+    <div class="site-body">
+      <nav class="nav-sidebar" aria-label="Site navigation">
+  <ul class="nav-list">
+    <li class="nav-item is-expandable ">
+  <a class="nav-link" href="index.html">Docling-pipelines Guide</a>
+  <ul class="nav-list">
+    <li class="nav-item ">
+  <a class="nav-link" href="01_introduction_and_architecture.html">1. Introduction &amp; Architecture</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="02_installation_and_quick_start.html">2. Installation &amp; Quick Start</a>
+</li>
+<li class="nav-item is-current-page">
+  <a class="nav-link" href="#">3. Authoring Flows</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="04_ingesting_data.html">4. Ingesting Data</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="05_extracting_and_processing_documents.html">5. Extracting &amp; Processing Documents</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="06_data_quality_and_enrichment.html">6. Data Quality &amp; Enrichment</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="07_vector_storage_and_retrieval.html">7. Vector Storage &amp; Retrieval</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="08_llm_integration.html">8. LLM Integration</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="09_python_api_and_programmatic_usage.html">9. Python API</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="10_extending_docling_pipelines.html">10. Extending Docling-pipelines</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="11_production_deployment_and_observability.html">11. Production Deployment</a>
+</li>
+<li class="nav-item ">
+  <a class="nav-link" href="12_troubleshooting_and_contributing.html">12. Troubleshooting &amp; Contributing</a>
+</li>
+  </ul>
+</li>
+  </ul>
+</nav>
+      <main class="main-content" id="main-content">
+        <nav class="breadcrumbs" aria-label="breadcrumbs">
+  <a href="index.html">Docling-pipelines Guide</a>
+  <span class="separator">›</span>
+  <a href="#">3. Authoring Flows</a>
+
+</nav>
+        <article class="doc">
+          <div class="sect1">
+<h2 id="_authoring_flows"><a class="anchor" href="#_authoring_flows"></a>1. Authoring Flows</h2>
+<div class="sectionbody">
+<div class="paragraph">
+<p>A <em>flow</em> is a JSON document (or Python dict) that describes a document-processing pipeline
+as a directed acyclic graph (DAG) of operator nodes. This chapter covers the complete format,
+<code>global_config</code> options, dependency syntax, and annotated examples.</p>
+</div>
+<div class="sect2">
+<h3 id="_flow_json_structure"><a class="anchor" href="#_flow_json_structure"></a>1.1. Flow JSON Structure</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "flow_name": "my-pipeline",
+  "description": "Optional human-readable description",
+  "global_config": { ... },
+  "flow": [
+    { "type": "ingest_source", "name": "ingest", "config": { ... } },
+    { "type": "extract_operator", "name": "extract", "config": { ... }, "depends_on": ["ingest"] }
+  ]
+}</code></pre>
+</div>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow_name</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Human-readable identifier; used to derive the deterministic job UUID.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>description</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Prose description; not used by the engine.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>global_config</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Pipeline-wide settings (see <a href="#_global_configuration">Global Configuration</a>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>flow</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Array of operator node objects.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_operator_node_fields"><a class="anchor" href="#_operator_node_fields"></a>1.2. Operator Node Fields</h3>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 20%;">
+<col style="width: 20%;">
+<col style="width: 60%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Required</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">The operator&#8217;s <code>short_name</code> (e.g. <code>ingest_source</code>, <code>chunker</code>). See the catalog in <a href="#_operator_catalog">[_operator_catalog]</a>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>name</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Unique node identifier within the flow. Used by other nodes in <code>depends_on</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>config</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Yes</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Operator-specific parameters (can be an empty object <code>{}</code>).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>depends_on</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">No (omit for root)</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Array of <code>name</code> values this node depends on. Omit for the root ingest node.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="sect2">
+<h3 id="_dependency_syntax"><a class="anchor" href="#_dependency_syntax"></a>1.3. Dependency Syntax</h3>
+<div class="sect3">
+<h4 id="_simple_chain"><a class="anchor" href="#_simple_chain"></a>1.3.1. Simple chain</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{ "name": "b", "depends_on": ["a"] }</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_multiple_inputs_fan_in"><a class="anchor" href="#_multiple_inputs_fan_in"></a>1.3.2. Multiple inputs (fan-in)</h4>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{ "name": "merge", "type": "merge", "depends_on": ["branch_a", "branch_b"] }</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_branching_fan_out"><a class="anchor" href="#_branching_fan_out"></a>1.3.3. Branching (fan-out)</h4>
+<div class="paragraph">
+<p>Multiple nodes may declare the same upstream node in <code>depends_on</code>. The engine will fork the
+data stream and run both branches concurrently.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{ "name": "branch_a", "type": "chunker",   "depends_on": ["extract"] },
+{ "name": "branch_b", "type": "doc_quality", "depends_on": ["extract"] }</code></pre>
+</div>
+</div>
+</div>
+<div class="sect3">
+<h4 id="_dag_validation_rules"><a class="anchor" href="#_dag_validation_rules"></a>1.3.4. DAG validation rules</h4>
+<div class="ulist">
+<ul>
+<li>
+<p>Exactly one root node (no <code>depends_on</code>); it must be an ingest operator.</p>
+</li>
+<li>
+<p>All names in <code>depends_on</code> must refer to nodes defined in the same flow.</p>
+</li>
+<li>
+<p>No cycles — the engine detects and rejects circular dependencies.</p>
+</li>
+<li>
+<p>Every node declared in <code>flow</code> must be reachable from the root.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_global_configuration"><a class="anchor" href="#_global_configuration"></a>1.4. Global Configuration</h3>
+<div class="paragraph">
+<p>The <code>global_config</code> block applies pipeline-wide defaults. All fields are optional.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 28.5714%;">
+<col style="width: 14.2857%;">
+<col style="width: 57.1429%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Field</th>
+<th class="tableblock halign-left valign-top">Default</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>doc_column</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"content"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Name of the column that holds document text. Passed to all operators.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>storage</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"in-memory"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Intermediate storage strategy. <code>"in-memory"</code> or <code>"filesystem"</code>.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>execute_type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>"local"</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Execution mode. <code>"local"</code> for in-process; <code>"prefect"</code> for distributed.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>disable_validation</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Skip flow DAG validation. Not recommended for production.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>skip_custom_op_validation</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Skip validation checks for custom operators.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>force_ingest</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Re-ingest all documents even if previously processed (disable incremental mode).</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>retain_deleted_docs</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>false</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Keep documents in the output even if the source file is no longer present.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>output_folder</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Directory for filesystem-backed intermediate results.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>data_storage_type</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">PyArrow data store type for intermediate tables.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>enable_micro_batching</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>true</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Split large document sets into parallel sub-batches.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>micro_batch_size</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>100</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Documents per micro-batch.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>max_concurrent_batches</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>10</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Maximum micro-batches in flight concurrently.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><code>prefect</code></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">—</p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Prefect-specific configuration block (see <a href="#_production_deployment_and_observability">[_production_deployment_and_observability]</a>).</p></td>
+</tr>
+</tbody>
+</table>
+<div class="sect3">
+<h4 id="_operator_level_overrides"><a class="anchor" href="#_operator_level_overrides"></a>1.4.1. Operator-level overrides</h4>
+<div class="paragraph">
+<p><code>global_config</code> also accepts operator-specific override blocks. Use the operator <code>name</code> or
+<code>type</code> as the key:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">"global_config": {
+  "doc_column": "content",
+  "my_extract_node": {
+    "timeout": 300
+  }
+}</code></pre>
+</div>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_annotated_complete_example_basic_extraction_pipeline"><a class="anchor" href="#_annotated_complete_example_basic_extraction_pipeline"></a>1.5. Annotated Complete Example: Basic Extraction Pipeline</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "flow_name": "basic-extraction",
+  "global_config": {
+    "doc_column": "content",
+    "storage": "in-memory",
+    "execute_type": "local",
+    "enable_micro_batching": false
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest",                        <i class="conum" data-value="1"></i><b>(1)</b>
+      "config": {
+        "provider": "filesystem",
+        "connection_params": {
+          "paths": ["./docs"]
+        },
+        "include_filter": "pdf,docx"           <i class="conum" data-value="2"></i><b>(2)</b>
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract",
+      "depends_on": ["ingest"],               <i class="conum" data-value="3"></i><b>(3)</b>
+      "config": {
+        "text_extraction": {
+          "provider": "docling_library"
+        },
+        "entity_extraction": {
+          "provider": "none"
+        }
+      }
+    },
+    {
+      "type": "lang_detect",
+      "name": "language",
+      "depends_on": ["extract"],
+      "config": {
+        "language_provider": "fasttext"
+      }
+    },
+    {
+      "type": "sql_filter",
+      "name": "filter_english",
+      "depends_on": ["language"],
+      "config": {
+        "criteria_list": ["lang_name = 'en'"]  <i class="conum" data-value="4"></i><b>(4)</b>
+      }
+    },
+    {
+      "type": "chunker",
+      "name": "chunk",
+      "depends_on": ["filter_english"],
+      "config": {
+        "chunk_type": "hybrid",
+        "chunk_size": 512,
+        "chunk_overlap": 50
+      }
+    }
+  ]
+}</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Root node — no <code>depends_on</code>. Must be an ingest operator.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="2"></i><b>2</b></td>
+<td>Only ingest PDF and DOCX files; ignore others.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="3"></i><b>3</b></td>
+<td>Chain the extract node to the ingest node.</td>
+</tr>
+<tr>
+<td><i class="conum" data-value="4"></i><b>4</b></td>
+<td><code>sql_filter</code> uses the <code>lang_name</code> column written by <code>lang_detect</code> upstream.</td>
+</tr>
+</table>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_annotated_complete_example_rag_pipeline_with_branching"><a class="anchor" href="#_annotated_complete_example_rag_pipeline_with_branching"></a>1.6. Annotated Complete Example: RAG Pipeline with Branching</h3>
+<div class="paragraph">
+<p>This example runs quality checks in a separate branch while also producing embeddings.</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-json hljs" data-lang="json">{
+  "flow_name": "rag-with-quality-branch",
+  "global_config": {
+    "enable_micro_batching": true,
+    "micro_batch_size": 50
+  },
+  "flow": [
+    {
+      "type": "ingest_source",
+      "name": "ingest",
+      "config": {
+        "provider": "filesystem",
+        "connection_params": { "paths": ["./corpus"] },
+        "include_filter": "pdf"
+      }
+    },
+    {
+      "type": "extract_operator",
+      "name": "extract",
+      "depends_on": ["ingest"],
+      "config": {
+        "text_extraction": { "provider": "docling_library" },
+        "entity_extraction": { "provider": "none" }
+      }
+    },
+    {
+      "type": "ededup",
+      "name": "dedup",
+      "depends_on": ["extract"],
+      "config": {}
+    },
+    {
+      "type": "branching",
+      "name": "branch",
+      "depends_on": ["dedup"],
+      "config": {}
+    },
+    {
+      "type": "doc_quality",
+      "name": "quality_metrics",
+      "depends_on": ["branch"],
+      "config": { "text_lang": "en" }
+    },
+    {
+      "type": "sql_filter",
+      "name": "quality_gate",
+      "depends_on": ["quality_metrics"],
+      "config": {
+        "criteria_list": [
+          "docq_total_words &gt;= 50",
+          "docq_contain_bad_word = false"
+        ]
+      }
+    },
+    {
+      "type": "chunker",
+      "name": "chunk",
+      "depends_on": ["quality_gate"],
+      "config": { "chunk_type": "hybrid", "chunk_size": 512 }
+    },
+    {
+      "type": "embeddings",
+      "name": "embed",
+      "depends_on": ["chunk"],
+      "config": {
+        "provider": "litellm",
+        "provider_config": {
+          "model_id": "openai/nomic-embed-text",
+          "api_base": "http://localhost:11434"
+        }
+      }
+    },
+    {
+      "type": "vectordb",
+      "name": "index",
+      "depends_on": ["embed"],
+      "config": {
+        "provider": "opensearch",
+        "vector_dimension": 768,
+        "provider_config": {
+          "index_name": "rag_corpus",
+          "host": "localhost",
+          "port": 9200,
+          "use_ssl": false,
+          "verify_certs": false
+        }
+      }
+    }
+  ]
+}</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_flow_identification_and_job_ids"><a class="anchor" href="#_flow_identification_and_job_ids"></a>1.7. Flow Identification and Job IDs</h3>
+<div class="paragraph">
+<p>The flow engine derives a deterministic job UUID from <code>flow_name</code>. A new <code>job_run_id</code> is
+generated for each execution.</p>
+</div>
+<div class="paragraph">
+<p>You can supply explicit IDs when using the Python API:</p>
+</div>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-python hljs" data-lang="python">from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+
+manager = DocpipeFlowManager(
+    flow_file="my_flow.json",
+    job_id="my-custom-job-id",
+    job_run_id="run-001"
+)
+manager.execute()</code></pre>
+</div>
+</div>
+<div class="paragraph">
+<p>See <a href="#_python_api_and_programmatic_usage">[_python_api_and_programmatic_usage]</a> for the full Python API.</p>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_running_and_validating_flows"><a class="anchor" href="#_running_and_validating_flows"></a>1.8. Running and Validating Flows</h3>
+<div class="listingblock">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-bash hljs" data-lang="bash"># Execute a flow
+docling-pipelines --flow-file my_flow.json
+
+# Validate only (no execution)
+docling-pipelines --flow-file my_flow.json --validate
+
+# Override log level
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file my_flow.json</code></pre>
+</div>
+</div>
+</div>
+<div class="sect2">
+<h3 id="_best_practices"><a class="anchor" href="#_best_practices"></a>1.9. Best Practices</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>Keep <code>flow_name</code> short, lowercase, and hyphenated — it becomes part of the job ID.</p>
+</li>
+<li>
+<p>Always place the ingest node first with no <code>depends_on</code>.</p>
+</li>
+<li>
+<p>Set <code>enable_micro_batching: false</code> during development for simpler logs; enable it in production.</p>
+</li>
+<li>
+<p>Use <code>validate</code> mode to catch configuration errors before committing to a full run.</p>
+</li>
+<li>
+<p>Store API keys and passwords in environment variables, never hardcoded in flow JSON.</p>
+</li>
+<li>
+<p>Reference <code>sample_flows/</code> in the repository for working, annotated pipeline examples.</p>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+        </article>
+        <nav class="page-nav" aria-label="page navigation">
+  <a href="02_installation_and_quick_start.html" class="prev">
+    <span class="nav-dir">← Previous</span>
+    <span class="nav-title">2. Installation &amp; Quick Start</span>
+  </a>
+  <a href="04_ingesting_data.html" class="next">
+    <span class="nav-dir">Next →</span>
+    <span class="nav-title">4. Ingesting Data</span>
+  </a>
+</nav>
+      </main>
+      <aside class="toc-nav" aria-label="Table of contents">
+  <div class="toc-title">On this page</div>
+
+</aside>
+    </div>
+    <footer class="site-footer">
+  <span>Docling-pipelines Documentation</span>
+  <span>·</span>
+  <span>Built with <a href="https://antora.org" target="_blank" rel="noopener">Antora</a></span>
+  <span>·</span>
+  <span>© 2026</span>
+</footer>
+  </div>
+</body>
+</html>
