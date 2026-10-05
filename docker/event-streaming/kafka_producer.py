@@ -30,7 +30,7 @@ def produce(*, message: dict) -> None:
     producer.produce(topic=TOPIC, key=None, value=message)
     if producer.flush(timeout=5):
         raise RuntimeError("Kafka did not deliver the event before the timeout")
-    print("Produced: %s" % json.dumps(message))
+    print(f"Produced: {json.dumps(message)}")
 
 
 if __name__ == "__main__":
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     try:
         message = json.loads(args.message)
     except json.JSONDecodeError as error:
-        parser.error("--message must contain valid JSON: %s" % error)
+        parser.error(f"--message must contain valid JSON: {error}")
     if not isinstance(message, dict):
         parser.error("--message must be a JSON object")
     produce(message=message)

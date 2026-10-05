@@ -18,7 +18,7 @@ def register_schemas(*, schema_files: list[str]) -> None:
     for schema_file in schema_files:
         schema_path = schema_dir / schema_file
         if not schema_path.is_file():
-            raise FileNotFoundError("Schema file does not exist: %s" % schema_path)
+            raise FileNotFoundError(f"Schema file does not exist: {schema_path}")
         schema = schema_path.read_text(encoding="utf-8")
         request = Request(
             f"{registry_url}/subjects/{subject}/versions",
@@ -32,11 +32,14 @@ def register_schemas(*, schema_files: list[str]) -> None:
                 result = json.load(response)
         except (HTTPError, URLError, TimeoutError) as error:
             raise RuntimeError(
-                "Failed to register schema %s for %s-value with Schema Registry at %s: %s"
-                % (schema_file, topic, registry_url, error)
+                f"Failed to register schema {schema_file} for {topic}-value "
+                f"with Schema Registry at {registry_url}: {error}"
             ) from error
 
-        print("Registered schema %s for %s-value (id=%s)" % (schema_file, topic, result["id"]), flush=True)
+        print(
+            f"Registered schema {schema_file} for {topic}-value (id={result['id']})",
+            flush=True,
+        )
 
 
 def main() -> None:

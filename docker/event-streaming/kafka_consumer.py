@@ -29,7 +29,7 @@ def consume() -> None:
         }
     )
     consumer.subscribe([TOPIC])
-    print("Listening on %s" % TOPIC, flush=True)
+    print(f"Listening on {TOPIC}", flush=True)
 
     try:
         while True:
@@ -38,7 +38,7 @@ def consume() -> None:
                 continue
             if message.error():
                 if message.error().code() != KafkaError._PARTITION_EOF:
-                    print("Consumer error: %s" % message.error())
+                    print(f"Consumer error: {message.error()}")
                 continue
             print(json.dumps(message.value()), flush=True)
     except KeyboardInterrupt:
