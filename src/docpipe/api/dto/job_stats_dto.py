@@ -32,6 +32,7 @@ from docpipe.api.dto.field_definitions import (
     EXECUTION_TIME_MIN,
     FAILED_DOCS_DESC,
     FLOW_ID_DESC_JOB,
+    FLOW_NAME_DESC_JOB,
     HEARTBEAT_DESC,
     JOB_ID_DESC,
     JOB_RUN_ID_DESC,
@@ -227,6 +228,11 @@ class JobStatsDto(BaseModel):
         description=FLOW_ID_DESC_JOB,
         min_length=0,
         max_length=UUID_LENGTH,
+    )
+    flow_name: str | None = Field(
+        default=None,
+        description=FLOW_NAME_DESC_JOB,
+        max_length=255,
     )
 
     # User & Account Context

@@ -58,7 +58,8 @@ class JobTrackerService(JobStatsService):
         *,
         job_id: str,
         job_run_id: str,
-        flow_name: str,
+        flow_id: str,
+        flow_name: str | None = None,
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
         initial_status: ExecutionStatus = ExecutionStatus.RUNNING,
@@ -69,9 +70,10 @@ class JobTrackerService(JobStatsService):
         Args:
             job_id: Unique job identifier
             job_run_id: Unique job run identifier
-            flow_name: Name of the flow being executed (stored in flow_id field)
+            flow_id: Stable flow identifier (asset UUID or job_id slug)
+            flow_name: Human-readable name of the flow at run creation time
             user_id: Optional user identifier
-            metadata: Optional metadata dictionary (not used - JobStats has no metadata field)
+            metadata: Optional metadata dictionary
             initial_status: Initial status for the job stats record.
                 Defaults to ExecutionStatus.RUNNING for backward compatibility.
                 Pass ExecutionStatus.QUEUED when called from the HTTP thread
@@ -83,7 +85,8 @@ class JobTrackerService(JobStatsService):
         job_stats: JobStats = JobStats(
             job_id=job_id,
             job_run_id=job_run_id,
-            flow_id=flow_name,  # Store flow_name in flow_id field
+            flow_id=flow_id,
+            flow_name=flow_name,
             user_id=user_id,
             status=initial_status,
             start_time=round(datetime.now(tz=UTC).timestamp()),
@@ -92,7 +95,7 @@ class JobTrackerService(JobStatsService):
         )
 
         self.job_stats_store.store_job_stats(job_stats)
-        logger.info(f"Started tracking job: job_id={job_id}, job_run_id={job_run_id}")
+        logger.info("Started tracking job: job_id=%s, job_run_id=%s", job_id, job_run_id)
 
     def get_job_run_stats(self, *, job_run_id: str) -> JobStats | None:
         """
