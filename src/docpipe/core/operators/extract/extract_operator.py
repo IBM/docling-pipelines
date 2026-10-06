@@ -115,7 +115,7 @@ from docpipe.core.constants.constants import (
     Metrics,
 )
 from docpipe.core.constants.operator_constants import OperatorConstants
-from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
+from docpipe.core.job_management.adapters.config import job_management_factory
 from docpipe.core.job_management.adapters.stores.json.json_job_stats_store import JsonJobStatsStore
 from docpipe.core.job_management.domain.models.node_stats import NodeMetadataItem, NodeStats
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -780,7 +780,7 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
             if not job_run_id or not node_id:
                 return
 
-            factory = get_default_factory()
+            factory = job_management_factory.get_default_factory()
             job_stats_store = factory.create_job_stats_store()
 
             def _stage(*, completed: int, failed: int, total: int) -> dict[str, Any]:
