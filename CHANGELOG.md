@@ -11,6 +11,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Added
 
+- `docs/integrations/openlineage/OPENLINEAGE_GUIDE.md` — new integration guide covering OpenLineage support: installation, enabling, configuration reference (all env vars, HTTP and File transport), emission modes (flow vs operator), event catalog by mode, custom facets reference, and a step-by-step guide for adding a custom lineage client.
 - React frontend UI with Elyra-based pipeline canvas, per-operator properties panels, project/flow management, and Node.js BFF layer; bundled into the wheel and served at `/ui/` (#58)
 - `StorageOutputOperator` — writes processed documents to a configurable destination with `processed_content`, `refetch_original`, and `comprehensive_export` modes (#58)
 - `S3DestinationAdapter` — writes to S3 / IBM COS / MinIO with env-var credentials and bucket pre-flight validation (#58)
