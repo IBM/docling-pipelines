@@ -107,7 +107,7 @@ class TestProcessBatchesInParallel:
 
         assert sorted(results) == [1, 3]
 
-    def test_process_handles_worker_exceptions(self, capfd):
+    def test_process_handles_worker_exceptions(self, caplog):
         """Test that worker exceptions are caught and logged."""
 
         def worker_fn(batch):
@@ -121,9 +121,8 @@ class TestProcessBatchesInParallel:
         # Should continue processing other batches
         assert sorted(results) == [1, 3]
 
-        # Check that error was printed
-        captured = capfd.readouterr()
-        assert "failed with" in captured.out.lower() or "Test error" in captured.out
+        # Check that error was logged
+        assert any("failed with" in r.message.lower() or "Test error" in r.message for r in caplog.records)
 
     def test_process_with_complex_data(self):
         """Test processing with complex data structures."""
