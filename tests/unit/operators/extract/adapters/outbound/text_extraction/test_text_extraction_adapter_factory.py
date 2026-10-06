@@ -35,8 +35,10 @@ def test_empty_pipeline_blocks_enable_defaults() -> None:
     )
 
     assert result[OperatorConstants.Config.USE_VLM_PIPELINE] is True
-    assert result[OperatorConstants.Config.VLM_PRESET] == OperatorConstants.Config.VLM_PRESET_DEFAULT
-    VlmConvertOptions.from_preset(result[OperatorConstants.Config.VLM_PRESET])
+    preset = result[OperatorConstants.Config.VLM_PRESET]
+    assert preset == OperatorConstants.Config.VLM_PRESET_DEFAULT
+    assert isinstance(preset, str)
+    VlmConvertOptions.from_preset(preset)
     assert result[OperatorConstants.Config.VLM_ENGINE_TYPE] == OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS
     assert result[OperatorConstants.Config.VLM_PROVIDER_CONFIG] is None
     assert result[OperatorConstants.Config.USE_ASR_PIPELINE] is True
