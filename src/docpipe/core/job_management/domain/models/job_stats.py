@@ -34,6 +34,7 @@ class JobStats(BaseModel):
     duration: int = 0
     heartbeat_timestamp: int | None = 0
     heartbeat_failure_count: int = 0
+    progress_timestamp: int = 0
 
     # Document Counts
     total_docs: int = 0

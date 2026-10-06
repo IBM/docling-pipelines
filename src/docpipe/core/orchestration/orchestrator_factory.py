@@ -3,6 +3,7 @@ from typing import ClassVar
 from docpipe.core.constants import OrchestratorType
 from docpipe.core.job_management.adapters.config.job_management_factory import get_default_factory
 from docpipe.core.job_management.domain.ports import JobRunManager, JobStatsService
+from docpipe.core.lineage.application import lineage_factory
 from docpipe.core.orchestration.abstract_orchestrator import AbstractOrchestrator
 from docpipe.core.orchestration.python.python_orchestrator import PythonOrchestrator
 
@@ -102,10 +103,12 @@ class OrchestratorFactory:
             )
 
         orchestrator_class = cls._orchestrators[orchestrator_name]
+        observer = lineage_factory.create_lineage_observer()
         return orchestrator_class(
             job_stats_service=job_stats_service,
             job_run_manager=job_run_manager,
             enable_custom_operators=enable_custom_operators,
             custom_operator_packages=custom_operator_packages,
             execution_reporter=execution_reporter,
+            observer=observer,
         )
