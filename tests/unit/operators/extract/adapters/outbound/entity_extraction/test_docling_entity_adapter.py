@@ -2,13 +2,16 @@
 get_config_schema, _build_vlm_extraction_options, extract_entities_single, and
 the DoclingEntityExtractionService helper class."""
 
+import importlib.util
 import sys
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
 # Stub heavy Docling VLM imports so they don't need to be installed before
-# importing the adapter under test.
+# importing the adapter under test. Only stub when docling is genuinely missing:
+# replacing an installed docling with a Mock in sys.modules leaks into every test
+# collected after this module ("'docling' is not a package").
 _docling_mocks = [
     "docling",
     "docling.backend",
@@ -25,8 +28,9 @@ _docling_mocks = [
     "docling_core.types",
     "docling_core.types.io",
 ]
+_DOCLING_INSTALLED = "docling" in sys.modules or importlib.util.find_spec("docling") is not None
 for _mod in _docling_mocks:
-    if _mod not in sys.modules:
+    if not _DOCLING_INSTALLED and _mod not in sys.modules:
         sys.modules[_mod] = Mock()
 
 # These imports must follow the sys.modules pre-mocking above.
@@ -518,6 +522,30 @@ def test_extract_entities_single_with_extraction_format_options(base_config):
     # Verify DocumentExtractor was called with extraction_format_options
     call_kwargs = mock_extractor_cls.call_args.kwargs
     assert "extraction_format_options" in call_kwargs
+
+
+@pytest.mark.unit
+def test_extract_entities_single_reuses_pooled_extractor(base_config):
+    """DocumentExtractor is built once per configuration and reused across documents and adapters."""
+    mock_page = MagicMock(page_no=1, extracted_data={"k": "v"}, raw_text=None, errors=[])
+    mock_extractor_cls = MagicMock(
+        side_effect=lambda **_: MagicMock(
+            extract=MagicMock(return_value=MagicMock(pages=[mock_page])), extraction_format_to_options={}
+        )
+    )
+    mocks = {
+        "docling.document_extractor": MagicMock(DocumentExtractor=mock_extractor_cls),
+        "docling.datamodel.base_models": MagicMock(InputFormat=MagicMock(IMAGE="image", PDF="pdf")),
+        "docling_core.types.io": MagicMock(DocumentStream=MagicMock()),
+    }
+    with patch.dict(sys.modules, mocks):
+        for _ in range(2):  # two adapter instances, e.g. two micro-batches
+            adapter = DoclingEntityAdapter(config=base_config)
+            for idx in range(3):
+                result = adapter.extract_entities_single(doc_id=f"d{idx}", doc_name="x.pdf", content=b"pdf")
+                assert result["success"] is True
+
+    assert mock_extractor_cls.call_count == 1
 
 
 # ---------------------------------------------------------------------------
