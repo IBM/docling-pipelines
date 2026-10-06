@@ -248,8 +248,10 @@ pytest                                                           # run tests
 pytest tests/unit/core/operators/ -v                             # run specific test path
 pytest --cov=src/docpipe --cov-report=html                       # with coverage
 
-pre-commit run --all-files                                       # run all hooks before pushing
+pre-commit run --files <changed-file> ...                         # check only changed files before pushing
 ```
+
+Never run `pre-commit run --all-files`. Scope pre-commit checks to the files changed by the current task using `--files`, or use `--from-ref <base> --to-ref HEAD` for committed changes.
 
 ## Key External Services
 
