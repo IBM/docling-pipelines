@@ -44,6 +44,7 @@ import {
   type BreakpointThresholdType,
 } from './constants';
 import common from '../../CommonPropertiesPanel.module.scss';
+import { useProviderConfigDefaults } from '@/hooks/useProviderConfigDefaults';
 
 interface ChunkerPanelBodyProps {
   controller: any;
@@ -148,6 +149,8 @@ export function ChunkerPanelBody({ controller }: ChunkerPanelBodyProps): React.J
       : {};
   const [summarizationProviderConfigValues, setSummarizationProviderConfigValues] =
     useState<Record<string, unknown>>(summarizationProviderConfigStored);
+
+  useProviderConfigDefaults(controller, nodeAttributes);
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 

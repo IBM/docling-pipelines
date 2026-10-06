@@ -162,13 +162,16 @@ For full details on the priority system, override behaviour, and registering cus
 
 **Class:** `core.operators.ingest.ingest_source.IngestSourceOperator`
 
-| Parameter         | Type   | Required | Default | Description                     |
-| ----------------- | ------ | -------: | ------- | ------------------------------- |
-| `source_type`     | string |      Yes | -       | Adapter type                    |
-| `include_filter`  | string |       No | -       | Extension include list          |
-| `exclude_filter`  | string |       No | -       | Extension exclude list          |
-| `force_ingest`    | bool   |       No | `false` | Reprocess prior docs            |
-| `provider_config` | object |      Yes | -       | Provider-specific configuration |
+| Parameter          | Type   | Required | Default | Description                                                                  |
+| ------------------ | ------ | -------: | ------- | ---------------------------------------------------------------------------- |
+| `provider`         | string |      Yes | -       | Source provider: `filesystem`, `s3`, `ibm_cos`, `sharepoint`, `onedrive`, `google_drive`, `box_driver`, `dropbox`, `web` |
+| `provider_config`  | object |      Yes | -       | All provider-specific parameters including credentials in a single dict      |
+| `connection_params`| object |       No | -       | **Deprecated.** Use `provider_config` instead                                |
+| `credentials`      | object |       No | -       | **Deprecated.** Use `provider_config` instead                                |
+| `include_filter`   | string |       No | -       | Extension include list (comma-separated, e.g. `"pdf,docx"`)                  |
+| `exclude_filter`   | string |       No | -       | Extension exclude list (comma-separated)                                     |
+| `max_files`        | int    |       No | `100`   | Maximum number of files to ingest                                            |
+| `force_ingest`     | bool   |       No | `false` | Reprocess prior docs                                                         |
 
 **Input Schema**
 
@@ -198,37 +201,40 @@ For full details on the priority system, override behaviour, and registering cus
 
 ```json
 {
-  "id": "ingest-source-node",
-  "name": "s3-ingest",
-  "operator": "ingest_source",
+  "name": "ingest-s3",
+  "type": "ingest_source",
   "config": {
-    "source_type": "s3",
+    "provider": "s3",
     "provider_config": {
       "bucket": "example-bucket",
-      "prefix": "incoming/"
-    }
+      "prefix": "incoming/",
+      "access_key": "${S3_ACCESS_KEY}",
+      "secret_key": "${S3_SECRET_KEY}"
+    },
+    "include_filter": "pdf,docx",
+    "max_files": 200
   }
 }
 ```
 
-**File-Level Ingestion (S3 Only):**
+**Filesystem Ingestion:**
 
 ```json
 {
-  "id": "ingest-source-node",
-  "name": "s3-file-ingest",
-  "operator": "ingest_source",
+  "name": "ingest-local",
+  "type": "ingest_source",
   "config": {
-    "source_type": "s3",
+    "provider": "filesystem",
     "provider_config": {
-      "bucket": "example-bucket",
-      "prefix": "incoming/document.pdf"
-    }
+      "paths": ["/data/documents"],
+      "recursive": true
+    },
+    "include_filter": "pdf,docx,txt"
   }
 }
 ```
 
-**Note:** S3 is the only provider that supports file-level ingestion. Use the `prefix` parameter to specify either a folder path (e.g., `"incoming/"`) or a specific file path (e.g., `"incoming/document.pdf"`).
+**Note:** S3 supports file-level ingestion by specifying a full key as the `prefix` (e.g., `"incoming/report.pdf"`). For other providers, use folder-level configuration.
 
 ---
 

@@ -1,5 +1,6 @@
 from docpipe.core.constants import OrchestratorType
 from docpipe.core.job_management.domain.ports import JobRunManager, JobStatsService
+from docpipe.core.lineage.domain.ports.execution_lifecycle_observer import ExecutionLifecycleObserverPort
 from docpipe.core.orchestration.abstract_operator_executor import AbstractOperatorExecutor
 from docpipe.core.orchestration.abstract_orchestrator import AbstractOrchestrator
 from docpipe.core.orchestration.ports.flow_engine import FlowEnginePort
@@ -19,6 +20,7 @@ class PythonOrchestrator(AbstractOrchestrator):
         enable_custom_operators: bool = True,
         custom_operator_packages: list[str] | None = None,
         execution_reporter=None,
+        observer: ExecutionLifecycleObserverPort | None = None,
     ):
         super().__init__(
             job_stats_service=job_stats_service,
@@ -26,6 +28,7 @@ class PythonOrchestrator(AbstractOrchestrator):
             enable_custom_operators=enable_custom_operators,
             custom_operator_packages=custom_operator_packages,
             execution_reporter=execution_reporter,
+            observer=observer,
         )
 
     def create_executor_impl(

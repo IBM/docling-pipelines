@@ -9,10 +9,17 @@ from typing import Any, ParamSpec, TypeVar
 import pyarrow as pa
 from data_processing.data_access import DataAccess, DataAccessFactory
 
-from docpipe.core.constants.constants import TERMINAL_JOB_STATUSES, DocpipeConstants, ExecutionStatus, Metrics
+from docpipe.core.constants.constants import (
+    TERMINAL_JOB_STATUSES,
+    DocpipeConstants,
+    ExecutionStatus,
+    LineageConstants,
+    Metrics,
+)
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.incremental_metadata import get_incremental_update_service
 from docpipe.core.job_management.domain.ports import JobRunManager, JobStatsService
+from docpipe.core.lineage.domain.ports.execution_lifecycle_observer import ExecutionLifecycleObserverPort
 from docpipe.core.models.session_info import SessionInfo, get_session_info, set_session_info
 from docpipe.core.operators.abstract_operator import OperatorCategory
 from docpipe.core.operators.operator_utils import OperatorUtils
@@ -52,6 +59,7 @@ class AbstractOrchestrator(ABC):
         enable_custom_operators: bool = True,
         custom_operator_packages: list[str] | None = None,
         execution_reporter=None,
+        observer: ExecutionLifecycleObserverPort | None = None,
     ) -> None:
         """
         Initialize orchestrator with optional job services.
@@ -62,6 +70,7 @@ class AbstractOrchestrator(ABC):
             enable_custom_operators: Whether to enable custom operators (passed to operator factory)
             custom_operator_packages: List of custom operator packages (passed to operator factory)
             execution_reporter: Optional output formatter for user-friendly console output
+            observer: Optional lifecycle observer for lineage emission
         """
         self.enable_custom_operators = enable_custom_operators
         self.custom_operator_packages = custom_operator_packages
@@ -88,6 +97,7 @@ class AbstractOrchestrator(ABC):
         self.batch_manager = BatchManager()
         self.flow_engine: FlowEnginePort | None = None
         self.common_log_arguments: dict[Any, str] | None = None
+        self._observer = observer
         # Batch numbers that hit a node failure. Keyed by batch so continue mode can
         # tell "this batch failed" from "some other batch failed" — job_status cannot,
         # because one orchestrator is shared by every batch thread in the ThreadPool
@@ -107,6 +117,25 @@ class AbstractOrchestrator(ABC):
     @non_recoverable_docs_tables.setter
     def non_recoverable_docs_tables(self, value: list[pa.Table]) -> None:
         self._non_recoverable_docs_tables[None] = value
+
+    def _notify_observer(self, method_name: str, **kwargs: Any) -> None:
+        """Route a lifecycle event to the observer after the existing handler has run.
+
+        Exceptions from the observer are swallowed in best-effort mode (default) and
+        re-raised only when DOCPIPE_LINEAGE_STRICT=true.
+
+        Args:
+            method_name: Name of the ExecutionLifecycleObserverPort method to call.
+            **kwargs: Keyword arguments forwarded to the observer method.
+        """
+        if self._observer is None:
+            return
+        try:
+            getattr(self._observer, method_name)(**kwargs)
+        except Exception as exc:
+            if LineageConstants.DEFAULT_STRICT.lower() == "true":
+                raise
+            logger.warning("Lineage observer error in %s (best-effort, swallowing): %s", method_name, exc)
 
     def initialize(self, *, job_id: str, job_run_id: str):
         """
@@ -176,7 +205,26 @@ class AbstractOrchestrator(ABC):
 
         op_flow = flow_def.get(DocpipeConstants.DAG, [])
 
+        # Store flow name for use in all subsequent lifecycle events
+        self.flow_name = flow_def.get(DocpipeConstants.NAME, self.flow_id or "")
+
         self.flow_execution_event_handler.before_flow_execution_start(orchestrator=self, flow_def=flow_def)
+        from docpipe.core.orchestration.models.execution_event_context import FlowStartContext
+
+        operator_names = [
+            node.get(OperatorConstants.Misc.OPERATOR, node.get(OperatorConstants.Columns.NAME, ""))
+            for node in flow_def.get(DocpipeConstants.DAG, [])
+        ]
+        self._notify_observer(
+            "on_flow_start",
+            context=FlowStartContext(
+                flow_id=self.flow_id or "",
+                flow_name=self.flow_name,
+                job_run_id=job_run_id,
+                flow_def=flow_def,
+                operator_names=operator_names,
+            ),
+        )
         self.context_id = params.get(DocpipeConstants.CONTEXT_ID, self.job_id)
         try:
             self.execute_flow(op_flow=op_flow, global_config=global_config)
@@ -194,14 +242,15 @@ class AbstractOrchestrator(ABC):
             return message
         return None
 
-    def _handle_node_failure(self, *, e, op_def, global_config):
+    def _handle_node_failure(self, *, e, op_def, global_config, start=None):
         # Check if continue_on_batch_failure is enabled
         """Handle a node-level failure, updating job status and notifying the event handler.
 
         Args:
             e: The exception that caused the failure.
             op_def: The operator definition dict.
-            global_config: Current global configuration."""
+            global_config: Current global configuration.
+            start: Optional start timestamp captured before execution began."""
         is_batching_enabled = global_config.get(DocpipeConstants.ENABLE_MICRO_BATCHING, False)
         continue_on_batch_failure = global_config.get(
             DocpipeConstants.CONTINUE_ON_BATCH_FAILURE,
@@ -226,6 +275,23 @@ class AbstractOrchestrator(ABC):
             node_name=op_def[OperatorConstants.Columns.NAME],
             global_config=global_config,
             e=e,
+        )
+        from docpipe.core.orchestration.models.execution_event_context import NodeFailContext
+
+        self._notify_observer(
+            "on_node_fail",
+            context=NodeFailContext(
+                flow_id=self.flow_id or "",
+                flow_name=getattr(self, "flow_name", self.flow_id or ""),
+                job_run_id=self.job_run_id or "",
+                node_id=op_def[OperatorConstants.Columns.ID],
+                node_name=op_def[OperatorConstants.Columns.NAME],
+                operator_type=op_def.get(OperatorConstants.Misc.OPERATOR, ""),
+                error_message=str(e),
+                exception=e,
+                start_time=start,
+                end_time=get_current_timestamp(),
+            ),
         )
 
     def _record_batch_failure(self, *, global_config) -> None:
@@ -350,6 +416,22 @@ class AbstractOrchestrator(ABC):
             end_time=end_time,
             column_names=column_names,
         )
+        from docpipe.core.orchestration.models.execution_event_context import NodeSkipContext
+
+        self._notify_observer(
+            "on_node_skip",
+            context=NodeSkipContext(
+                flow_id=self.flow_id or "",
+                flow_name=getattr(self, "flow_name", self.flow_id or ""),
+                job_run_id=self.job_run_id or "",
+                node_id=op_def.get(OperatorConstants.Columns.ID, ""),
+                node_name=op_def.get(OperatorConstants.Columns.NAME, ""),
+                operator_type=op_def.get(OperatorConstants.Misc.OPERATOR, ""),
+                reason="Skipped - no input data to process",
+                start_time=start,
+                end_time=end_time,
+            ),
+        )
 
         return data_accesses, tables
 
@@ -375,6 +457,20 @@ class AbstractOrchestrator(ABC):
             job_stats = self.job_stats_service.get_job(job_run_id=self.job_run_id, include_node_stats=False)
             if job_stats:
                 self.job_status = ExecutionStatus(job_stats.status)
+
+    def _resolve_predecessor_names(self, *, op_def: dict) -> list[str]:
+        """Return the human-readable names of upstream nodes for a given op_def.
+
+        Reads ``input_edges[*].node_id_ref`` and resolves each ID to its name
+        using the ``_node_id_to_name`` map built at the start of ``execute_flow``.
+        Falls back to the raw ID when the map is absent (e.g. batch subflows).
+        """
+        lookup: dict[str, str] = getattr(self, "_node_id_to_name", {})
+        return [
+            lookup.get(edge[DocpipeConstants.NODE_ID_REF], edge[DocpipeConstants.NODE_ID_REF])
+            for edge in op_def.get(DocpipeConstants.INPUT_EDGES, [])
+            if DocpipeConstants.NODE_ID_REF in edge
+        ]
 
     def _execute_step(
         self,
@@ -428,6 +524,8 @@ class AbstractOrchestrator(ABC):
 
     def _run_node(self, *, op_def, executor, prev_results, global_config, deleted_docs_count, start):
         """Body of a single node execution.  See _execute_step."""
+        from docpipe.core.orchestration.models.execution_event_context import NodeTableSummary
+
         prev_data_access, prev_table = self._unpack_prev_results(prev_results=prev_results)
         skip = self.evaluate_execution_skip(executor=executor, tables=prev_table, deleted_docs_count=deleted_docs_count)
         metadata = {}
@@ -461,6 +559,33 @@ class AbstractOrchestrator(ABC):
             start_time=start,
             tables=tables,
         )
+
+        if not skip:
+            from docpipe.core.orchestration.models.execution_event_context import NodeCompleteContext
+
+            # Track the last output table for flow-level COMPLETE lineage event
+            if tables:
+                self.last_output_table = tables[0]
+
+            end_time = get_current_timestamp()
+            predecessor_node_ids = self._resolve_predecessor_names(op_def=op_def)
+            self._notify_observer(
+                "on_node_complete",
+                context=NodeCompleteContext(
+                    flow_id=self.flow_id or "",
+                    flow_name=getattr(self, "flow_name", self.flow_id or ""),
+                    job_run_id=self.job_run_id or "",
+                    node_id=op_def[OperatorConstants.Columns.ID],
+                    node_name=op_def[OperatorConstants.Columns.NAME],
+                    operator_type=op_def.get(OperatorConstants.Misc.OPERATOR, ""),
+                    operator_category=str(executor.get_operator().category.value),
+                    output_summaries=[NodeTableSummary.from_table(t) for t in tables if t is not None],
+                    metadata=metadata,
+                    start_time=start,
+                    end_time=end_time,
+                    predecessor_node_ids=predecessor_node_ids,
+                ),
+            )
 
         # Update job status from job stats service
         self._refresh_job_status()
@@ -830,15 +955,32 @@ class AbstractOrchestrator(ABC):
         else:
             skip_reason = "Skipped - no data received from previous step"
 
+        now = get_current_timestamp()
         self.flow_execution_event_handler.after_node_skipped(
             node_id=op_def[OperatorConstants.Columns.ID],
             node_name=op_def[OperatorConstants.Columns.NAME],
             operator_type=op_def[OperatorConstants.Misc.OPERATOR],
             global_config=global_config,
-            start_time=get_current_timestamp(),
-            end_time=get_current_timestamp(),
+            start_time=now,
+            end_time=now,
             column_names=[],
             reason=skip_reason,
+        )
+        from docpipe.core.orchestration.models.execution_event_context import NodeSkipContext
+
+        self._notify_observer(
+            "on_node_skip",
+            context=NodeSkipContext(
+                flow_id=self.flow_id or "",
+                flow_name=getattr(self, "flow_name", self.flow_id or ""),
+                job_run_id=self.job_run_id or "",
+                node_id=op_def[OperatorConstants.Columns.ID],
+                node_name=op_def[OperatorConstants.Columns.NAME],
+                operator_type=op_def.get(OperatorConstants.Misc.OPERATOR, ""),
+                reason=skip_reason,
+                start_time=now,
+                end_time=now,
+            ),
         )
 
     def _inner_task(
@@ -869,6 +1011,32 @@ class AbstractOrchestrator(ABC):
             job_status=self.job_status,
             prev_results=prev_results,
         )
+        from docpipe.core.orchestration.models.execution_event_context import NodeStartContext, NodeTableSummary
+
+        node_start_time = get_current_timestamp()
+
+        # Always emit on_node_start regardless of job status — symmetry with on_node_skip/fail.
+        # Build input summary without holding the full table beyond this point.
+        if prev_results is not None:
+            _, prev_table = self._unpack_prev_results(prev_results=prev_results)
+            raw_table = prev_table[0] if isinstance(prev_table, list) and prev_table else prev_table
+            input_summary = NodeTableSummary.from_table(raw_table) if isinstance(raw_table, pa.Table) else None
+            predecessor_node_ids = self._resolve_predecessor_names(op_def=op_def)
+            self._notify_observer(
+                "on_node_start",
+                context=NodeStartContext(
+                    flow_id=self.flow_id or "",
+                    flow_name=getattr(self, "flow_name", self.flow_id or ""),
+                    job_run_id=self.job_run_id or "",
+                    node_id=op_def[OperatorConstants.Columns.ID],
+                    node_name=op_def[OperatorConstants.Columns.NAME],
+                    operator_type=op_def.get(OperatorConstants.Misc.OPERATOR, ""),
+                    input_summary=input_summary,
+                    predecessor_node_ids=predecessor_node_ids,
+                    parent_run_id=self.job_run_id or "",
+                    start_time=node_start_time,
+                ),
+            )
 
         self._sync_cancellation_status()
 
@@ -891,7 +1059,7 @@ class AbstractOrchestrator(ABC):
             )
 
         except Exception as e:
-            self._handle_node_failure(e=e, op_def=op_def, global_config=global_config)
+            self._handle_node_failure(e=e, op_def=op_def, global_config=global_config, start=node_start_time)
             # steps in output edges will exit early
             return None
 
@@ -904,6 +1072,79 @@ class AbstractOrchestrator(ABC):
         self.flow_execution_event_handler.after_flow_execution_complete(
             op_flow=op_flow, present_job_status=self.job_status, message=self.message, global_config=global_config
         )
+        from docpipe.core.lineage.application.lineage_service import LineageService
+        from docpipe.core.orchestration.models.execution_event_context import (
+            FlowAbortContext,
+            FlowCompleteContext,
+            FlowFailContext,
+        )
+
+        job_run_id = self.job_run_id or ""
+        flow_id = self.flow_id or ""
+        if self.job_status in (ExecutionStatus.CANCELING, ExecutionStatus.CANCELED):
+            self._notify_observer(
+                "on_flow_abort",
+                context=FlowAbortContext(
+                    flow_id=flow_id,
+                    flow_name=getattr(self, "flow_name", flow_id),
+                    job_run_id=job_run_id,
+                    reason=self.message,
+                ),
+            )
+        elif self.job_status in (ExecutionStatus.FAILING, ExecutionStatus.FAILED):
+            self._notify_observer(
+                "on_flow_fail",
+                context=FlowFailContext(
+                    flow_id=flow_id,
+                    flow_name=getattr(self, "flow_name", flow_id),
+                    job_run_id=job_run_id,
+                    error_message=self.message or "",
+                ),
+            )
+        else:
+            event_type = LineageService.resolve_status(status=self.job_status)
+            from docpipe.core.lineage.domain.models.event_type import LineageEventType
+
+            if event_type != LineageEventType.FAIL and event_type != LineageEventType.ABORT:
+                # Read final doc counts from job stats service
+                _completed, _failed, _skipped, _total = 0, 0, 0, 0
+                if self.job_stats_service and job_run_id:
+                    try:
+                        _job = self.job_stats_service.get_job(job_run_id=job_run_id, include_node_stats=False)
+                        if _job:
+                            _completed = _job.completed_docs or 0
+                            _failed = _job.failed_docs or 0
+                            _skipped = _job.skipped_docs or 0
+                            _total = _job.total_docs or 0
+                    except Exception as exc:
+                        logger.debug("Could not read doc counts for lineage COMPLETE event: %s", exc)
+                self._notify_observer(
+                    "on_flow_complete",
+                    context=FlowCompleteContext(
+                        flow_id=flow_id,
+                        flow_name=getattr(self, "flow_name", flow_id),
+                        job_run_id=job_run_id,
+                        flow_def=op_flow,
+                        status=self.job_status.value,
+                        output_tables=[getattr(self, "last_output_table", None)]
+                        if getattr(self, "last_output_table", None) is not None
+                        else [],
+                        ingest_dataset_name=getattr(self, "ingest_dataset_name", None),
+                        completed_docs=_completed,
+                        failed_docs=_failed,
+                        skipped_docs=_skipped,
+                        total_docs=_total,
+                    ),
+                )
+
+    def _derive_ingest_dataset_name(self, *, ingest_operator: dict) -> str:
+        """Derive a human-readable dataset name from the ingest operator config.
+
+        Delegates to LineageUtils.derive_ingest_dataset_name.
+        """
+        from docpipe.core.lineage.utils import LineageUtils
+
+        return LineageUtils.derive_ingest_dataset_name(ingest_operator=ingest_operator)
 
     def _populate_ingest_source_config(self, *, ingest_operator, global_config):
         """
@@ -920,21 +1161,11 @@ class AbstractOrchestrator(ABC):
         )
         if "ingest_source" in operator_type.lower() or "IngestSourceOperator" in operator_type:
             operator_config = ingest_operator.get(OperatorConstants.Config.CONFIG, {})
-            connection_params = operator_config.get(OperatorConstants.Config.CONNECTION_PARAMS, {})
-            credentials = operator_config.get(OperatorConstants.Config.CREDENTIALS, {})
-
-            # Merge connection_params and credentials for adapter compatibility.
-            # credentials may be a vault:// string (resolved at operator execution time,
-            # not here) — only unpack it when it is already a dict.
-            merged_connection_params = {
-                **connection_params,
-                **(credentials if isinstance(credentials, dict) else {}),
-            }
+            provider_config = operator_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
 
             global_config[OperatorConstants.Config.INGEST_SOURCE] = {
                 OperatorConstants.Config.PROVIDER: operator_config.get(OperatorConstants.Config.PROVIDER),
-                OperatorConstants.Config.CONNECTION_PARAMS: merged_connection_params,
-                OperatorConstants.Config.CREDENTIALS: credentials,
+                OperatorConstants.Config.PROVIDER_CONFIG: provider_config,
             }
             self.logger.info(
                 f"Populated global_config with ingest_source params for provider: {operator_config.get(OperatorConstants.Config.PROVIDER)}",
@@ -942,7 +1173,7 @@ class AbstractOrchestrator(ABC):
             )
             self.logger.debug(
                 f"global_config after population: ingest_source keys={list(global_config.get(OperatorConstants.Config.INGEST_SOURCE, {}).keys())}, "
-                f"merged_connection_params keys={list(merged_connection_params.keys())}",
+                f"provider_config keys={list(provider_config.keys())}",
                 extra=self.common_log_arguments,
             )
         else:
@@ -973,13 +1204,50 @@ class AbstractOrchestrator(ABC):
         # Execute ingest operator to get initial table
         ingest_operator = op_flow[0]
 
+        # Build id → name lookup once so predecessor names are human-readable in lineage events.
+        self._node_id_to_name: dict[str, str] = {
+            node[OperatorConstants.Columns.ID]: node[OperatorConstants.Columns.NAME]
+            for node in op_flow
+            if OperatorConstants.Columns.ID in node and OperatorConstants.Columns.NAME in node
+        }
+
+        # Derive the ingest source name early — it is available from config alone,
+        # before execution, and is needed for the ingest node's input dataset label.
+        self.ingest_dataset_name = self._derive_ingest_dataset_name(ingest_operator=ingest_operator)
+
+        # Emit node START for ingest before execution — ingest bypasses _inner_task
+        # so on_node_start must be fired manually here.  The input dataset is the
+        # ingest source itself (e.g. filesystem://./tests/fixtures/customer_support_docs).
+        from docpipe.core.orchestration.models.execution_event_context import NodeStartContext as _NodeStartContext
+        from docpipe.core.orchestration.models.execution_event_context import NodeTableSummary as _NodeTableSummary
+
+        ingest_start_time = get_current_timestamp()
+        self._notify_observer(
+            "on_node_start",
+            context=_NodeStartContext(
+                flow_id=self.flow_id or "",
+                flow_name=getattr(self, "flow_name", self.flow_id or ""),
+                job_run_id=self.job_run_id or "",
+                node_id=ingest_operator[OperatorConstants.Columns.ID],
+                node_name=ingest_operator[OperatorConstants.Columns.NAME],
+                operator_type=ingest_operator.get(OperatorConstants.Misc.OPERATOR, ""),
+                # Use ingest source path as the input dataset so Marquez shows
+                # where data originates (e.g. filesystem://./tests/fixtures/...).
+                # No table exists yet so we pass a zero-row placeholder summary.
+                input_summary=_NodeTableSummary(schema_fields=[], row_count=0),
+                ingest_source_dataset_name=self.ingest_dataset_name,
+                parent_run_id=self.job_run_id or "",
+                start_time=ingest_start_time,
+            ),
+        )
+
         initial_result = self._create_empty_result()
         try:
             ingest_results = self._execute_step(
                 op_def=ingest_operator, global_config=global_config, prev_results=initial_result, deleted_docs_count=0
             )
         except Exception as e:
-            self._handle_node_failure(e=e, op_def=ingest_operator, global_config=global_config)
+            self._handle_node_failure(e=e, op_def=ingest_operator, global_config=global_config, start=ingest_start_time)
             raise
 
         # Populate global_config with ingest_source params for lazy binary loading
@@ -996,6 +1264,21 @@ class AbstractOrchestrator(ABC):
 
         # Get the ingested table
         ingested_table = ingest_results.tables[0]
+
+        # Notify observer that ingest is complete and active processing begins
+        from docpipe.core.orchestration.models.execution_event_context import FlowRunningContext
+
+        self._notify_observer(
+            "on_flow_running",
+            context=FlowRunningContext(
+                flow_id=self.flow_id or "",
+                flow_name=getattr(self, "flow_name", self.flow_id or ""),
+                job_run_id=self.job_run_id or "",
+                ingested_table=ingested_table,
+                ingest_node_id=op_flow[0].get(OperatorConstants.Columns.ID) if op_flow else None,
+                ingest_source_name=self.ingest_dataset_name,
+            ),
+        )
 
         # Check if table is empty
         if ingested_table.num_rows == 0:

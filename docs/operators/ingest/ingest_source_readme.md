@@ -33,7 +33,7 @@ Ingest documents from one or more local directories or individual files. No cred
 ```python
 node_config = {
     'provider': 'filesystem',
-    'connection_params': {
+    'provider_config': {
         'paths': ['/data/invoices', '/data/contracts'],
         'recursive': True,
         'exclude_patterns': ['*.tmp', '__pycache__/*'],
@@ -63,12 +63,10 @@ Ingest documents from Amazon S3 buckets and S3-compatible storage services (IBM 
 ```python
 node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'your-bucket-name',
         'prefix': 'optional/path/prefix/',  # Optional
-        'region': 'us-east-1'  # Optional
-    },
-    'credentials': {
+        'region': 'us-east-1',             # Optional
         'access_key': 'YOUR_AWS_ACCESS_KEY',
         'secret_key': 'YOUR_AWS_SECRET_KEY'  # pragma: allowlist secret
     }
@@ -79,12 +77,10 @@ node_config = {
 ```python
 node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'your-bucket-name',
         'prefix': 'optional/path/prefix/',  # Optional
-        'endpoint_url': 'https://s3.us-south.cloud-object-storage.appdomain.cloud'
-    },
-    'credentials': {
+        'endpoint_url': 'https://s3.us-south.cloud-object-storage.appdomain.cloud',
         'access_key': 'YOUR_IBM_ACCESS_KEY',
         'secret_key': 'YOUR_IBM_SECRET_KEY'  # pragma: allowlist secret
     }
@@ -117,10 +113,8 @@ Ingest documents from SharePoint document libraries.
 ```python
 node_config = {
     'provider': 'sharepoint',
-    'connection_params': {
-        'document_library_id': 'your-library-id'
-    },
-    'credentials': {
+    'provider_config': {
+        'document_library_id': 'your-library-id',
         'client_id': 'YOUR_CLIENT_ID',
         'client_secret': 'YOUR_CLIENT_SECRET',  # pragma: allowlist secret
         'tenant_id': 'YOUR_TENANT_ID'
@@ -145,13 +139,11 @@ Ingest documents from OneDrive folders.
 ```python
 node_config = {
     'provider': 'onedrive',
-    'connection_params': {
+    'provider_config': {
         'drive_id': 'your-drive-id',
-        'folder_path': '/Documents/MyFolder'  # Optional
-    },
-    'credentials': {
+        'folder_path': '/Documents/MyFolder',  # Optional
         'client_id': 'YOUR_CLIENT_ID',
-        'client_secret': 'YOUR_CLIENT_SECRET', # pragma: allowlist secret
+        'client_secret': 'YOUR_CLIENT_SECRET',  # pragma: allowlist secret
         'tenant_id': 'YOUR_TENANT_ID'
     }
 }
@@ -175,12 +167,10 @@ Ingest documents from Google Drive folders using OAuth 2.0 authentication.
 ```python
 node_config = {
     'provider': 'google_drive',
-    'connection_params': {
+    'provider_config': {
         'folder_id': 'your-folder-id',
-        'recursive': False  # Optional: include subfolders
-    },
-    'credentials': {
-        'credentials_json_path': '/path/to/client_secret.json',
+        'recursive': False,  # Optional: include subfolders
+        'credentials_path': '/path/to/client_secret.json',
         'token_path': '/path/to/token.json',  # Optional
         'scopes': ['https://www.googleapis.com/auth/drive.readonly']  # Optional
     }
@@ -214,14 +204,12 @@ Ingest documents from Box folders using JWT authentication.
 ```python
 node_config = {
     'provider': 'box_driver',
-    'connection_params': {
+    'provider_config': {
         'folder_id': '0',  # Optional: Box folder ID to start from (default: '0' for root)
         'recursive': True,  # Optional: include subfolders
         'max_file_size_mb': 50,  # Optional: max file size in MB
-        'exclude_patterns': ['*.tmp', 'Trash/*']  # Optional: patterns to exclude
-    },
-    'credentials': {
-        'credentials_json_path': '/path/to/box_jwt_config.json'
+        'exclude_patterns': ['*.tmp', 'Trash/*'],  # Optional: patterns to exclude
+        'credentials_path': '/path/to/box_jwt_config.json'
     },
     'include_filter': 'pdf,docx,txt,pptx,xlsx',  # Optional: file extensions to include
     'max_files': 100  # Optional
@@ -272,13 +260,11 @@ Ingest documents from a Dropbox account using the Dropbox SDK.
 ```python
 node_config = {
     'provider': 'dropbox',
-    'connection_params': {
+    'provider_config': {
         'folder_path': '/Reports',  # Optional: folder to ingest from ('' or '/' for account root)
         'recursive': True,  # Optional: include subfolders (default: True)
         'max_file_size_mb': 50,  # Optional: max file size in MB
-        'exclude_patterns': ['*.tmp', '*/Archive/*']  # Optional: patterns to exclude
-    },
-    'credentials': {
+        'exclude_patterns': ['*.tmp', '*/Archive/*'],  # Optional: patterns to exclude
         'access_token': '${DROPBOX_ACCESS_TOKEN}'
     },
     'include_filter': 'pdf,docx,txt',  # Optional: file extensions to include
@@ -325,14 +311,11 @@ Extend functionality with custom LangChain-compatible loaders.
 ```python
 node_config = {
     'provider': 'custom',
-    'connection_params': {
+    'provider_config': {
         'loader_class_path': 'my_package.loaders.CustomLoader',
-        # Additional parameters specific to your loader
+        # Additional parameters specific to your loader (including credentials)
         'param1': 'value1',
-        'param2': 'value2'
-    },
-    'credentials': {
-        # Credentials specific to your loader
+        'param2': 'value2',
         'api_key': 'YOUR_API_KEY'  # pragma: allowlist secret
     }
 }
@@ -357,11 +340,9 @@ import pyarrow as pa
 # Configure the operator
 node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'my-bucket',
-        'prefix': 'documents/'
-    },
-    'credentials': {
+        'prefix': 'documents/',
         'access_key': 'YOUR_ACCESS_KEY',
         'secret_key': 'YOUR_SECRET_KEY'  # pragma: allowlist secret
     },
@@ -403,12 +384,10 @@ See the [Usage](#usage) section above and per-provider configuration in [Support
 | Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
 | `provider` | string | **Yes** | — | Source provider: `filesystem`, `s3`, `ibm_cos`, `sharepoint`, `onedrive`, `google_drive`, `box_driver`, `dropbox`, `web` |
-| `connection_params` | object | **Yes** | — | Provider-specific connection settings |
-| `credentials` | object | **Yes** | — | Provider-specific authentication credentials |
+| `provider_config` | object | **Yes** | — | All provider-specific parameters including credentials in a single dict |
 | `include_filter` | string | No | all types | Comma-separated file extensions to include (no dot) |
-| `max_files` | integer | No | unlimited | Maximum files to ingest |
+| `max_files` | integer | No | `100` | Maximum files to ingest |
 | `force_ingest` | boolean | No | `false` | Re-ingest previously processed files |
-| `retain_deleted_docs` | boolean | No | `false` | Keep records of deleted files |
 
 ---
 
@@ -436,13 +415,11 @@ This operator produces a new table; it does not receive an input table.
   "name": "ingest_s3_documents",
   "config": {
     "provider": "s3",
-    "connection_params": {
+    "provider_config": {
       "bucket": "my-bucket",
-      "prefix": "documents/"
-    },
-    "credentials": {
-      "aws_access_key_id": "${AWS_ACCESS_KEY_ID}",
-      "aws_secret_access_key": "${AWS_SECRET_ACCESS_KEY}"
+      "prefix": "documents/",
+      "access_key": "${S3_ACCESS_KEY}",
+      "secret_key": "${S3_SECRET_KEY}"
     },
     "include_filter": "pdf,docx",
     "max_files": 500
@@ -520,8 +497,11 @@ The operator supports incremental processing to avoid re-ingesting unchanged doc
 ```python
 node_config = {
     'provider': 's3',
-    'connection_params': {...},
-    'credentials': {...},
+    'provider_config': {
+        'bucket': 'my-bucket',
+        'access_key': '...',
+        'secret_key': '...'
+    },
     'job_id': 'my-job-123',
     'force_ingest': False  # Set to True to re-ingest all documents
 }
@@ -765,8 +745,7 @@ Initialize the operator with configuration.
 **Parameters:**
 - `node_config` (dict): Configuration dictionary containing:
   - `provider` (str): Provider identifier (s3, google_drive, sharepoint, onedrive, box_driver, dropbox, filesystem, web, custom)
-  - `connection_params` (dict): Provider-specific connection parameters
-  - `credentials` (dict): Authentication credentials
+  - `provider_config` (dict): All provider-specific parameters including credentials in a single dict
   - `job_id` (str, optional): Job identifier for tracking
   - `job_run_id` (str, optional): Job run identifier
   - `max_files` (int, optional): Maximum number of files to process (default: 100)
@@ -803,7 +782,7 @@ Get operator metadata including features and attributes.
 ```python
 node_config = {
     'provider': 'filesystem',
-    'connection_params': {
+    'provider_config': {
         'paths': ['/data/customer_support_docs'],
         'recursive': True,
         'exclude_patterns': ['*.tmp', '__pycache__/*'],
@@ -819,7 +798,7 @@ node_config = {
 ```python
 node_config = {
     'provider': 'filesystem',
-    'connection_params': {
+    'provider_config': {
         'paths': [
             '/data/invoices',
             '/data/contracts',
@@ -842,7 +821,7 @@ node_config = {
   "type": "ingest_source",
   "config": {
     "provider": "filesystem",
-    "connection_params": {
+    "provider_config": {
       "paths": [
         "./data/invoices",
         "./data/contracts"
@@ -863,11 +842,9 @@ node_config = {
 ```python
 node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'company-documents',
-        'prefix': '2024/invoices/'  # Ingests all files in this folder
-    },
-    'credentials': {
+        'prefix': '2024/invoices/',  # Ingests all files in this folder
         'access_key': os.getenv('AWS_ACCESS_KEY'),
         'secret_key': os.getenv('AWS_SECRET_KEY')
     }
@@ -878,11 +855,9 @@ node_config = {
 ```python
 node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'company-documents',
-        'prefix': '2024/invoices/report.pdf'  # Ingests only this specific file
-    },
-    'credentials': {
+        'prefix': '2024/invoices/report.pdf',  # Ingests only this specific file
         'access_key': os.getenv('AWS_ACCESS_KEY'),
         'secret_key': os.getenv('AWS_SECRET_KEY')
     }
@@ -893,12 +868,10 @@ node_config = {
 ```python
 node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'enterprise-data',
         'prefix': 'contracts/',
-        'endpoint_url': 'https://s3.eu-gb.cloud-object-storage.appdomain.cloud'
-    },
-    'credentials': {
+        'endpoint_url': 'https://s3.eu-gb.cloud-object-storage.appdomain.cloud',
         'access_key': os.getenv('IBM_COS_ACCESS_KEY'),
         'secret_key': os.getenv('IBM_COS_SECRET_KEY')
     }
@@ -909,11 +882,9 @@ node_config = {
 ```python
 node_config = {
     'provider': 'google_drive',
-    'connection_params': {
+    'provider_config': {
         'folder_id': '1DKN_mxnoW1Uaacghz8vyEeqw-j4IOSFK',
-        'recursive': True
-    },
-    'credentials': {
+        'recursive': True,
         'credentials_json_path': os.getenv('GOOGLE_CREDENTIALS_PATH'),
         'token_path': os.path.expanduser('~/.credentials/gdrive_token.json'),
         'scopes': ['https://www.googleapis.com/auth/drive.readonly']
@@ -925,13 +896,11 @@ node_config = {
 ```python
 node_config = {
     'provider': 'box_driver',
-    'connection_params': {
+    'provider_config': {
         'folder_id': '123456789',  # Specific Box folder ID (use '0' for root)
         'recursive': True,
         'max_file_size_mb': 50,
-        'exclude_patterns': ['*.tmp', 'Trash/*']
-    },
-    'credentials': {
+        'exclude_patterns': ['*.tmp', 'Trash/*'],
         'credentials_json_path': os.getenv('BOX_JWT_CONFIG_FILE')
     },
     'include_filter': 'pdf,docx,txt,pptx,xlsx',  # File extensions to include
@@ -943,13 +912,11 @@ node_config = {
 ```python
 node_config = {
     'provider': 'dropbox',
-    'connection_params': {
+    'provider_config': {
         'folder_path': '/Reports/2026',
         'recursive': True,
         'max_file_size_mb': 50,
-        'exclude_patterns': ['*.tmp', '*/Archive/*']
-    },
-    'credentials': {
+        'exclude_patterns': ['*.tmp', '*/Archive/*'],
         'access_token': os.getenv('DROPBOX_ACCESS_TOKEN')
     },
     'include_filter': 'pdf,docx,txt',

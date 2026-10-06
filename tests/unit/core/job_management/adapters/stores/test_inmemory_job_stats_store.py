@@ -40,6 +40,7 @@ def sample_job_stats():
         status=ExecutionStatus.RUNNING,
         processed_docs=100,
         failed_docs=5,
+        progress_timestamp=1704067300,
     )
 
 
@@ -178,6 +179,7 @@ class TestImmutability:
         # Retrieved should be unchanged
         retrieved = store.get_job_stats(job_run_id)
         assert retrieved.processed_docs == 100
+        assert retrieved.progress_timestamp == 1704067300
 
     def test_get_job_stats_deep_copy(self, *, store, sample_job_stats):
         """Retrieved job stats should be independent copy."""

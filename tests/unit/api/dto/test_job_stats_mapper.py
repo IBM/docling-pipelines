@@ -109,6 +109,8 @@ class TestJobStatsMapperToDto:
         job_stats.total_docs = 42
         job_stats.completed_docs = 40
         job_stats.failed_docs = 2
+        job_stats.heartbeat_timestamp = 1704067260
+        job_stats.progress_timestamp = 1704067200
 
         dto = JobStatsMapper.to_dto(job_stats)
 
@@ -117,6 +119,8 @@ class TestJobStatsMapperToDto:
         assert dto.total_docs == 42
         assert dto.completed_docs == 40
         assert dto.failed_docs == 2
+        assert dto.heartbeat_timestamp == 1704067260
+        assert dto.progress_timestamp == 1704067200
 
     def test_node_stats_values_mapped_correctly(self):
         """Each mapped NodeStatsDto retains the correct node_id and name."""
