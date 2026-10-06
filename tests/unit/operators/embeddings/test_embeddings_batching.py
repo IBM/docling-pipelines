@@ -267,35 +267,52 @@ class TestScatter:
 
 
 class TestRequestFailures:
-    """A failing request fails exactly the documents whose texts it carried."""
+    """A bad text only fails its own document; shared failures are retried per document."""
 
     @pytest.mark.parametrize("max_concurrent_requests", [1, 3])
-    def test_failed_request_fails_only_its_documents(self, max_concurrent_requests):
-        # 2 chunks per document and batch_size 4 -> request k carries docs 2k and 2k+1
+    def test_poison_text_fails_only_its_document(self, max_concurrent_requests):
+        # One request of 6 texts carries docs A, B and C; "B-poison" makes any request containing it fail
         adapter = _RecordingAdapter(
-            batch_size=4,
+            batch_size=6,
             max_concurrent_requests=max_concurrent_requests,
-            fail_when=lambda texts: "d3-c0" in texts,
+            fail_when=lambda texts: "B-poison" in texts,
         )
+        operator = _make_operator(adapter=adapter)
+        chunks = [["A-1", "A-2"], ["B-1", "B-poison"], ["C-1", "C-2"]]
+
+        result_tables, metadata = operator.transform(_chunked_table(chunks_per_doc=chunks))
+        result = result_tables[0]
+
+        assert result["id"].to_pylist() == ["doc0", "doc2"]
+        assert result["doc_id_hash"].to_pylist() == ["hash0", "hash2"]
+        assert result["embeddings"].to_pylist() == [[_vector_for(t) for t in chunks[d]] for d in (0, 2)]
+        assert metadata[Metrics.External.PROCESSED_DOCS] == 2
+        assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 1
+        failed = metadata[Metrics.External.FAILED_DOCS]
+        assert [d["id"] for d in failed] == ["doc1"]
+        assert "provider unavailable" in failed[0]["reason"]
+        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
+        # 1 shared request, then one isolated request per affected document, each with its own texts only
+        assert len(adapter.calls) == 4
+        assert sorted(adapter.calls[1:]) == [["A-1", "A-2"], ["B-1", "B-poison"], ["C-1", "C-2"]]
+
+    def test_only_documents_of_the_failed_request_are_retried(self):
+        # 2 chunks per document and batch_size 4 -> request k carries docs 2k and 2k+1
+        adapter = _RecordingAdapter(batch_size=4, fail_when=lambda texts: "d3-c0" in texts)
         operator = _make_operator(adapter=adapter)
         chunks = [[f"d{d}-c0", f"d{d}-c1"] for d in range(6)]
 
         result_tables, metadata = operator.transform(_chunked_table(chunks_per_doc=chunks))
         result = result_tables[0]
 
-        assert result["id"].to_pylist() == ["doc0", "doc1", "doc4", "doc5"]
-        assert result["doc_id_hash"].to_pylist() == ["hash0", "hash1", "hash4", "hash5"]
-        assert result["embeddings"].to_pylist() == [[_vector_for(t) for t in chunks[d]] for d in (0, 1, 4, 5)]
-        assert metadata[Metrics.External.PROCESSED_DOCS] == 4
-        assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 2
-        failed = metadata[Metrics.External.FAILED_DOCS]
-        assert [d["id"] for d in failed] == ["doc2", "doc3"]
-        assert all("provider unavailable" in d["reason"] for d in failed)
-        assert metadata[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_ERRORS.value
-        # Only the failing request was affected; every other request was sent once
-        assert len(adapter.calls) == 3
+        assert result["id"].to_pylist() == ["doc0", "doc1", "doc2", "doc4", "doc5"]
+        assert result["embeddings"].to_pylist() == [[_vector_for(t) for t in chunks[d]] for d in (0, 1, 2, 4, 5)]
+        assert [d["id"] for d in metadata[Metrics.External.FAILED_DOCS]] == ["doc3"]
+        # 3 shared requests + isolated retries of doc2 and doc3 only
+        assert len(adapter.calls) == 5
+        assert adapter.calls[3:] == [["d2-c0", "d2-c1"], ["d3-c0", "d3-c1"]]
 
-    def test_document_spanning_a_failed_request_fails(self):
+    def test_document_spanning_a_failed_request_resends_only_failed_texts(self):
         # batch_size 3: doc0 = texts 0-1, doc1 = texts 2-4 (spans requests 0 and 1), doc2 = text 5
         adapter = _RecordingAdapter(batch_size=3, fail_when=lambda texts: "b3" in texts)
         operator = _make_operator(adapter=adapter)
@@ -304,9 +321,84 @@ class TestRequestFailures:
             _chunked_table(chunks_per_doc=[["a1", "a2"], ["b1", "b2", "b3"], ["c1"]])
         )
 
-        # Request 1 = ["b2", "b3", "c1"] failed: doc1 and doc2 fail, doc0 succeeds
-        assert result_tables[0]["id"].to_pylist() == ["doc0"]
-        assert [d["id"] for d in metadata[Metrics.External.FAILED_DOCS]] == ["doc1", "doc2"]
+        # Request 1 = ["b2", "b3", "c1"] failed and is retried per document: doc1 still fails, doc2 succeeds
+        assert result_tables[0]["id"].to_pylist() == ["doc0", "doc2"]
+        assert result_tables[0]["embeddings"].to_pylist() == [
+            [_vector_for("a1"), _vector_for("a2")],
+            [_vector_for("c1")],
+        ]
+        assert [d["id"] for d in metadata[Metrics.External.FAILED_DOCS]] == ["doc1"]
+        assert adapter.calls[2:] == [["b2", "b3"], ["c1"]]
+
+    def test_isolated_retry_assembles_vectors_from_both_passes(self):
+        # Fail only the first attempt of the shared request: doc1 then gets vectors from both passes
+        attempts: list[int] = []
+
+        def fail_first_shared(texts: list[str]) -> bool:
+            if "b3" in texts and "c1" in texts:
+                attempts.append(1)
+                return True
+            return False
+
+        adapter = _RecordingAdapter(batch_size=3, fail_when=fail_first_shared)
+        operator = _make_operator(adapter=adapter)
+
+        result_tables, metadata = operator.transform(
+            _chunked_table(chunks_per_doc=[["a1", "a2"], ["b1", "b2", "b3"], ["c1"]])
+        )
+
+        assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 0
+        assert result_tables[0]["embeddings"].to_pylist() == [
+            [_vector_for("a1"), _vector_for("a2")],
+            [_vector_for("b1"), _vector_for("b2"), _vector_for("b3")],
+            [_vector_for("c1")],
+        ]
+        assert attempts == [1]
+
+    @pytest.mark.parametrize("max_concurrent_requests", [1, 4])
+    def test_provider_outage_fails_all_documents_with_bounded_extra_calls(self, max_concurrent_requests):
+        adapter = _RecordingAdapter(
+            batch_size=4, max_concurrent_requests=max_concurrent_requests, fail_when=lambda texts: True
+        )
+        operator = _make_operator(adapter=adapter)
+        # 10 docs x 3 chunks = 30 texts -> 8 shared requests; the last one (d9-c1, d9-c2) carries
+        # only doc9, so doc9 fails on its own error and is not retried
+        chunks = [[f"d{d}-c{c}" for c in range(3)] for d in range(10)]
+
+        result_tables, metadata = operator.transform(_chunked_table(chunks_per_doc=chunks))
+
+        assert result_tables[0].num_rows == 0
+        assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 10
+        assert metadata[Metrics.External.PROCESSED_DOCS] == 0
+        shared_requests = math.ceil(30 / 4)
+        # One isolated retry per remaining document (its failed texts fit in one request)
+        assert len(adapter.calls) == shared_requests + 9
+        # General bound on extra requests: failed shared requests + affected documents
+        assert len(adapter.calls) - shared_requests <= shared_requests + 10
+
+    def test_single_document_request_failure_does_not_retry(self):
+        # batch_size 4, each document has exactly 4 texts -> every request carries one document
+        adapter = _RecordingAdapter(batch_size=4, fail_when=lambda texts: "d1-c2" in texts)
+        operator = _make_operator(adapter=adapter)
+        chunks = [[f"d{d}-c{c}" for c in range(4)] for d in range(3)]
+
+        result_tables, metadata = operator.transform(_chunked_table(chunks_per_doc=chunks))
+
+        assert result_tables[0]["id"].to_pylist() == ["doc0", "doc2"]
+        assert [d["id"] for d in metadata[Metrics.External.FAILED_DOCS]] == ["doc1"]
+        assert len(adapter.calls) == 3
+
+    def test_document_failed_by_own_request_is_not_retried_again(self):
+        # batch_size 2: doc0 = [x1, x2] (own request, fails), shared request [x3, y1] also fails
+        adapter = _RecordingAdapter(batch_size=2, fail_when=lambda texts: any(t.startswith("x") for t in texts))
+        operator = _make_operator(adapter=adapter)
+
+        result_tables, metadata = operator.transform(_chunked_table(chunks_per_doc=[["x1", "x2", "x3"], ["y1"]]))
+
+        assert result_tables[0]["id"].to_pylist() == ["doc1"]
+        assert [d["id"] for d in metadata[Metrics.External.FAILED_DOCS]] == ["doc0"]
+        # 2 shared requests + isolated retry of doc1 only
+        assert adapter.calls == [["x1", "x2"], ["x3", "y1"], ["y1"]]
 
     def test_vector_count_mismatch_fails_request(self):
         class _ShortAdapter(_RecordingAdapter):
@@ -319,7 +411,8 @@ class TestRequestFailures:
 
         assert result_tables[0].num_rows == 0
         assert metadata[Metrics.External.FAILED_DOCS_COUNT] == 2
-        assert "returned 1 vectors for 2 texts" in metadata[Metrics.External.FAILED_DOCS][0]["reason"]
+        # The shared request failed, and so did each document on its own
+        assert "returned 0 vectors for 1 texts" in metadata[Metrics.External.FAILED_DOCS][0]["reason"]
 
     def test_context_length_error_keeps_actionable_message(self):
         class _ContextAdapter(_RecordingAdapter):
