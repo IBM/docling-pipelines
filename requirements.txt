@@ -196,7 +196,7 @@ docker==7.2.0
     # via prefect
 doclang==0.7.3
     # via docling-core
-docling==2.130.0
+docling==2.131.0
     # via docling-pipelines
 docling-core==2.96.0
     # via
