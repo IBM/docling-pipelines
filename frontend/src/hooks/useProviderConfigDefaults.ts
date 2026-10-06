@@ -13,7 +13,7 @@
  * ## Supported operators and their layouts
  *
  * Flat (top-level `provider` → top-level config param):
- *   ingest_source        provider → connection_params   (only exception to provider_config)
+ *   ingest_source        provider → provider_config
  *   embeddings           provider → provider_config
  *   document_classifier  provider → provider_config
  *   pii_and_hap          provider → provider_config
@@ -28,7 +28,6 @@
 import { useEffect } from 'react';
 import type { OperatorFeature } from '@/types';
 import { NodeOperator } from '@/constants/operators';
-import { INGEST_SOURCE_ATTRIBUTE } from '@/components/PropertiesPanel/CustomPanels/IngestSource/constants';
 import { STORAGE_OUTPUT_ATTRIBUTE } from '@/components/PropertiesPanel/CustomPanels/StorageOutput/constants';
 import { EXTRACT_ATTRIBUTE, EXTRACTION_KEY } from '@/components/PropertiesPanel/CustomPanels/Extract/constants';
 import { CHUNKER_ATTRIBUTE } from '@/components/PropertiesPanel/CustomPanels/Chunker/constants';
@@ -36,7 +35,6 @@ import { CHUNKER_ATTRIBUTE } from '@/components/PropertiesPanel/CustomPanels/Chu
 // ── Param key constants ───────────────────────────────────────────────────────
 const PROVIDER = EXTRACTION_KEY.PROVIDER;
 const PROVIDER_CONFIG = EXTRACTION_KEY.PROVIDER_CONFIG;
-const CONNECTION_PARAMS = INGEST_SOURCE_ATTRIBUTE.CONNECTION_PARAMS;
 const DESTINATION_CONFIG = STORAGE_OUTPUT_ATTRIBUTE.DESTINATION_CONFIG;
 const TEXT_EXTRACTION = EXTRACT_ATTRIBUTE.TEXT_EXTRACTION;
 const ENTITY_EXTRACTION = EXTRACT_ATTRIBUTE.ENTITY_EXTRACTION;
@@ -147,13 +145,9 @@ export function useProviderConfigDefaults(
       return;
     }
 
-    // ── ingest_source — only operator using connection_params instead of provider_config
-    if (nodeOp === NodeOperator.INGEST_SOURCE) {
-      seedFlat(CONNECTION_PARAMS);
-    }
-
     // ── flat provider_config operators ────────────────────────────────────────
-    else if (
+    if (
+      nodeOp === NodeOperator.INGEST_SOURCE ||
       nodeOp === NodeOperator.EMBEDDINGS ||
       nodeOp === NodeOperator.DOCUMENT_CLASSIFIER ||
       nodeOp === NodeOperator.PII_AND_HAP

@@ -9,19 +9,21 @@
  *
  *   string (sensitive) → VaultInput (supports plaintext or vault:// URI)
  *   string (non-sensitive) → TextInput
- *   int64 / double → NumberInput
+ *   int64 / double (nullable)  → NullableNumberInput (toggle + number input)
+ *   int64 / double (required)  → NumberInput
  *   boolean → Toggle
  *   list → TagInput  (comma-separated string[] stored as array)
  *   json → JsonTextArea  (raw JSON object)
  *
  * Sensitivity is determined by `keyInfo.sensitive === true` from operator metadata.
+ * Nullability is determined by `keyInfo.default === null` from operator metadata.
  *
  * No wiring occurs here.
  * The component calls `onChange(fieldKey, value)` so the parent can
  * decide which controller attribute(s) to write to once.
  */
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   NumberInput,
   TextInput,
@@ -81,6 +83,108 @@ function asStringArray(v: unknown): string[] {
   return [];
 }
 
+function buildRangeText(minValue?: number, maxValue?: number): string | undefined {
+  if (minValue !== undefined && maxValue !== undefined) {
+    return `Range allowed: ${minValue}–${maxValue}`;
+  }
+  if (minValue !== undefined) {return `Minimum value allowed: ${minValue}`;}
+  if (maxValue !== undefined) {return `Maximum value allowed: ${maxValue}`;}
+  return undefined;
+}
+
+function isOutOfRange(value: number | string, minValue?: number, maxValue?: number): boolean {
+  if (value === '') {return false;}
+  const n = Number(value);
+  if (!Number.isFinite(n)) {return false;}
+  if (minValue !== undefined && n < minValue) {return true;}
+  if (maxValue !== undefined && n > maxValue) {return true;}
+  return false;
+}
+
+// ── NullableNumberInput ───────────────────────────────────────────────────────
+// Used for int64/double fields whose backend type is `int | None`.
+// A toggle controls whether the field is set (on) or null/no-limit (off).
+
+interface NullableNumberInputProps {
+  id: string;
+  label: string;
+  value: number | null | undefined;
+  minValue?: number;
+  maxValue?: number;
+  onChange: (value: number | null) => void;
+}
+
+function NullableNumberInput({
+  id,
+  label,
+  value,
+  minValue,
+  maxValue,
+  onChange,
+}: NullableNumberInputProps): React.JSX.Element {
+  const isEnabled = value !== null && value !== undefined;
+  const [draft, setDraft] = useState<number | string>(isEnabled ? value : '');
+
+  useEffect(() => {
+    setDraft(isEnabled ? value : '');
+  }, [isEnabled, value]);
+
+  const outOfRange = isOutOfRange(draft, minValue, maxValue);
+
+  const rangeText = buildRangeText(minValue, maxValue);
+
+  function handleToggle(checked: boolean): void {
+    if (checked) {
+      const initial = minValue ?? 1;
+      setDraft(initial);
+      onChange(initial);
+    } else {
+      setDraft('');
+      onChange(null);
+    }
+  }
+
+  function handleNumberChange(_e: unknown, { value: v }: { value: number | string }): void {
+    setDraft(v);
+    if (v === '' || v === undefined) {
+      onChange(null);
+      return;
+    }
+    const n = Number(v);
+    if (Number.isFinite(n)) {
+      onChange(n);
+    }
+  }
+
+  return (
+    <div className={common.nullableNumberInputWrapper}>
+      <Toggle
+        id={`${id}-toggle`}
+        labelA="No limit"
+        labelB="Set limit"
+        toggled={isEnabled}
+        onToggle={handleToggle}
+      />
+      {isEnabled && (
+        <NumberInput
+          id={id}
+          label={label}
+          hideLabel
+          value={draft}
+          {...(minValue !== undefined && { min: minValue })}
+          {...(maxValue !== undefined && { max: maxValue })}
+          helperText={!outOfRange ? rangeText : undefined}
+          invalid={outOfRange}
+          invalidText={outOfRange ? rangeText : undefined}
+          onChange={handleNumberChange}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── ProviderFieldsForm ────────────────────────────────────────────────────────
+
 /**
  * Renders one Carbon input per property defined in the provider schema.
  * Ordering follows the natural order of the `properties` object.
@@ -125,6 +229,12 @@ export function ProviderFieldsForm({
           );
         }
 
+        const isNumeric = keyInfo.type === 'int64' || keyInfo.type === 'double';
+        const isNullable = isNumeric && keyInfo.default === null;
+        const currentNum = asNumber(values[fieldKey]);
+        const numOutOfRange = currentNum !== '' && isOutOfRange(currentNum, keyInfo.min_value, keyInfo.max_value);
+        const numRangeText = buildRangeText(keyInfo.min_value, keyInfo.max_value);
+
         return (
           <div key={fieldKey} className={common.formField}>
             <div className={common.labelWithTooltip}>
@@ -150,13 +260,30 @@ export function ProviderFieldsForm({
               />
             )}
 
-            {/* int64 / double → NumberInput */}
-            {(keyInfo.type === 'int64' || keyInfo.type === 'double') && (
+            {/* int64 / double, nullable (default: null) → NullableNumberInput */}
+            {isNullable && (
+              <NullableNumberInput
+                id={inputId}
+                label={label}
+                value={values[fieldKey] as number | null | undefined}
+                minValue={keyInfo.min_value}
+                maxValue={keyInfo.max_value}
+                onChange={(v) => {onChange(fieldKey, v);}}
+              />
+            )}
+
+            {/* int64 / double, non-null default → NumberInput */}
+            {isNumeric && !isNullable && (
               <NumberInput
                 id={inputId}
                 label={label}
                 hideLabel
-                value={asNumber(values[fieldKey])}
+                value={currentNum !== '' ? currentNum : keyInfo.default as number | undefined}
+                {...(keyInfo.min_value !== undefined && { min: keyInfo.min_value })}
+                {...(keyInfo.max_value !== undefined && { max: keyInfo.max_value })}
+                helperText={!numOutOfRange ? numRangeText : undefined}
+                invalid={numOutOfRange}
+                invalidText={numOutOfRange ? numRangeText : undefined}
                 onChange={(_e: unknown, { value }: { value: number | string }) => {
                   onChange(fieldKey, value === '' ? undefined : Number(value));
                 }}
