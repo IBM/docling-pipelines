@@ -84,18 +84,22 @@ class TestVectorDBOperatorInitialization:
             assert operator.provider == "opensearch"
             assert operator.adapter is not None
 
-    def test_missing_index_name_in_provider_config_raises(self, basic_config):
-        """OpenSearch: missing index_name inside provider_config raises ValueError."""
+    def test_missing_index_name_in_provider_config_reports_validation_error(self, basic_config):
+        """OpenSearch: missing index_name is reported as a validation error, not a runtime exception."""
         config = basic_config.copy()
         provider_cfg = dict(config[OperatorConstants.Config.PROVIDER_CONFIG])
         provider_cfg.pop("index_name", None)
         config[OperatorConstants.Config.PROVIDER_CONFIG] = provider_cfg
 
-        with pytest.raises(DocpipeException, match="Failed to initialize vector database adapter"):
-            VectorDBOperator(config=config)
+        with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch"):
+            operator = VectorDBOperator(config=config)
 
-    def test_missing_collection_name_in_provider_config_raises(self):
-        """Milvus: missing collection_name inside provider_config raises ValueError."""
+        errors: list = []
+        operator.validate(errors=errors, warnings=[], available_features=[])
+        assert any("index_name is not provided" in e for e in errors)
+
+    def test_missing_collection_name_in_provider_config_reports_validation_error(self):
+        """Milvus: missing collection_name is reported as a validation error, not a runtime exception."""
         config = {
             OperatorConstants.Config.PROVIDER: "milvus",
             OperatorConstants.VectorDB.CREATE_INDEX: True,
@@ -106,8 +110,15 @@ class TestVectorDBOperatorInitialization:
                 # collection_name intentionally absent
             },
         }
-        with pytest.raises(DocpipeException, match="Failed to initialize vector database adapter"):
-            VectorDBOperator(config=config)
+        with patch(
+            "docpipe.core.operators.vectordb.adapters.outbound.factories.vector_store_factory.VectorStoreFactory.create"
+        ) as mock_create:
+            mock_create.return_value = MagicMock()
+            operator = VectorDBOperator(config=config)
+
+        errors: list = []
+        operator.validate(errors=errors, warnings=[], available_features=[])
+        assert any("collection_name is not provided" in e for e in errors)
 
     def test_invalid_provider(self, basic_config):
         """Test that invalid provider raises error"""

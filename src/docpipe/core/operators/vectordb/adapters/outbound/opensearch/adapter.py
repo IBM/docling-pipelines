@@ -82,8 +82,6 @@ class OpenSearchAdapter(VectorStorePort):
         """
         # Extract operator-level parameters (added by VectorDBOperator)
         self.index_name = adapter_config.get(OperatorConstants.VectorDB.INDEX_NAME)
-        if not self.index_name:
-            raise ValueError("provider_config.index_name is required for the OpenSearch adapter")
         available_features = adapter_config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
         feature_mappings: list[dict[str, str]] = adapter_config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
 

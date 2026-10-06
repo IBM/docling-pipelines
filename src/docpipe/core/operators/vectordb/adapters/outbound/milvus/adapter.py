@@ -78,10 +78,8 @@ class MilvusAdapter(VectorStorePort):
                 - metric_type: Similarity metric (L2, IP, COSINE)
                 - index_parameters: Index-specific parameters
         """
-        # collection_name is now part of provider_config — validate it is present
+        # collection_name is now part of provider_config — read it from config
         self.collection_name = adapter_config.get(OperatorConstants.VectorDB.COLLECTION_NAME)
-        if not self.collection_name:
-            raise ValueError("provider_config.collection_name is required for the Milvus adapter")
         self.embeddings_column = adapter_config.get(
             OperatorConstants.Columns.EMBEDDINGS_COLUMN, OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT
         )

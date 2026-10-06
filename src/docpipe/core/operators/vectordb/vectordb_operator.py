@@ -171,11 +171,25 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
         attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
         validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
 
+        provider_config: dict = self.config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+
+        # Validate the resource name (index_name for OpenSearch, collection_name for Milvus).
+        if self.provider == "opensearch":
+            if not provider_config.get(OperatorConstants.VectorDB.INDEX_NAME):
+                errors.append("index_name is not provided")
+        elif self.provider == "milvus":
+            if not provider_config.get(OperatorConstants.VectorDB.COLLECTION_NAME):
+                errors.append("collection_name is not provided")
+
+        # Validate that feature mappings are present.
+        feature_mappings: list[dict[str, str]] = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
+        op_available_features: dict = self.config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
+        if op_available_features and not feature_mappings:
+            errors.append("The mappings from features to the collection columns is not provided")
+
         # Validate that every mandatory_for_vector_db feature has a feature mapping.
         # Mirrors enterprise validate_mandatory_feature_mappings(): a VectorDB write
         # will fail at runtime if a mandatory feature has no mapped column.
-        feature_mappings: list[dict[str, str]] = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
-        op_available_features: dict = self.config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
         if feature_mappings and op_available_features:
             mapped_feature_names: set[str] = {
                 entry["feature_name"] for entry in feature_mappings if "feature_name" in entry

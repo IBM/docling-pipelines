@@ -222,26 +222,27 @@ class TestMilvusAdapterDetectAllVectorDimensions:
 
 
 class TestMilvusAdapterMissingCollectionName:
-    def test_raises_value_error_when_collection_name_missing(self):
+    def test_collection_name_none_when_missing(self):
+        """collection_name validation is now done in VectorDBOperator.validate(); adapter stores None."""
         from docpipe.core.operators.vectordb.adapters.outbound.milvus.adapter import MilvusAdapter
 
-        with pytest.raises(ValueError, match="collection_name is required"):
-            with (
-                patch(
-                    "docpipe.core.operators.vectordb.adapters.outbound.milvus.client.MilvusClient.__init__",
-                    return_value=None,
-                ),
-                patch(
-                    "docpipe.core.operators.vectordb.adapters.outbound.milvus.client.MilvusClient.get_client",
-                    return_value=MagicMock(),
-                ),
-                patch(
-                    "docpipe.core.operators.vectordb.adapters.outbound.milvus.index_manager.MilvusIndexManager.__init__",
-                    return_value=None,
-                ),
-                patch(
-                    "docpipe.core.operators.vectordb.adapters.outbound.milvus.batch_processor.MilvusBatchProcessor.__init__",
-                    return_value=None,
-                ),
-            ):
-                MilvusAdapter(host="localhost", port=19530)
+        with (
+            patch(
+                "docpipe.core.operators.vectordb.adapters.outbound.milvus.client.MilvusClient.__init__",
+                return_value=None,
+            ),
+            patch(
+                "docpipe.core.operators.vectordb.adapters.outbound.milvus.client.MilvusClient.get_client",
+                return_value=MagicMock(),
+            ),
+            patch(
+                "docpipe.core.operators.vectordb.adapters.outbound.milvus.index_manager.MilvusIndexManager.__init__",
+                return_value=None,
+            ),
+            patch(
+                "docpipe.core.operators.vectordb.adapters.outbound.milvus.batch_processor.MilvusBatchProcessor.__init__",
+                return_value=None,
+            ),
+        ):
+            adapter = MilvusAdapter(host="localhost", port=19530)
+        assert adapter.collection_name is None
