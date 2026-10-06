@@ -45,36 +45,36 @@ function makeEmptyDefaultsSchema(): OperatorFeature {
 // Flat layout tests (ingest_source, embeddings)
 
 describe('useProviderConfigDefaults — flat layout', () => {
-  it('seeds connection_params defaults for ingest_source when config is empty', () => {
+  it('seeds provider_config defaults for ingest_source when config is empty', () => {
     const nodeAttributes: Record<string, OperatorFeature> = {
-      connection_params: {
+      provider_config: {
         type: 'json',
         providers: { filesystem: makeProviderSchema() },
       },
     };
     const controller = makeController(NodeOperator.INGEST_SOURCE, {
       provider: 'filesystem',
-      connection_params: undefined,
+      provider_config: undefined,
     });
 
     renderHook(() => useProviderConfigDefaults(controller, nodeAttributes));
 
     expect(controller.updatePropertyValue).toHaveBeenCalledWith(
-      { name: 'connection_params' },
+      { name: 'provider_config' },
       { model_id: 'granite', temperature: 0 }
     );
   });
 
-  it('does not overwrite connection_params when it already has values', () => {
+  it('does not overwrite provider_config when it already has values', () => {
     const nodeAttributes: Record<string, OperatorFeature> = {
-      connection_params: {
+      provider_config: {
         type: 'json',
         providers: { filesystem: makeProviderSchema() },
       },
     };
     const controller = makeController(NodeOperator.INGEST_SOURCE, {
       provider: 'filesystem',
-      connection_params: { model_id: 'user-set' },
+      provider_config: { model_id: 'user-set' },
     });
 
     renderHook(() => useProviderConfigDefaults(controller, nodeAttributes));

@@ -13,7 +13,7 @@
  * ## Supported operators and their layouts
  *
  * Flat (top-level `provider` → top-level config param):
- *   ingest_source        provider → connection_params   (only exception to provider_config)
+ *   ingest_source        provider → provider_config
  *   embeddings           provider → provider_config
  *   document_classifier  provider → provider_config
  *   pii_and_hap          provider → provider_config
@@ -36,7 +36,7 @@ import { CHUNKER_ATTRIBUTE } from '@/components/PropertiesPanel/CustomPanels/Chu
 // ── Param key constants ───────────────────────────────────────────────────────
 const PROVIDER = EXTRACTION_KEY.PROVIDER;
 const PROVIDER_CONFIG = EXTRACTION_KEY.PROVIDER_CONFIG;
-const CONNECTION_PARAMS = INGEST_SOURCE_ATTRIBUTE.CONNECTION_PARAMS;
+const INGEST_PROVIDER_CONFIG = INGEST_SOURCE_ATTRIBUTE.PROVIDER_CONFIG;
 const DESTINATION_CONFIG = STORAGE_OUTPUT_ATTRIBUTE.DESTINATION_CONFIG;
 const TEXT_EXTRACTION = EXTRACT_ATTRIBUTE.TEXT_EXTRACTION;
 const ENTITY_EXTRACTION = EXTRACT_ATTRIBUTE.ENTITY_EXTRACTION;
@@ -147,9 +147,9 @@ export function useProviderConfigDefaults(
       return;
     }
 
-    // ── ingest_source — only operator using connection_params instead of provider_config
+    // ── ingest_source ─────────────────────────────────────────────────────────
     if (nodeOp === NodeOperator.INGEST_SOURCE) {
-      seedFlat(CONNECTION_PARAMS);
+      seedFlat(INGEST_PROVIDER_CONFIG);
     }
 
     // ── flat provider_config operators ────────────────────────────────────────
