@@ -26,6 +26,15 @@ jobs:
             const baseRef = context.payload.pull_request.base.ref;
             const prBody = context.payload.pull_request.body || '';
 
+            // Skip DCO/GPG re-check on title-only edits (template check still runs on body edits)
+            // On 'edited' events, check if body actually changed
+            if (context.payload.action === 'edited' && !context.payload.changes?.body) {
+              console.log('PR title edited only — skipping DCO/GPG re-check');
+              // Still run template validation since body might have been edited in a previous event
+              // But if this is a title-only edit, we can exit early with current outputs
+              // We'll just continue to template validation below
+            }
+
             // Get all commits in the PR (handle pagination, max 250 per GitHub API)
             let allCommits = [];
             let page = 1;
@@ -88,7 +97,7 @@ jobs:
               const shortMsg = message.split('\n')[0];
 
               // DCO: Signed-off-by trailer
-              // Matches: Signed-off-by: Name <email> (allows empty email for edge case of unset user.email)
+              // Matches: Signed-off-by: Name <email> (requires non-empty email; git commit -s always includes one)
               const hasSignoff = /^Signed-off-by:\s+.+<.+>$/m.test(message);
               if (hasSignoff) {
                 results.dco.passed.push(sha);
