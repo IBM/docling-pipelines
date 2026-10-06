@@ -3126,10 +3126,13 @@ def test_extract_operator_valid_max_workers_passed_through() -> None:
 def _make_operator_with_entity_extraction(
     *,
     document_class_provider=None,
-) -> "ExtractOperator":
-    """Build an ExtractOperator with entity extraction enabled, mocking both factories."""
+) -> "tuple[ExtractOperator, MagicMock]":
+    """Build an ExtractOperator with entity extraction enabled, mocking both factories.
+
+    Returns a tuple of (operator, mock_create_adapter) so callers can inspect the
+    factory call arguments.
+    """
     from docpipe.core.operators.extract.extract_operator import ExtractOperator
-    from docpipe.core.ports.document_class_provider import StaticDocumentClassProvider
 
     config = {
         "text_extraction": {"provider": "docling_library", "doc_column": "doc_content"},
@@ -3143,7 +3146,6 @@ def _make_operator_with_entity_extraction(
 
     mock_entity_adapter = MagicMock()
     mock_entity_adapter.ADAPTER_DISPLAY_NAME = "LiteLLM"
-    mock_entity_adapter.document_class_provider = StaticDocumentClassProvider()
 
     with (
         patch(
@@ -3153,9 +3155,10 @@ def _make_operator_with_entity_extraction(
         patch(
             "docpipe.core.operators.extract.extract_operator.EntityExtractionAdapterFactory.create_adapter",
             return_value=mock_entity_adapter,
-        ),
+        ) as mock_create,
     ):
-        return ExtractOperator(config=config, document_class_provider=document_class_provider)
+        op = ExtractOperator(config=config, document_class_provider=document_class_provider)
+        return op, mock_create
 
 
 @pytest.mark.unit
@@ -3174,31 +3177,31 @@ def test_extract_operator_stores_injected_provider() -> None:
     from docpipe.core.ports.document_class_provider import DocumentClassProvider
 
     custom_provider = MagicMock(spec=DocumentClassProvider)
-    op = _make_operator_with_entity_extraction(document_class_provider=custom_provider)
+    op, _ = _make_operator_with_entity_extraction(document_class_provider=custom_provider)
 
     assert op._document_class_provider is custom_provider
 
 
 @pytest.mark.unit
 def test_extract_operator_propagates_provider_to_entity_adapter() -> None:
-    """The injected provider is set on the entity adapter after factory creation."""
+    """The provider is passed to EntityExtractionAdapterFactory.create_adapter at construction time."""
     from docpipe.core.ports.document_class_provider import DocumentClassProvider
 
     custom_provider = MagicMock(spec=DocumentClassProvider)
-    op = _make_operator_with_entity_extraction(document_class_provider=custom_provider)
+    op, mock_create = _make_operator_with_entity_extraction(document_class_provider=custom_provider)
 
     assert op.entity_adapter is not None
-    assert op.entity_adapter.document_class_provider is custom_provider
+    assert mock_create.call_args.kwargs["document_class_provider"] is custom_provider
 
 
 @pytest.mark.unit
 def test_extract_operator_default_provider_propagated_to_entity_adapter() -> None:
-    """When no provider is given, StaticDocumentClassProvider is set on the entity adapter."""
+    """When no provider is given, StaticDocumentClassProvider is passed to the factory."""
     from docpipe.core.ports.document_class_provider import StaticDocumentClassProvider
 
-    op = _make_operator_with_entity_extraction()
+    _, mock_create = _make_operator_with_entity_extraction()
 
-    assert isinstance(op.entity_adapter.document_class_provider, StaticDocumentClassProvider)
+    assert isinstance(mock_create.call_args.kwargs["document_class_provider"], StaticDocumentClassProvider)
 
 
 @pytest.mark.unit
