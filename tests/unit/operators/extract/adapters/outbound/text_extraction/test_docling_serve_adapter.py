@@ -951,6 +951,39 @@ class TestDoclingServeAdapter:
 
 
 # ---------------------------------------------------------------------------
+# v1 response + doc_format=doclang incompatibility test
+# ---------------------------------------------------------------------------
+class TestDoclingServeAdapterV1DoclangIncompatibility:
+    """Tests that doc_format=doclang is rejected against v1 servers."""
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_v1_response_with_doclang_format_returns_failure(self, mock_client_class):
+        """When doc_format=doclang but server returns a v1 response, result is a clear failure.
+
+        v1 servers only provide md_content — they cannot produce DocLang XML.
+        Returning Markdown in a column the pipeline expects to be DocLang XML
+        would cause silent corruption downstream; failing clearly is correct.
+        """
+        config = {
+            OperatorConstants.DOC_FORMAT_KEY: OperatorConstants.DocFormat.DOCLANG,
+            "docling_serve_config": {"base_url": "http://localhost:5001"},
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        # Server returns v1-format response (no "documents" key)
+        mock_client_class.return_value.process_document.return_value = {
+            "document": {"md_content": "# Extracted markdown"},
+            "processing_time": 0.5,
+        }
+
+        result = adapter.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is False
+        assert "v1" in result[OperatorConstants.Extraction.ERROR].lower()
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] is None
+
+
+# ---------------------------------------------------------------------------
 # v2 response format tests (presigned artifact URIs)
 # Missing lines: 296, 297, 299, 303, 305-352
 # ---------------------------------------------------------------------------

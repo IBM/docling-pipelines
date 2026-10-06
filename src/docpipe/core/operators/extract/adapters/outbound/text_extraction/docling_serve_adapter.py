@@ -280,6 +280,28 @@ class DoclingServeAdapter(TextExtractionPort):
             Tuple of (result_dict, formats_generated, extra_metadata) where extra_metadata
             contains additional fields (e.g. page_count) to be merged into the final metadata dict.
         """
+        # v1 servers cannot produce DocLang artifacts — fail immediately so the caller
+        # receives a clear error rather than silently receiving Markdown in a column that
+        # the rest of the pipeline expects to contain DocLang XML.
+        doc_format = self.global_config.get(OperatorConstants.DOC_FORMAT_KEY, OperatorConstants.DOC_FORMAT_DEFAULT)
+        if doc_format == OperatorConstants.DocFormat.DOCLANG:
+            logger.error(
+                "doc_format=doclang is not supported by v1 docling-serve servers. "
+                "Upgrade to a v2 server or use doc_format=markdown.",
+            )
+            return (
+                {
+                    OperatorConstants.Extraction.SUCCESS: False,
+                    OperatorConstants.Extraction.ERROR: (
+                        "doc_format=doclang requires a v2 docling-serve server; "
+                        "this server returned a v1 response with no doclang artifact."
+                    ),
+                    OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
+                },
+                [],
+                {},
+            )
+
         document = result.get(OperatorConstants.Extraction.DOCLING_SERVE_DOCUMENT, {})
         logger.debug(
             "v1 response - document keys: %s",
