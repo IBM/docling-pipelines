@@ -62,7 +62,8 @@ class FlowExecutionReporter:
         logger.info("=" * 80)
         logger.info("")
 
-    def print_operator_start(self, *, step_name: str, operator_type: str) -> None:
+    @staticmethod
+    def print_operator_start(*, step_name: str, operator_type: str) -> None:
         """Print operator execution start message.
 
         Args:
@@ -118,7 +119,8 @@ class FlowExecutionReporter:
         # Save current tables as previous for next operator
         self._previous_tables = self._current_tables
 
-    def _format_duration(self, time_taken: int | float | None) -> str:
+    @staticmethod
+    def _format_duration(time_taken: int | float | None) -> str:
         """Format duration for display.
 
         Args:
@@ -131,7 +133,8 @@ class FlowExecutionReporter:
             return "< 1s"
         return f"{float(time_taken):.2f}s"
 
-    def _log_column_change_header(self, *, total_cols: int, new_cols_count: int, removed_cols_count: int) -> None:
+    @staticmethod
+    def _log_column_change_header(*, total_cols: int, new_cols_count: int, removed_cols_count: int) -> None:
         """Log the Data Columns header line reflecting what changed."""
         if new_cols_count > 0 and removed_cols_count > 0:
             logger.info(
@@ -271,7 +274,8 @@ class FlowExecutionReporter:
         # First operator or no previous tables: no columns removed
         return []
 
-    def _extract_column_names(self, tables: list) -> set[str]:
+    @staticmethod
+    def _extract_column_names(tables: list) -> set[str]:
         """Extract all column names from a list of PyArrow tables.
 
         Args:
@@ -286,7 +290,8 @@ class FlowExecutionReporter:
                 columns.update(table.column_names)
         return columns
 
-    def _print_wrapped_columns(self, columns: list[str], *, indent: str = "   ") -> None:
+    @staticmethod
+    def _print_wrapped_columns(columns: list[str], *, indent: str = "   ") -> None:
         """Print columns wrapped at ~70 characters per line.
 
         Args:
@@ -368,7 +373,8 @@ class FlowExecutionReporter:
 
         return result
 
-    def _format_group_name(self, prefix: str) -> str:
+    @staticmethod
+    def _format_group_name(prefix: str) -> str:
         """Convert prefix to nice group name.
 
         Args:
@@ -448,7 +454,8 @@ class FlowExecutionReporter:
 
         return categorized
 
-    def _print_numeric_fields(self, fields: dict[str, Any]) -> None:
+    @staticmethod
+    def _print_numeric_fields(fields: dict[str, Any]) -> None:
         """Print numeric metadata fields."""
         if not fields:
             return
@@ -470,7 +477,8 @@ class FlowExecutionReporter:
             display_name = field.replace("_", " ").title()
             self._format_dict_field(display_name, value)
 
-    def _print_nested_dict_field(self, *, display_name: str, value: dict) -> None:
+    @staticmethod
+    def _print_nested_dict_field(*, display_name: str, value: dict) -> None:
         """Print a dict field that contains nested dict values."""
         logger.info("   %s:", display_name)
         for k, v in value.items():
@@ -495,7 +503,8 @@ class FlowExecutionReporter:
             if len(value) > 10:
                 logger.info("      ... and %s more", len(value) - 10)
 
-    def _print_other_fields(self, fields: dict[str, Any]) -> None:
+    @staticmethod
+    def _print_other_fields(fields: dict[str, Any]) -> None:
         """Print string/other metadata fields."""
         if not fields:
             return
@@ -545,7 +554,8 @@ class FlowExecutionReporter:
             else:
                 log("   - %s", item)
 
-    def _print_generic_list(self, field: str, value: list) -> None:
+    @staticmethod
+    def _print_generic_list(field: str, value: list) -> None:
         """Print generic list field."""
         display_name = field.replace("_", " ").title()
         if value:
@@ -558,7 +568,8 @@ class FlowExecutionReporter:
         else:
             logger.info("   %s: []", display_name)
 
-    def _extract_name_from_row(self, *, table: Any, idx: int, search_id: str) -> str | None:
+    @staticmethod
+    def _extract_name_from_row(*, table: Any, idx: int, search_id: str) -> str | None:
         """Extract a usable display name from a matched row.
 
         Tries the name then path columns; returns the first non-empty value

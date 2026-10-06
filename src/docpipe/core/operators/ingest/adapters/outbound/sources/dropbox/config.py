@@ -17,17 +17,31 @@ class DropboxSourceConfig(BaseModel):
 
     # Credentials (never included in repr to keep secrets out of logs and tracebacks)
     access_token: str | None = Field(
-        None, repr=False, description="Dropbox OAuth2 access token (short-lived or legacy long-lived token)"
+        None,
+        repr=False,
+        description="Dropbox OAuth2 access token (short-lived or legacy long-lived token)",
+        json_schema_extra={"sensitive": True},
     )
 
     refresh_token: str | None = Field(
-        None, repr=False, description="Dropbox OAuth2 refresh token. Requires app_key and app_secret."
+        None,
+        repr=False,
+        description="Dropbox OAuth2 refresh token. Requires app_key and app_secret.",
+        json_schema_extra={"sensitive": True},
     )
 
-    app_key: str | None = Field(None, repr=False, description="Dropbox app key, required when using refresh_token")
+    app_key: str | None = Field(
+        None,
+        repr=False,
+        description="Dropbox app key, required when using refresh_token",
+        json_schema_extra={"sensitive": True},
+    )
 
     app_secret: str | None = Field(
-        None, repr=False, description="Dropbox app secret, required when using refresh_token"
+        None,
+        repr=False,
+        description="Dropbox app secret, required when using refresh_token",
+        json_schema_extra={"sensitive": True},
     )
 
     # Dropbox location configuration

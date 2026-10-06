@@ -98,6 +98,7 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                     end_time BIGINT,
                     duration BIGINT,
                     heartbeat_timestamp BIGINT,
+                    progress_timestamp BIGINT DEFAULT 0,
                     total_docs INTEGER DEFAULT 0,
                     processed_docs INTEGER DEFAULT 0,
                     completed_docs INTEGER DEFAULT 0,
@@ -178,13 +179,13 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                     """
                     INSERT OR REPLACE INTO job_stats (
                         job_run_id, job_id, status, message,
-                        start_time, end_time, duration, heartbeat_timestamp,
+                        start_time, end_time, duration, heartbeat_timestamp, progress_timestamp,
                         total_docs, processed_docs, completed_docs, failed_docs,
                         skipped_docs, deleted_doc_count, total_pages_processed,
                         page_type_stats, execution_time, orchestrator,
                         container_kind, container_id, flow_id,
                         user_id, account_id, user_entitlements
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     [
                         data["job_run_id"],
@@ -195,6 +196,7 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                         data["end_time"],
                         data["duration"],
                         data["heartbeat_timestamp"],
+                        data["progress_timestamp"],
                         data["total_docs"],
                         data["processed_docs"],
                         data["completed_docs"],

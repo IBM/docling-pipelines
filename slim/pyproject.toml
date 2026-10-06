@@ -119,6 +119,8 @@ dev = [
 notebooks = [
     "ipykernel==7.3.0",
     "jupyter==1.1.1",
+    # CVE-2026-102831, CVE-2026-102904, CVE-2026-102830: fixed in JupyterLab 4.6.4.
+    "jupyterlab==4.6.4",
     "matplotlib==3.11.0",
     "nbconvert==7.17.1",
     "nbformat==5.10.4",
@@ -204,8 +206,6 @@ override-dependencies = [
     "httplib2>=0.32.0",
     # Dependabot: h2 <= 4.4.0 — duplicate Host header request smuggling (transitive via httpx).
     "h2==4.4.1",
-    # Dependabot: jupyterlab >= 4.6.0, <= 4.6.1 — XSS and enforcement bypass (transitive via jupyter).
-    "jupyterlab==4.6.2",
     # Pin rapidocr to 3.9.0 within docling-slim's >=3.8,<4.0 constraint.
     "rapidocr==3.9.0",
     # CVE-2026-49476, CVE-2026-49477: Security fix for soupsieve vulnerability (transitive via beautifulsoup4).

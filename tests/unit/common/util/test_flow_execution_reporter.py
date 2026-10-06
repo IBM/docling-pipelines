@@ -496,3 +496,48 @@ class TestColumnTrackingExceptionPaths:
             result = reporter._get_removed_columns(col_names=["id", "content"])
 
         assert result == []
+
+
+class TestFlowExecutionReporterStaticMethods:
+    """Verify reporter helpers are static and callable without an instance."""
+
+    STATIC_METHODS = (
+        "print_operator_start",
+        "_format_duration",
+        "_log_column_change_header",
+        "_extract_column_names",
+        "_print_wrapped_columns",
+        "_format_group_name",
+        "_print_numeric_fields",
+        "_print_nested_dict_field",
+        "_print_other_fields",
+        "_print_generic_list",
+        "_extract_name_from_row",
+    )
+
+    def test_reporter_helpers_are_static(self):
+        """Every converted reporter helper must be a true staticmethod."""
+        import inspect
+
+        from docpipe.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
+
+        for method_name in self.STATIC_METHODS:
+            assert isinstance(inspect.getattr_static(FlowExecutionReporter, method_name), staticmethod), (
+                f"{method_name} is not a staticmethod"
+            )
+
+    def test_format_duration_class_call(self):
+        """Duration formatting works when called directly on the class."""
+        from docpipe.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
+
+        assert FlowExecutionReporter._format_duration(None) == "< 1s"
+        assert FlowExecutionReporter._format_duration(0.5) == "< 1s"
+        assert FlowExecutionReporter._format_duration(2.5) == "2.50s"
+
+    def test_extract_column_names_class_call(self):
+        """Column extraction works when called directly on the class."""
+        from docpipe.utils.infrastructure.flow_execution_reporter import FlowExecutionReporter
+
+        tables = [pa.table({"id": ["x"], "content": ["y"]}), None]
+
+        assert FlowExecutionReporter._extract_column_names(tables) == {"id", "content"}
