@@ -18,10 +18,10 @@ jupyter notebook examples/notebooks/
 
 ## Validation
 
-Validate notebook JSON and Python code cells locally with:
+Validate notebook Python code cells locally with the same nbQA/Ruff hook used by CI:
 
 ```bash
-python scripts/validate_notebooks.py examples/notebooks/
+pre-commit run nbqa-ruff-check --all-files
 ```
 
 ## Prerequisites
