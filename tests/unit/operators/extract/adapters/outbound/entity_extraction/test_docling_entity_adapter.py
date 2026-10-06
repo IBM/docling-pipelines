@@ -3,38 +3,14 @@ get_config_schema, _build_vlm_extraction_options, extract_entities_single, and
 the DoclingEntityExtractionService helper class."""
 
 import sys
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Stub heavy Docling VLM imports so they don't need to be installed before
-# importing the adapter under test.
-_docling_mocks = [
-    "docling",
-    "docling.backend",
-    "docling.backend.docling_parse_backend",
-    "docling.backend.pypdfium2_backend",
-    "docling.datamodel",
-    "docling.datamodel.base_models",
-    "docling.datamodel.pipeline_options",
-    "docling.datamodel.pipeline_options_vlm_model",
-    "docling.document_extractor",
-    "docling.pipeline",
-    "docling.pipeline.extraction_vlm_pipeline",
-    "docling_core",
-    "docling_core.types",
-    "docling_core.types.io",
-]
-for _mod in _docling_mocks:
-    if _mod not in sys.modules:
-        sys.modules[_mod] = Mock()
-
-# These imports must follow the sys.modules pre-mocking above.
-
-from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter import (  # noqa: E402
+from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter import (
     DoclingEntityAdapter,
 )
-from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_config import (  # noqa: E402
+from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_config import (
     DoclingEntityConfig,
 )
 
@@ -135,8 +111,40 @@ def test_adapter_validate_rejects_non_string_repo_id():
 
 
 # ---------------------------------------------------------------------------
-# get_config_schema
+# _ALLOWED_VLM_FIELDS & get_config_schema
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.unit
+def test_allowed_vlm_fields_content():
+    """Verify _ALLOWED_VLM_FIELDS contains supported fields and excludes skipped ones."""
+    allowed = DoclingEntityAdapter._ALLOWED_VLM_FIELDS
+    expected_allowed = {
+        "extra_generation_config",
+        "extra_processor_kwargs",
+        "inference_framework",
+        "llm_int8_threshold",
+        "load_in_8bit",
+        "max_new_tokens",
+        "max_size",
+        "prompt",
+        "quantized",
+        "repo_id",
+        "response_format",
+        "scale",
+        "stop_strings",
+        "temperature",
+        "torch_dtype",
+        "transformers_model_type",
+        "transformers_prompt_style",
+        "use_kv_cache",
+    }
+    assert allowed == expected_allowed
+    # Explicitly ensure skipped options are excluded
+    assert "revision" not in allowed
+    assert "trust_remote_code" not in allowed
+    assert "custom_stopping_criteria" not in allowed
+    assert "supported_devices" not in allowed
 
 
 @pytest.mark.unit
@@ -165,7 +173,7 @@ def test_build_vlm_extraction_options_returns_none_for_non_inline_type():
 @pytest.mark.unit
 def test_build_vlm_extraction_options_raises_on_import_error():
     # If Docling isn't installed, expect a ValueError wrapping ImportError
-    with patch.dict(sys.modules, {"docling.datamodel.pipeline_options_vlm_model": None}):
+    with patch.dict(sys.modules, {"docling.datamodel.pipeline_options": None}):
         with pytest.raises((ValueError, ImportError)):
             DoclingEntityAdapter._build_vlm_extraction_options(
                 vlm_pipeline={
@@ -371,7 +379,7 @@ def test_build_vlm_extraction_options_inline_returns_dict():
         "docling.backend.docling_parse_backend": MagicMock(DoclingParseDocumentBackend=MagicMock()),
         "docling.backend.pypdfium2_backend": MagicMock(PyPdfiumDocumentBackend=MagicMock()),
         "docling.datamodel.base_models": MagicMock(InputFormat=mock_input_format),
-        "docling.datamodel.pipeline_options": MagicMock(VlmPipelineOptions=MagicMock()),
+        "docling.datamodel.pipeline_options": MagicMock(VlmExtractionPipelineOptions=MagicMock()),
         "docling.datamodel.pipeline_options_vlm_model": MagicMock(InlineVlmOptions=MagicMock()),
         "docling.document_extractor": MagicMock(ExtractionFormatOption=mock_extractor_cls),
         "docling.pipeline.extraction_vlm_pipeline": MagicMock(ExtractionVlmPipeline=MagicMock()),
@@ -388,13 +396,58 @@ def test_build_vlm_extraction_options_inline_returns_dict():
 
 
 @pytest.mark.unit
+def test_build_vlm_extraction_options_filters_disallowed_fields(caplog):
+    """Fields not in _ALLOWED_VLM_FIELDS (such as revision, trust_remote_code) are omitted."""
+    mock_input_format = MagicMock()
+    mock_input_format.PDF = "pdf"
+    mock_input_format.IMAGE = "image"
+
+    mock_vlm_opts = MagicMock()
+    mock_base_pipeline_opts = MagicMock()
+    mock_base_pipeline_opts.vlm_options = mock_vlm_opts
+
+    mock_pipeline_options_cls = MagicMock(return_value=mock_base_pipeline_opts)
+
+    mocks = {
+        "docling.backend.docling_parse_backend": MagicMock(DoclingParseDocumentBackend=MagicMock()),
+        "docling.backend.pypdfium2_backend": MagicMock(PyPdfiumDocumentBackend=MagicMock()),
+        "docling.datamodel.base_models": MagicMock(InputFormat=mock_input_format),
+        "docling.datamodel.pipeline_options": MagicMock(VlmExtractionPipelineOptions=mock_pipeline_options_cls),
+        "docling.datamodel.pipeline_options_vlm_model": MagicMock(InlineVlmOptions=MagicMock()),
+        "docling.document_extractor": MagicMock(ExtractionFormatOption=MagicMock()),
+        "docling.pipeline.extraction_vlm_pipeline": MagicMock(ExtractionVlmPipeline=MagicMock()),
+    }
+    with patch.dict(sys.modules, mocks), caplog.at_level("WARNING"):
+        DoclingEntityAdapter._build_vlm_extraction_options(
+            vlm_pipeline={
+                "model_type": "inline",
+                "inline_model": {
+                    "repo_id": "some/model",
+                    "temperature": 0.5,
+                    "revision": "v1.0",
+                    "trust_remote_code": True,
+                    "custom_stopping_criteria": [],
+                },
+            }
+        )
+
+    # model_copy should only have been called with repo_id and temperature
+    mock_vlm_opts.model_copy.assert_called_once_with(update={"repo_id": "some/model", "temperature": 0.5})
+    assert "Ignoring unrecognised inline_model keys" in caplog.text
+    assert "revision" in caplog.text
+    assert "trust_remote_code" in caplog.text
+
+
+@pytest.mark.unit
 def test_build_vlm_extraction_options_raises_on_general_exception():
     """A non-ImportError from inside the build path is re-raised as ValueError."""
     mocks = {
         "docling.backend.docling_parse_backend": MagicMock(DoclingParseDocumentBackend=MagicMock()),
         "docling.backend.pypdfium2_backend": MagicMock(PyPdfiumDocumentBackend=MagicMock()),
         "docling.datamodel.base_models": MagicMock(InputFormat=MagicMock()),
-        "docling.datamodel.pipeline_options": MagicMock(VlmPipelineOptions=MagicMock(side_effect=RuntimeError("bad"))),
+        "docling.datamodel.pipeline_options": MagicMock(
+            VlmExtractionPipelineOptions=MagicMock(side_effect=RuntimeError("bad"))
+        ),
         "docling.datamodel.pipeline_options_vlm_model": MagicMock(InlineVlmOptions=MagicMock()),
         "docling.document_extractor": MagicMock(ExtractionFormatOption=MagicMock()),
         "docling.pipeline.extraction_vlm_pipeline": MagicMock(ExtractionVlmPipeline=MagicMock()),

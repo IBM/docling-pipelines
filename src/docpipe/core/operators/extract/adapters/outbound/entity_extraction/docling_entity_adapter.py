@@ -26,6 +26,33 @@ from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Explicit allowlist of InlineVlmOptions fields that users may override from
+# the flow JSON's inline_model block. Using an explicit set (rather than an
+# open hasattr() check against the Pydantic model) prevents flow-injection
+# of arbitrary internal pipeline fields and catches type mismatches early.
+_ALLOWED_VLM_FIELDS = frozenset(
+    {
+        "extra_generation_config",
+        "extra_processor_kwargs",
+        "inference_framework",
+        "llm_int8_threshold",
+        "load_in_8bit",
+        "max_new_tokens",
+        "max_size",
+        "prompt",
+        "quantized",
+        "repo_id",
+        "response_format",
+        "scale",
+        "stop_strings",
+        "temperature",
+        "torch_dtype",
+        "transformers_model_type",
+        "transformers_prompt_style",
+        "use_kv_cache",
+    }
+)
+
 
 @register_entity_extraction_adapter
 class DoclingEntityAdapter(EntityExtractionPort):
@@ -46,6 +73,7 @@ class DoclingEntityAdapter(EntityExtractionPort):
     ADAPTER_NAME = OperatorConstants.ExtractionModes.ENTITY_MODE_DOCLING
     ADAPTER_DISPLAY_NAME = "Docling"
     requires_binary_content: bool = True
+    _ALLOWED_VLM_FIELDS = _ALLOWED_VLM_FIELDS
 
     def __init__(
         self,
@@ -216,8 +244,7 @@ class DoclingEntityAdapter(EntityExtractionPort):
             from docling.backend.docling_parse_backend import DoclingParseDocumentBackend
             from docling.backend.pypdfium2_backend import PyPdfiumDocumentBackend
             from docling.datamodel.base_models import InputFormat
-            from docling.datamodel.pipeline_options import VlmPipelineOptions
-            from docling.datamodel.pipeline_options_vlm_model import InlineVlmOptions  # noqa: F401
+            from docling.datamodel.pipeline_options import VlmExtractionPipelineOptions
             from docling.document_extractor import ExtractionFormatOption
             from docling.pipeline.extraction_vlm_pipeline import ExtractionVlmPipeline
 
@@ -227,12 +254,17 @@ class DoclingEntityAdapter(EntityExtractionPort):
                 return None
 
             inline_config = vlm_pipeline.get(DoclingClientConfigConstants.INLINE_MODEL, {})
-            # Start from the preset bundled in VlmPipelineOptions and apply
-            # only the fields the user explicitly provided in inline_config.
-            base_vlm_options = VlmPipelineOptions()
-            user_fields = {k: v for k, v in inline_config.items() if hasattr(base_vlm_options, k)}
+            # Start from the default InlineVlmOptions preset bundled inside
+            # VlmExtractionPipelineOptions (NuExtract-2.0-2B) and apply only
+            # the explicitly allowed user-facing fields from inline_config.
+            allowed = _ALLOWED_VLM_FIELDS
+            user_fields = {k: v for k, v in inline_config.items() if k in allowed}
+            ignored = set(inline_config) - set(user_fields)
+            if ignored:
+                logger.warning("Ignoring unrecognised inline_model keys: %s", ", ".join(sorted(ignored)))
+            base_vlm_options = VlmExtractionPipelineOptions().vlm_options
             vlm_options = base_vlm_options.model_copy(update=user_fields)
-            pipeline_options = VlmPipelineOptions(vlm_options=vlm_options)
+            pipeline_options = VlmExtractionPipelineOptions(vlm_options=vlm_options)
 
             # Build extraction format options for both PDF and IMAGE formats
             return {
