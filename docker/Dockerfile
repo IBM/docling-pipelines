@@ -1,45 +1,25 @@
-# Stage 1: Builder
-FROM registry.access.redhat.com/ubi9/python-312:1-1777495222 as builder
+FROM registry.access.redhat.com/ubi9/python-312:1-1791202627 AS builder
 
 USER root
-RUN dnf install -y gcc gcc-c++ openldap-devel cyrus-sasl-devel openssl-devel && dnf clean all && pip install --no-cache-dir uv && pip install --upgrade pip==24.0
+RUN pip install --no-cache-dir uv
 
 WORKDIR /opt/app-root
-
-# 1. Cache dependencies (This layer stays cached if pyproject.toml doesn't change)
 COPY pyproject.toml ./
-RUN touch README.md
-RUN mkdir -p ./src && \
-    uv pip install --no-cache ".[llm]" prefect-docker prefect-kubernetes
+RUN uv pip install --no-cache -r pyproject.toml
 
-# 2. Copy code and config files
-COPY src/ ./src/
-COPY sample_flows/ ./sample_flows/
-COPY docling-pipelines-config.yaml ./
+COPY src/docpipe/ ./src/docpipe/
 
-# Final editable install and cleanup of massive hidden cache
-RUN uv pip install --no-cache -e . && \
-    rm -rf ./src/.cache
-
-# Stage 2: Final Image
-FROM registry.access.redhat.com/ubi9/python-312:1-1777495222
+FROM registry.access.redhat.com/ubi9/python-312:1-1791202627
 
 USER root
-RUN dnf install -y \
-    mesa-libGL openldap-devel cyrus-sasl-devel openssl-devel glib2 && \
-    dnf clean all
+RUN dnf install -y mesa-libGL && \
+    dnf clean all && \
+    useradd -m -u 1000 docpipe
 
-# Create docpipe user and add to root group (GID 0) for OpenShift compatibility
-RUN useradd -m -u 1000 docpipe && \
-    usermod -a -G 0 docpipe
-
-# Copy EVERYTHING from builder with OpenShift-compatible ownership (UID 1000, GID 0)
 COPY --from=builder --chown=1000:0 /opt/app-root/ /opt/app-root/
 
-# Create models, data, and nltk_data directories with OpenShift-compatible permissions
-RUN mkdir -p /opt/app-root/models /data /opt/app-root/nltk_data && \
-    chown -R docpipe:root /opt/app-root/models /data /opt/app-root/nltk_data && \
-    chmod -R g=u /opt/app-root /data
+RUN mkdir -p /data /opt/app-root/nltk_data && \
+    chown -R docpipe:root /data /opt/app-root/nltk_data
 
 WORKDIR /opt/app-root/src
 USER docpipe
