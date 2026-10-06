@@ -774,3 +774,72 @@ class TestGetBoxClient:
             result = get_box_client(credentials_path=str(creds_file))
 
         assert result is mock_client
+
+    def test_raises_value_error_when_no_credentials_provided(self):
+        """ValueError raised when neither credentials_json nor credentials_path is provided."""
+        from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
+
+        with pytest.raises(ValueError, match="Either credentials_json or credentials_path must be provided"):
+            get_box_client()
+
+    def test_creates_box_client_from_dict_inline_credentials(self):
+        """Returns BoxClient when valid credentials_json is provided as a dict."""
+        from unittest.mock import MagicMock, patch
+
+        from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
+
+        mock_client = MagicMock()
+        with (
+            patch("docpipe.core.operators.ingest.adapters.outbound.sources.box.auth.JWTConfig") as mock_jwt_config,
+            patch("docpipe.core.operators.ingest.adapters.outbound.sources.box.auth.BoxJWTAuth") as mock_jwt_auth,
+            patch(
+                "docpipe.core.operators.ingest.adapters.outbound.sources.box.auth.BoxClient",
+                return_value=mock_client,
+            ),
+        ):
+            mock_jwt_config.from_config_json_string.return_value = MagicMock()
+            mock_jwt_auth.return_value = MagicMock()
+
+            result = get_box_client(credentials_json={"boxAppSettings": {}})
+
+        assert result is mock_client
+
+    def test_creates_box_client_from_string_inline_credentials(self):
+        """Returns BoxClient when valid credentials_json is provided as a JSON string."""
+        from unittest.mock import MagicMock, patch
+
+        from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
+
+        mock_client = MagicMock()
+        with (
+            patch("docpipe.core.operators.ingest.adapters.outbound.sources.box.auth.JWTConfig") as mock_jwt_config,
+            patch("docpipe.core.operators.ingest.adapters.outbound.sources.box.auth.BoxJWTAuth") as mock_jwt_auth,
+            patch(
+                "docpipe.core.operators.ingest.adapters.outbound.sources.box.auth.BoxClient",
+                return_value=mock_client,
+            ),
+        ):
+            mock_jwt_config.from_config_json_string.return_value = MagicMock()
+            mock_jwt_auth.return_value = MagicMock()
+
+            result = get_box_client(credentials_json='{"boxAppSettings": {}}')
+
+        assert result is mock_client
+
+    def test_raises_value_error_on_invalid_inline_credentials_json_string(self):
+        """ValueError raised when credentials_json is not valid JSON."""
+        from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
+
+        with pytest.raises(ValueError, match="Failed to authenticate with Box from inline credentials"):
+            get_box_client(credentials_json="{ not json }")
+
+    def test_raises_value_error_when_inline_credentials_auth_fails(self):
+        """ValueError raised when JWT initialization fails for inline credentials."""
+        from unittest.mock import patch
+
+        from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
+
+        with patch("docpipe.core.operators.ingest.adapters.outbound.sources.box.auth.JWTConfig") as mock_jwt_config:
+            mock_jwt_config.from_config_json_string.side_effect = Exception("JWT error")
+            with pytest.raises(ValueError, match="Failed to authenticate with Box from inline credentials"):
+                get_box_client(credentials_json={"boxAppSettings": {}})
