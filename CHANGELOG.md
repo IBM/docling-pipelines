@@ -39,6 +39,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 - 18 self-free per-document hot-path methods converted to `@staticmethod` across `ReadabilityMetrics`, `JobReportGenerator`, `EmbeddingsOperator`, and `DuckDBTableStorage` (#139)
 
 ### Fixed
+
 - Updated JupyterLab to 4.6.4 in the full and slim notebooks extras to resolve the security alerts tracked in #51.
 - Notification panel now propagates `action_type` from backend validation and fixes stale alert detection (#91)
 - Markdown chunking: send extracted content with `.md` filename to preserve source name in chunk metadata (#148)
