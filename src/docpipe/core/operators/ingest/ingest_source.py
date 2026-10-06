@@ -251,14 +251,13 @@ class MicrosoftGraphLoader(BaseLoader):
 
 # Configuration keys
 PROVIDER_KEY: str = "provider"
-CONNECTION_PARAMS_KEY: str = "connection_params"
-CREDENTIALS_KEY: str = "credentials"
+PROVIDER_CONFIG_KEY: str = "provider_config"
 MAX_FILES_KEY: str = "max_files"
 MAX_FILES_DEFAULT_VALUE: int = 100
 INCLUDE_FILTER_KEY: str = "include_filter"
 EXCLUDE_FILTER_KEY: str = "exclude_filter"
 ADAPTER_MANAGED_PROVIDERS: frozenset[str] = frozenset(
-    {"s3", "ibm_cos", "sharepoint", "onedrive", "google_drive", "box_driver", "filesystem", "web"}
+    {"s3", "ibm_cos", "sharepoint", "onedrive", "google_drive", "box_driver", "dropbox", "filesystem", "web"}
 )
 
 logger = get_logger()
@@ -309,19 +308,17 @@ class IngestSourceOperator(AbstractOperator):
         super().validate(errors=errors, warnings=warnings, available_features=available_features)
 
         # Validate adapter configuration for adapter-managed providers.
-        # Skip when credentials came from a vault reference — either still a
+        # Skip when provider_config contains vault references — either still a
         # vault:// string (execution path) or already replaced with the
         # {"__vault_mock__": True} sentinel by the flow validator sanitizer.
-        # In both cases the real credentials are unavailable here and will be
+        # In both cases the real values are unavailable here and will be
         # resolved at execution time.
-        # When credentials is a plain dict, run validation so missing fields
-        # are caught as early as possible.
         from docpipe.integrations.secrets.secret_provider import is_vault_reference
 
-        credentials_is_vault = is_vault_reference(self.credentials) or (
-            isinstance(self.credentials, dict) and self.credentials.get("__vault_mock__")
-        )
-        if self.provider in ADAPTER_MANAGED_PROVIDERS and not credentials_is_vault:
+        provider_config_has_vault = any(
+            is_vault_reference(v) for v in self.provider_config.values() if isinstance(v, str)
+        ) or self.provider_config.get("__vault_mock__")
+        if self.provider in ADAPTER_MANAGED_PROVIDERS and not provider_config_has_vault:
             try:
                 # Attempt to build adapter config to trigger Pydantic validation
                 # This will catch missing required fields like secret_key
@@ -342,8 +339,7 @@ class IngestSourceOperator(AbstractOperator):
 
         Expected parameters:
         - provider: The storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, custom)
-        - connection_params: Provider-specific connection parameters
-        - credentials: Authentication credentials
+        - provider_config: All provider-specific parameters including credentials
         - max_files: Maximum number of files to ingest
         - include_filter: Comma-separated list of file extensions to include
         - ignore_hidden_files: Skip files starting with '.' (default: True)
@@ -352,9 +348,8 @@ class IngestSourceOperator(AbstractOperator):
         """
         super().__init__(config)
         self.provider: str = config.get(PROVIDER_KEY, "").lower()
-        self.connection_params: dict[str, Any] = config.get(CONNECTION_PARAMS_KEY) or {}
-        self.credentials: dict[str, Any] = config.get(CREDENTIALS_KEY) or {}
         self.max_files: int = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
+        self.provider_config: dict[str, Any] = dict(config.get(PROVIDER_CONFIG_KEY) or {})
 
         # Get supported extensions
         from docpipe.core.operators.operator_utils import get_supported_file_extensions
@@ -710,10 +705,10 @@ class IngestSourceOperator(AbstractOperator):
         # Create adapter instance to access its config builder
         adapter = SourceAdapterFactory.create(provider)
 
-        # Delegate configuration building to the adapter
+        # Delegate configuration building to the adapter, passing the unified
+        # provider_config dict.
         config = adapter.build_config_from_operator_params(
-            connection_params=self.connection_params,
-            credentials=self.credentials,
+            provider_config=self.provider_config,
             included_extensions=self.included_extensions,
             max_files=self.max_files,
         )
@@ -860,7 +855,7 @@ class IngestSourceOperator(AbstractOperator):
         # 2. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
         if self.provider == "custom":
-            loader_path = self.connection_params.get("loader_class_path")
+            loader_path = self.provider_config.get("loader_class_path")
             if not loader_path:
                 msg = "Provider is 'custom' but 'loader_class_path' is missing."
                 raise ValueError(msg)
@@ -872,8 +867,8 @@ class IngestSourceOperator(AbstractOperator):
             module: Any = importlib.import_module(module_name)
             loader_class: Any = getattr(module, class_name)
 
-            # Initialize with merged params and credentials
-            init_kwargs: dict[str, Any] = {**self.connection_params, **self.credentials}
+            # Initialize with all provider_config params
+            init_kwargs: dict[str, Any] = dict(self.provider_config)
             return loader_class(**init_kwargs)
 
         msg = f"Provider '{self.provider}' is not supported."
@@ -883,6 +878,7 @@ class IngestSourceOperator(AbstractOperator):
     def _get_provider_schemas() -> dict[str, Any]:
         """Return provider-specific connection field schemas in docpipe metadata vocabulary."""
         from docpipe.core.operators.ingest.adapters.outbound.sources.box.config import BoxSourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.dropbox.config import DropboxSourceConfig
         from docpipe.core.operators.ingest.adapters.outbound.sources.filesystem.config import FilesystemSourceConfig
         from docpipe.core.operators.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
         from docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.config import OneDriveSourceConfig
@@ -899,6 +895,7 @@ class IngestSourceOperator(AbstractOperator):
             "onedrive": OperatorUtils.model_schema_to_docpipe(schema=OneDriveSourceConfig.model_json_schema()),
             "sharepoint": OperatorUtils.model_schema_to_docpipe(schema=SharePointSourceConfig.model_json_schema()),
             "box_driver": OperatorUtils.model_schema_to_docpipe(schema=BoxSourceConfig.model_json_schema()),
+            "dropbox": OperatorUtils.model_schema_to_docpipe(schema=DropboxSourceConfig.model_json_schema()),
             "web": OperatorUtils.model_schema_to_docpipe(schema=WebPageSourceConfig.model_json_schema()),
         }
 
@@ -976,34 +973,26 @@ class IngestSourceOperator(AbstractOperator):
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: IngestSourceOperator.category.value,
             OperatorConstants.Misc.LABEL: "Remote Source Ingest",
-            OperatorConstants.Config.DESCRIPTION: "Ingest documents from remote storage sources (S3, IBM COS, SharePoint, OneDrive, Google Drive).",
+            OperatorConstants.Config.DESCRIPTION: "Ingest documents from remote storage sources (S3, IBM COS, SharePoint, OneDrive, Google Drive, Box, Dropbox, filesystem, web).",
             OperatorConstants.Config.FEATURES: metadata_features,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: IngestSourceOperator.is_available(),
             OperatorConstants.Config.ATTRIBUTES: {
                 PROVIDER_KEY: {
                     OperatorConstants.Columns.NAME: "Provider",
-                    OperatorConstants.Config.DESCRIPTION: "Storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, custom)",
+                    OperatorConstants.Config.DESCRIPTION: "Storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, box_driver, dropbox, filesystem, web, custom)",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                     OperatorConstants.Config.VALID_VALUES: sorted(ADAPTER_MANAGED_PROVIDERS | {"custom"}),
                 },
-                CONNECTION_PARAMS_KEY: {
-                    OperatorConstants.Columns.NAME: "Connection Parameters",
-                    OperatorConstants.Config.DESCRIPTION: "Provider-specific connection parameters (bucket, prefix, folder_id, etc.)",
+                PROVIDER_CONFIG_KEY: {
+                    OperatorConstants.Columns.NAME: "Provider Configuration",
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "All provider-specific parameters in a single dict, including connection details "
+                        "and credentials."
+                    ),
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                     OperatorConstants.Config.PROVIDERS: IngestSourceOperator._get_provider_schemas(),
-                },
-                CREDENTIALS_KEY: {
-                    OperatorConstants.Columns.NAME: "Credentials",
-                    OperatorConstants.Config.DESCRIPTION: (
-                        "Authentication credentials for the provider. Optional — credential fields "
-                        "can be passed directly inside connection_params instead."
-                    ),
-                    OperatorConstants.Config.DEFAULT: {},
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                    OperatorConstants.Config.SENSITIVE: True,
                 },
                 MAX_FILES_KEY: {
                     OperatorConstants.Columns.NAME: "Max Files",

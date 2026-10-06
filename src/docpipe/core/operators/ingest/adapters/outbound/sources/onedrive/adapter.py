@@ -330,34 +330,23 @@ class OneDriveSourceAdapter(DocumentSourcePort):
         self,
         *,
         source_id: str,
-        connection_params: dict[str, Any],
-        credentials: dict[str, Any],
+        provider_config: dict[str, Any],
     ) -> bytes | None:
         """
         Fetch binary content for a specific document from OneDrive on-demand.
 
         Args:
             source_id: OneDrive item ID (file ID) or web URL
-            connection_params: Connection parameters (drive_id, etc.)
-            credentials: Authentication credentials (client_id, client_secret, tenant_id)
+            provider_config: All provider-specific parameters including credentials.
 
         Returns:
             bytes | None: Binary content of the OneDrive file, or None if not found or error occurred
         """
         try:
-            credentials = credentials or {}
-            connection_params = connection_params or {}
-            # Extract required parameters and resolve environment variables.
-            # Fall back to connection_params so callers that store credentials
-            # there (instead of the dedicated credentials block) work too.
-            # IMPORTANT: Prioritize drive_id from credentials (document metadata) over connection_params
-            # This is crucial for SharePoint URLs where the resolved drive_id may differ from config
-            drive_id = resolve_env_var(credentials.get("drive_id")) or resolve_env_var(
-                connection_params.get("drive_id")
-            )
-            client_id = resolve_env_var(credentials.get("client_id") or connection_params.get("client_id"))
-            client_secret = resolve_env_var(credentials.get("client_secret") or connection_params.get("client_secret"))
-            tenant_id = resolve_env_var(credentials.get("tenant_id") or connection_params.get("tenant_id"))
+            drive_id = resolve_env_var(provider_config.get("drive_id"))
+            client_id = resolve_env_var(provider_config.get("client_id"))
+            client_secret = resolve_env_var(provider_config.get("client_secret"))
+            tenant_id = resolve_env_var(provider_config.get("tenant_id"))
 
             if not all([drive_id, client_id, client_secret, tenant_id]):
                 logger.error("Missing required parameters for OneDrive binary content fetch")
@@ -368,12 +357,12 @@ class OneDriveSourceAdapter(DocumentSourcePort):
             # Handle case where source_id is a web URL instead of item_id
             item_id = source_id
             if source_id.startswith("http"):
-                extracted_id = credentials.get("item_id")
+                extracted_id = provider_config.get("item_id")
                 if not extracted_id:
-                    logger.error("source_id is a web URL but no item_id found in credentials: %s", source_id)
+                    logger.error("source_id is a web URL but no item_id found in provider_config: %s", source_id)
                     return None
                 item_id = str(extracted_id)
-                logger.info("Extracted item_id from credentials: %s (source_id was web URL)", item_id)
+                logger.info("Extracted item_id from provider_config: %s (source_id was web URL)", item_id)
 
             # Reuse cached loader — avoids a new MSAL token request per document
             loader = self._get_loader(
@@ -436,8 +425,7 @@ class OneDriveSourceAdapter(DocumentSourcePort):
     def build_config_from_operator_params(
         self,
         *,
-        connection_params: dict,
-        credentials: dict,
+        provider_config: dict,
         included_extensions: list[str] | None = None,
         max_files: int | None = None,
     ) -> BaseModel:
@@ -445,10 +433,9 @@ class OneDriveSourceAdapter(DocumentSourcePort):
         Build OneDrive configuration from operator parameters.
 
         Args:
-            connection_params: Connection parameters (drive_id, folder_path, etc.)
-            credentials: Credentials (client_id, client_secret, tenant_id)
+            provider_config: All provider-specific parameters including credentials.
             included_extensions: File extensions to include (optional)
-            max_files: Maximum number of files to fetch (optional, not used by OneDrive adapter)
+            max_files: Not used by the OneDrive adapter.
 
         Returns:
             OneDriveSourceConfig: Validated configuration object
@@ -456,26 +443,21 @@ class OneDriveSourceAdapter(DocumentSourcePort):
         if included_extensions is None:
             included_extensions = []
 
-        # Credential fields fall back to connection_params so flows built from operator
-        # metadata (which places all fields under connection_params) work alongside
-        # legacy flows that use a separate credentials dict.
         config_params = {
-            "client_id": resolve_env_var(credentials.get("client_id") or connection_params.get("client_id", "")),
-            "client_secret": resolve_env_var(
-                credentials.get("client_secret") or connection_params.get("client_secret", "")
-            ),
-            "tenant_id": resolve_env_var(credentials.get("tenant_id") or connection_params.get("tenant_id", "")),
-            "drive_id": resolve_env_var(connection_params.get("drive_id", "")),
-            "folder_path": resolve_env_var(connection_params.get("folder_path")),
-            "recursive": connection_params.get("recursive", True),
+            "client_id": resolve_env_var(provider_config.get("client_id", "")),
+            "client_secret": resolve_env_var(provider_config.get("client_secret", "")),
+            "tenant_id": resolve_env_var(provider_config.get("tenant_id", "")),
+            "drive_id": resolve_env_var(provider_config.get("drive_id", "")),
+            "folder_path": resolve_env_var(provider_config.get("folder_path")),
+            "recursive": provider_config.get("recursive", True),
             "file_extensions": included_extensions,
-            "max_file_size_mb": connection_params.get("max_file_size_mb"),
+            "max_file_size_mb": provider_config.get("max_file_size_mb"),
         }
 
-        if "file_path" in connection_params:
-            config_params["file_path"] = connection_params["file_path"]
+        if "file_path" in provider_config:
+            config_params["file_path"] = provider_config["file_path"]
 
-        if "graph_api_version" in connection_params:
-            config_params["graph_api_version"] = connection_params["graph_api_version"]
+        if "graph_api_version" in provider_config:
+            config_params["graph_api_version"] = provider_config["graph_api_version"]
 
         return OneDriveSourceConfig(**config_params)

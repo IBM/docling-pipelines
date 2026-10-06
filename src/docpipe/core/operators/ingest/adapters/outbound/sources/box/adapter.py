@@ -1,5 +1,7 @@
 """Box source adapter using Box SDK directly."""
 
+import hashlib
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncGenerator
@@ -30,14 +32,26 @@ class BoxSourceAdapter(DocumentSourcePort):
         self._client_cache: dict[str, BoxClient] = {}
 
     def _get_box_client(self, *, config: BoxSourceConfig) -> BoxClient:
-        """Return a cached authenticated Box client for the given credentials path.
+        """Return a cached authenticated Box client for the given credentials.
 
-        The client is created once per unique credentials_path and reused for all
+        The client is created once per unique credentials and reused for all
         subsequent calls, avoiding a new JWT auth round-trip per document.
         """
-        key = config.credentials_path
+        if config.credentials_json is not None:
+            raw_str = (
+                json.dumps(config.credentials_json, sort_keys=True)
+                if isinstance(config.credentials_json, dict)
+                else str(config.credentials_json)
+            )
+            key = hashlib.sha256(raw_str.encode()).hexdigest()
+        else:
+            key = config.credentials_path or "default"
+
         if key not in self._client_cache:
-            self._client_cache[key] = get_box_client(credentials_path=key)
+            self._client_cache[key] = get_box_client(
+                credentials_json=config.credentials_json,
+                credentials_path=config.credentials_path,
+            )
         return self._client_cache[key]
 
     def _should_include_file(self, file_name: str, file_size_bytes: int, config: BoxSourceConfig) -> bool:
@@ -256,34 +270,33 @@ class BoxSourceAdapter(DocumentSourcePort):
     def build_config_from_operator_params(
         self,
         *,
-        connection_params: dict,
-        credentials: dict,
+        provider_config: dict,
         included_extensions: list[str] | None = None,
         max_files: int | None = None,
     ) -> BoxSourceConfig:
-        """Build Box configuration from operator parameters."""
-        # Credential field falls back to connection_params so flows built from operator
-        # metadata (which places all fields under connection_params) work alongside
-        # legacy flows that use a separate credentials dict.
-        # Accepts both "credentials_path" (metadata key) and "credentials_json_path" (legacy key).
+        """Build Box configuration from operator parameters.
+
+        Accepts both "credentials_path" and the legacy "credentials_json_path" key
+        inside provider_config for backward compatibility with stored configs.
+        """
+        credentials_json = provider_config.get("credentials_json")
+        credentials_path = provider_config.get("credentials_json_path") or provider_config.get("credentials_path")
+
         config_dict = {
-            "credentials_path": (
-                credentials.get("credentials_json_path")
-                or credentials.get("credentials_path")
-                or connection_params.get("credentials_path")
-            ),
-            "folder_id": connection_params.get("folder_id", "0"),
-            "recursive": connection_params.get("recursive", True),
+            "credentials_json": credentials_json,
+            "credentials_path": credentials_path,
+            "folder_id": provider_config.get("folder_id", "0"),
+            "recursive": provider_config.get("recursive", True),
             "file_extensions": included_extensions or [],
-            "exclude_patterns": connection_params.get("exclude_patterns", []),
+            "exclude_patterns": provider_config.get("exclude_patterns", []),
         }
 
         # Support single file ingestion via file_id
-        if "file_id" in connection_params:
-            config_dict["file_id"] = connection_params["file_id"]
+        if "file_id" in provider_config:
+            config_dict["file_id"] = provider_config["file_id"]
 
-        if "max_file_size_mb" in connection_params:
-            config_dict["max_file_size_mb"] = connection_params["max_file_size_mb"]
+        if "max_file_size_mb" in provider_config:
+            config_dict["max_file_size_mb"] = provider_config["max_file_size_mb"]
 
         if max_files is not None:
             config_dict["max_files"] = max_files
@@ -294,28 +307,23 @@ class BoxSourceAdapter(DocumentSourcePort):
         self,
         *,
         source_id: str,
-        connection_params: dict[str, Any],
-        credentials: dict[str, Any],
+        provider_config: dict[str, Any],
     ) -> bytes | None:
         """
         Fetch binary content for a specific Box file on-demand.
 
         Args:
             source_id: Box file ID or URL (e.g., "702199884861" or "https://app.box.com/file/702199884861")
-            connection_params: Box connection parameters (not used, credentials contain all needed info)
-            credentials: Box credentials (credentials_json_path)
+            provider_config: All provider-specific parameters including credentials.
 
         Returns:
             bytes | None: Binary content of the Box file, or None if not found or error occurred
         """
         try:
-            credentials = credentials or {}
-            connection_params = connection_params or {}
             # Extract file ID from URL if needed
             # Box URLs are in format: https://app.box.com/file/{file_id}
             file_id = source_id
             if source_id.startswith("http"):
-                # Extract numeric ID from URL
                 parts = source_id.rstrip("/").split("/")
                 if len(parts) >= 2 and parts[-2] == "file":
                     file_id = parts[-1]
@@ -323,17 +331,14 @@ class BoxSourceAdapter(DocumentSourcePort):
                     logger.error(f"Could not extract file ID from Box URL: {source_id}")
                     return None
 
-            # Build minimal config just for authentication.
-            # Fall back to connection_params so callers that store credentials
-            # there (instead of the dedicated credentials block) work too.
-            credentials_path = credentials.get("credentials_json_path") or connection_params.get(
-                "credentials_json_path"
-            )
-            if not credentials_path:
-                logger.error("Missing 'credentials_json_path' in credentials")
+            credentials_json = provider_config.get("credentials_json")
+            credentials_path = provider_config.get("credentials_json_path") or provider_config.get("credentials_path")
+            if not credentials_json and not credentials_path:
+                logger.error("Missing 'credentials_json' or 'credentials_path' in provider_config")
                 return None
 
             config = BoxSourceConfig(
+                credentials_json=credentials_json,
                 credentials_path=credentials_path,
                 recursive=False,
                 file_extensions=[],

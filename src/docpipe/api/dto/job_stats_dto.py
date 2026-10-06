@@ -49,6 +49,7 @@ from docpipe.api.dto.field_definitions import (
     PAGES_COUNT_MAX,
     PAGES_COUNT_MIN,
     PROCESSED_DOCS_DESC,
+    PROGRESS_TIMESTAMP_DESC,
     SKIPPED_DOCS_DESC,
     START_TIME_DESC,
     TIMESTAMP_MAX,
@@ -120,6 +121,13 @@ class JobStatsDto(BaseModel):
     )
     heartbeat_timestamp: int | None = Field(
         default=0, description=HEARTBEAT_DESC, ge=TIMESTAMP_MIN, le=TIMESTAMP_MAX, json_schema_extra={"format": "int64"}
+    )
+    progress_timestamp: int = Field(
+        default=0,
+        description=PROGRESS_TIMESTAMP_DESC,
+        ge=TIMESTAMP_MIN,
+        le=TIMESTAMP_MAX,
+        json_schema_extra={"format": "int64"},
     )
 
     # Document Counts
