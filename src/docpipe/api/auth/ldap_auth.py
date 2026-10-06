@@ -51,6 +51,13 @@ class LDAPAuthenticator:
         Raises:
             Exception: If LDAP connection or authentication fails
         """
+        # A simple bind with an empty password is an "unauthenticated bind"
+        # (RFC 4513, section 5.1.2) that many servers report as successful, so
+        # it must never be treated as proof of the user's identity.
+        if not username or not password:
+            logger.warning("Rejected LDAP authentication with empty username or password")
+            return None
+
         ldap_client = None
 
         try:
