@@ -36,6 +36,7 @@ import { CHUNKER_ATTRIBUTE } from '@/components/PropertiesPanel/CustomPanels/Chu
 // ── Param key constants ───────────────────────────────────────────────────────
 const PROVIDER = EXTRACTION_KEY.PROVIDER;
 const PROVIDER_CONFIG = EXTRACTION_KEY.PROVIDER_CONFIG;
+// Ingest source exposes the same concept under its own metadata constants.
 const INGEST_PROVIDER_CONFIG = INGEST_SOURCE_ATTRIBUTE.PROVIDER_CONFIG;
 const DESTINATION_CONFIG = STORAGE_OUTPUT_ATTRIBUTE.DESTINATION_CONFIG;
 const TEXT_EXTRACTION = EXTRACT_ATTRIBUTE.TEXT_EXTRACTION;
