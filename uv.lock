@@ -10,7 +10,6 @@ resolution-markers = [
 overrides = [
     { name = "h2", specifier = "==4.4.1" },
     { name = "httplib2", specifier = ">=0.32.0" },
-    { name = "jupyterlab", specifier = "==4.6.2" },
     { name = "numpy", specifier = ">=2.0.0,<3.0.0" },
     { name = "oauthlib", specifier = "==4.0.0" },
     { name = "rapidocr", specifier = "==3.9.0" },
@@ -350,6 +349,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/9a/8e/82a0fe20a541c03148528be8cac2408564a6c9a0cc7e9171802bc1d26985/attrs-26.1.0.tar.gz", hash = "sha256:d03ceb89cb322a8fd706d4fb91940737b6642aa36998fe130a9bc96c985eff32", size = 952055, upload-time = "2026-03-19T14:22:25.026Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/64/b4/17d4b0b2a2dc85a6df63d1157e028ed19f90d4cd97c36717afef2bc2f395/attrs-26.1.0-py3-none-any.whl", hash = "sha256:c647aa4a12dfbad9333ca4e71fe62ddc36f4e63b2d260a37a8b83d2f043ac309", size = 67548, upload-time = "2026-03-19T14:22:23.645Z" },
+]
+
+[[package]]
+name = "authlib"
+version = "1.6.12"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d3/30/6691fdc63b35f54a5a65e04fa1e59d827f4d4e8f4a39678ba7d3088ce0c8/authlib-1.6.12.tar.gz", hash = "sha256:0656d8482f28fc8221929d5f35b2bde5d13e10555ebc06b4561b0d622e83b1bd", size = 165368, upload-time = "2026-05-04T08:11:31.826Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cd/51/9b0b5cd4cf683a02db937a6f9bbebcdc9c56558a7bb3763ce7d3512103c3/authlib-1.6.12-py2.py3-none-any.whl", hash = "sha256:e9229ad7fde610b139dd12f5edbe97eab9ee78bfb85691247e767727850b99ab", size = 244473, upload-time = "2026-05-04T08:11:30.354Z" },
 ]
 
 [[package]]
@@ -753,6 +764,28 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/ca/65/efd0fe8a936fc8ca2978cb7b82581fb20d901c6039e746a808f746b7647b/confection-1.3.3.tar.gz", hash = "sha256:f0f6810d567ff73993fe74d218ca5e1ffb6a44fb03f391257fc5d033546cbfaa", size = 54895, upload-time = "2026-03-24T18:45:24.331Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8d/e4/d66708bdf0d92fb4d49b22cdff4b10cec38aca5dcd7e81d909bb55c65cd7/confection-1.3.3-py3-none-any.whl", hash = "sha256:b9fef9ee84b237ef4611ec3eb5797b70e13063e6310ad9f15536373f5e313c82", size = 35902, upload-time = "2026-03-24T18:45:22.664Z" },
+]
+
+[[package]]
+name = "confluent-kafka"
+version = "2.15.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/44/fd/e8204b211ce0f32d4d03f9c3423b1244c2dc7fae45babbf98979c00a9e11/confluent_kafka-2.15.1.tar.gz", hash = "sha256:99d1223020e27854e75981333983c5120d64762268f8afcc805fbd62e7de49aa", size = 325065, upload-time = "2026-09-10T15:27:59.367Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c4/e6/79cc2bb61cf05f00e4b367e2aa4cb940e5eddbfa4adeb4177115791f4a7d/confluent_kafka-2.15.1-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:79749b23a3ad751546f9de5bae3651116cbd0df449afc86d122c80359d6453ca", size = 4381400, upload-time = "2026-09-10T15:27:18.564Z" },
+    { url = "https://files.pythonhosted.org/packages/6d/6d/67e59d6807d472ad5f2ac831e735da5ffd321da98adf64cef4cc0bf5f6ed/confluent_kafka-2.15.1-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:64fbcb0c6ee95d0baee2b238d177595c7baa8ccd74df96bea086103dfbfd254d", size = 4350483, upload-time = "2026-09-10T15:27:20.019Z" },
+    { url = "https://files.pythonhosted.org/packages/25/08/8c404bb5849f98e8468b24f1f336360cc37802bb058ff750255621fea484/confluent_kafka-2.15.1-cp312-cp312-manylinux_2_28_aarch64.whl", hash = "sha256:2d2d876c83214f2651d92c557d5057be1356dd3fbb31f26d50863f610655e2fe", size = 4994340, upload-time = "2026-09-10T15:27:21.431Z" },
+    { url = "https://files.pythonhosted.org/packages/d7/a3/31112ce258d74be4636e6d1f73717587e19fd311c70477ae807136f3a48c/confluent_kafka-2.15.1-cp312-cp312-manylinux_2_28_x86_64.whl", hash = "sha256:326e237f6b25587d7dc96854e3a1315979843bacbe48d76a50412f12e49328e1", size = 4806262, upload-time = "2026-09-10T15:27:22.822Z" },
+    { url = "https://files.pythonhosted.org/packages/3c/b8/d07ef7c72f55c01d13de4873e86e49eb6ebd8989cb104cb982fa365d389b/confluent_kafka-2.15.1-cp312-cp312-win_amd64.whl", hash = "sha256:b6c73dcb91d5f84ed0d24b37817944f44b5d661f02ec8cc7a3c6d497c03bdc7c", size = 4565312, upload-time = "2026-09-10T15:27:24.321Z" },
+]
+
+[package.optional-dependencies]
+schemaregistry = [
+    { name = "attrs" },
+    { name = "authlib" },
+    { name = "cachetools" },
+    { name = "certifi" },
+    { name = "httpx" },
 ]
 
 [[package]]
@@ -1390,6 +1423,7 @@ dev = [
     { name = "httpx" },
     { name = "interrogate" },
     { name = "mypy" },
+    { name = "openlineage-python" },
     { name = "pre-commit" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -1402,12 +1436,16 @@ dev = [
 easyocr = [
     { name = "docling", extra = ["easyocr"] },
 ]
+event-streaming = [
+    { name = "confluent-kafka", extra = ["schemaregistry"] },
+]
 lineage = [
     { name = "openlineage-python" },
 ]
 notebooks = [
     { name = "ipykernel" },
     { name = "jupyter" },
+    { name = "jupyterlab" },
     { name = "matplotlib" },
     { name = "nbconvert" },
     { name = "nbformat" },
@@ -1455,6 +1493,7 @@ requires-dist = [
     { name = "boto3", specifier = "==1.42.55" },
     { name = "botocore", specifier = "==1.42.55" },
     { name = "box-sdk-gen", specifier = "==1.17.0" },
+    { name = "confluent-kafka", extras = ["schemaregistry"], marker = "extra == 'event-streaming'", specifier = "==2.15.1" },
     { name = "cryptography", specifier = "==50.0.0" },
     { name = "data-prep-toolkit-transforms", specifier = "==1.1.8" },
     { name = "datatrove", specifier = "==0.10.0" },
@@ -1487,6 +1526,7 @@ requires-dist = [
     { name = "interrogate", marker = "extra == 'dev'", specifier = "==1.7.0" },
     { name = "ipykernel", marker = "extra == 'notebooks'", specifier = "==7.3.0" },
     { name = "jupyter", marker = "extra == 'notebooks'", specifier = "==1.1.1" },
+    { name = "jupyterlab", marker = "extra == 'notebooks'", specifier = "==4.6.4" },
     { name = "langchain", specifier = "==1.3.9" },
     { name = "langchain-classic", specifier = "==1.0.7" },
     { name = "langchain-community", specifier = "==0.4.1" },
@@ -1497,7 +1537,7 @@ requires-dist = [
     { name = "langsmith", specifier = "==0.8.18" },
     { name = "litellm", specifier = "==1.88.6" },
     { name = "lxml", specifier = "==6.1.0" },
-    { name = "mako", specifier = "==1.3.12" },
+    { name = "mako", specifier = "==1.4.2" },
     { name = "matplotlib", marker = "extra == 'benchmark'", specifier = "==3.11.0" },
     { name = "matplotlib", marker = "extra == 'notebooks'", specifier = "==3.11.0" },
     { name = "mcp", specifier = ">=1.0,<2.0" },
@@ -1511,6 +1551,7 @@ requires-dist = [
     { name = "o365", specifier = "==2.1.9" },
     { name = "ollama", specifier = "==0.6.1" },
     { name = "openai", specifier = "==2.33.0" },
+    { name = "openlineage-python", marker = "extra == 'dev'", specifier = "==1.52.0" },
     { name = "openlineage-python", marker = "extra == 'lineage'", specifier = "==1.52.0" },
     { name = "opensearch-py", specifier = "==3.1.0" },
     { name = "opentelemetry-api", marker = "extra == 'telemetry'", specifier = "==1.41.1" },
@@ -1569,7 +1610,7 @@ requires-dist = [
     { name = "urllib3", specifier = "==2.8.0" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.40.0" },
 ]
-provides-extras = ["benchmark", "dev", "easyocr", "lineage", "notebooks", "ocrmac", "rapidocr", "telemetry", "tesserocr", "vlm-asr"]
+provides-extras = ["benchmark", "dev", "easyocr", "event-streaming", "lineage", "notebooks", "ocrmac", "rapidocr", "telemetry", "tesserocr", "vlm-asr"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -2906,7 +2947,7 @@ wheels = [
 
 [[package]]
 name = "jupyterlab"
-version = "4.6.2"
+version = "4.6.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "async-lru" },
@@ -2923,9 +2964,9 @@ dependencies = [
     { name = "tornado" },
     { name = "traitlets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7a/7f/51c0c856ab286bdaf5709cf61ed13584ed9d4bee906479707da45b11b353/jupyterlab-4.6.2.tar.gz", hash = "sha256:e18ce8b34f3de350e93cd5b2c4f3ae884cbe266eb76bf5d6825a4ed34c13bcff", size = 28183650, upload-time = "2026-07-21T12:05:24.051Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/33/8d/995cc142f6083346b35e7d3eadc5a6717ee89ce64ea53577010ac493bc3c/jupyterlab-4.6.4.tar.gz", hash = "sha256:404f49b081819378524886c9db66dba57a5565981eff885830df1baba3a17df5", size = 28335647, upload-time = "2026-09-21T15:25:18.779Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/63/1f/e39b248c76bb3736bc05a9491a6aa1315414c32dea12f548ecc1b24c758e/jupyterlab-4.6.2-py3-none-any.whl", hash = "sha256:5964447036629adfcd3fc0969effc1da6f47d2cbd0a60b2c2eea7c31be0ec6a8", size = 17166703, upload-time = "2026-07-21T12:05:19.818Z" },
+    { url = "https://files.pythonhosted.org/packages/3b/e4/072bc0d3c6d45d414062a06af7ee81c02a2c12d769c358ec9919f9995ffd/jupyterlab-4.6.4-py3-none-any.whl", hash = "sha256:15b13f991d3985129c797eb84d9949eeb8b6615e14b444868e642411f2c418b2", size = 17171596, upload-time = "2026-09-21T15:25:14.123Z" },
 ]
 
 [[package]]
@@ -3359,14 +3400,14 @@ wheels = [
 
 [[package]]
 name = "mako"
-version = "1.3.12"
+version = "1.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "markupsafe" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/00/62/791b31e69ae182791ec67f04850f2f062716bbd205483d63a215f3e062d3/mako-1.3.12.tar.gz", hash = "sha256:9f778e93289bd410bb35daadeb4fc66d95a746f0b75777b942088b7fd7af550a", size = 400219, upload-time = "2026-04-28T19:01:08.512Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/05/7f/0b891a82379ffd96d2d8cc6d435fb1055cdaed52829287f81d2a43fd71cb/mako-1.4.2.tar.gz", hash = "sha256:7227a060ee3af55a493af61d73d6beef13044b81dba9586736c13945f09464ce", size = 412231, upload-time = "2026-09-22T20:40:55.06Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bc/b1/a0ec7a5a9db730a08daef1fdfb8090435b82465abbf758a596f0ea88727e/mako-1.3.12-py3-none-any.whl", hash = "sha256:8f61569480282dbf557145ce441e4ba888be453c30989f879f0d652e39f53ea9", size = 78521, upload-time = "2026-04-28T19:01:10.393Z" },
+    { url = "https://files.pythonhosted.org/packages/f0/bb/0e4c30a18858adebc75496ea8a8c3fb65cbf4b36ea1c5028ed8a0a5fa196/mako-1.4.2-py3-none-any.whl", hash = "sha256:e70a2a4308952b33a21208bfd6725da79fae5a8c224578f8cfdeb60e5ace03df", size = 80163, upload-time = "2026-09-22T20:40:56.423Z" },
 ]
 
 [[package]]

@@ -76,13 +76,11 @@ class TestGoogleDriveSourceAdapter:
     def test_build_config_from_operator_params(self):
         adapter = GoogleDriveSourceAdapter()
         config = adapter.build_config_from_operator_params(
-            connection_params={
+            provider_config={
                 "folder_id": "folder123",
                 "recursive": True,
                 "drive_id": "drive1",
                 "max_file_size_mb": 4,
-            },
-            credentials={
                 "credentials_path": "/tmp/creds.json",
                 "token_path": "/tmp/token.json",
                 "scopes": ["scope1"],
@@ -467,8 +465,7 @@ class TestGoogleDriveSourceAdapter:
         ):
             result = adapter.fetch_binary_content(
                 source_id="doc123",
-                connection_params={"folder_id": "folder123"},
-                credentials={"credentials_path": "/tmp/credentials.json"},
+                provider_config={"folder_id": "folder123", "credentials_path": "/tmp/credentials.json"},
             )
 
         assert result == b""
@@ -509,15 +506,13 @@ class TestGoogleDriveSourceAdapter:
         adapter = GoogleDriveSourceAdapter()
 
         config = adapter.build_config_from_operator_params(
-            connection_params={
+            provider_config={
                 "folder_id": "folder123",
                 "recursive": False,
                 "drive_id": "drive1",
                 "folder_path": "Docs",
                 "file_id": "doc123",
                 "max_file_size_mb": 2,
-            },
-            credentials={
                 "service_account_json_path": "/tmp/service.json",
             },
             included_extensions=[".pdf"],
@@ -583,8 +578,7 @@ class TestGoogleDriveSourceAdapter:
         ):
             result = adapter.fetch_binary_content(
                 source_id="doc123",
-                connection_params={"folder_id": "folder123"},
-                credentials={"credentials_path": "/tmp/credentials.json"},
+                provider_config={"folder_id": "folder123", "credentials_path": "/tmp/credentials.json"},
             )
 
         assert result is None

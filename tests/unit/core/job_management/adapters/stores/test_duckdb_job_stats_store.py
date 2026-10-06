@@ -51,6 +51,7 @@ def sample_job_stats():
         failed_docs=5,
         message="Test job",
         start_time=1704067200,
+        progress_timestamp=1704067300,
     )
 
 
@@ -180,6 +181,7 @@ class TestJobStatsCRUD:
         assert retrieved.job_run_id == sample_job_stats.job_run_id
         assert retrieved.processed_docs == 100
         assert retrieved.failed_docs == 5
+        assert retrieved.progress_timestamp == 1704067300
 
     def test_update_job_stats(self, *, store, sample_job_stats):
         """Should update existing job stats (upsert behavior)."""

@@ -8,9 +8,17 @@ from pydantic import BaseModel, Field, field_validator
 class BoxSourceConfig(BaseModel):
     """Configuration for Box source."""
 
-    # OAuth credentials
-    credentials_path: str = Field(
-        ..., description="Path to Box app/JWT config file", json_schema_extra={"sensitive": True}
+    # Credentials (inline JSON or dict is primary; file path is secondary)
+    credentials_json: dict | str | None = Field(
+        None,
+        description="Inline Box JWT / App config JSON string or dictionary (primary auth method)",
+        json_schema_extra={"sensitive": True},
+    )
+
+    credentials_path: str | None = Field(
+        None,
+        description="Path to Box app/JWT config file (secondary/fallback auth method)",
+        json_schema_extra={"sensitive": True},
     )
 
     # Box folder configuration
@@ -39,7 +47,7 @@ class BoxSourceConfig(BaseModel):
 
     @field_validator("credentials_path")
     @classmethod
-    def validate_credentials_path(cls, v: str) -> str:
+    def validate_credentials_path(cls, v: str | None) -> str | None:
         """Validate and expand config file path with environment variable resolution.
 
         Supports:
@@ -47,15 +55,13 @@ class BoxSourceConfig(BaseModel):
         - User home expansion: ~/path
         - Absolute paths: /path/to/file
         """
+        if v is None:
+            return None
         # First resolve environment variables
         resolved = os.path.expandvars(v)
 
         # Then expand user home directory
         return str(Path(resolved).expanduser())
-
-        # Just expand the path, don't validate existence here
-        # The actual file access will happen during authentication
-        # This avoids permission errors during config validation
 
     @field_validator("folder_id")
     @classmethod

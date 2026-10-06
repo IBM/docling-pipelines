@@ -48,7 +48,7 @@ def valid_flow_dict_with_output(fixtures_customer_support_dir):
                 "depends_on": [],
                 "config": {
                     "provider": "filesystem",
-                    "connection_params": {"paths": [str(fixtures_customer_support_dir)]},
+                    "provider_config": {"paths": [str(fixtures_customer_support_dir)]},
                     "include_filter": "txt",
                 },
             },

@@ -33,6 +33,11 @@ class TestFailFastDownstreamSkip:
         }
         orchestrator.logger = Mock()
         orchestrator.flow_execution_event_handler = Mock()
+        # Instance attributes added by lineage wiring — must be set explicitly on
+        # spec-bound mocks because spec= inspects the class, not __init__ assignments.
+        orchestrator.flow_id = None
+        orchestrator.flow_name = ""
+        orchestrator._observer = None
 
         # Make _execute_step and its helpers use the real implementations
         orchestrator._execute_step = AbstractOrchestrator._execute_step.__get__(orchestrator)
