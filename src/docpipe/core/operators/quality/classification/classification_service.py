@@ -290,7 +290,7 @@ class ClassificationService:
         except DocpipeException:
             raise
         except Exception as exc:
-            logger.error("LLM classification failed: %s", exc, exc_info=True)
+            logger.exception("LLM classification failed: %s", exc)
             raise DocpipeException(
                 error_code=ErrorCode.EXTERNAL_SERVICE_ERROR,
                 message=f"LLM API call failed: {exc!s}",
