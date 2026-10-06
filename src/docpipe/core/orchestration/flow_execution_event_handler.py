@@ -90,7 +90,8 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
     def _log_node_stats_debug(self, job_stats):
         """Log node stats for debugging."""
         logger.debug(
-            f"Node stats count: {len(job_stats.node_stats) if job_stats.node_stats else 0}",
+            "Node stats count: %s",
+            len(job_stats.node_stats) if job_stats.node_stats else 0,
             extra=self.common_log_arguments,
         )
         if job_stats.node_stats:
@@ -100,7 +101,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                     if hasattr(node_stat, "node_status")
                     else node_stat.get("node_status", "Unknown")
                 )
-                logger.debug(f"Node {node_id}: status={node_status_val}", extra=self.common_log_arguments)
+                logger.debug("Node %s: status=%s", node_id, node_status_val, extra=self.common_log_arguments)
         else:
             logger.warning("No node stats found when determining final job status", extra=self.common_log_arguments)
 
@@ -135,7 +136,9 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             # Ensure node_stats is not None before passing to determine_final_job_status
             node_stats_for_status = job_stats.node_stats if job_stats.node_stats else {}
             logger.debug(
-                f"About to determine status. node_stats_for_status type: {type(node_stats_for_status)}, len: {len(node_stats_for_status) if node_stats_for_status else 0}",
+                "About to determine status. node_stats_for_status type: %s, len: %s",
+                type(node_stats_for_status),
+                len(node_stats_for_status) if node_stats_for_status else 0,
                 extra=self.common_log_arguments,
             )
             return OperatorUtils.determine_final_job_status(node_stats_list=node_stats_for_status)
@@ -177,7 +180,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             job_run_stats=self._get_complete_job_stats(message=message),
         )
 
-        logger.info(f"Job status is {job_status.value}.", extra=self.common_log_arguments)
+        logger.info("Job status is %s.", job_status.value, extra=self.common_log_arguments)
 
         # Generate job report in background for all terminal statuses
         if job_stats and job_status in TERMINAL_JOB_STATUSES:
@@ -202,12 +205,12 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             self.execution_reporter.print_operator_start(step_name=node_name, operator_type=operator_type)
 
         if prev_results is None:
-            logger.info(f"Error detected in previous step - node {node_name} skipped.", extra=log_extra)
+            logger.info("Error detected in previous step - node %s skipped.", node_name, extra=log_extra)
 
         if job_status == ExecutionStatus.CANCELING:
-            logger.info(f"Cancelling the branch execution at node name: {node_name}", extra=log_extra)
+            logger.info("Cancelling the branch execution at node name: %s", node_name, extra=log_extra)
         elif job_status == ExecutionStatus.FAILING:
-            logger.info(f"Aborting the branch execution at node name: {node_name}", extra=log_extra)
+            logger.info("Aborting the branch execution at node name: %s", node_name, extra=log_extra)
 
     def after_step_execution_complete(
         self,
@@ -261,7 +264,7 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
 
         if is_last_step:
             log_extra = {**(self.common_log_arguments or {}), "node_id": node_id, "node_name": node_name}
-            logger.info(f" Branch execution completed at node name: {node_name}", extra=log_extra)
+            logger.info(" Branch execution completed at node name: %s", node_name, extra=log_extra)
 
     def after_node_skipped(
         self,
@@ -293,7 +296,9 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
 
         log_extra = {**(self.common_log_arguments or {}), "node_id": node_id, "node_name": node_name}
         logger.info(
-            f"Skipped execution for Step Name: {node_name}, operator: {operator_type} because no input data available for processing.",
+            "Skipped execution for Step Name: %s, operator: %s because no input data available for processing.",
+            node_name,
+            operator_type,
             extra=log_extra,
         )
 
@@ -354,7 +359,10 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
 
         log_extra = {**(self.common_log_arguments or {}), "node_id": node_id, "node_name": node_name}
         logger.error(
-            f">>> Node {node_name} failed and caused aborting the branch execution: {e} transaction_ID: {get_session_info().transaction_id}",
+            ">>> Node %s failed and caused aborting the branch execution: %s transaction_ID: %s",
+            node_name,
+            e,
+            get_session_info().transaction_id,
             extra=log_extra,
         )
 
@@ -408,7 +416,9 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                 downstream_node_names=downstream_node_names,
             )
             logger.info(
-                f"Initialized pending stats for {len(batch_ids)} batches x {len(downstream_node_ids)} nodes",
+                "Initialized pending stats for %s batches x %s nodes",
+                len(batch_ids),
+                len(downstream_node_ids),
                 extra=self.common_log_arguments,
             )
 
@@ -493,10 +503,11 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
                 job_run_stats={"report_status": "FAILED", "report_generation_completed_at": completed_at},
             )
 
-        logger.error(
-            f"Report generation failed after {elapsed_time:.2f}s: {exception}",
+        logger.exception(
+            "Report generation failed after %.2fs: %s",
+            elapsed_time,
+            exception,
             extra=self.common_log_arguments,
-            exc_info=True,
         )
 
     @staticmethod
@@ -594,7 +605,8 @@ class FlowExecutionEventHandler(AbstractFlowExecutionEventHandler):
             job_stats_fresh.batch_node_stats = batch_node_stats_ref
             if batch_node_stats_ref:
                 logger.info(
-                    f"Using pre-fetched batch_node_stats with {len(batch_node_stats_ref)} node(s)",
+                    "Using pre-fetched batch_node_stats with %s node(s)",
+                    len(batch_node_stats_ref),
                     extra=self.common_log_arguments,
                 )
 

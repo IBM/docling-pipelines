@@ -77,9 +77,9 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
         try:
             # Initialize schema
             self._initialize_schema()
-            logger.info(f"DuckDBJobStatsStore initialized: {self.database_path}")
+            logger.info("DuckDBJobStatsStore initialized: %s", self.database_path)
         except Exception as e:
-            logger.error(f"Failed to initialize DuckDBJobStatsStore: {e}")
+            logger.error("Failed to initialize DuckDBJobStatsStore: %s", e)
             raise JobStatsStoreInitializationException(
                 message=f"DuckDB initialization failed: {e}", store_type="duckdb"
             ) from e
@@ -223,9 +223,9 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                     ],
                 )
 
-                logger.debug(f"Stored job stats: job_run_id={job_stats.job_run_id}")
+                logger.debug("Stored job stats: job_run_id=%s", job_stats.job_run_id)
         except Exception as e:
-            logger.error(f"Failed to store job stats: {e}")
+            logger.error("Failed to store job stats: %s", e)
             raise JobStatsStoreWriteException(
                 message=f"Failed to store job stats: {e}", job_run_id=job_stats.job_run_id, operation="store_job_stats"
             ) from e
@@ -262,7 +262,7 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
 
                 return JobStats(**data)
         except Exception as e:
-            logger.error(f"Failed to get job stats: {e}")
+            logger.error("Failed to get job stats: %s", e)
             raise JobStatsStoreReadException(
                 message=f"Failed to get job stats: {e}", job_run_id=job_run_id, operation="get_job_stats"
             ) from e
@@ -367,10 +367,13 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                     )
 
                 logger.debug(
-                    f"Stored node stats: job_run_id={job_run_id}, node_id={data['id']}, batch_id={data.get('batch_id')}"
+                    "Stored node stats: job_run_id=%s, node_id=%s, batch_id=%s",
+                    job_run_id,
+                    data["id"],
+                    data.get("batch_id"),
                 )
         except Exception as e:
-            logger.error(f"Failed to store node stats: {e}")
+            logger.error("Failed to store node stats: %s", e)
             raise JobStatsStoreWriteException(
                 message=f"Failed to store node stats: {e}", job_run_id=job_run_id, operation="store_node_stats"
             ) from e
@@ -419,10 +422,10 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
 
                     node_stats_list.append(NodeStats(**data))
 
-                logger.debug(f"Retrieved {len(node_stats_list)} node stats: job_run_id={job_run_id}")
+                logger.debug("Retrieved %s node stats: job_run_id=%s", len(node_stats_list), job_run_id)
                 return node_stats_list
         except Exception as e:
-            logger.error(f"Failed to get node stats: {e}")
+            logger.error("Failed to get node stats: %s", e)
             raise JobStatsStoreReadException(
                 message=f"Failed to get node stats: {e}", job_run_id=job_run_id, operation="get_node_stats"
             ) from e
@@ -498,10 +501,10 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
 
                     batch_stats[node_id][batch_id] = NodeStats(**data)
 
-                logger.debug(f"Retrieved batch node stats: job_run_id={job_run_id}, nodes={len(batch_stats)}")
+                logger.debug("Retrieved batch node stats: job_run_id=%s, nodes=%s", job_run_id, len(batch_stats))
                 return batch_stats
         except Exception as e:
-            logger.error(f"Failed to get batch node stats: {e}")
+            logger.error("Failed to get batch node stats: %s", e)
             raise JobStatsStoreReadException(
                 message=f"Failed to get batch node stats: {e}", job_run_id=job_run_id, operation="get_batch_node_stats"
             ) from e
@@ -571,12 +574,12 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                         )
 
                     conn.execute("COMMIT")
-                    logger.debug(f"Bulk stored {len(node_stats_list)} node stats: job_run_id={job_run_id}")
+                    logger.debug("Bulk stored %s node stats: job_run_id=%s", len(node_stats_list), job_run_id)
                 except Exception:
                     conn.execute("ROLLBACK")
                     raise
         except Exception as e:
-            logger.error(f"Failed to bulk store node stats: {e}")
+            logger.error("Failed to bulk store node stats: %s", e)
             raise JobStatsStoreWriteException(
                 message=f"Failed to bulk store node stats: {e}",
                 job_run_id=job_run_id,
@@ -649,12 +652,12 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                         conn.execute(sql, params)
 
                     conn.execute("COMMIT")
-                    logger.debug(f"Atomic update applied: job_run_id={job_run_id}")
+                    logger.debug("Atomic update applied: job_run_id=%s", job_run_id)
                 except Exception:
                     conn.execute("ROLLBACK")
                     raise
         except Exception as e:
-            logger.error(f"Failed to atomically increment fields: {e}")
+            logger.error("Failed to atomically increment fields: %s", e)
             raise JobStatsStoreWriteException(
                 message=f"Failed to atomically increment fields: {e}",
                 job_run_id=job_run_id,
@@ -722,7 +725,7 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
 
                 return NodeStats(**data)
         except Exception as e:
-            logger.error(f"Failed to get node stats by batch and node: {e}")
+            logger.error("Failed to get node stats by batch and node: %s", e)
             raise JobStatsStoreReadException(
                 message=f"Failed to get node stats by batch and node: {e}",
                 job_run_id=job_run_id,
@@ -754,11 +757,11 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
                 # Delete (CASCADE will handle node_stats)
                 conn.execute("DELETE FROM job_stats WHERE job_run_id = ?", [job_run_id])
 
-                logger.info(f"Deleted job stats: job_run_id={job_run_id}")
+                logger.info("Deleted job stats: job_run_id=%s", job_run_id)
         except JobStatsStoreDeleteException:
             raise
         except Exception as e:
-            logger.error(f"Failed to delete job stats: {e}")
+            logger.error("Failed to delete job stats: %s", e)
             raise JobStatsStoreDeleteException(message=f"Failed to delete job stats: {e}", job_run_id=job_run_id) from e
 
     def list_job_runs(
@@ -831,7 +834,7 @@ class DuckDBJobStatsStore(JobStatsStore):  # type: ignore[misc]
 
                 return job_stats_list
         except Exception as e:
-            logger.error(f"Failed to list jobs: {e}")
+            logger.error("Failed to list jobs: %s", e)
             raise JobStatsStoreReadException(
                 message=f"Failed to list jobs: {e}", job_run_id=None, operation="list_job_runs"
             ) from e

@@ -202,13 +202,13 @@ class JobManagementService:
             from docpipe.core.assets.flows.application.services.authoring_compiler import AuthoringCompiler
             from docpipe.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
 
-            logger.info(f"Flow {flow_id} is in authoring format, compiling to runtime DAG")
+            logger.info("Flow %s is in authoring format, compiling to runtime DAG", flow_id)
             authoring_flow = AuthoringFlow.from_dict(data=flow.definition)
             compiler = AuthoringCompiler()
             flow_dag_definition = compiler.compile(authoring_flow=authoring_flow)
         elif "doc_type" in flow.definition:
             # Elyra format - transform to internal DAG
-            logger.info(f"Flow {flow_id} is in Elyra format, transforming to internal DAG")
+            logger.info("Flow %s is in Elyra format, transforming to internal DAG", flow_id)
             converter = ElyraConverter()
             flow_dag_definition = converter.transform_elyra_to_internal(elyra_json=flow.definition, flow_id=flow_id)
         else:
@@ -255,7 +255,7 @@ class JobManagementService:
         # Notify framework manager
         self.job_run_manager.cancel_job_run(job_run_id=job_run_id)
 
-        logger.info(f"Requested cancellation: job_run_id={job_run_id}")
+        logger.info("Requested cancellation: job_run_id=%s", job_run_id)
 
     def delete_job_run(self, *, job_run_id: str) -> None:
         """
@@ -270,7 +270,7 @@ class JobManagementService:
         # Delete from framework
         self.job_run_manager.delete_job_run(job_run_id=job_run_id)
 
-        logger.info(f"Deleted job run: job_run_id={job_run_id}")
+        logger.info("Deleted job run: job_run_id=%s", job_run_id)
 
     def list_job_runs(
         self,
@@ -386,7 +386,7 @@ class JobManagementService:
                     logger.warning("Failed to update job run status to STARTING: %s", exc)
 
             flow_executor.execute(orchestrator=orchestrator, params=params)
-            logger.info(f"Completed async flow execution for job_run_id={job_run_id}")
+            logger.info("Completed async flow execution for job_run_id=%s", job_run_id)
         except FlowValidationException as validation_exc:
             # Log detailed errors, warnings, and traceback (delegated to exception)
             validation_exc.log_details(job_run_id=job_run_id)
@@ -396,7 +396,7 @@ class JobManagementService:
 
             try:
                 # Update job run status with formatted error message
-                logger.debug(f"Updating job run status to Failed with validation details: job_run_id={job_run_id}")
+                logger.debug("Updating job run status to Failed with validation details: job_run_id=%s", job_run_id)
                 try:
                     self.job_run_manager.update_job_run_status(
                         job_run_id=job_run_id,
@@ -405,8 +405,9 @@ class JobManagementService:
                     )
                 except Exception as update_error:
                     logger.warning(
-                        f"Failed to update job run status to FAILED (non-critical): {update_error}. "
-                        f"Error message was: {error_message}"
+                        "Failed to update job run status to FAILED (non-critical): %s. Error message was: %s",
+                        update_error,
+                        error_message,
                     )
 
                 self.job_stats_service.end_job(
@@ -415,9 +416,10 @@ class JobManagementService:
                     job_run_stats={DocpipeConstants.MESSAGE: error_message},
                 )
             except Exception as end_exc:
-                logger.error(
-                    f"Failed to finalize validation error for job_run_id={job_run_id}: {end_exc}",
-                    exc_info=True,
+                logger.exception(
+                    "Failed to finalize validation error for job_run_id=%s: %s",
+                    job_run_id,
+                    end_exc,
                 )
         except Exception as exc:
             # Handle all other exceptions (extraction failures, runtime errors, etc.)
@@ -425,14 +427,14 @@ class JobManagementService:
             full_traceback = "".join(tb_lines)
 
             # Logging traceback as prefect consumes stacktrace
-            logger.error(f"Async flow execution failed for job_run_id={job_run_id}: {full_traceback}", exc_info=True)
+            logger.exception("Async flow execution failed for job_run_id=%s: %s", job_run_id, full_traceback)
 
             # Build error message with more context
             error_message = self._build_detailed_error_message(exc)
 
             try:
                 # Update status to Failed
-                logger.info(f"Updating job run status to Failed: job_run_id={job_run_id}")
+                logger.info("Updating job run status to Failed: job_run_id=%s", job_run_id)
                 try:
                     self.job_run_manager.update_job_run_status(
                         job_run_id=job_run_id,
@@ -440,7 +442,7 @@ class JobManagementService:
                         job_run_stats={DocpipeConstants.MESSAGE: error_message},
                     )
                 except Exception as update_error:
-                    logger.warning(f"Failed to update job run status to FAILED (non-critical): {update_error}")
+                    logger.warning("Failed to update job run status to FAILED (non-critical): %s", update_error)
 
                 self.job_stats_service.end_job(
                     job_run_id=job_run_id,
@@ -448,9 +450,10 @@ class JobManagementService:
                     job_run_stats={DocpipeConstants.MESSAGE: error_message},
                 )
             except Exception as end_exc:
-                logger.error(
-                    f"Failed to finalize error job_run_id={job_run_id}: {end_exc}",
-                    exc_info=True,
+                logger.exception(
+                    "Failed to finalize error job_run_id=%s: %s",
+                    job_run_id,
+                    end_exc,
                 )
 
     def _serialize_validation_alerts(self, alerts: list[Any]) -> list[dict[str, Any]]:
@@ -480,7 +483,7 @@ class JobManagementService:
                     alert_dict = alert.model_dump(exclude_none=True)  # type: ignore[assignment]
                 else:
                     # Fallback: convert to string representation
-                    logger.warning(f"Unknown validation alert type: {type(alert)}, converting to string")
+                    logger.warning("Unknown validation alert type: %s, converting to string", type(alert))
                     serialized.append({"message": str(alert)})
                     continue
 
@@ -500,7 +503,7 @@ class JobManagementService:
                 serialized.append(user_friendly)
 
             except Exception as e:
-                logger.error(f"Failed to serialize validation alert: {e}", exc_info=True)
+                logger.exception("Failed to serialize validation alert: %s", e)
                 # Include error info but don't fail the entire serialization
                 serialized.append({"message": str(alert), "serialization_error": str(e)})
 
@@ -559,7 +562,7 @@ class JobManagementService:
                     if error_details:
                         error_message += f". Details: {'; '.join(error_details)}"
             except Exception as e:
-                logger.debug(f"Could not extract error details: {e}")
+                logger.debug("Could not extract error details: %s", e)
 
         return error_message
 
