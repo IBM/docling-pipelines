@@ -362,12 +362,9 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                     global_config=global_config,
                     doc_column=self.doc_column,
                     max_workers=entity_max_workers,
+                    document_class_provider=self._document_class_provider,
                 )
                 if self.entity_adapter:
-                    # Inject the document class provider so the adapter (and any
-                    # EntityExtractionService it creates) can use the correct provider.
-                    if hasattr(self.entity_adapter, "document_class_provider"):
-                        self.entity_adapter.document_class_provider = self._document_class_provider
                     logger.info(
                         "Created %s adapter for entity extraction mode: %s",
                         self.entity_adapter.ADAPTER_DISPLAY_NAME,
@@ -1084,11 +1081,19 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                         # Adapters that need the original file bytes (e.g. Docling VLM)
                         # declare requires_binary_content = True on the port.
                         # LLM-based adapters always receive extracted text.
-                        entity_content: str | bytes = (
-                            task.get("binary_content") or extracted_content
-                            if self.entity_adapter.requires_binary_content
-                            else extracted_content
-                        )
+                        if self.entity_adapter.requires_binary_content:
+                            binary_content = task.get("binary_content")
+                            if not binary_content:
+                                AbstractOperator.record_skipped_document(
+                                    metadata=metadata,
+                                    doc_id=str(task["doc_id"]),
+                                    doc_name=task["doc_name"],
+                                    reason="Binary content unavailable for VLM extraction.",
+                                )
+                                continue
+                            entity_content: str | bytes = binary_content
+                        else:
+                            entity_content = extracted_content
                         entity_future = entity_executor.submit(
                             self.entity_adapter.extract_entities_single,
                             doc_id=str(task["doc_id"]),

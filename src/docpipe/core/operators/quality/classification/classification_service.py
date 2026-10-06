@@ -93,10 +93,22 @@ class ClassificationService:
 
         if llm_adapter is not None:
             # Fast path: caller supplies a ready-made adapter (e.g. ModelGatewayLLMAdapter).
-            # Skip factory instantiation and validation entirely.
+            # Validate before accepting so a misconfigured adapter is caught at construction
+            # time rather than mid-batch inside classify_document().
             self.llm_adapter: LLMInferencePort = llm_adapter
             self.model_id = model_id or ""
             self.provider_name = provider_name or ""
+            validation_result = self.llm_adapter.validate()
+            if not validation_result.get(LLMConstants.ValidationKeys.VALID, False):
+                errors = validation_result.get(LLMConstants.ValidationKeys.ERRORS, [])
+                raise DocpipeException(
+                    error_code=ErrorCode.INVALID_CONFIGURATION,
+                    message=f"Injected adapter validation failed: {'; '.join(errors)}",
+                )
+            warnings = validation_result.get(LLMConstants.ValidationKeys.WARNINGS, [])
+            if warnings:
+                for warning in warnings:
+                    logger.warning("Adapter configuration warning: %s", warning)
             logger.info(
                 "Initialized ClassificationService with injected adapter=%s, temperature=%s, max_tokens=%s",
                 type(llm_adapter).__name__,
