@@ -76,7 +76,14 @@ def verify_token(token: str, config: JWTConfig) -> dict | None:
         Decoded token payload if valid, None otherwise
     """
     try:
-        payload: dict[str, Any] = jwt.decode(token, config.jwt_secret_key, algorithms=[config.jwt_algorithm])
+        # Every token issued by create_access_token carries "exp"; refuse tokens
+        # without it so a correctly-signed token can never be valid forever.
+        payload: dict[str, Any] = jwt.decode(
+            token,
+            config.jwt_secret_key,
+            algorithms=[config.jwt_algorithm],
+            options={"require_exp": True},
+        )
         username: Any | None = payload.get(JWTClaims.USERNAME)
         if username is None:
             logger.warning("Token missing username claim")
