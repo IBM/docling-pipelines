@@ -405,3 +405,47 @@ class TestInitialize:
             orchestrator.initialize(job_id="job-1", job_run_id="run-same")
             # get_session_info should not be called if skipping
             mock_si.assert_not_called()
+
+
+class TestOrchestratorFactory:
+    """Tests for OrchestratorFactory covering uncovered utility methods."""
+
+    def setup_method(self) -> None:
+        """Reset factory to defaults before each test."""
+        from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
+
+        OrchestratorFactory.reset_orchestrators()
+
+    def test_reset_orchestrators_restores_defaults(self) -> None:
+        """reset_orchestrators() clears custom registrations and restores python default."""
+        from docpipe.core.constants import OrchestratorType
+        from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
+        from docpipe.core.orchestration.python.python_orchestrator import PythonOrchestrator
+
+        # register a custom orchestrator then reset
+        OrchestratorFactory.register_orchestrators(orchestrators={"custom": ConcreteOrchestrator})
+        OrchestratorFactory.reset_orchestrators()
+
+        registered = OrchestratorFactory.get_registered_orchestrators()
+        assert OrchestratorType.PYTHON in registered
+        assert registered[OrchestratorType.PYTHON] is PythonOrchestrator
+        assert "custom" not in registered
+
+    def test_get_registered_orchestrators_returns_copy(self) -> None:
+        """get_registered_orchestrators() returns a dict copy, not the internal registry."""
+        from docpipe.core.constants import OrchestratorType
+        from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
+
+        result = OrchestratorFactory.get_registered_orchestrators()
+        assert OrchestratorType.PYTHON in result
+        # mutating the returned copy must not affect the registry
+        result["injected"] = ConcreteOrchestrator
+        clean = OrchestratorFactory.get_registered_orchestrators()
+        assert "injected" not in clean
+
+    def test_register_orchestrators_raises_on_empty_dict(self) -> None:
+        """register_orchestrators() raises ValueError when called with an empty dict."""
+        from docpipe.core.orchestration.orchestrator_factory import OrchestratorFactory
+
+        with pytest.raises(ValueError, match="must not be empty"):
+            OrchestratorFactory.register_orchestrators(orchestrators={})
