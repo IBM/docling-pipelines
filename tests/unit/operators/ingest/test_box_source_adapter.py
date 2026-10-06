@@ -714,15 +714,14 @@ class TestGetBoxClient:
 
     def test_raises_permission_error_on_unreadable_file(self, tmp_path):
         """PermissionError is re-raised with a descriptive message."""
-        from unittest.mock import mock_open, patch
+        from unittest.mock import patch
 
         from docpipe.core.operators.ingest.adapters.outbound.sources.box.auth import get_box_client
 
         creds_file = tmp_path / "box.json"
         creds_file.write_text("{}")
 
-        with patch("builtins.open", mock_open()) as m:
-            m.side_effect = PermissionError("denied")
+        with patch("pathlib.Path.open", side_effect=PermissionError("denied")):
             with pytest.raises(PermissionError, match="Permission denied accessing credentials file"):
                 get_box_client(credentials_path=str(creds_file))
 

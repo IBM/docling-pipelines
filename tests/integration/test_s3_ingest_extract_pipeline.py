@@ -146,7 +146,7 @@ class TestS3IngestExtractPipeline:
         mock_fetch_documents.return_value = mock_async_gen()
 
         # Mock fetch_binary_content to return binary content from mock documents
-        def mock_fetch_binary_side_effect(*, source_id, connection_params, credentials):
+        def mock_fetch_binary_side_effect(*, source_id, provider_config):
             # Find the matching document by source_id
             for doc in mock_s3_documents:
                 if source_id == doc.source_url or source_id.endswith(doc.id):
@@ -257,7 +257,7 @@ class TestS3IngestExtractPipeline:
         mock_fetch_documents.return_value = mock_async_gen()
 
         # Mock fetch_binary_content to return binary content from mock documents
-        def mock_fetch_binary_side_effect(*, source_id, connection_params, credentials):
+        def mock_fetch_binary_side_effect(*, source_id, provider_config):
             # Find the matching document by source_id
             for doc in mock_s3_documents:
                 if source_id == doc.source_url or source_id.endswith(doc.id):

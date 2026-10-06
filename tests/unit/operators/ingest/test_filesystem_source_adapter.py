@@ -404,15 +404,14 @@ class TestFilesystemSourceAdapter:
         assert "nested.txt" in names
 
     def test_fetch_binary_content_relative_path_resolved_via_base(self, tmp_path):
-        """Relative source_id is resolved against the first path in connection_params."""
+        """Relative source_id is resolved against the first path in provider_config."""
         file_path = tmp_path / "doc.txt"
         file_path.write_text("relative content")
 
         adapter = FilesystemSourceAdapter()
         content = adapter.fetch_binary_content(
             source_id="doc.txt",
-            connection_params={"paths": [str(tmp_path)]},
-            credentials={},
+            provider_config={"paths": [str(tmp_path)]},
         )
         assert content == b"relative content"
 
@@ -421,8 +420,7 @@ class TestFilesystemSourceAdapter:
         adapter = FilesystemSourceAdapter()
         result = adapter.fetch_binary_content(
             source_id=str(tmp_path / "nonexistent.txt"),
-            connection_params={},
-            credentials={},
+            provider_config={},
         )
         assert result is None
 
@@ -431,8 +429,7 @@ class TestFilesystemSourceAdapter:
         adapter = FilesystemSourceAdapter()
         result = adapter.fetch_binary_content(
             source_id=str(tmp_path),
-            connection_params={},
-            credentials={},
+            provider_config={},
         )
         assert result is None
 
@@ -444,11 +441,10 @@ class TestFilesystemSourceAdapter:
         file_path.write_text("secret")
 
         adapter = FilesystemSourceAdapter()
-        with patch("builtins.open", side_effect=PermissionError("denied")):
+        with patch("pathlib.Path.open", side_effect=PermissionError("denied")):
             result = adapter.fetch_binary_content(
                 source_id=str(file_path),
-                connection_params={},
-                credentials={},
+                provider_config={},
             )
         assert result is None
 
@@ -460,11 +456,10 @@ class TestFilesystemSourceAdapter:
         file_path.write_text("data")
 
         adapter = FilesystemSourceAdapter()
-        with patch("builtins.open", side_effect=OSError("disk error")):
+        with patch("pathlib.Path.open", side_effect=OSError("disk error")):
             result = adapter.fetch_binary_content(
                 source_id=str(file_path),
-                connection_params={},
-                credentials={},
+                provider_config={},
             )
         assert result is None
 
