@@ -261,6 +261,7 @@ select = [
     "PT",    # flake8-pytest-style
     "Q",     # flake8-quotes
     "RSE",   # flake8-raise
+    "G",     # flake8-logging-format (issue #126)
 ]
 # Ignore specific rules if needed
 ignore = [
