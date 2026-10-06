@@ -1681,26 +1681,30 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 
 **Provider-Specific Configuration (`provider_config`):**
 
-| Provider        | Parameter              | Type   | Required | Default | Description                                                                                                                   |
-| --------------- | ---------------------- | ------ | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| **LiteLLM**     | `model_id`             | string | Yes      | -       | Model identifier with provider prefix (e.g., `openai/nomic-embed-text`, `huggingface/sentence-transformers/all-MiniLM-L6-v2`) |
-|                 | `api_base`             | string | No       | -       | Custom API endpoint URL (e.g., `http://localhost:11434` for Ollama)                                                           |
-|                 | `api_key`              | string | No       | -       | Provider API key (required for most providers, not needed for Ollama)                                                         |
-|                 | `batch_size`           | int    | No       | `32`    | Number of texts to process in each batch                                                                                      |
-|                 | `timeout`              | int    | No       | `120`   | Request timeout in seconds                                                                                                    |
-| **Watsonx**     | `model_id`             | string | Yes      | -       | Model identifier (e.g., `ibm/slate-125m-english-rtrvr`)                                                                       |
-|                 | `api_key`              | string | Yes      | -       | IBM Cloud API key                                                                                                             |
-|                 | `api_base`             | string | Yes      | -       | WatsonX API URL (e.g., `https://us-south.ml.cloud.ibm.com`)                                                                   |
-|                 | `container_id`         | string | Yes      | -       | WatsonX project or space ID                                                                                                   |
-|                 | `container_kind`       | string | Yes      | -       | Container type: `project` or `space`                                                                                          |
-|                 | `batch_size`           | int    | No       | `800`   | Number of texts to process in each batch                                                                                      |
-|                 | `timeout`              | int    | No       | `120`   | Request timeout in seconds                                                                                                    |
-|                 | `enable_rate_limiting` | bool   | No       | `false` | Enable rate limiting for API calls                                                                                            |
-| **HuggingFace** | `model_id`             | string | Yes      | -       | Model identifier (e.g., `sentence-transformers/all-MiniLM-L6-v2`)                                                             |
-|                 | `use_local`            | bool   | No       | `true`  | Use local model inference (true) or HuggingFace API (false)                                                                   |
-|                 | `device`               | string | No       | `cpu`   | Device for local inference: `cpu`, `cuda`, `mps`                                                                              |
-|                 | `api_token`            | string | No       | -       | HuggingFace API token (required for API mode)                                                                                 |
-|                 | `batch_size`           | int    | No       | `32`    | Number of texts to process in each batch                                                                                      |
+| Provider        | Parameter                 | Type   | Required | Default | Description                                                                                                                   |
+| --------------- | ------------------------- | ------ | -------- | ------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **LiteLLM**     | `model_id`                | string | Yes      | -       | Model identifier with provider prefix (e.g., `openai/nomic-embed-text`, `huggingface/sentence-transformers/all-MiniLM-L6-v2`) |
+|                 | `api_base`                | string | No       | -       | Custom API endpoint URL (e.g., `http://localhost:11434` for Ollama)                                                           |
+|                 | `api_key`                 | string | No       | -       | Provider API key (required for most providers, not needed for Ollama)                                                         |
+|                 | `batch_size`              | int    | No       | `32`    | Texts per embedding request; texts from several documents are packed into the same request                                    |
+|                 | `max_concurrent_requests` | int    | No       | `4`     | Embedding requests kept in flight at once; lower it if the provider returns rate-limit (429) errors                           |
+|                 | `timeout`                 | int    | No       | `120`   | Request timeout in seconds                                                                                                    |
+| **Watsonx**     | `model_id`                | string | Yes      | -       | Model identifier (e.g., `ibm/slate-125m-english-rtrvr`)                                                                       |
+|                 | `api_key`                 | string | Yes      | -       | IBM Cloud API key                                                                                                             |
+|                 | `api_base`                | string | Yes      | -       | WatsonX API URL (e.g., `https://us-south.ml.cloud.ibm.com`)                                                                   |
+|                 | `container_id`            | string | Yes      | -       | WatsonX project or space ID                                                                                                   |
+|                 | `container_kind`          | string | Yes      | -       | Container type: `project` or `space`                                                                                          |
+|                 | `batch_size`              | int    | No       | `800`   | Texts per embedding request; texts from several documents are packed into the same request                                    |
+|                 | `max_concurrent_requests` | int    | No       | `1`     | Embedding requests kept in flight at once (watsonx.ai allows 8 req/s per instance)                                            |
+|                 | `timeout`                 | int    | No       | `120`   | Request timeout in seconds                                                                                                    |
+|                 | `enable_rate_limiting`    | bool   | No       | `false` | Enable rate limiting for API calls                                                                                            |
+| **HuggingFace** | `model_id`                | string | Yes      | -       | Model identifier (e.g., `sentence-transformers/all-MiniLM-L6-v2`)                                                             |
+|                 | `use_local`               | bool   | No       | `true`  | Use local model inference (true) or HuggingFace API (false)                                                                   |
+|                 | `device`                  | string | No       | `cpu`   | Device for local inference: `cpu`, `cuda`, `mps`                                                                              |
+|                 | `api_token`               | string | No       | -       | HuggingFace API token (required for API mode)                                                                                 |
+|                 | `batch_size`              | int    | No       | `32`    | Texts per encode call; texts from several documents are encoded together (requests run one at a time)                         |
+
+**Request batching:** The operator collects the texts of all input documents (chunks for `chunked_content`, or one text per document for `content`; processed internally in slices of 2,000 rows), sends them in requests of `batch_size` texts with up to `max_concurrent_requests` requests in flight, and maps the vectors back to their documents in order. Provider retries (LiteLLM, watsonx) apply to each request on its own. If a request still fails, only the documents with texts in that request are marked as failed; the other documents are unaffected. The `max_concurrent_requests` limit applies to each operator run: when micro-batching runs several batches at the same time, up to `max_concurrent_batches` x `max_concurrent_requests` requests can be in flight.
 
 **Note:** For Ollama models via LiteLLM, use `openai/` prefix (e.g., `openai/nomic-embed-text`). For HuggingFace API via LiteLLM, use `huggingface/` prefix (e.g., `huggingface/sentence-transformers/all-MiniLM-L6-v2`). For native HuggingFace local inference, use `provider: "huggingface"` with the model name directly.
 

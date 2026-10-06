@@ -5,8 +5,10 @@ This operator generates vector embeddings for text content using LLM providers.
 Supports watsonx and litellm (which provides access to 100+ providers including Ollama, HuggingFace, OpenAI, etc.).
 """
 
+import contextvars
 import json
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +21,7 @@ from docpipe.core.constants.constants import (
     DocpipeConstants,
     ExecutionStatus,
     Metrics,
+    ServiceConstants,
 )
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
@@ -51,6 +54,12 @@ PROVIDER_DEFAULT: str = "litellm"
 # Fallback zero-vector dimension when no successful embedding has been produced yet
 EMBEDDING_DIM_FALLBACK: int = 384
 
+# Where the vector for one input text comes from once the provider has answered:
+#   None      -> empty/whitespace-only text, filled with a zero vector
+#   int       -> position of the text in the flattened request stream
+#   list[int] -> positions of the pieces of a text longer than the char limit (averaged)
+_TextSlot = int | list[int] | None
+
 
 class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
     """
@@ -63,7 +72,9 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
     - Pre-chunked content processing
     - Document hash generation
     - Error handling per document
-    - Batch processing for improved performance
+    - Batch processing across documents: texts from all documents of a slice are sent
+      in requests of ``batch_size`` texts, with up to ``max_concurrent_requests``
+      requests in flight (both reported by the embedding adapter)
 
     Supported Providers:
     - watsonx: IBM watsonx.ai embedding models
@@ -104,6 +115,8 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
                 - provider: Provider type ("watsonx" or "litellm", default: "litellm")
                 - provider_config: Provider-specific configuration dictionary containing:
                     - model_id: Model identifier in <provider>/<model_id> format for litellm (e.g., "openai/nomic-embed-text")
+                    - batch_size: Texts per embedding request, across documents (optional)
+                    - max_concurrent_requests: Embedding requests kept in flight at once (optional)
                 - embeddings_column: Output column name for embeddings (default: "embeddings")
                 - overlap_ratio: Overlap ratio for chunking long text (default: 0.2)
                 - token_limit: Maximum token limit for chunking (default: 8192)
@@ -154,12 +167,32 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         # Cached embedding dimension — determined on first successful embedding call
         self._embedding_dim: int | None = None
 
+        # Request shaping reported by the adapter (configured via provider_config.batch_size
+        # and provider_config.max_concurrent_requests).
+        self._batch_size: int = self._positive_int_or_default(
+            value=self.embedding_adapter.get_embedding_batch_size(),
+            default=ServiceConstants.DEFAULT_EMBEDDINGS_BATCH_SIZE,
+        )
+        self._max_concurrent_requests: int = self._positive_int_or_default(
+            value=self.embedding_adapter.get_max_concurrent_requests(),
+            default=1,
+        )
+
         logger.info(
-            "Initialized EmbeddingsOperator with provider: %s, model: %s",
+            "Initialized EmbeddingsOperator with provider: %s, model: %s, batch_size: %s, max_concurrent_requests: %s",
             self.provider,
             self.model_id,
+            self._batch_size,
+            self._max_concurrent_requests,
             extra=self.common_log_arguments,
         )
+
+    @staticmethod
+    def _positive_int_or_default(*, value: Any, default: int) -> int:
+        """Return ``value`` when it is a positive int, otherwise ``default``."""
+        if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+            return default
+        return value
 
     def _initialize_embedding_adapter(self) -> LLMEmbeddingPort:
         """
@@ -202,7 +235,7 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         # Log warnings
         if result.get("warnings"):
             for warning in result["warnings"]:
-                logger.warning(f"Embedding adapter validation warning: {warning}")
+                logger.warning("Embedding adapter validation warning: %s", warning)
 
         # Raise error if validation failed
         if not result.get("valid", True):
@@ -438,143 +471,170 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
 
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
 
-    def _handle_embedding_error(self, error: Exception, model_name: str, context: str = "") -> None:
+    def _build_embedding_error(self, *, error: Exception, text_count: int) -> DocpipeException:
         """
-        Handle embedding generation errors with context-aware messaging.
+        Log a failed embedding request and wrap it in a context-aware DocpipeException.
 
         Args:
-            error: The exception that occurred
-            model_name: Name of the model being used
-            context: Additional context for logging (e.g., "for chunked text at index 0")
+            error: The exception raised by the embedding adapter
+            text_count: Number of texts in the failed request
 
-        Raises:
-            DocpipeException: Always raises with appropriate error message
+        Returns:
+            DocpipeException describing the failure, chained to ``error``
         """
         error_msg = str(error)
 
         # Check if this is a context length error (from any provider)
         if "input length exceeds the context length" in error_msg.lower() or "context length" in error_msg.lower():
             logger.error(
-                f"Context length exceeded{' ' + context if context else ''}: Text is too long for model '{model_name}'",
-                exc_info=True,
+                "Context length exceeded in a request of %d texts: text is too long for model '%s'",
+                text_count,
+                self.model_id,
+                exc_info=error,
                 extra=self.common_log_arguments,
             )
-            raise DocpipeException(
+            wrapped = DocpipeException(
                 f"Chunked text exceeds the configured embeddings model's (Provider: {self.provider}, "
-                f"Model: {model_name}) context length. Add Chunking operator and/or adjust the chunk_type/chunk_size"
+                f"Model: {self.model_id}) context length. Add Chunking operator and/or adjust the chunk_type/chunk_size"
                 " in Chunking operator and the Embeddings model ID in Embeddings operator to avoid this error."
-            ) from error
-        logger.error(
-            f"Failed to generate embeddings{' ' + context if context else ''}: {error!s}",
-            exc_info=True,
-            extra=self.common_log_arguments,
-        )
-        raise DocpipeException(f"Batch embedding generation failed: {error!s}") from error
+            )
+        else:
+            logger.error(
+                "Failed to generate embeddings for a request of %d texts: %s",
+                text_count,
+                error_msg,
+                exc_info=error,
+                extra=self.common_log_arguments,
+            )
+            wrapped = DocpipeException(f"Batch embedding generation failed: {error!s}")
+        wrapped.__cause__ = error
+        return wrapped
 
-    def _create_embeddings(self, text: list[str], model_name: str, overlap_ratio: float) -> list[list[float]]:
+    @staticmethod
+    def _split_long_text(*, text: str, char_limit: int, overlap_chars: int) -> list[str]:
         """
-        Generate embeddings for text using the configured provider with batch processing.
-
-        This method handles chunking of long text based on approximate token limits
-        and generates embeddings using efficient batch processing.
+        Split a text longer than ``char_limit`` into overlapping pieces.
 
         Args:
-            text: List of text strings to embed
-            model_name: Name of the model to use
-            overlap_ratio: Overlap ratio for chunking (0.0 to 0.5)
+            text: Text to split
+            char_limit: Maximum characters per piece
+            overlap_chars: Characters shared by consecutive pieces
 
         Returns:
-            list: List of embedding vectors (one per input text)
-
-        Raises:
-            DocpipeException: If embedding generation fails
+            Ordered list of pieces covering the whole text
         """
-        # Use configured token limit (default: 8192 tokens)
-        # Most embedding models support 512-8192 tokens
-        token_limit: int = self.token_limit
+        pieces: list[str] = []
+        start: int = 0
+        while start < len(text):
+            end: int = start + char_limit
+            pieces.append(text[start:end])
+            start = end - overlap_chars if end < len(text) else end
+        return pieces
 
-        # Approximate: 1 token ≈ 4 characters
-        char_limit: int = token_limit * 4
-        overlap_chars: int = int(char_limit * overlap_ratio)
+    def _plan_document_texts(self, *, texts: list[str], flat_texts: list[str]) -> list[_TextSlot]:
+        """
+        Append the texts of one document to the flattened request stream.
 
-        logger.debug(
-            f"Using token limit: {token_limit}, char limit: {char_limit}, "
-            f"overlap: {overlap_chars} for model: {model_name}",
-            extra=self.common_log_arguments,
-        )
+        Texts longer than the approximate character limit (``token_limit`` * 4) are split
+        into overlapping pieces whose embeddings are averaged afterwards.
 
-        # Separate texts into those that need chunking and those that don't
-        texts_to_embed: list[str] = []
-        text_indices: list[int] = []  # Track original indices
-        chunked_texts: dict[int, list[str]] = {}  # Map index to chunks
+        Args:
+            texts: Texts of one document (one output vector per text)
+            flat_texts: Request stream shared by all documents; extended in place
 
-        for idx, text_item in enumerate(text):
+        Returns:
+            One slot per input text describing where its vector comes from
+        """
+        # Approximate: 1 token = 4 characters
+        char_limit: int = self.token_limit * 4
+        overlap_chars: int = int(char_limit * self.overlap_ratio)
+
+        slots: list[_TextSlot] = []
+        for idx, text_item in enumerate(texts):
             if not text_item or not text_item.strip():
-                # Empty text - will handle separately
-                continue
-
-            # Check if text needs chunking
-            if len(text_item) <= char_limit:
-                # Text fits in one chunk - add to batch
-                texts_to_embed.append(text_item)
-                text_indices.append(idx)
+                # Empty text - filled with a zero vector once the dimension is known
+                slots.append(None)
+            elif len(text_item) <= char_limit:
+                slots.append(len(flat_texts))
+                flat_texts.append(text_item)
             else:
-                # Text needs chunking
+                pieces = self._split_long_text(text=text_item, char_limit=char_limit, overlap_chars=overlap_chars)
                 logger.debug(
-                    f"Text at index {idx} (length {len(text_item)}) exceeds limit {char_limit}, chunking...",
+                    "Text at index %d (length %d) exceeds limit %d, split into %d pieces",
+                    idx,
+                    len(text_item),
+                    char_limit,
+                    len(pieces),
                     extra=self.common_log_arguments,
                 )
+                slots.append(list(range(len(flat_texts), len(flat_texts) + len(pieces))))
+                flat_texts.extend(pieces)
+        return slots
 
-                chunks: list[str] = []
-                start: int = 0
-                while start < len(text_item):
-                    end: int = start + char_limit
-                    chunk: str = text_item[start:end]
-                    chunks.append(chunk)
-                    start = end - overlap_chars if end < len(text_item) else end
+    def _embed_request(self, *, texts: list[str]) -> list[list[float]] | DocpipeException:
+        """
+        Embed one request worth of texts (at most ``batch_size``).
 
-                chunked_texts[idx] = chunks
-                logger.debug(
-                    f"Created {len(chunks)} chunks for text at index {idx}",
-                    extra=self.common_log_arguments,
-                )
+        Retries are handled by the adapter, so a transient failure re-sends only this
+        request. A permanent failure is returned instead of raised so that the caller
+        can fail exactly the documents whose texts were part of the request.
 
-        # Generate embeddings in batches for non-chunked texts
-        embeddings_map: dict[int, list[float]] = {}
+        Args:
+            texts: Texts sent together in one provider request
 
-        if texts_to_embed:
-            try:
-                # Use batch processing for better performance with keyword arguments
-                batch_embeddings = self.embedding_adapter.generate_embeddings_batch(texts=texts_to_embed)
+        Returns:
+            One vector per text in order, or the error that failed the request
+        """
+        try:
+            vectors = self.embedding_adapter.generate_embeddings_batch(texts=texts)
+            if len(vectors) != len(texts):
+                raise DocpipeException(f"Embedding provider returned {len(vectors)} vectors for {len(texts)} texts")
+            return vectors
+        except Exception as e:
+            return self._build_embedding_error(error=e, text_count=len(texts))
 
-                # Map embeddings back to original indices
-                for i, embedding in enumerate(batch_embeddings):
-                    embeddings_map[text_indices[i]] = embedding
+    def _run_requests(self, *, requests: list[list[str]]) -> list[list[list[float]] | DocpipeException]:
+        """
+        Run embedding requests with at most ``max_concurrent_requests`` in flight.
 
-            except Exception as e:
-                self._handle_embedding_error(error=e, model_name=model_name)
+        Args:
+            requests: Texts of each request, in stream order
 
-        # Process chunked texts
-        for idx, chunks in chunked_texts.items():
-            try:
-                # Generate embeddings for chunks in batch with keyword arguments
-                chunk_embeddings = self.embedding_adapter.generate_embeddings_batch(texts=chunks)
+        Returns:
+            Result of each request (vectors or error), in the same order as ``requests``
+        """
+        workers = min(self._max_concurrent_requests, len(requests))
+        if workers <= 1:
+            return [self._embed_request(texts=request) for request in requests]
 
-                # Average the chunk embeddings
-                avg_embedding: list[float] = np.mean(chunk_embeddings, axis=0).tolist()
-                embeddings_map[idx] = avg_embedding
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="EmbeddingsRequest") as executor:
+            # Each task runs in a copy of the caller's context so the session info
+            # (job_id, job_run_id) stays visible to logging inside the worker threads.
+            futures = [
+                executor.submit(contextvars.copy_context().run, self._embed_request, texts=request)
+                for request in requests
+            ]
+            return [future.result() for future in futures]
 
-            except Exception as e:
-                self._handle_embedding_error(error=e, model_name=model_name, context=f"for chunked text at index {idx}")
+    def _assemble_document_vectors(
+        self,
+        *,
+        slots: list[_TextSlot],
+        flat_vectors: list[list[float] | None],
+    ) -> list[list[float]]:
+        """
+        Build the output vectors of one document from the flattened request results.
 
-        # Cache embedding dimension from the first result available
-        if self._embedding_dim is None and embeddings_map:
-            self._embedding_dim = len(next(iter(embeddings_map.values())))
+        Args:
+            slots: Slots returned by ``_plan_document_texts`` for the document
+            flat_vectors: Vectors of the flattened request stream
 
-        # Build final embeddings list in original order
-        embeddings: list[list[float]] = []
-        for idx, text_item in enumerate(text):
-            if not text_item or not text_item.strip():
+        Returns:
+            One vector per input text, in input order
+        """
+        vectors: list[list[float]] = []
+        for idx, slot in enumerate(slots):
+            if slot is None:
                 # Empty text — use a zero vector matching the model's actual output dimension.
                 # Fall back to 384 only if no successful embedding has been produced yet.
                 dim = self._embedding_dim if self._embedding_dim is not None else EMBEDDING_DIM_FALLBACK
@@ -583,11 +643,78 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
                     idx,
                     extra=self.common_log_arguments,
                 )
-                embeddings.append([0.0] * dim)
+                vectors.append([0.0] * dim)
+            elif isinstance(slot, int):
+                vectors.append(flat_vectors[slot])  # type: ignore[arg-type]
             else:
-                embeddings.append(embeddings_map[idx])
+                # Average the embeddings of the pieces of a long text
+                vectors.append(np.mean([flat_vectors[pos] for pos in slot], axis=0).tolist())
+        return vectors
 
-        return embeddings
+    def _embed_documents(self, *, texts_per_doc: list[list[str]]) -> list[list[list[float]] | Exception]:
+        """
+        Embed the texts of several documents using shared, full-size requests.
+
+        All texts are flattened into one stream, sent in requests of ``batch_size``
+        texts with up to ``max_concurrent_requests`` requests in flight, and the
+        resulting vectors are scattered back to their documents in order. A request
+        that fails permanently fails only the documents whose texts it carried.
+
+        Args:
+            texts_per_doc: Texts of each document (one output vector per text)
+
+        Returns:
+            Per document, either its vectors (one per input text, in order) or the
+            error that failed it
+        """
+        flat_texts: list[str] = []
+        flat_owner: list[int] = []
+        slots_per_doc: list[list[_TextSlot]] = []
+        doc_errors: dict[int, Exception] = {}
+
+        for doc_pos, texts in enumerate(texts_per_doc):
+            stream_start = len(flat_texts)
+            try:
+                slots = self._plan_document_texts(texts=texts, flat_texts=flat_texts)
+            except Exception as e:
+                del flat_texts[stream_start:]
+                doc_errors[doc_pos] = e
+                slots = []
+            flat_owner.extend([doc_pos] * (len(flat_texts) - stream_start))
+            slots_per_doc.append(slots)
+
+        batch_size = self._batch_size
+        requests = [flat_texts[start : start + batch_size] for start in range(0, len(flat_texts), batch_size)]
+        if requests:
+            logger.info(
+                "Embedding %d texts from %d documents in %d requests (batch_size=%d, max_concurrent_requests=%d)",
+                len(flat_texts),
+                len(texts_per_doc),
+                len(requests),
+                batch_size,
+                self._max_concurrent_requests,
+                extra=self.common_log_arguments,
+            )
+
+        flat_vectors: list[list[float] | None] = [None] * len(flat_texts)
+        for request_idx, result in enumerate(self._run_requests(requests=requests)):
+            start = request_idx * batch_size
+            if isinstance(result, Exception):
+                for doc_pos in flat_owner[start : start + len(requests[request_idx])]:
+                    doc_errors.setdefault(doc_pos, result)
+                continue
+            flat_vectors[start : start + len(result)] = result
+            # Cache embedding dimension from the first result available
+            if self._embedding_dim is None and result:
+                self._embedding_dim = len(result[0])
+
+        results: list[list[list[float]] | Exception] = []
+        for doc_pos, slots in enumerate(slots_per_doc):
+            if doc_pos in doc_errors:
+                results.append(doc_errors[doc_pos])
+            else:
+                results.append(self._assemble_document_vectors(slots=slots, flat_vectors=flat_vectors))
+        return results
 
     def _get_doc_identifiers(self, table: pa.Table, idx: int) -> tuple[str, str]:
         """
@@ -639,7 +766,9 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
             # Load chunks from binary file
             chunks_filepath = chunked_content_raw[DocpipeConstants.CHUNKS_MEMMAP_FILE]
             logger.debug(
-                f"Loading chunks from binary file: {chunks_filepath} for document: {doc_name}",
+                "Loading chunks from binary file: %s for document: %s",
+                chunks_filepath,
+                doc_name,
                 extra=self.common_log_arguments,
             )
             from docpipe.utils.core.memmap_file_utils import load_chunks_from_file
@@ -650,12 +779,15 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
             try:
                 chunked_content = json.loads(chunked_content_raw)
                 logger.debug(
-                    f"Parsed chunked_content from JSON string for document: {doc_name}",
+                    "Parsed chunked_content from JSON string for document: %s",
+                    doc_name,
                     extra=self.common_log_arguments,
                 )
             except json.JSONDecodeError as e:
                 logger.error(
-                    f"Failed to parse chunked_content JSON for document {doc_name}: {e!s}",
+                    "Failed to parse chunked_content JSON for document %s: %s",
+                    doc_name,
+                    e,
                     extra=self.common_log_arguments,
                 )
                 raise DocpipeException(f"Invalid chunked_content JSON format: {e!s}") from e
@@ -663,7 +795,8 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
             # Already a list
             chunked_content = chunked_content_raw
             logger.debug(
-                f"Using chunked_content as list for document: {doc_name}",
+                "Using chunked_content as list for document: %s",
+                doc_name,
                 extra=self.common_log_arguments,
             )
         else:
@@ -739,7 +872,8 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
             tuple: (empty table slice, updated metadata)
         """
         logger.error(
-            f"Failed to generate document hashes: {error!s}",
+            "Failed to generate document hashes: %s",
+            error,
             extra=self.common_log_arguments,
         )
 
@@ -780,65 +914,11 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         table = TransformUtils.add_column(table=table, name=self.doc_id_hash_column, content=doc_id_hashes)
 
         logger.info(
-            f"Added document hash column '{self.doc_id_hash_column}' to table",
+            "Added document hash column '%s' to table",
+            self.doc_id_hash_column,
             extra=self.common_log_arguments,
         )
         return table
-
-    def _process_single_document(
-        self,
-        table: pa.Table,
-        idx: int,
-        has_chunked_content: bool,
-        doc_hash_values: list[str],
-    ) -> tuple[list[float] | list[list[float]], str]:
-        """
-        Process a single document to generate embeddings.
-
-        Args:
-            table: PyArrow table containing documents
-            idx: Row index of the document to process
-            has_chunked_content: Whether the table contains chunked content
-            doc_hash_values: Pre-cached list of document hash values
-
-        Returns:
-            tuple: (embeddings, doc_hash) where embeddings is either a single vector
-                   or list of vectors depending on chunked_content
-
-        Raises:
-            Exception: Any error during content extraction or embedding generation
-        """
-        _doc_id, doc_name = self._get_doc_identifiers(table, idx)
-
-        # Get content to embed using helper methods
-        if has_chunked_content:
-            texts = self._parse_chunked_content(table, idx, doc_name)
-        else:
-            texts = self._get_full_document_content(table, idx)
-
-        # Generate embeddings using configured provider
-        doc_embeddings: list[list[float]] = self._create_embeddings(
-            text=texts,
-            model_name=self.model_id,
-            overlap_ratio=self.overlap_ratio,
-        )
-
-        # For chunked content, store all embeddings; for full doc, store single embedding
-        embeddings_result: list[float] | list[list[float]]
-        if has_chunked_content:
-            embeddings_result = doc_embeddings
-        else:
-            embeddings_result = doc_embeddings[0]
-
-        # Retrieve document hash from pre-cached values
-        doc_hash: str = doc_hash_values[idx]
-
-        logger.debug(
-            f"Successfully generated embeddings for document: {doc_name}",
-            extra=self.common_log_arguments,
-        )
-
-        return embeddings_result, doc_hash
 
     def _store_embedding_for_row(
         self,
@@ -962,6 +1042,9 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         """
         Embed every row of one slice.
 
+        Texts of all rows are embedded together (see ``_embed_documents``); outcomes are
+        then recorded per document in row order.
+
         Returns (embeddings, doc_id_hashes, indices of rows that failed).
         """
         slice_embeddings: list[list[float] | list[list[float]]] = []
@@ -969,27 +1052,50 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         slice_remove_idx: list[int] = []
         slice_hash_values: list[str] = slice_table[self.doc_id_hash_column].to_pylist()
 
+        # Extract the texts of every row; rows whose content cannot be read fail here
+        row_texts: dict[int, list[str]] = {}
+        row_errors: dict[int, Exception] = {}
+        for i in range(slice_table.num_rows):
+            try:
+                if has_chunked_content:
+                    _doc_id, doc_name = self._get_doc_identifiers(slice_table, i)
+                    row_texts[i] = self._parse_chunked_content(slice_table, i, doc_name)
+                else:
+                    row_texts[i] = self._get_full_document_content(slice_table, i)
+            except Exception as exc:
+                row_errors[i] = exc
+
+        embedded_rows = list(row_texts)
+        doc_results = self._embed_documents(texts_per_doc=[row_texts[i] for i in embedded_rows])
+        row_vectors: dict[int, list[list[float]]] = {}
+        for i, result in zip(embedded_rows, doc_results, strict=True):
+            if isinstance(result, Exception):
+                row_errors[i] = result
+            else:
+                row_vectors[i] = result
+
         for i in range(slice_table.num_rows):
             doc_id, doc_name = self._get_doc_identifiers(slice_table, i)
-            try:
-                embeddings_result, doc_hash = self._process_single_document(
-                    table=slice_table,
-                    idx=i,
-                    has_chunked_content=has_chunked_content,
-                    doc_hash_values=slice_hash_values,
-                )
-                slice_embeddings.append(embeddings_result)
-                slice_doc_id_hashes.append(doc_hash)
-                metadata[Metrics.External.PROCESSED_DOCS] += 1
-            except Exception as exc:
-                logger.error(f"Failed embeddings for {doc_name}: {exc!s}", extra=self.common_log_arguments)
+            if i in row_errors:
+                error = row_errors[i]
+                logger.error("Failed embeddings for %s: %s", doc_name, error, extra=self.common_log_arguments)
                 self.record_failed_document(
                     metadata=metadata,
                     doc_id=doc_id,
                     doc_name=doc_name,
-                    reason=f"Embedding failure: {exc!s}",
+                    reason=f"Embedding failure: {error!s}",
                 )
                 slice_remove_idx.append(i)
+                continue
+
+            # For chunked content, store all embeddings; for full doc, store single embedding
+            doc_embeddings = row_vectors[i]
+            slice_embeddings.append(doc_embeddings if has_chunked_content else doc_embeddings[0])
+            slice_doc_id_hashes.append(slice_hash_values[i])
+            metadata[Metrics.External.PROCESSED_DOCS] += 1
+            logger.debug(
+                "Successfully generated embeddings for document: %s", doc_name, extra=self.common_log_arguments
+            )
 
         return slice_embeddings, slice_doc_id_hashes, slice_remove_idx
 
@@ -1058,7 +1164,9 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
             tuple: (list of output tables, metadata dictionary)
         """
         logger.info(
-            f"Starting embeddings generation with provider: {self.provider}, model: {self.model_id}",
+            "Starting embeddings generation with provider: %s, model: %s",
+            self.provider,
+            self.model_id,
             extra=self.common_log_arguments,
         )
 
@@ -1111,8 +1219,9 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         self._finalize_node_status(metadata=metadata)
 
         logger.info(
-            f"Embeddings generation completed. Processed: {metadata[Metrics.External.PROCESSED_DOCS]}, "
-            f"Failed: {metadata[Metrics.External.FAILED_DOCS_COUNT]}",
+            "Embeddings generation completed. Processed: %s, Failed: %s",
+            metadata[Metrics.External.PROCESSED_DOCS],
+            metadata[Metrics.External.FAILED_DOCS_COUNT],
             extra=self.common_log_arguments,
         )
 

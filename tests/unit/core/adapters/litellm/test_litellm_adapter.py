@@ -229,6 +229,7 @@ class TestLiteLLMInferenceAdapter:
                 model_name="gpt-4",
                 api_key="test-api-key",  # pragma: allowlist secret
                 api_base="https://api.test.com",
+                batch_size=32,
             )
 
     def test_multiple_chat_calls(self, adapter, mock_litellm_client):
@@ -275,7 +276,7 @@ class TestLiteLLMInferenceAdapter:
 
     def test_chat_empty_messages(self, adapter, mock_litellm_client):
         """Test chat with empty messages list."""
-        messages = []
+        messages: list[dict[str, str]] = []
         mock_litellm_client.chat.return_value = "{}"
 
         result = adapter.chat(messages=messages)
