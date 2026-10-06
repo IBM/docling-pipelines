@@ -301,8 +301,7 @@ class TestPopulateIngestSourceConfig:
             OperatorConstants.Misc.OPERATOR: "IngestSourceOperator",
             OperatorConstants.Config.CONFIG: {
                 OperatorConstants.Config.PROVIDER: "s3",
-                OperatorConstants.Config.CONNECTION_PARAMS: {"bucket": "my-bucket"},
-                OperatorConstants.Config.CREDENTIALS: {"access_key": "AKID"},
+                OperatorConstants.Config.PROVIDER_CONFIG: {"bucket": "my-bucket", "access_key": "AKID"},
             },
         }
         orchestrator._populate_ingest_source_config(ingest_operator=ingest_operator, global_config=global_config)
@@ -318,19 +317,20 @@ class TestPopulateIngestSourceConfig:
         orchestrator._populate_ingest_source_config(ingest_operator=ingest_operator, global_config=global_config)
         assert OperatorConstants.Config.INGEST_SOURCE not in global_config
 
-    def test_merged_connection_params_include_credentials(self, orchestrator):
+    def test_provider_config_stored_in_global_config(self, orchestrator):
         global_config: dict = {}
         ingest_operator = {
             OperatorConstants.Misc.OPERATOR: "ingest_source",
             OperatorConstants.Config.CONFIG: {
-                OperatorConstants.Config.CONNECTION_PARAMS: {"bucket": "b"},
-                OperatorConstants.Config.CREDENTIALS: {"access_key": "KEY"},
+                OperatorConstants.Config.PROVIDER_CONFIG: {"bucket": "b", "access_key": "KEY"},
             },
         }
         orchestrator._populate_ingest_source_config(ingest_operator=ingest_operator, global_config=global_config)
-        merged = global_config[OperatorConstants.Config.INGEST_SOURCE][OperatorConstants.Config.CONNECTION_PARAMS]
-        assert "access_key" in merged
-        assert "bucket" in merged
+        provider_config = global_config[OperatorConstants.Config.INGEST_SOURCE][
+            OperatorConstants.Config.PROVIDER_CONFIG
+        ]
+        assert "access_key" in provider_config
+        assert "bucket" in provider_config
 
 
 @pytest.mark.unit

@@ -920,21 +920,11 @@ class AbstractOrchestrator(ABC):
         )
         if "ingest_source" in operator_type.lower() or "IngestSourceOperator" in operator_type:
             operator_config = ingest_operator.get(OperatorConstants.Config.CONFIG, {})
-            connection_params = operator_config.get(OperatorConstants.Config.CONNECTION_PARAMS, {})
-            credentials = operator_config.get(OperatorConstants.Config.CREDENTIALS, {})
-
-            # Merge connection_params and credentials for adapter compatibility.
-            # credentials may be a vault:// string (resolved at operator execution time,
-            # not here) — only unpack it when it is already a dict.
-            merged_connection_params = {
-                **connection_params,
-                **(credentials if isinstance(credentials, dict) else {}),
-            }
+            provider_config = operator_config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
 
             global_config[OperatorConstants.Config.INGEST_SOURCE] = {
                 OperatorConstants.Config.PROVIDER: operator_config.get(OperatorConstants.Config.PROVIDER),
-                OperatorConstants.Config.CONNECTION_PARAMS: merged_connection_params,
-                OperatorConstants.Config.CREDENTIALS: credentials,
+                OperatorConstants.Config.PROVIDER_CONFIG: provider_config,
             }
             self.logger.info(
                 f"Populated global_config with ingest_source params for provider: {operator_config.get(OperatorConstants.Config.PROVIDER)}",
@@ -942,7 +932,7 @@ class AbstractOrchestrator(ABC):
             )
             self.logger.debug(
                 f"global_config after population: ingest_source keys={list(global_config.get(OperatorConstants.Config.INGEST_SOURCE, {}).keys())}, "
-                f"merged_connection_params keys={list(merged_connection_params.keys())}",
+                f"provider_config keys={list(provider_config.keys())}",
                 extra=self.common_log_arguments,
             )
         else:

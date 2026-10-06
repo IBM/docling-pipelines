@@ -99,7 +99,7 @@ def _run_pipeline(*, fixture_dir: str, max_files: int = 3) -> Any:
     (ingest_table,), _ = IngestSourceOperator(
         config={
             "provider": "filesystem",
-            "connection_params": {"paths": [fixture_dir]},
+            "provider_config": {"paths": [fixture_dir]},
             "include_filter": "txt",
             "max_files": max_files,
             "force_ingest": True,
