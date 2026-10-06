@@ -253,10 +253,10 @@ pre-commit run --from-ref origin/main --to-ref HEAD              # check committ
 
 ## Pre-commit Workflow
 
-- Never run pre-commit with `--all-files`.
-- Stage and commit changes with `git commit -s`, then run `pre-commit run --from-ref origin/main --to-ref HEAD` before pushing.
-- Keep `origin/main` up to date; substitute the actual PR base for stacked branches.
-- If hooks modify files, stage and commit the fixes, then rerun the checks before pushing.
+- Never run pre-commit with `--all-files`
+- Stage and commit changes with `git commit -s`, then run `pre-commit run --from-ref origin/main --to-ref HEAD` before pushing
+- Keep `origin/main` up to date; substitute the actual PR base for stacked branches
+- If hooks modify files, stage and commit the fixes, then rerun the checks before pushing
 
 ## Key External Services
 
