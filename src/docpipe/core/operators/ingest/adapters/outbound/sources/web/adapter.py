@@ -238,22 +238,19 @@ class WebPageSourceAdapter(DocumentSourcePort):
         self,
         *,
         source_id: str,
-        connection_params: dict[str, Any],
-        credentials: dict[str, Any],
+        provider_config: dict[str, Any],
     ) -> bytes | None:
         """
         Fetch binary content for a specific URL via HTTP download.
 
         Args:
             source_id: URL to download
-            connection_params: Connection parameters (timeout, etc.)
-            credentials: Authentication credentials (not used for web)
+            provider_config: All provider-specific parameters (timeout, etc.)
 
         Returns:
             Binary content as bytes, or None if download fails
         """
-        # Get timeout from connection_params or use default
-        timeout = connection_params.get("timeout", 30)
+        timeout = provider_config.get("timeout", 30)
 
         try:
             logger.info(f"Downloading binary content from URL: {source_id}")
@@ -278,23 +275,17 @@ class WebPageSourceAdapter(DocumentSourcePort):
     def build_config_from_operator_params(
         self,
         *,
-        connection_params: dict,
-        credentials: dict,
+        provider_config: dict,
         included_extensions: list[str] | None = None,
         max_files: int | None = None,
     ) -> BaseModel:
         """
         Build web page configuration from operator parameters.
 
-        Maps IngestSource operator parameters to WebPageSourceConfig.
-        This encapsulates the knowledge of how to construct the config within
-        the adapter itself, following the Single Responsibility Principle.
-
         Args:
-            connection_params: Connection parameters from operator config
-            credentials: Credentials from operator config (not used for web)
-            included_extensions: File extensions to include (not used for web)
-            max_files: Maximum number of files to process (not used for web)
+            provider_config: All provider-specific parameters.
+            included_extensions: Not used for web.
+            max_files: Not used for web.
 
         Returns:
             WebPageSourceConfig: Validated configuration object
@@ -302,20 +293,19 @@ class WebPageSourceAdapter(DocumentSourcePort):
         Raises:
             ValueError: If required parameters are missing or invalid
         """
-        # Support both single URL and list of URLs
-        urls = connection_params.get("urls")
+        # Support both "urls" (list) and "url" (single) keys
+        urls = provider_config.get("urls")
         if urls is None:
-            # Fallback to single URL for backward compatibility
-            url = connection_params.get("url")
+            url = provider_config.get("url")
             urls = [url] if url else []
 
         config_dict = {
             "urls": urls,
-            "max_depth": connection_params.get("max_depth", 2),
-            "prevent_outside": connection_params.get("prevent_outside", True),
-            "exclude_patterns": connection_params.get("exclude_patterns", []),
-            "timeout": connection_params.get("timeout", 30),
-            "extractor": connection_params.get("extractor"),
+            "max_depth": provider_config.get("max_depth", 2),
+            "prevent_outside": provider_config.get("prevent_outside", True),
+            "exclude_patterns": provider_config.get("exclude_patterns", []),
+            "timeout": provider_config.get("timeout", 30),
+            "extractor": provider_config.get("extractor"),
         }
 
         return WebPageSourceConfig(**config_dict)

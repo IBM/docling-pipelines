@@ -130,7 +130,7 @@ Reads files from a local directory:
   "type": "ingest_source",
   "config": {
     "provider": "filesystem",
-    "connection_params": {"paths": ["./tests/fixtures/invoices"]},
+    "provider_config": {"paths": ["./tests/fixtures/invoices"]},
     "include_filter": ".pdf"
   }
 }
@@ -563,7 +563,7 @@ This creates a dependency where the `extract` operator will only run after the `
       "type": "ingest_source",
       "config": {
         "provider": "filesystem",
-        "connection_params": {"paths": ["./documents"]},
+        "provider_config": {"paths": ["./documents"]},
         "include_filter": ".pdf,.txt"
       }
     },

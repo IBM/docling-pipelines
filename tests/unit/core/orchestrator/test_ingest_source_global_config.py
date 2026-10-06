@@ -34,11 +34,9 @@ class TestIngestSourceGlobalConfig:
                     "operator": "docpipe.core.operators.ingest.ingest_source.IngestSourceOperator",
                     "config": {
                         "provider": "s3",
-                        "connection_params": {
+                        "provider_config": {
                             "bucket": "test-bucket",
                             "prefix": "test-prefix",
-                        },
-                        "credentials": {
                             "aws_access_key_id": "test_key",
                             "aws_secret_access_key": "test_secret",  # pragma: allowlist secret
                         },
@@ -88,5 +86,8 @@ class TestIngestSourceGlobalConfig:
                         # Verify that ingest_source params were added to global_config
                         assert "ingest_source" in captured_global_config
                         assert captured_global_config["ingest_source"]["provider"] == "s3"
-                        assert captured_global_config["ingest_source"]["connection_params"]["bucket"] == "test-bucket"
-                        assert captured_global_config["ingest_source"]["credentials"]["aws_access_key_id"] == "test_key"
+                        assert captured_global_config["ingest_source"]["provider_config"]["bucket"] == "test-bucket"
+                        assert (
+                            captured_global_config["ingest_source"]["provider_config"]["aws_access_key_id"]
+                            == "test_key"
+                        )

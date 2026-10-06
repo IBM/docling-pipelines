@@ -171,23 +171,17 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
     def build_config_from_operator_params(
         self,
         *,
-        connection_params: dict,
-        credentials: dict,
+        provider_config: dict,
         included_extensions: list[str] | None = None,
         max_files: int | None = None,
     ) -> FilesystemSourceConfig:
         """
         Build Filesystem configuration from operator parameters.
 
-        Maps IngestSource operator parameters to FilesystemSourceConfig.
-        This encapsulates the knowledge of how to construct the config within
-        the adapter itself, following the Single Responsibility Principle.
-
         Args:
-            connection_params: Connection parameters from operator config
-            credentials: Credentials from operator config (unused for filesystem)
+            provider_config: All provider-specific parameters.
             included_extensions: File extensions to include (optional)
-            max_files: Maximum number of files to fetch (optional, not used by filesystem adapter)
+            max_files: Not used by the filesystem adapter.
 
         Returns:
             FilesystemSourceConfig: Validated configuration object
@@ -196,16 +190,16 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
             ValueError: If required parameters are missing or invalid
         """
         config_dict = {
-            "paths": connection_params.get("paths"),
-            "recursive": connection_params.get("recursive", True),
+            "paths": provider_config.get("paths"),
+            "recursive": provider_config.get("recursive", True),
             "file_extensions": included_extensions or [],
-            "exclude_patterns": connection_params.get("exclude_patterns", []),
-            "follow_symlinks": connection_params.get("follow_symlinks", False),
+            "exclude_patterns": provider_config.get("exclude_patterns", []),
+            "follow_symlinks": provider_config.get("follow_symlinks", False),
         }
 
         # Add optional fields only if they exist
-        if "max_file_size_mb" in connection_params:
-            config_dict["max_file_size_mb"] = connection_params["max_file_size_mb"]
+        if "max_file_size_mb" in provider_config:
+            config_dict["max_file_size_mb"] = provider_config["max_file_size_mb"]
 
         return FilesystemSourceConfig(**config_dict)
 
@@ -213,16 +207,14 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
         self,
         *,
         source_id: str,
-        connection_params: dict[str, Any],
-        credentials: dict[str, Any],
+        provider_config: dict[str, Any],
     ) -> bytes | None:
         """
         Fetch binary content for a specific file on-demand.
 
         Args:
             source_id: File path (absolute or relative to paths)
-            connection_params: Filesystem connection parameters (paths)
-            credentials: Credentials (unused for filesystem)
+            provider_config: All provider-specific parameters (used for fallback path resolution).
 
         Returns:
             bytes | None: Binary content of the file, or None if not found or error occurred
@@ -236,7 +228,7 @@ class FilesystemSourceAdapter(DocumentSourcePort[FilesystemSourceConfig]):
 
                 # If path is not absolute, try relative to paths
                 if not file_path.is_absolute():
-                    first_path = connection_params.get("paths", [None])[0] if connection_params.get("paths") else None
+                    first_path = provider_config.get("paths", [None])[0] if provider_config.get("paths") else None
                     if first_path:
                         file_path = Path(first_path) / file_path
 
