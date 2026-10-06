@@ -26,20 +26,26 @@ RUN pip install --no-cache-dir uv
 
 # Cache dependencies separately from backend source changes.
 COPY pyproject.toml uv.lock ./
-RUN uv export --locked --no-dev --no-emit-project --output-file requirements.txt && \
-    uv pip install --no-cache --require-hashes -r requirements.txt
-
-COPY src/docpipe/ ./src/docpipe/
+# Default to GPU; use --build-arg COMPUTE_BACKEND=cpu for CPU-only wheels.
+ARG COMPUTE_BACKEND=gpu
+RUN uv export --locked --no-dev --extra "$COMPUTE_BACKEND" \
+        --no-emit-project --format pylock.toml --output-file pylock.toml && \
+    uv venv --python /usr/bin/python3.12 /opt/docpipe-venv && \
+    uv pip install --python /opt/docpipe-venv/bin/python \
+        --no-cache --require-hashes -r pylock.toml
 
 # Run the API and serve the built UI as a non-root user.
-FROM registry.access.redhat.com/ubi9/python-312
+FROM registry.access.redhat.com/ubi9/python-312-minimal
 
 USER root
-RUN dnf install -y mesa-libGL && \
-    dnf clean all && \
+# Native Python extensions need GL, LDAP and OpenMP.
+RUN microdnf install -y --nodocs --setopt=install_weak_deps=0 \
+        mesa-libGL openldap libgomp && \
+    microdnf clean all && \
     useradd -m -u 1000 docpipe
 
-COPY --from=backend-builder --chown=1000:0 /opt/app-root/ /opt/app-root/
+COPY --from=backend-builder --chown=1000:0 /opt/docpipe-venv/ /opt/docpipe-venv/
+COPY --chown=1000:0 src/docpipe/ /opt/app-root/src/docpipe/
 COPY --from=frontend-builder --chown=1000:0 /frontend/dist /opt/app-root/src/docpipe/api/static/
 
 # Allow runtime downloads and storage writes under the supported data paths.
@@ -57,7 +63,8 @@ RUN mkdir -p \
 WORKDIR /opt/app-root/src
 USER docpipe
 ENV PYTHONPATH=/opt/app-root/src
-ENV PATH=/opt/app-root/bin:$PATH
+ENV VIRTUAL_ENV=/opt/docpipe-venv
+ENV PATH=/opt/docpipe-venv/bin:$PATH
 ENV DOCPIPE_DATA_PATH=/data
 
 EXPOSE 8080
