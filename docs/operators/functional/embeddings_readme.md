@@ -23,6 +23,7 @@ exceeds the model token limit.
 - Local inference (HuggingFace) — no API key, no cost, offline capable, tested to 600+ parallel processes
 - Automatic chunking of text that exceeds `token_limit`
 - Per-document error handling — failed documents are logged and skipped
+- Request batching across documents — texts from many documents share full requests of `batch_size`, with up to `max_concurrent_requests` requests in flight
 - Configurable output column name (`embeddings_column`)
 - Works with both `content` (full text) and `chunked_content` (pre-chunked) inputs
 
@@ -70,7 +71,7 @@ exceeds the model token limit.
 | `use_local` | boolean | `true` | Use local inference vs HuggingFace Inference API |
 | `device` | string | `"cpu"` | Device for local inference: `cpu`, `cuda`, `mps` |
 | `api_token` | string | — | HuggingFace API token (required when `use_local: false`) |
-| `batch_size` | integer | `32` | Texts per batch |
+| `batch_size` | integer | `32` | Texts per encode call, packed across documents (calls run one at a time) |
 
 ### LiteLLM `provider_config`
 
@@ -79,7 +80,8 @@ exceeds the model token limit.
 | `model_id` | string | Required | Model with provider prefix (e.g. `openai/nomic-embed-text` for Ollama) |
 | `api_key` | string | — | Provider API key (or set env var) |
 | `api_base` | string | — | Custom endpoint URL (e.g. `http://localhost:11434` for Ollama) |
-| `batch_size` | integer | `32` | Texts per batch |
+| `batch_size` | integer | `32` | Texts per embedding request, packed across documents |
+| `max_concurrent_requests` | integer | `4` | Embedding requests kept in flight at once |
 | `timeout` | integer | `120` | Request timeout in seconds |
 
 ### WatsonX `provider_config`
@@ -91,7 +93,8 @@ exceeds the model token limit.
 | `api_base` | string | Required | WatsonX endpoint URL |
 | `container_kind` | string | `"project"` | `"project"` or `"space"` |
 | `container_id` | string | Required | Project or space UUID |
-| `batch_size` | integer | `800` | Texts per batch |
+| `batch_size` | integer | `800` | Texts per embedding request, packed across documents |
+| `max_concurrent_requests` | integer | `1` | Embedding requests kept in flight at once (watsonx.ai allows 8 req/s per instance) |
 | `enable_rate_limiting` | boolean | `false` | Enable 7 req/s rate limiting |
 
 ---
@@ -195,6 +198,8 @@ All input columns are preserved. The operator appends:
 | Ollama connection refused | Ollama not running | Run `ollama serve && ollama pull <model>` |
 | `chunked_content` column not found | Chunker was skipped | Add `ChunkerOperator` before this step; a validation warning is also emitted |
 | Slow throughput with HuggingFace API | Rate limits | Switch to `use_local: true` for local inference |
+| Rate-limit (HTTP 429) errors from a hosted provider | Too many requests in flight | Lower `provider_config.max_concurrent_requests` (LiteLLM default `4`) |
+| Several neighbouring documents fail together | One request carrying their texts failed permanently | Check the failure reason; documents share requests of `batch_size` texts, so a smaller `batch_size` narrows the impact |
 
 ### API key best practice
 
@@ -232,6 +237,21 @@ export HUGGINGFACE_API_KEY=hf_...
 | AWS Bedrock | `bedrock/` | `bedrock/amazon.titan-embed-text-v1` |
 | HuggingFace API | `huggingface/` | `huggingface/sentence-transformers/all-MiniLM-L6-v2` |
 | WatsonX via LiteLLM | `watsonx/` | `watsonx/ibm/slate-125m-english-rtrvr` |
+
+### Request batching
+
+The operator flattens the texts of all input documents (chunks for `chunked_content`, or one text per
+document for `content`) into a single stream, sends it in requests of `batch_size` texts with up to
+`max_concurrent_requests` requests in flight, and maps the returned vectors back to their documents in
+the original order. Whitespace-only texts receive zero vectors and are not sent. Provider retries (LiteLLM,
+watsonx) apply to each request on its own; if a request still fails, only the documents whose texts it
+carried are recorded as failed.
+
+`max_concurrent_requests` applies to each operator run. When micro-batching runs several batches at the
+same time, up to `max_concurrent_batches` x `max_concurrent_requests` requests can be in flight, so lower
+one of the two if the provider enforces a tight rate limit.
+
+For example, 100 documents with 5 chunks each need 16 requests of 32 texts instead of 100 requests.
 
 ### Typical pipeline position
 
