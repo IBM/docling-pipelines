@@ -3,6 +3,7 @@
 import logging
 
 import ldap
+from ldap.filter import escape_filter_chars
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from docpipe.exceptions.docpipe_exceptions import ConfigurationError, ExternalServiceError
@@ -81,7 +82,7 @@ class LDAPAuthenticator:
                     logger.warning("Invalid credentials for user: %s", username)
                     return None
 
-                search_filter = f"(sAMAccountName={username})"
+                search_filter = f"(sAMAccountName={escape_filter_chars(username)})"
                 attributes = [
                     "cn",
                     "mail",
@@ -123,7 +124,7 @@ class LDAPAuthenticator:
                 self.config.ldap_bind_password,
             )
 
-            search_filter = f"(uid={username})"
+            search_filter = f"(uid={escape_filter_chars(username)})"
             attributes = ["cn", "mail", "uid"]
 
             result = ldap_client.search_s(
