@@ -1,6 +1,7 @@
 """Tests for IncrementalMetadataFactory."""
 
 from pathlib import Path
+from typing import Any
 
 import pytest
 import yaml
@@ -189,3 +190,36 @@ class TestGetDefaultFactory:
 
         assert isinstance(store, FilesystemIncrementalMetadataStore)
         assert store._base_dir == env_dir
+
+
+@pytest.mark.parametrize("service_postgres", [None, {"host": "service-host"}])
+def test_postgres_config_precedence(*, service_postgres):
+    """Service PostgreSQL settings override storage settings and global defaults."""
+    from copy import deepcopy
+
+    config: dict[str, Any] = {
+        "global_storage": {
+            "type": "postgresql",
+            "config": {"lock_timeout": 10, "base_dir": "global"},
+            "postgres": {"host": "global-host"},
+        },
+        "incremental_metadata": {
+            "storage": {
+                "config": {"base_dir": "specific"},
+                "postgres": {"host": "storage-host"},
+            }
+        },
+    }
+    if service_postgres is not None:
+        config["incremental_metadata"]["postgres"] = service_postgres
+    original = deepcopy(config)
+
+    backend, merged = _factory_mod._resolve_backend_and_config(yaml_config=config)
+
+    assert backend == "postgresql"
+    assert merged == {
+        "lock_timeout": 10,
+        "base_dir": "specific",
+        "postgres": service_postgres or {"host": "storage-host"},
+    }
+    assert config == original

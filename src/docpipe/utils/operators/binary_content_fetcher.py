@@ -56,8 +56,7 @@ def get_binary_content(
             {
                 OperatorConstants.Config.INGEST_SOURCE: {
                     OperatorConstants.Config.PROVIDER: "s3",  # or "sharepoint", "google_drive", etc.
-                    OperatorConstants.Config.CONNECTION_PARAMS: {...},
-                    OperatorConstants.Config.CREDENTIALS: {...}
+                    OperatorConstants.Config.PROVIDER_CONFIG: {...}
                 }
             }
 
@@ -69,8 +68,12 @@ def get_binary_content(
         >>> config = {
         ...     OperatorConstants.Config.INGEST_SOURCE: {
         ...         OperatorConstants.Config.PROVIDER: "s3",
-        ...         OperatorConstants.Config.CONNECTION_PARAMS: {"bucket": "my-bucket", "prefix": "docs/"},
-        ...         OperatorConstants.Config.CREDENTIALS: {"access_key": "...", "secret_key": "..."}
+        ...         OperatorConstants.Config.PROVIDER_CONFIG: {
+        ...             "bucket": "my-bucket",
+        ...             "prefix": "docs/",
+        ...             "access_key": "...",
+        ...             "secret_key": "..."
+        ...         }
         ...     }
         ... }
         >>> metadata = {"source_id": "docs/file.pdf", "name": "file.pdf"}
@@ -107,8 +110,6 @@ def get_binary_content(
 def get_adapter_for_provider(
     *,
     provider: str,
-    connection_params: dict[str, Any],
-    credentials: dict[str, Any],
 ) -> DocumentSourcePort | None:
     """
     Create source adapter instance for the given provider.
@@ -119,44 +120,19 @@ def get_adapter_for_provider(
 
     Args:
         provider: Provider name (e.g., "s3", "sharepoint", "google_drive", "onedrive", "box", "web")
-        connection_params: Provider-specific connection parameters
-            Examples:
-            - S3: {"bucket": "my-bucket", "prefix": "docs/", "region": "us-east-1"}
-            - SharePoint: {"site_url": "...", "drive_id": "...", "folder_path": "..."}
-            - Google Drive: {"folder_id": "...", "service_account_key": "..."}
-        credentials: Authentication credentials
-            Examples:
-            - S3: {"access_key": "...", "secret_key": "..."}
-            - SharePoint: {"client_id": "...", "client_secret": "...", "tenant_id": "..."}
-            - Google Drive: {"service_account_json": "..."}
 
     Returns:
         Adapter instance for fetching binary content, or None if provider not found
 
     Raises:
         ValueError: If provider is not registered or configuration is invalid
-
-    Examples:
-        >>> adapter = get_adapter_for_provider(
-        ...     provider="s3",
-        ...     connection_params={"bucket": "my-bucket", "prefix": "docs/"},
-        ...     credentials={"access_key": "...", "secret_key": "..."}
-        ... )
-        >>> if adapter:
-        ...     # Use adapter to fetch documents
-        ...     config = adapter.build_config_from_operator_params(
-        ...         connection_params=connection_params,
-        ...         credentials=credentials
-        ...     )
     """
     try:
-        # Check if provider is registered
         if not SourceAdapterFactory.is_registered(provider):
             available = ", ".join(SourceAdapterFactory.get_registered_names())
             logger.error("Provider '%s' is not registered. Available providers: %s", provider, available)
             return None
 
-        # Create adapter instance
         return SourceAdapterFactory.create(provider)
 
     except Exception as e:
@@ -177,7 +153,7 @@ def _fetch_from_cloud_source(
 
     Args:
         doc_metadata: Document metadata with source_id or path
-        ingest_source: Ingest source configuration with provider, connection_params, credentials
+        ingest_source: Ingest source configuration with provider and provider_config
 
     Returns:
         Binary content as bytes, or None if not found or error occurred
@@ -185,8 +161,7 @@ def _fetch_from_cloud_source(
     from docpipe.core.operators.operator_utils import resolve_env_var
 
     provider = ingest_source.get(OperatorConstants.Config.PROVIDER)
-    connection_params = ingest_source.get(OperatorConstants.Config.CONNECTION_PARAMS) or {}
-    credentials = ingest_source.get(OperatorConstants.Config.CREDENTIALS) or {}
+    provider_config: dict[str, Any] = dict(ingest_source.get(OperatorConstants.Config.PROVIDER_CONFIG) or {})
 
     if not provider:
         logger.error("Missing '%s' in ingest_source configuration", OperatorConstants.Config.PROVIDER)
@@ -198,34 +173,22 @@ def _fetch_from_cloud_source(
         logger.error("Document metadata missing 'source_id', 'source', or 'path'")
         return None
 
-    # Resolve environment variables in credentials (they may be stored unresolved in metadata)
-    resolved_credentials = {}
-    for key, value in credentials.items():
-        if isinstance(value, str):
-            resolved_credentials[key] = resolve_env_var(value)
-        else:
-            resolved_credentials[key] = value
+    # Resolve environment variables in provider_config values
+    resolved_provider_config: dict[str, Any] = {}
+    for key, value in provider_config.items():
+        resolved_provider_config[key] = resolve_env_var(value) if isinstance(value, str) else value
 
-    # Resolve environment variables in connection_params as well
-    resolved_connection_params = {}
-    for key, value in connection_params.items():
-        if isinstance(value, str):
-            resolved_connection_params[key] = resolve_env_var(value)
-        else:
-            resolved_connection_params[key] = value
-
-    # For OneDrive/SharePoint: Pass item_id and drive_id in credentials if available
-    # This allows the adapter to use the correct drive and item IDs when source_id is a web URL
+    # For OneDrive/SharePoint: inject item_id and drive_id from document metadata
+    # so the adapter can use the correct drive and item IDs when source_id is a web URL.
     if "item_id" in doc_metadata:
-        resolved_credentials = {**resolved_credentials, "item_id": doc_metadata["item_id"]}
-        logger.debug("Added item_id to credentials: %s", doc_metadata["item_id"])
+        resolved_provider_config["item_id"] = doc_metadata["item_id"]
+        logger.debug("Injected item_id into provider_config: %s", doc_metadata["item_id"])
     if "drive_id" in doc_metadata:
-        resolved_credentials = {**resolved_credentials, "drive_id": doc_metadata["drive_id"]}
-        logger.debug("Added drive_id to credentials: %s", doc_metadata["drive_id"])
+        resolved_provider_config["drive_id"] = doc_metadata["drive_id"]
+        logger.debug("Injected drive_id into provider_config: %s", doc_metadata["drive_id"])
     else:
         logger.debug("drive_id not found in doc_metadata. Available keys: %s", list(doc_metadata.keys()))
 
-    # Use dynamic adapter lookup
     if not SourceAdapterFactory.is_registered(provider):
         logger.error("No adapter registered for provider: %s", provider)
         return None
@@ -236,12 +199,10 @@ def _fetch_from_cloud_source(
         _adapter_cache[provider] = SourceAdapterFactory.create(provider)
     adapter = _adapter_cache[provider]
 
-    # Call adapter's fetch_binary_content method with resolved credentials.
     # Let exceptions propagate so callers can record the real error reason.
     return adapter.fetch_binary_content(
         source_id=source_id,
-        connection_params=resolved_connection_params,
-        credentials=resolved_credentials,
+        provider_config=resolved_provider_config,
     )
 
 

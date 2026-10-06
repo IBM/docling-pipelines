@@ -24,7 +24,7 @@ EXPECTED_METADATA_COLUMNS = {
 def _make_config(path: str, **kwargs) -> dict:
     return {
         "provider": "filesystem",
-        "connection_params": {"paths": [path]},
+        "provider_config": {"paths": [path]},
         "max_files": kwargs.get("max_files", 10),
         "force_ingest": True,
     }
@@ -92,7 +92,7 @@ class TestIngestSourceOperatorOutput:
         operator = IngestSourceOperator(
             {
                 "provider": "filesystem",
-                "connection_params": {"paths": [str(tmp_path)]},
+                "provider_config": {"paths": [str(tmp_path)]},
                 "include_filter": "pdf",  # Only pdf, but we have .xyz
                 "force_ingest": True,
             }
@@ -114,7 +114,7 @@ def test_table_output_basic():
 
     config = {
         "provider": "filesystem",
-        "connection_params": {"paths": [str(fixtures_dir)]},
+        "provider_config": {"paths": [str(fixtures_dir)]},
         "include_filter": "pdf",
         "max_files": 2,
         "force_ingest": True,

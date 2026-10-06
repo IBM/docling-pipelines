@@ -237,11 +237,22 @@ def register_incremental_update_store(
 # ---------------------------------------------------------------------------
 
 
+def _extract_storage_block(config_dict: dict[str, Any]) -> dict[str, Any]:
+    """Extract and merge config dictionary and optional postgres block from section."""
+    block: dict[str, Any] = {}
+    if not config_dict:
+        return block
+    block.update(config_dict.get(DocpipeConfigKeys.CONFIG, {}) or {})
+    if DocpipeConfigKeys.POSTGRES in config_dict:
+        block[DocpipeConfigKeys.POSTGRES] = config_dict[DocpipeConfigKeys.POSTGRES]
+    return block
+
+
 def _resolve_backend_and_config(*, yaml_config: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     """Extract backend name and merged config dict from a parsed YAML document."""
     global_storage_config = yaml_config.get(DocpipeConfigKeys.GLOBAL_STORAGE, {})
     incremental_config = yaml_config.get(DocpipeConfigKeys.INCREMENTAL_METADATA, {})
-    storage_config: Any | dict[Any, Any] = incremental_config.get(DocpipeConfigKeys.STORAGE, {}) or {}
+    storage_config: dict[str, Any] = incremental_config.get(DocpipeConfigKeys.STORAGE, {}) or {}
 
     # Precedence: service-specific > global_storage > default
     backend = (
@@ -255,12 +266,8 @@ def _resolve_backend_and_config(*, yaml_config: dict[str, Any]) -> tuple[str, di
         raise DocpipeException(f"Invalid storage backend '{backend}' for incremental metadata. Available: {available}")
 
     # Merge config: global_storage base, overridden by service-specific block.
-    merged: dict[str, Any] = {}
-    if global_storage_config:
-        merged.update(global_storage_config.get(DocpipeConfigKeys.CONFIG, {}) or {})
-        if DocpipeConfigKeys.POSTGRES in global_storage_config:
-            merged[DocpipeConfigKeys.POSTGRES] = global_storage_config[DocpipeConfigKeys.POSTGRES]
-    merged.update(storage_config.get(DocpipeConfigKeys.CONFIG, {}) or {})
+    merged = _extract_storage_block(global_storage_config)
+    merged.update(_extract_storage_block(storage_config))
     if DocpipeConfigKeys.POSTGRES in incremental_config:
         merged[DocpipeConfigKeys.POSTGRES] = incremental_config[DocpipeConfigKeys.POSTGRES]
 
