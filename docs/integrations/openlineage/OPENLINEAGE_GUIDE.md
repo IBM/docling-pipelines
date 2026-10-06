@@ -182,7 +182,7 @@ The following transports are available with `openlineage-python==1.52.0` and are
 
 | Type | Description |
 | --- | --- |
-| `http` | Synchronous HTTP POST to any OpenLineage-compatible backend (Marquez, Atlan, DataHub, etc.). The primary transport for production use. |
+| `http` | Synchronous HTTP POST to any OpenLineage-compatible backend (Marquez or other compatible platforms). The primary transport for production use. |
 | `file` | Write events to a local JSONL file. Recommended for testing, audit trails, and offline inspection — see [Section 5.3](#53-file-transport) for full configuration. |
 | `console` | Print events to stdout via the Python logger. Zero configuration — the recommended transport for local development and debugging. |
 
@@ -290,15 +290,7 @@ Configure the file transport (see [Section 5.3](#53-file-transport)) to write ev
 
 ### OpenLineage-compatible backend
 
-Configure the HTTP transport with your backend URL. Any platform that implements the OpenLineage HTTP API works:
-
-- [Marquez](https://marquezproject.ai) — open source reference implementation
-- [Atlan](https://atlan.com)
-- [DataHub](https://datahubproject.io)
-- [Apache Atlas](https://atlas.apache.org)
-- [Google Dataplex](https://cloud.google.com/dataplex)
-
-For a full list of compatible platforms see [openlineage.io/ecosystem](https://openlineage.io/ecosystem).
+Configure the HTTP transport with your backend URL. [Marquez](https://marquezproject.ai) is the open source reference implementation — any other platform that implements the OpenLineage HTTP API works equally well. For a full list of compatible platforms see [openlineage.io/ecosystem](https://openlineage.io/ecosystem).
 
 > [!NOTE]
 > Backend installation and setup is outside the scope of this guide. Refer to your chosen platform's
