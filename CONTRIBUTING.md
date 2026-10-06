@@ -837,7 +837,8 @@ All PRs must pass:
 ### DCO Sign-off
 
 Every commit must carry a `Signed-off-by` trailer. This is enforced automatically by the
-[DCO bot](https://probot.github.io/apps/dco/) and is a hard blocker for merging.
+[DCO bot](https://probot.github.io/apps/dco/) (org-level, runs on all pushes) and by the
+[Commit Verification workflow](.github/workflows/commit-verification.yml) (PR-level, also validates GPG signatures and PR template completeness).
 
 The sign-off is your declaration that you authored the change and have the right to submit it
 under the project licence (see [Developer Certificate of Origin](https://developercertificate.org/)).
@@ -872,7 +873,8 @@ git rebase --continue
 
 ### Verified Commits
 
-Every commit merged into `main` must be GPG-signed and show the **Verified** badge on GitHub.
+Every commit merged into `main` must be GPG-signed and show the **Verified** badge on GitHub. This is enforced by the
+[Commit Verification workflow](.github/workflows/commit-verification.yml) (PR-level, also validates DCO sign-off and PR template completeness).
 
 **Why verified commits?**
 
