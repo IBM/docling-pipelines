@@ -38,7 +38,7 @@ jobs:
         run: sudo apt-get install -y libldap2-dev libsasl2-dev
 
       - name: Install Dependencies
-        run: uv pip install --system -e ".[dev]"
+        run: uv pip install --system -e ".[dev,event-streaming]"
 
       - name: Check Formatting (Ruff)
         run: |
