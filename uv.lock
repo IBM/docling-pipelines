@@ -1456,6 +1456,9 @@ notebooks = [
 ocrmac = [
     { name = "docling", extra = ["ocrmac"] },
 ]
+presidio = [
+    { name = "presidio-analyzer" },
+]
 rapidocr = [
     { name = "docling", extra = ["rapidocr"] },
 ]
@@ -1568,6 +1571,7 @@ requires-dist = [
     { name = "polars", specifier = "==1.32.3" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = "==4.5.1" },
     { name = "prefect", specifier = "==3.8.3" },
+    { name = "presidio-analyzer", marker = "extra == 'presidio'", specifier = "==2.2.364" },
     { name = "psutil", marker = "extra == 'benchmark'", specifier = "==7.2.2" },
     { name = "psycopg2-binary", specifier = "==2.9.12" },
     { name = "pyarrow", specifier = "==24.0.0" },
@@ -1613,7 +1617,7 @@ requires-dist = [
     { name = "urllib3", specifier = "==2.8.0" },
     { name = "uvicorn", extras = ["standard"], specifier = "==0.40.0" },
 ]
-provides-extras = ["benchmark", "dev", "easyocr", "event-streaming", "lineage", "notebooks", "ocrmac", "rapidocr", "telemetry", "tesserocr", "vlm-asr"]
+provides-extras = ["benchmark", "dev", "easyocr", "event-streaming", "lineage", "notebooks", "ocrmac", "presidio", "rapidocr", "telemetry", "tesserocr", "vlm-asr"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -4752,6 +4756,15 @@ wheels = [
 ]
 
 [[package]]
+name = "phonenumbers"
+version = "9.0.40"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b4/39/66db12a16eec873aa12411fc6da0fe052a86413fe117e208b51836b41740/phonenumbers-9.0.40.tar.gz", hash = "sha256:a0dd1bc98efa0b6f5839c7b1fface2ebdf0a811645dd8211ae3f037a17ec07ac", size = 2311069, upload-time = "2026-09-24T06:59:03.882Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/74/da/c266478ebea2b8d3176484e06756960d94d27cce2d7dc5ca3be6151cb9e3/phonenumbers-9.0.40-py2.py3-none-any.whl", hash = "sha256:189c028c4acd41ee80782e50f74a91260bd76d9115c83be94302509e1cdb5e84", size = 2594747, upload-time = "2026-09-24T06:59:00.564Z" },
+]
+
+[[package]]
 name = "pillow"
 version = "12.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4914,6 +4927,25 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e6/88/bdb244e40284ded3632a9f88c23bc80230bd7b2ae4a8b7f2cc91adead7a8/preshed-3.0.13-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:2e77bed56aded7cbe5d28d6bd2178bc5b13eda0e0e464dab205fb578fa915000", size = 1919236, upload-time = "2026-03-23T08:56:42.616Z" },
     { url = "https://files.pythonhosted.org/packages/a0/c9/c91ea56342e6c364fc69b444a1ac5432327857199c44032c9cc9dc4c3a23/preshed-3.0.13-cp312-cp312-win_amd64.whl", hash = "sha256:04d8f13f2986e5d11af5ac51f55ce3106c70c41b483d20ea392e6180bdd0f870", size = 122938, upload-time = "2026-03-23T08:56:44.271Z" },
     { url = "https://files.pythonhosted.org/packages/b2/0b/6a99d99619fd83b14c696e2489caed7070647488d4d3ac0b723d35db2de0/preshed-3.0.13-cp312-cp312-win_arm64.whl", hash = "sha256:19318dc1cd8cac6663c6c830bf7e0002d2de853769fb03e056774e97c21bedfd", size = 109194, upload-time = "2026-03-23T08:56:45.346Z" },
+]
+
+[[package]]
+name = "presidio-analyzer"
+version = "2.2.364"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "numpy" },
+    { name = "phonenumbers" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "regex" },
+    { name = "spacy" },
+    { name = "tldextract" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c7/50/408a41cf99d076107d3823d514bb6408e249132418f068673cb807839ce5/presidio_analyzer-2.2.364.tar.gz", hash = "sha256:51f27bacf199fb9777ade9552c0f0111e00a1d73cfe2d4797fc05c998de1e0b6", size = 154117, upload-time = "2026-07-22T07:54:36.264Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a6/15/44a64276cd5c45485716314addfb7966c24f61034d8ff8e9a78d13d0afbe/presidio_analyzer-2.2.364-py3-none-any.whl", hash = "sha256:0a9eeb60ccc416c505367b4989d056becb84ef082703ee3361c046fb75941739", size = 266299, upload-time = "2026-07-22T07:54:34.868Z" },
 ]
 
 [[package]]
@@ -5909,6 +5941,18 @@ wheels = [
 ]
 
 [[package]]
+name = "requests-file"
+version = "3.0.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3c/f8/5dc70102e4d337063452c82e1f0d95e39abfe67aa222ed8a5ddeb9df8de8/requests_file-3.0.1.tar.gz", hash = "sha256:f14243d7796c588f3521bd423c5dea2ee4cc730e54a3cac9574d78aca1272576", size = 6967, upload-time = "2025-10-20T18:56:42.279Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e1/d5/de8f089119205a09da657ed4784c584ede8381a0ce6821212a6d4ca47054/requests_file-3.0.1-py2.py3-none-any.whl", hash = "sha256:d0f5eb94353986d998f80ac63c7f146a307728be051d4d1cd390dbdb59c10fa2", size = 4514, upload-time = "2025-10-20T18:56:41.184Z" },
+]
+
+[[package]]
 name = "requests-oauthlib"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -6730,6 +6774,21 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a3/ae/2ca4913e5c0f09781d75482874c3a95db9105462a92ddd303c7d285d3df2/tinycss2-1.5.1.tar.gz", hash = "sha256:d339d2b616ba90ccce58da8495a78f46e55d4d25f9fd71dfd526f07e7d53f957", size = 88195, upload-time = "2025-11-23T10:29:10.082Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/60/45/c7b5c3168458db837e8ceab06dc77824e18202679d0463f0e8f002143a97/tinycss2-1.5.1-py3-none-any.whl", hash = "sha256:3415ba0f5839c062696996998176c4a3751d18b7edaaeeb658c9ce21ec150661", size = 28404, upload-time = "2025-11-23T10:29:08.676Z" },
+]
+
+[[package]]
+name = "tldextract"
+version = "5.4.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "filelock" },
+    { name = "idna" },
+    { name = "requests" },
+    { name = "requests-file" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fd/5d/45ece871390ccc985f821353543165bcf3784fa97d8484fd0ca5f2726612/tldextract-5.4.0.tar.gz", hash = "sha256:6c9223212c15c25c0da2bf7313893c14f175cb36b64a0c42da67a468e0c61ee3", size = 197271, upload-time = "2026-10-03T21:32:47.229Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b8/e0/d5760e222a7e3f3aec7ef59f6dff952af27d09ec168bcca50751d9698151/tldextract-5.4.0-py3-none-any.whl", hash = "sha256:7f02aed30bd3b6ad5717192eb859a39b20aafc7caf3917d9cf6cb00a58efb34f", size = 107482, upload-time = "2026-10-03T21:32:45.842Z" },
 ]
 
 [[package]]

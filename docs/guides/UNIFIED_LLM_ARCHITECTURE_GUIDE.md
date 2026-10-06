@@ -554,22 +554,27 @@ src/docpipe/core/operators/quality/pii_and_hap/pii_and_hap_annotator.py
 
 ## Architecture — Decorator-Based Adapter Registry
 
-Each provider adapter self-registers with `PIIAndHAPDetectionFactory` via
-`@register_pii_and_hap_detection_adapter` and encapsulates its own detection path behind
-the unified `PIIAndHAPDetectionPort` interface:
+Detection is split by capability into two ports, so single-capability providers fit:
+`PIIDetectionPort.detect_pii()` and `HAPDetectionPort.detect_hap()`, both with `validate()`.
+`PIIAndHAPDetectionPort` inherits both and derives them from one `detect(payload=...)` call.
+Each adapter declares `SUPPORTS_PII` / `SUPPORTS_HAP`, self-registers with
+`PIIAndHAPDetectionFactory` via `@register_pii_and_hap_detection_adapter`, and the factory
+rejects flags that do not match the implemented ports:
 
 ```text
-PIIAndHAPAnnotator._initialize_pii_hap_service()
+PIIAndHAPAnnotator.__init__()
+    ↓ resolve pii_provider / hap_provider (legacy "provider" sets both)
+PIIAndHAPDetectionFactory.validate_selection()   (fail-fast capability check)
     ↓
-PIIAndHAPDetectionFactory.create(provider)
+PIIAndHAPDetectionFactory.create_adapters(pii=..., hap=...)
     ↓
-WatsonxPIIAndHAPAdapter  |  LiteLLMPIIAndHAPAdapter
-(each implements PIIAndHAPDetectionPort.detect() + validate())
-    ↓ injected
-PIIHAPService (thin wrapper — no if/elif, no factory calls)
+WatsonxPIIAndHAPAdapter | LiteLLMPIIAndHAPAdapter   (PII + HAP)
+PresidioPIIAdapter                                 (PII only)
+    ↓ injected independently
+PIIHAPService(pii_adapter=..., hap_adapter=...)
 ```
 
-The two adapters use different underlying ports because of provider API differences:
+The WatsonX and LiteLLM adapters use different underlying ports because of provider API differences:
 - **`WatsonxPIIAndHAPAdapter`**: WatsonX exposes a specialized `/ml/v1/text/detection` API
   (not a standard chat API), so it wraps `TextDetectionPort`.
 - **`LiteLLMPIIAndHAPAdapter`**: LiteLLM uses standard prompt-based inference, so it wraps
@@ -586,12 +591,13 @@ src/docpipe/core/operators/quality/pii_and_hap/services/pii_hap_service.py
 **Actual constructor signature**:
 
 ```python
-PIIHAPService(*, adapter: PIIAndHAPDetectionPort)
+PIIHAPService(*, pii_adapter: PIIDetectionPort | None = None, hap_adapter: HAPDetectionPort | None = None)
 ```
 
-Receives a pre-built `PIIAndHAPDetectionPort` instance via constructor injection. Calls
-`adapter.validate()` at construction time (fail-fast) then delegates all detection to
-`adapter.detect()`. Contains no provider branching.
+Receives pre-built adapters via constructor injection and calls `validate()` once per distinct
+adapter at construction time (fail-fast). Per request it invokes only the capabilities present in
+the payload's `detectors` (derived from `expected_redactions`); when one dual-capability adapter
+serves both, it makes a single combined `detect()` call. Contains no provider branching.
 
 ## Flow JSON example
 

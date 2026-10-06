@@ -110,6 +110,11 @@ event-streaming = [
 lineage = [
     "openlineage-python==1.52.0",
 ]
+# Optional local PII provider for the pii_and_hap operator (pii_provider: "presidio").
+# Also requires a spaCy model, e.g. `python -m spacy download en_core_web_lg`.
+presidio = [
+    "presidio-analyzer==2.2.364",
+]
 benchmark = [
     "matplotlib==3.11.0",
     "psutil==7.2.2",
