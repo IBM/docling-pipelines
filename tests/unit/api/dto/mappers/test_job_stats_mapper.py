@@ -52,6 +52,7 @@ def sample_job_stats(sample_node_stats):
         end_time=1704067300,
         duration=100,
         heartbeat_timestamp=1704067300,
+        progress_timestamp=1704067250,
         total_docs=10,
         processed_docs=10,
         completed_docs=10,
@@ -87,6 +88,8 @@ class TestToDtoConversion:
         assert dto.start_time == 1704067200
         assert dto.end_time == 1704067300
         assert dto.duration == 100
+        assert dto.heartbeat_timestamp == 1704067300
+        assert dto.progress_timestamp == 1704067250
 
     def test_to_dto_document_counts(self, sample_job_stats):
         """Should convert document count fields correctly."""
