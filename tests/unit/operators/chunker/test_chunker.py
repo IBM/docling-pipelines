@@ -1991,6 +1991,23 @@ class TestDoclingServeSplitText:
         assert docs[0].page_content == "First chunk."
         assert docs[1].page_content == "Second chunk."
 
+    @pytest.mark.parametrize(
+        ("doc_name", "expected_filename"),
+        [("report.pdf", "report.md"), ("notes.md", "notes.md"), ("notes", "notes.md"), (None, "document.md")],
+    )
+    def test_markdown_payload_uses_markdown_filename(self, doc_name: str | None, expected_filename: str) -> None:
+        op = self._make_op()
+        mock_client = MagicMock()
+        mock_client.call_rest_json.return_value = {"chunks": [{"text": "A chunk"}]}
+        op._remote_chunking_client = mock_client
+
+        docs = op._docling_serve_split_text(content="# Heading", doc_name=doc_name)
+
+        payload = mock_client.call_rest_json.call_args.kwargs["json_data"]
+        assert payload["sources"][0]["filename"] == expected_filename
+        assert payload["convert_options"]["from_formats"] == ["md"]
+        assert docs[0].metadata["doc_name"] == doc_name
+
     def test_returns_empty_list_when_no_chunks(self):
         op = self._make_op()
         mock_client = MagicMock()

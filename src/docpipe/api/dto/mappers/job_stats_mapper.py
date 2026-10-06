@@ -59,6 +59,7 @@ class JobStatsMapper:
             end_time=job_stats.end_time,
             duration=duration,
             heartbeat_timestamp=job_stats.heartbeat_timestamp,
+            progress_timestamp=job_stats.progress_timestamp,
             total_docs=job_stats.total_docs,
             processed_docs=job_stats.processed_docs,
             completed_docs=job_stats.completed_docs,

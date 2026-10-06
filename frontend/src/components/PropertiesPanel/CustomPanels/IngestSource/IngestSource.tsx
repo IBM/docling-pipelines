@@ -34,6 +34,7 @@ import { JsonTextArea } from '@/components/common/JsonTextArea/JsonTextArea';
 import common from '../../CommonPropertiesPanel.module.scss';
 import { getRequiredParamValidator } from '@/utils/requiredParamValidation';
 import { RequiredParamTooltip } from '@/components/common';
+import { useProviderConfigDefaults } from '@/hooks/useProviderConfigDefaults';
 
 interface IngestSourcePanelBodyProps {
   controller: any;
@@ -68,9 +69,9 @@ export function IngestSourcePanelBody({
   const providerValidValues = (nodeAttributes[ATTR.PROVIDER] as Record<string, unknown> | undefined)?.valid_values;
   const providerItems: string[] = Array.isArray(providerValidValues) ? (providerValidValues as string[]) : [];
 
-  // ── Provider-specific field schema from connection_params metadata ──
-  const connectionParamsAttr = nodeAttributes[ATTR.CONNECTION_PARAMS];
-  const providerSchemas = connectionParamsAttr?.providers ?? {};
+  // ── Provider-specific field schema from provider_config metadata ──
+  const providerConfigAttr = nodeAttributes[ATTR.PROVIDER_CONFIG];
+  const providerSchemas = providerConfigAttr?.providers ?? {};
 
   // ── Read current saved values, falling back to backend defaults ──────────
 
@@ -78,7 +79,7 @@ export function IngestSourcePanelBody({
     ?? (nodeAttributes[ATTR.PROVIDER]?.default as string | undefined)
     ?? '';
 
-  const connectionParamsRaw = controller?.getPropertyValue?.({ name: ATTR.CONNECTION_PARAMS });
+  const providerConfigRaw = controller?.getPropertyValue?.({ name: ATTR.PROVIDER_CONFIG });
 
   const maxFiles = (controller?.getPropertyValue?.({ name: ATTR.MAX_FILES }) as number | undefined)
     ?? (nodeAttributes[ATTR.MAX_FILES]?.default as number | undefined)
@@ -106,19 +107,21 @@ export function IngestSourcePanelBody({
 
   // ── Per-provider structured field state ──
   // Holds the in-progress field values when a provider schema is available.
-  // Initialised from the persisted connection_params object on first render.
+  // Initialised from the persisted provider_config object on first render.
   const [providerFieldValues, setProviderFieldValues] = useState<Record<string, unknown>>(
-    (typeof connectionParamsRaw === 'object' && connectionParamsRaw !== null)
-      ? connectionParamsRaw as Record<string, unknown>
+    (typeof providerConfigRaw === 'object' && providerConfigRaw !== null)
+      ? providerConfigRaw as Record<string, unknown>
       : {}
   );
+
+  useProviderConfigDefaults(controller, nodeAttributes);
 
   // ── Required field validator ──────────────────────────────────────────────
   const validate = getRequiredParamValidator(nodeAttributes);
   const providerValidation = validate(ATTR.PROVIDER, provider || undefined);
-  const connectionParamsValidation = validate(
-    ATTR.CONNECTION_PARAMS,
-    connectionParamsRaw ?? null
+  const providerConfigValidation = validate(
+    ATTR.PROVIDER_CONFIG,
+    providerConfigRaw ?? null
   );
   const maxFilesValidation = validate(ATTR.MAX_FILES, maxFiles);
   const includeFilterValidation = validate(
@@ -166,8 +169,7 @@ export function IngestSourcePanelBody({
           onChange={({ selectedItem }: { selectedItem: string | null }) => {
               if (selectedItem) {
                 controller?.updatePropertyValue?.({ name: ATTR.PROVIDER }, selectedItem);
-                controller?.updatePropertyValue?.({ name: ATTR.CONNECTION_PARAMS }, null);
-                controller?.updatePropertyValue?.({ name: ATTR.CREDENTIALS }, null);
+                controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, null);
                 setProviderFieldValues({});
               }
             }}
@@ -194,7 +196,7 @@ export function IngestSourcePanelBody({
                   onChange={(fieldKey, value) => {
                     const updated = { ...providerFieldValues, [fieldKey]: value };
                     setProviderFieldValues(updated);
-                    controller?.updatePropertyValue?.({ name: ATTR.CONNECTION_PARAMS }, updated);
+                    controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, updated);
                   }}
                 />
               )}
@@ -203,15 +205,15 @@ export function IngestSourcePanelBody({
               {(provider === CUSTOM_PROVIDER || !providerSchemas[provider]?.properties) && (
                 <div className={common.formField}>
                   <JsonTextArea
-                    id="connection_params"
-                    labelText={LABEL.CONNECTION_PARAMS}
+                    id="provider_config"
+                    labelText={LABEL.PROVIDER_CONFIG}
                     placeholder='{"loader_class_path": "my_package.loaders.MyLoader"}'
-                    storedValue={typeof connectionParamsRaw === 'object' ? connectionParamsRaw as Record<string, unknown> : null}
+                    storedValue={typeof providerConfigRaw === 'object' ? providerConfigRaw as Record<string, unknown> : null}
                     rows={4}
-                    invalid={connectionParamsValidation.isInvalid}
-                    invalidText={connectionParamsValidation.errorMessage}
+                    invalid={providerConfigValidation.isInvalid}
+                    invalidText={providerConfigValidation.errorMessage}
                     onChange={(value) => {
-                      controller?.updatePropertyValue?.({ name: ATTR.CONNECTION_PARAMS }, value);
+                      controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, value);
                     }}
                   />
                 </div>

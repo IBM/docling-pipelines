@@ -35,6 +35,7 @@ import { NodeOperator } from '@/constants/operators';
 import { getProviderModels } from '@/services/api';
 import { filterModelsForEmbeddingsPanel } from '@/utils/providerModels';
 import common from '../../CommonPropertiesPanel.module.scss';
+import { useProviderConfigDefaults } from '@/hooks/useProviderConfigDefaults';
 
 /**
  * Props injected by Elyra's custom properties panel host.
@@ -116,6 +117,8 @@ export function EmbeddingsPanelBody({ controller }: EmbeddingsPanelBodyProps): R
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     (controller?.getPropertyValue?.({ name: ATTR.TOKEN_LIMIT }) as number | undefined)
     ?? EMBEDDINGS_DEFAULTS.TOKEN_LIMIT;
+
+  useProviderConfigDefaults(controller, nodeAttributes);
 
   // ── Required param validation ─────────────────────────────────────────────
   const validate = getRequiredParamValidator(nodeAttributes);

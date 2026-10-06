@@ -442,7 +442,8 @@ class DuckDBTableStorage(TableStoragePort):
         except Exception as e:
             raise StorageException(message=f"Unexpected error getting schema for {table_name}: {e}") from e
 
-    def _pyarrow_to_duckdb_type(self, *, pa_type: pa.DataType) -> str:
+    @staticmethod
+    def _pyarrow_to_duckdb_type(*, pa_type: pa.DataType) -> str:
         """
         Convert PyArrow type to DuckDB type string.
 

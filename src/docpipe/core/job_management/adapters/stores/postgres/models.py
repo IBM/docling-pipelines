@@ -84,6 +84,11 @@ class JobStatsModel(SQLModel, table=True):  # type: ignore[call-arg]
         title="Heartbeat Timestamp",
         description="Timestamp to ascertain if job run is currently in execution",
     )
+    progress_timestamp: int = Field(
+        default=0,
+        title="Progress Timestamp",
+        description="Timestamp of the last measurable unit of forward progress (epoch seconds)",
+    )
 
     # Document Counts
     total_docs: int = Field(
