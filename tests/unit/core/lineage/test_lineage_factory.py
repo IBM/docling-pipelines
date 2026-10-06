@@ -34,3 +34,27 @@ def test_factory_falls_back_to_noop_when_import_error(monkeypatch) -> None:
         assert observer is not None
         assert isinstance(observer, OpenLineageExecutionObserver)
         assert isinstance(observer._service._publisher, NoOpLineagePublisherAdapter)
+
+
+def test_factory_falls_back_to_noop_on_generic_exception(monkeypatch) -> None:
+    """Verify factory uses NoOpLineagePublisherAdapter when adapter init raises a non-ImportError."""
+    monkeypatch.setattr(LineageConstants, "DEFAULT_ENABLED", "true")
+    with patch(
+        "docpipe.core.lineage.adapters.openlineage.publisher.OpenLineagePublisherAdapter.__init__",
+        side_effect=RuntimeError("connection refused"),
+    ):
+        observer = create_lineage_observer()
+        assert observer is not None
+        assert isinstance(observer, OpenLineageExecutionObserver)
+        assert isinstance(observer._service._publisher, NoOpLineagePublisherAdapter)
+
+
+def test_factory_returns_none_on_unexpected_outer_error(monkeypatch) -> None:
+    """Verify factory returns None and does not raise when observer construction itself fails."""
+    monkeypatch.setattr(LineageConstants, "DEFAULT_ENABLED", "true")
+    with patch(
+        "docpipe.core.lineage.adapters.openlineage.observer.OpenLineageExecutionObserver.__init__",
+        side_effect=RuntimeError("unexpected failure"),
+    ):
+        observer = create_lineage_observer()
+        assert observer is None

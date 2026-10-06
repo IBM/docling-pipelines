@@ -298,3 +298,96 @@ class TestOperatorModeObserver:
         )
         operator_observer.on_node_skip(context=context)
         mock_service.emit_node_skip.assert_called_once_with(context=context)
+
+
+class TestOpenLineagePublisherAdapter:
+    """Tests for OpenLineagePublisherAdapter covering publish() and import fallback."""
+
+    def test_publish_emits_event(self) -> None:
+        """publish() translates domain models into an SDK RunEvent and calls client.emit()."""
+        from unittest.mock import MagicMock, patch
+
+        mock_client = MagicMock()
+        mock_run_cls = MagicMock()
+        mock_job_cls = MagicMock()
+        mock_dataset_cls = MagicMock()
+        mock_event_cls = MagicMock()
+        mock_event_type_cls = MagicMock()
+        mock_event_type_cls.START = "START"
+
+        with (
+            patch(
+                "docpipe.core.lineage.adapters.openlineage.publisher._import_openlineage",
+                return_value=(
+                    MagicMock,  # OLClient — used in __init__
+                    mock_event_cls,  # RunEvent
+                    mock_event_type_cls,  # EventType
+                    mock_dataset_cls,  # Dataset
+                    mock_job_cls,  # Job
+                    mock_run_cls,  # Run
+                ),
+            ),
+            patch(
+                "docpipe.core.lineage.adapters.openlineage.publisher.OpenLineagePublisherAdapter.__init__",
+                return_value=None,
+            ),
+        ):
+            from docpipe.core.lineage.adapters.openlineage.publisher import OpenLineagePublisherAdapter
+            from docpipe.core.lineage.domain.models.dataset import LineageDataset
+            from docpipe.core.lineage.domain.models.event_type import LineageEventType
+            from docpipe.core.lineage.domain.models.job import LineageJob
+            from docpipe.core.lineage.domain.models.run import LineageRun
+
+            adapter = OpenLineagePublisherAdapter.__new__(OpenLineagePublisherAdapter)
+            adapter._client = mock_client
+
+            adapter.publish(
+                event_type=LineageEventType.START,
+                run=LineageRun(run_id="run-1", start_time="2024-01-01T00:00:00"),
+                job=LineageJob(namespace="ns", name="myjob"),
+                inputs=[LineageDataset(namespace="ns", name="in")],
+                outputs=[LineageDataset(namespace="ns", name="out")],
+            )
+
+        mock_client.emit.assert_called_once()
+
+    def test_publish_swallows_emit_exception(self) -> None:
+        """publish() logs a warning and does not re-raise when client.emit() fails."""
+        from unittest.mock import MagicMock, patch
+
+        mock_client = MagicMock()
+        mock_client.emit.side_effect = RuntimeError("transport error")
+        mock_event_type_cls = MagicMock()
+        mock_event_type_cls.START = "START"
+
+        with (
+            patch(
+                "docpipe.core.lineage.adapters.openlineage.publisher._import_openlineage",
+                return_value=(
+                    MagicMock,
+                    MagicMock(),
+                    mock_event_type_cls,
+                    MagicMock(),
+                    MagicMock(),
+                    MagicMock(),
+                ),
+            ),
+            patch(
+                "docpipe.core.lineage.adapters.openlineage.publisher.OpenLineagePublisherAdapter.__init__",
+                return_value=None,
+            ),
+        ):
+            from docpipe.core.lineage.adapters.openlineage.publisher import OpenLineagePublisherAdapter
+            from docpipe.core.lineage.domain.models.event_type import LineageEventType
+            from docpipe.core.lineage.domain.models.job import LineageJob
+            from docpipe.core.lineage.domain.models.run import LineageRun
+
+            adapter = OpenLineagePublisherAdapter.__new__(OpenLineagePublisherAdapter)
+            adapter._client = mock_client
+
+            # must not raise — exception must be swallowed
+            adapter.publish(
+                event_type=LineageEventType.START,
+                run=LineageRun(run_id="run-4"),
+                job=LineageJob(namespace="ns", name="job"),
+            )
