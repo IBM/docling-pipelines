@@ -53,6 +53,7 @@ def postgres_settings() -> dict[str, Any]:
     settings = _postgres_settings()
     if settings is None:
         pytest.skip("DOCPIPE_TEST_POSTGRES_PASSWORD not set; skipping PostgreSQL integration tests")
+    assert settings is not None  # pytest.skip() raises; narrows the type for mypy
     probe = create_engine(_url(settings), connect_args={"connect_timeout": 3})
     try:
         with probe.connect() as connection:
