@@ -1389,3 +1389,44 @@ class TestDoclingServeAdapterConfigSchema:
         """ocr_engine is str | None — no enum constraint expected."""
         schema = DoclingServeAdapter.get_config_schema().model_json_schema()
         assert "enum" not in str(schema["properties"]["ocr_engine"])
+
+
+# ---------------------------------------------------------------------------
+# DoclingLibraryConfig.additional_formats — markdown acceptance tests
+# ---------------------------------------------------------------------------
+class TestDoclingLibraryConfigAdditionalFormats:
+    """Tests that DoclingLibraryConfig accepts 'markdown' in additional_formats.
+
+    When doc_format=doclang, users legitimately want to also request markdown
+    as a secondary column. The schema must allow it.
+    """
+
+    def test_markdown_accepted_in_additional_formats(self):
+        """'markdown' is a valid additional_formats value."""
+        from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_library_config import (
+            DoclingLibraryConfig,
+        )
+
+        cfg = DoclingLibraryConfig(additional_formats=["markdown"])
+        assert "markdown" in cfg.additional_formats
+
+    def test_markdown_alongside_doclang_accepted(self):
+        """User can request both doclang (primary) and markdown (secondary)."""
+        from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_library_config import (
+            DoclingLibraryConfig,
+        )
+
+        cfg = DoclingLibraryConfig(additional_formats=["doclang", "markdown"])
+        assert "doclang" in cfg.additional_formats
+        assert "markdown" in cfg.additional_formats
+
+    def test_invalid_format_still_rejected(self):
+        """Unrecognised format strings are still rejected by the schema."""
+        from pydantic import ValidationError
+
+        from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_library_config import (
+            DoclingLibraryConfig,
+        )
+
+        with pytest.raises(ValidationError):
+            DoclingLibraryConfig(additional_formats=["xml"])
