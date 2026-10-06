@@ -41,6 +41,7 @@ from docpipe.api.dto.field_definitions import (
     MESSAGE_MAX_LENGTH,
     MESSAGE_MIN_LENGTH,
     MESSAGE_PATTERN,
+    NAME_MAX_LENGTH,
     NODE_STATS_DESC,
     ORCHESTRATOR_DESC,
     ORCHESTRATOR_MAX_LENGTH,
@@ -232,7 +233,7 @@ class JobStatsDto(BaseModel):
     flow_name: str | None = Field(
         default=None,
         description=FLOW_NAME_DESC_JOB,
-        max_length=255,
+        max_length=NAME_MAX_LENGTH,
     )
 
     # User & Account Context

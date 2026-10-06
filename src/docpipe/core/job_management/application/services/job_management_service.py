@@ -38,25 +38,27 @@ def _extract_flow_name_from_snapshot(flow_def: dict[str, Any]) -> str | None:
         ``flow_def["pipelines"][0]["app_data"]["ds_flow"]["name"]``
         with a fallback to ``app_data["ui_data"]["name"]``
     """
+    from docpipe.utils.orchestration.elyra_converter import ElyraConstants
+
     # Authoring format
     name = flow_def.get(DocpipeConstants.FLOW_NAME)
     if name:
         return name
 
     # Elyra format — mirror the lookup order used by ElyraConverter
-    pipelines = flow_def.get("pipelines")
+    pipelines = flow_def.get(ElyraConstants.PIPELINES)
     if not pipelines or not isinstance(pipelines, list):
         return None
 
-    app_data = pipelines[0].get("app_data", {})
+    app_data = pipelines[0].get(ElyraConstants.APP_DATA, {})
 
     # Primary location: ui_data.name
-    name = app_data.get("ui_data", {}).get("name")
+    name = app_data.get(ElyraConstants.UI_DATA, {}).get(ElyraConstants.NAME)
     if name:
         return name
 
     # Fallback: ds_flow.name (matches what ElyraConverter does)
-    name = app_data.get("ds_flow", {}).get("name")
+    name = app_data.get(ElyraConstants.DS_FLOW, {}).get(ElyraConstants.NAME)
     return name or None
 
 
