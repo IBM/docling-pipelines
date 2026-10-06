@@ -86,7 +86,10 @@ class TestDoclingServeAdapter:
 
         # Verify
         mock_extract_text_file.assert_called_once_with(
-            file_path=file_path, binary_content=binary_content, additional_formats=[]
+            file_path=file_path,
+            binary_content=binary_content,
+            additional_formats=[],
+            doc_format=OperatorConstants.DOC_FORMAT_DEFAULT,
         )
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "This is plain text content"
@@ -120,11 +123,42 @@ class TestDoclingServeAdapter:
 
         result = adapter_with_formats.extract_single_document(file_path=file_path, binary_content=binary_content)
 
-        # Verify additional_formats is forwarded to extract_text_file
+        # Verify additional_formats and doc_format are forwarded to extract_text_file
         mock_extract_text_file.assert_called_once_with(
-            file_path=file_path, binary_content=binary_content, additional_formats=["html"]
+            file_path=file_path,
+            binary_content=binary_content,
+            additional_formats=["html"],
+            doc_format=OperatorConstants.DOC_FORMAT_DEFAULT,
         )
         assert result[OperatorConstants.Extraction.SUCCESS] is True
+
+    @patch(
+        "docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.OperatorUtils.extract_text_file"
+    )
+    def test_extract_single_document_txt_file_passes_doc_format_doclang(self, mock_extract_text_file):
+        """doc_format=doclang is forwarded to extract_text_file for .txt files."""
+        file_path = "/path/to/doc.txt"
+        binary_content = b"Plain text content"
+        doclang_xml = '<doclang version="0.7"><text>Plain text content</text></doclang>'
+        mock_extract_text_file.return_value = {
+            OperatorConstants.Extraction.SUCCESS: True,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: doclang_xml,
+        }
+
+        config = {
+            OperatorConstants.DOC_FORMAT_KEY: OperatorConstants.DocFormat.DOCLANG,
+            "docling_serve_config": {"base_url": "http://localhost:5001"},
+        }
+        adapter = DoclingServeAdapter(config=config)
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        mock_extract_text_file.assert_called_once_with(
+            file_path=file_path,
+            binary_content=binary_content,
+            additional_formats=[],
+            doc_format=OperatorConstants.DocFormat.DOCLANG,
+        )
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == doclang_xml
 
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_md_file_uses_docling_serve(self, mock_client_class, adapter):

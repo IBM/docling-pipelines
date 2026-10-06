@@ -212,6 +212,9 @@ class DoclingServeAdapter(TextExtractionPort):
                     file_path=file_path,
                     binary_content=binary_content,
                     additional_formats=self.additional_formats,
+                    doc_format=self.global_config.get(
+                        OperatorConstants.DOC_FORMAT_KEY, OperatorConstants.DOC_FORMAT_DEFAULT
+                    ),
                 )
 
             # Extract filename from path to preserve extension for remote processing
