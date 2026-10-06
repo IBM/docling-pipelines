@@ -11,8 +11,6 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Added
 
-- **Kafka event streaming setup** — Added a Docker Compose configuration for Kafka and Schema Registry, topic initialization and JSON schema registration scripts, and producer and consumer examples. Added `confluent-kafka[schemaregistry]==2.15.1` as the optional `event-streaming` extra.
-
 - React frontend UI with Elyra-based pipeline canvas, per-operator properties panels, project/flow management, and Node.js BFF layer; bundled into the wheel and served at `/ui/` (#58)
 - `StorageOutputOperator` — writes processed documents to a configurable destination with `processed_content`, `refetch_original`, and `comprehensive_export` modes (#58)
 - `S3DestinationAdapter` — writes to S3 / IBM COS / MinIO with env-var credentials and bucket pre-flight validation (#58)
