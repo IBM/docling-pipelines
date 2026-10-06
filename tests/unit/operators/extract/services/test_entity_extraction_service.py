@@ -18,10 +18,9 @@ Covers:
 """
 
 import json
-import threading
 from concurrent.futures import Future
 from typing import Any
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
 import pytest
@@ -29,7 +28,6 @@ import pytest
 from docpipe.core.constants.constants import ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.extract.services.entity_extraction_service import EntityExtractionService
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -312,7 +310,7 @@ def test_handle_extraction_result_success():
     entities_list: list[dict] = [{}]
 
     task = {"idx": 0, "doc_id": "d1", "doc_name": "d1.txt"}
-    future = Future()
+    future: Future = Future()
     future.set_result(
         {
             OperatorConstants.Extraction.SUCCESS: True,
@@ -335,7 +333,7 @@ def test_handle_extraction_result_failure_result():
     entities_list: list[dict] = [{}]
 
     task = {"idx": 0, "doc_id": "d1", "doc_name": "d1.txt"}
-    future = Future()
+    future: Future = Future()
     future.set_result(
         {
             OperatorConstants.Extraction.SUCCESS: False,
@@ -357,7 +355,7 @@ def test_handle_extraction_result_exception_from_future():
     entities_list: list[dict] = [{}]
 
     task = {"idx": 0, "doc_id": "d1", "doc_name": "d1.txt"}
-    future = Future()
+    future: Future = Future()
     future.set_exception(RuntimeError("GPU OOM"))
 
     service._handle_extraction_result(future, task, entities_list, metadata)
@@ -481,7 +479,7 @@ def test_finalize_table_no_success_skips_entities_column():
     table = _make_table(n=2)
     metadata = _make_metadata(n=2)
     # processed_docs stays 0
-    entities_list = [{}, {}]
+    entities_list: list[dict] = [{}, {}]
 
     result = service._finalize_table(table=table, entities_list=entities_list, metadata=metadata)
 
@@ -548,7 +546,7 @@ def test_expand_entities_columns_empty_list():
     """When entities_list has no keys, the table is returned unchanged."""
     service = _make_service()
     table = _make_table(n=2)
-    entities_list = [{}, {}]
+    entities_list: list[dict] = [{}, {}]
 
     result = service.expand_entities_columns(table=table, entities_list=entities_list)
 
@@ -779,7 +777,7 @@ def test_transform_skipped_docs_produce_warnings_status():
     )
     metadata = _make_metadata(n=2)
 
-    result_tables, result_meta = service.transform(table=table, metadata=metadata)
+    _result_tables, result_meta = service.transform(table=table, metadata=metadata)
 
     assert result_meta[Metrics.External.SKIPPED_DOCS_COUNT] == 2
     assert result_meta[Metrics.External.NODE_STATUS] == ExecutionStatus.COMPLETED_WITH_WARNINGS.value
@@ -825,7 +823,7 @@ def test_transform_mixed_success_and_failure():
     table = _make_table(n=2)
     metadata = _make_metadata(n=2)
 
-    result_tables, result_meta = service.transform(table=table, metadata=metadata)
+    _result_tables, result_meta = service.transform(table=table, metadata=metadata)
 
     assert result_meta[Metrics.External.PROCESSED_DOCS] == 1
     assert result_meta[Metrics.External.FAILED_DOCS_COUNT] == 1
