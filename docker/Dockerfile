@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/python-312:1-1791202627 AS builder
+FROM registry.access.redhat.com/ubi9/python-312:1-1791202627 as builder
 
 USER root
 RUN pip install --no-cache-dir uv
