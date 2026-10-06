@@ -103,6 +103,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+event-streaming = [
+    "confluent-kafka[schemaregistry]==2.15.1",
+]
 lineage = [
     "openlineage-python==1.52.0",
 ]
