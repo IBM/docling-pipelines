@@ -121,8 +121,14 @@ class TestOneDriveSourceAdapter:
     def test_build_config_from_operator_params(self):
         adapter = OneDriveSourceAdapter()
         config = adapter.build_config_from_operator_params(
-            connection_params={"drive_id": "drive1", "folder_path": "Docs", "recursive": False},
-            credentials={"client_id": "client", "client_secret": "secret", "tenant_id": "tenant"},
+            provider_config={
+                "drive_id": "drive1",
+                "folder_path": "Docs",
+                "recursive": False,
+                "client_id": "client",
+                "client_secret": "secret",  # pragma: allowlist secret
+                "tenant_id": "tenant",
+            },
             included_extensions=["txt"],
         )
 
@@ -299,8 +305,7 @@ class TestOneDriveSourceAdapter:
 
         result = adapter.fetch_binary_content(
             source_id="item123",
-            connection_params={"drive_id": "drive1"},
-            credentials={"client_id": "client"},
+            provider_config={"drive_id": "drive1", "client_id": "client"},
         )
 
         assert result is None
@@ -320,8 +325,8 @@ class TestOneDriveSourceAdapter:
         ):
             result = adapter.fetch_binary_content(
                 source_id="item123",
-                connection_params={"drive_id": "drive1"},
-                credentials={
+                provider_config={
+                    "drive_id": "drive1",
                     "client_id": "client",
                     "client_secret": "secret",  # pragma: allowlist secret
                     "tenant_id": "tenant",
@@ -476,8 +481,8 @@ class TestOneDriveSourceAdapter:
             mock_rest_client.return_value.call_rest.return_value = response
             result = adapter.fetch_binary_content(
                 source_id="item123",
-                connection_params={"drive_id": "drive1"},
-                credentials={
+                provider_config={
+                    "drive_id": "drive1",
                     "client_id": "client",
                     "client_secret": "secret",  # pragma: allowlist secret
                     "tenant_id": "tenant",
@@ -505,8 +510,8 @@ class TestOneDriveSourceAdapter:
         ):
             result = adapter.fetch_binary_content(
                 source_id="https://example/item/123",
-                connection_params={"drive_id": "drive1"},
-                credentials={
+                provider_config={
+                    "drive_id": "drive1",
                     "client_id": "client",
                     "client_secret": "secret",  # pragma: allowlist secret
                     "tenant_id": "tenant",
@@ -539,8 +544,14 @@ class TestSharePointSourceAdapter:
     def test_build_config_from_operator_params(self):
         adapter = SharePointSourceAdapter()
         config = adapter.build_config_from_operator_params(
-            connection_params={"document_library_id": "lib1", "folder_path": "Docs", "recursive": False},
-            credentials={"client_id": "client", "client_secret": "secret", "tenant_id": "tenant"},
+            provider_config={
+                "document_library_id": "lib1",
+                "folder_path": "Docs",
+                "recursive": False,
+                "client_id": "client",
+                "client_secret": "secret",  # pragma: allowlist secret
+                "tenant_id": "tenant",
+            },
             included_extensions=["txt"],
         )
 
@@ -665,8 +676,7 @@ class TestSharePointSourceAdapter:
 
         result = adapter.fetch_binary_content(
             source_id="item123",
-            connection_params={"document_library_id": "lib1"},
-            credentials={"client_id": "client"},
+            provider_config={"document_library_id": "lib1", "client_id": "client"},
         )
 
         assert result is None
@@ -686,8 +696,8 @@ class TestSharePointSourceAdapter:
         ):
             result = adapter.fetch_binary_content(
                 source_id="item123",
-                connection_params={"document_library_id": "lib1"},
-                credentials={
+                provider_config={
+                    "document_library_id": "lib1",
                     "client_id": "client",
                     "client_secret": "secret",  # pragma: allowlist secret
                     "tenant_id": "tenant",
@@ -844,8 +854,8 @@ class TestSharePointSourceAdapter:
             mock_rest_client.return_value.call_rest.return_value = response
             result = adapter.fetch_binary_content(
                 source_id="item123",
-                connection_params={"document_library_id": "lib1"},
-                credentials={
+                provider_config={
+                    "document_library_id": "lib1",
                     "client_id": "client",
                     "client_secret": "secret",  # pragma: allowlist secret
                     "tenant_id": "tenant",
@@ -873,8 +883,8 @@ class TestSharePointSourceAdapter:
         ):
             result = adapter.fetch_binary_content(
                 source_id="https://example/item/123",
-                connection_params={"document_library_id": "lib1"},
-                credentials={
+                provider_config={
+                    "document_library_id": "lib1",
                     "client_id": "client",
                     "client_secret": "secret",  # pragma: allowlist secret
                     "tenant_id": "tenant",

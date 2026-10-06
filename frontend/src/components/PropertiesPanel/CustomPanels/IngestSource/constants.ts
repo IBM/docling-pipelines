@@ -9,10 +9,8 @@
 export const INGEST_SOURCE_ATTRIBUTE = {
   /** Storage provider identifier — e.g. "s3", "ibm_cos", "sharepoint" */
   PROVIDER: 'provider',
-  /** Provider-specific connection parameters (bucket, prefix, folder_id, …) */
-  CONNECTION_PARAMS: 'connection_params',
-  /** Authentication credentials for the provider */
-  CREDENTIALS: 'credentials',
+  /** Provider-specific configuration */
+  PROVIDER_CONFIG: 'provider_config',
   /** Maximum number of files to ingest */
   MAX_FILES: 'max_files',
   /** Comma-separated file extensions to include */
@@ -78,8 +76,7 @@ export type IngestSourceAttributeKey =
  */
 export const INGEST_SOURCE_LABELS = {
   PROVIDER: 'Provider',
-  CONNECTION_PARAMS: 'Connection parameters',
-  CREDENTIALS: 'Credentials',
+  PROVIDER_CONFIG: 'Provider configuration',
   MAX_FILES: 'Maximum files',
   INCLUDE_FILTER: 'Include file types',
   EXCLUDE_FILTER: 'Exclude file types',

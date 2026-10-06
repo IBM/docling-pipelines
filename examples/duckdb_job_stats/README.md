@@ -136,6 +136,8 @@ FROM node_stats GROUP BY node_id, name;
 | start_time | TIMESTAMP | Job start time |
 | end_time | TIMESTAMP | Job end time |
 | duration | DOUBLE | Job duration in seconds |
+| heartbeat_timestamp | BIGINT | Last heartbeat timestamp (epoch seconds); tracks worker liveness |
+| progress_timestamp | BIGINT | Last forward-progress timestamp (epoch seconds); stale value with fresh heartbeat indicates a stalled worker |
 | total_docs | INTEGER | Total documents to process |
 | processed_docs | INTEGER | Documents processed |
 | completed_docs | INTEGER | Documents completed successfully |

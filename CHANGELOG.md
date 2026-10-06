@@ -9,54 +9,66 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ## [Unreleased]
 
-### Changed
-
-- **`@staticmethod` conversion for flow-level helpers (issue #127, Tier 2)** — Converted 33 additional instance methods that never read `self` into `@staticmethod` across five modules: 16 graph/config utilities in `FlowValidator` (`_get_parent_results`, `_feature_metadata_to_dict`, `_get_required_node_fields`, `_traverse_dag`, `_validate_global_config_values`, `_build_reverse_graph`, `_find_terminal_node`, `_find_all_terminal_nodes`, `_validate_isolated_nodes`, `_validate_storage_output_operator_placement`, `_build_graph`, `_make_undirected_graph`, `_find_connected_components`, `create_validation_alerts`, `get_duplicate_node_names`, `_evaluate_node_validation_skip`), 6 compiler helpers in `AuthoringCompiler`, 11 formatting helpers in `FlowExecutionReporter`, 2 strategy helpers in `MetadataAggregator`, and 4 helpers in `IncrementalUpdateService`. Multi-parameter converted methods (`_build_reverse_graph`, `_find_terminal_node`, `_build_graph`, `create_validation_alerts`, `_evaluate_node_validation_skip`) now use keyword-only `*` separators per AGENTS.md rule 5, with all call sites updated to keyword arguments. No logic changes; all call sites continue to work because Python resolves staticmethods transparently through instances.
-
-- **`@staticmethod` conversion for per-document hot paths (issue #127)** — Converted 18 instance methods that never read `self` into `@staticmethod` across four modules, eliminating a bound-method allocation per call in per-document code paths: 14 formula methods in `ReadabilityMetrics` (`get_words`, `count_characters`, `flesch_reading_ease`, `flesch_kincaid_grade`, `gunning_fog`, `smog_index`, `coleman_liau_index`, `automated_readability_index`, `dale_chall_readability_score`, `difficult_words`, `text_standard`, `spache_readability`, `mcalpine_eflaw`, `reading_time`), `JobReportGenerator._get_timestamp_from_modified_time` and `JobReportGenerator._create_doc_entry`, `EmbeddingsOperator._generate_document_hash`, and `DuckDBTableStorage._pyarrow_to_duckdb_type`. `linsear_write_formula` remains an instance method because it delegates to `count_syllables`, which uses the per-instance Pyphen dictionary. Also replaced the f-string in the `_get_timestamp_from_modified_time` exception-path `logger.debug` call with `%s`-style formatting per AGENTS.md rule 7. No logic changes; all call sites continue to work unchanged because Python resolves staticmethods transparently through instances.
-
-- **`PIIAndHAPAnnotator` — decorator-based adapter registry** — Replaced the `if/elif` provider chain in `PIIHAPService` with a `PIIAndHAPDetectionFactory` backed by a `@register_pii_and_hap_detection_adapter` decorator. Each provider adapter (`WatsonxPIIAndHAPAdapter`, `LiteLLMPIIAndHAPAdapter`) now self-registers at import time and fully encapsulates its own detection path behind `PIIAndHAPDetectionPort`. `PIIHAPService` is reduced to a thin wrapper that receives an adapter via constructor injection — no provider branching, no `use_specialized_api` flag. Adding a new provider is now a single-file change.
-
-### Fixed
-
-- **Docling Serve Markdown chunking** — Send extracted Markdown with a `.md` filename instead of the original source extension, preserving the original document name in chunk metadata (#64).
-
-- **Execution-granularity benchmark flow size** — S3 benchmark flows now use the configured prefix and `max_files` limit without embedding a corpus-wide exclusion list, avoiding Prefect validation payload-size failures.
-
-- **`docling-pipelines-api` console command** — The entry point previously pointed at the FastAPI `app` object (`docpipe.api.main:app`), causing a `TypeError` on invocation. A `run()` launcher function has been added to `src/docpipe/api/main.py` and `pyproject.toml` now registers `docpipe.api.main:run` as the entry point. Running `docling-pipelines-api` now correctly starts a Uvicorn server on `127.0.0.1:8080`.
-
 ### Added
 
-- **Milvus Lite support** — The `VectorDBOperator` Milvus adapter now supports `auth_type: "lite"` for container-free local operation using an embedded `.db` file (no Docker, Podman, or external Milvus service required). Set `uri` to a local path and `index_type` to `FLAT`. The `milvus-lite==3.2.1` package is now a core dependency. The adapter validates that unsupported index types (anything other than `FLAT`) are rejected at initialisation time for Lite connections. The `text` field in the Milvus schema is now nullable in dense mode so chunk rows without content can be inserted. `MilvusAdapter.close()` is called after every `transform()` to release the file lock. Adds a `sample_flows/vectordb/milvus_lite_integration.json` container-free sample flow and an integration test (`tests/integration/test_ingest_extract_chunk_embed_milvus_lite.py`) covering the full ingest → extract → chunk → embeddings (sentence-transformers) → Milvus Lite pipeline.
+- React frontend UI with Elyra-based pipeline canvas, per-operator properties panels, project/flow management, and Node.js BFF layer; bundled into the wheel and served at `/ui/` (#58)
+- `StorageOutputOperator` — writes processed documents to a configurable destination with `processed_content`, `refetch_original`, and `comprehensive_export` modes (#58)
+- `S3DestinationAdapter` — writes to S3 / IBM COS / MinIO with env-var credentials and bucket pre-flight validation (#58)
+- `SharePointDestinationAdapter` — writes to SharePoint document libraries via Microsoft Graph API (#58)
+- `GoogleDriveDestinationAdapter` — writes to Google Drive with resumable uploads and Service Account / OAuth2 auth (#58)
+- `onedrive` provider alias for `SharePointDestinationAdapter` (#58)
+- `ibm_cos` provider alias for `S3DestinationAdapter` (#58)
+- Hierarchical multi-source path namespacing when `ingest_source` is configured with multiple `paths` (#58)
+- Dropbox ingest source adapter with OAuth2 auth, cursor pagination, and extension/size filters (#44)
+- Milvus Lite support (`auth_type: "lite"`) for container-free local vector storage in `VectorDBOperator` (#56)
+- Full OCR engine exposure — `ocr.engine`, `ocr.mode`, `ocr.enabled`, and `ocr.engine_options` in `ExtractOperator` provider config (#58)
+- GPU acceleration for `ExtractOperator` via `standard_pipeline.accelerator` in `provider_config` (#58)
+- HashiCorp Vault integration — `vault://` URI scheme for resolving secrets in flow configs at runtime (#58)
+- `docling-pipelines-slim` package variant excluding heavyweight operator dependencies (#58)
+- Comprehensive Vitest unit test suite for the frontend (149 files, 2155+ tests) (#81)
+- Flow execution defaults `enable_micro_batching` to `true` when not set in the flow (#58)
+- OpenLineage dependencies, domain models, and port interfaces (#62)
+- Deprecation policy (`docs/guides/DEPRECATION_POLICY.md`) and migration guide template (#58)
+- Release process documentation (`RELEASE_PROCESS.md`) (#58)
 
-- **Dropbox ingest source adapter** — new `dropbox` provider for `IngestSourceOperator`, built on the official Dropbox Python SDK. Supports access-token and refresh-token (long-lived) OAuth2 authentication, cursor-based pagination, recursive or single-level folder traversal, single-file ingestion by path or file id, extension / size / glob-exclusion filters, `max_files` limits, and lazy binary retrieval by Dropbox file id. Adds the `dropbox==12.2.1` dependency. See [the adapter README](src/docpipe/core/operators/ingest/adapters/outbound/sources/dropbox/README.md).
+### Changed
 
-- **Full OCR engine exposure** — Both `docling_library` and `docling_serve` providers now accept an `ocr` block inside `text_extraction.provider_config`. Users can set `ocr.engine` (8 engines: `auto`, `easyocr`, `tesserocr`, `tesseract`, `rapidocr`, `ocrmac`, `kserve_v2_ocr`, `nemotron-ocr`), `ocr.mode` (`default`, `full_page`, `layout_regions`, `pdf_aware_layout_regions`), `ocr.enabled` (bool), and `ocr.engine_options` (pass-through dict). The previously hardcoded `ocr_preset: "auto"` default in `DoclingServeClient` is removed — when no engine is specified, the docling-serve instance uses its own default. Old `do_ocr` / `ocr_engine` / `ocr_languages` fields remain functional but are deprecated in favour of the new `ocr` block.
-
-- **docling-pipelines-slim** — New lightweight package variant that excludes certain operator dependencies. Use when your codebase doesn't require specific built-in operators. See [docs/guides/SLIM_VARIANT.md](docs/guides/SLIM_VARIANT.md) for installation and usage details.
-- **CI: slim wheel push** — `Build and Push Wheel` Jenkins stage now builds and pushes `docling-pipelines-slim` to Artifactory alongside the main wheel under the same `docling-pipelines/${VERSION}/` folder.
-- `StorageOutputOperator` — writes pipeline documents to a pluggable storage destination with three modes: `processed_content`, `refetch_original`, and `comprehensive_export`. Includes `FilesystemDestinationAdapter`, `S3DestinationAdapter`, and `DestinationAdapterFactory` for extensible backend support.
-- `S3DestinationAdapter` — writes to Amazon S3 and S3-compatible storage (IBM COS, MinIO) with env-var credential resolution, pre-flight bucket validation, `create_dirs` prefix checking, and optional `verify_expected_bucket_owner` via STS.
-- `ibm_cos` provider alias — routes to `S3DestinationAdapter` with a custom `endpoint_url`; no separate adapter required. Mirrors the same alias pattern added to `SourceAdapterFactory`.
-- `SharePointDestinationAdapter` — writes to SharePoint document libraries via Microsoft Graph API (client credentials flow) with pre-flight drive/folder validation, overwrite control, and hierarchical path support.
-- Hierarchical multi-source path namespacing — when `ingest_source` is configured with multiple `paths`, each source root is namespaced by its folder name at the destination to avoid collisions.
-- `onedrive` provider alias — routes to `SharePointDestinationAdapter`; identical `connection_params` and `credentials` to `sharepoint`. Suitable for personal and organisational OneDrive drives.
-- `GoogleDriveDestinationAdapter` — writes to Google Drive folders via the Drive API v3 with resumable uploads, lazy sub-folder creation with instance-level caching, overwrite control, and both Service Account and OAuth2 authentication.
-- Initial public open-source release preparation
-- Release process documentation (`RELEASE_PROCESS.md`)
-- Deprecation policy (`docs/guides/DEPRECATION_POLICY.md`)
-- Migration guide template (`docs/guides/MIGRATION_GUIDE_TEMPLATE.md`)
-- **HashiCorp Vault integration** — `vault://` URI scheme for resolving secrets in flow operator configs at runtime. Enable via `secrets.vault.enabled: true` in `docling-pipelines-config.yaml`. Credentials (`VAULT_ROLE_ID`, `VAULT_SECRET_ID`) supplied via environment variables. Supports AppRole auth, KV v1/v2, TLS, mTLS, Vault Enterprise namespaces, and Docker/Kubernetes file-backed secrets.
-- **GPU acceleration for `ExtractOperator`** — `docling_library` provider now supports GPU device selection via `standard_pipeline.accelerator` in `provider_config`. Accepted devices: `mps` (Apple Silicon), `cuda`, `cuda:<index>` (NVIDIA), `xpu` (Intel). When `device` is omitted from the accelerator block, the best available GPU is auto-detected at runtime via torch (CUDA → MPS → XPU). Validates device availability via torch backends before loading any model. Requires `max_workers: 1` and `use_processes: false`. One `DocumentConverter` is constructed per adapter execution and reused across all documents. Flows without accelerator config are unaffected.
-- Flow execution now defaults `enable_micro_batching` to `true` for CLI, REST job runs, and `DocpipeFlowManager` when the flow does not set it explicitly. A user-provided `global_config.enable_micro_batching` value still overrides the default.
+- **Breaking:** `IngestSourceOperator` migrated from `connection_params` + `credentials` to unified `provider_config`; all 8 source adapters and all sample flows updated (#152)
+- `PIIAndHAPAnnotator` provider selection replaced with decorator-based `PIIAndHAPDetectionFactory` registry (#76)
+- 33 self-free instance methods converted to `@staticmethod` across `FlowValidator`, `AuthoringCompiler`, `FlowExecutionReporter`, `MetadataAggregator`, and `IncrementalUpdateService` (#139)
+- 18 self-free per-document hot-path methods converted to `@staticmethod` across `ReadabilityMetrics`, `JobReportGenerator`, `EmbeddingsOperator`, and `DuckDBTableStorage` (#139)
 
 ### Fixed
 
-- `scripts/test_examples.py --dry-run` now skips examples before probing Ollama, OpenSearch, environment variables, or example files.
+- Updated JupyterLab to 4.6.4 in the full and slim notebooks extras to resolve the security alerts tracked in #51.
+- Notification panel now propagates `action_type` from backend validation and fixes stale alert detection (#91)
+- Markdown chunking: send extracted content with `.md` filename to preserve source name in chunk metadata (#148)
+- Job runs list response now populates the actual flow name instead of a blank value (#118)
+- VectorDB enrichment: hydrate connection defaults into `provider_config` before API call (#80)
+- Milvus auth fields, advanced JSON validation, and SSL default corrected in the frontend (#80)
+- Frontend wheel build is now mandatory; UI included in the distributed package (#125)
+- `PII and HAP` operator validates `provider_config` and `model_id` during flow validation (#105)
+- Node execution logs aligned with DAG pipeline order; active duration calculation fixed (#107)
+- `scripts/test_examples.py --dry-run` skips prerequisites before probing Ollama or environment (#31)
+- S3 benchmark flows use configured prefix and `max_files` without embedding a corpus-wide exclusion list
 
 ---
 
-## [0.1.0] - 2025-07-15
+## [1.0.1] - 2026-09-07
+
+### Fixed
+
+- **`docling-pipelines-api` console command** — The entry point previously pointed at the FastAPI `app` object (`docpipe.api.main:app`), causing a `TypeError` on invocation. A `run()` launcher function has been added to `src/docpipe/api/main.py` and `pyproject.toml` now registers `docpipe.api.main:run` as the entry point. Running `docling-pipelines-api` now correctly starts a Uvicorn server on `127.0.0.1:8080`.
+
+- **Ruff PTH123 compliance** — Replaced `open()` calls with `Path.open()` across the codebase.
+
+### Changed
+
+- Bumped vulnerable dependencies flagged by Dependabot.
+
+---
+
+## [1.0.0] - 2026-08-28
 
 ### Added
 
@@ -81,5 +93,6 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 - SonarQube, ruff, mypy, and Mend CI quality gates
 - Comprehensive documentation under `docs/`
 
-[Unreleased]: https://github.com/IBM/docling-pipelines/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/IBM/docling-pipelines/releases/tag/v0.1.0
+[Unreleased]: https://github.com/IBM/docling-pipelines/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/IBM/docling-pipelines/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/IBM/docling-pipelines/releases/tag/v1.0.0

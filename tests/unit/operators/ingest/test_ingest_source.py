@@ -46,8 +46,9 @@ class TestIngestSourceOperatorInitialization:
 
         config = {
             "provider": "s3",
-            "connection_params": {"bucket": "test-bucket", "prefix": "test-prefix/"},
-            "credentials": {
+            "provider_config": {
+                "bucket": "test-bucket",
+                "prefix": "test-prefix/",
                 "access_key": "test-access-key",  # pragma: allowlist secret
                 "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
@@ -56,9 +57,9 @@ class TestIngestSourceOperatorInitialization:
         operator = IngestSourceOperator(config)
 
         assert operator.provider == "s3"
-        assert operator.connection_params["bucket"] == "test-bucket"
-        assert operator.connection_params["prefix"] == "test-prefix/"
-        assert operator.credentials["access_key"] == "test-access-key"
+        assert operator.provider_config["bucket"] == "test-bucket"
+        assert operator.provider_config["prefix"] == "test-prefix/"
+        assert operator.provider_config["access_key"] == "test-access-key"
 
     def test_init_with_ibm_cos_provider(self):
         """Test initialization with IBM COS provider."""
@@ -66,12 +67,10 @@ class TestIngestSourceOperatorInitialization:
 
         config = {
             "provider": "ibm_cos",
-            "connection_params": {
+            "provider_config": {
                 "bucket": "test-bucket",
                 "prefix": "test-prefix/",
                 "endpoint_url": "https://s3.us-south.cloud-object-storage.appdomain.cloud",
-            },
-            "credentials": {
                 "access_key": "test-access-key",  # pragma: allowlist secret
                 "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
@@ -80,7 +79,7 @@ class TestIngestSourceOperatorInitialization:
         operator = IngestSourceOperator(config)
 
         assert operator.provider == "ibm_cos"
-        assert operator.connection_params["endpoint_url"] == "https://s3.us-south.cloud-object-storage.appdomain.cloud"
+        assert operator.provider_config["endpoint_url"] == "https://s3.us-south.cloud-object-storage.appdomain.cloud"
 
     def test_init_with_google_drive_provider(self):
         """Test initialization with Google Drive provider."""
@@ -88,8 +87,9 @@ class TestIngestSourceOperatorInitialization:
 
         config = {
             "provider": "google_drive",
-            "connection_params": {"folder_id": "test-folder-id", "recursive": True},
-            "credentials": {
+            "provider_config": {
+                "folder_id": "test-folder-id",
+                "recursive": True,
                 "credentials_json_path": "/path/to/credentials.json",
                 "token_path": "/path/to/token.json",
                 "scopes": ["https://www.googleapis.com/auth/drive.readonly"],
@@ -99,9 +99,9 @@ class TestIngestSourceOperatorInitialization:
         operator = IngestSourceOperator(config)
 
         assert operator.provider == "google_drive"
-        assert operator.connection_params["folder_id"] == "test-folder-id"
-        assert operator.connection_params["recursive"] is True
-        assert operator.credentials["scopes"] == ["https://www.googleapis.com/auth/drive.readonly"]
+        assert operator.provider_config["folder_id"] == "test-folder-id"
+        assert operator.provider_config["recursive"] is True
+        assert operator.provider_config["scopes"] == ["https://www.googleapis.com/auth/drive.readonly"]
 
     def test_init_with_sharepoint_provider(self):
         """Test initialization with SharePoint provider."""
@@ -109,8 +109,8 @@ class TestIngestSourceOperatorInitialization:
 
         config = {
             "provider": "sharepoint",
-            "connection_params": {"document_library_id": "test-library-id"},
-            "credentials": {
+            "provider_config": {
+                "document_library_id": "test-library-id",
                 "client_id": "test-client-id",
                 "client_secret": "test-client-secret",  # pragma: allowlist secret
             },
@@ -119,7 +119,7 @@ class TestIngestSourceOperatorInitialization:
         operator = IngestSourceOperator(config)
 
         assert operator.provider == "sharepoint"
-        assert operator.connection_params["document_library_id"] == "test-library-id"
+        assert operator.provider_config["document_library_id"] == "test-library-id"
 
     def test_init_with_onedrive_provider(self):
         """Test initialization with OneDrive provider."""
@@ -127,11 +127,9 @@ class TestIngestSourceOperatorInitialization:
 
         config = {
             "provider": "onedrive",
-            "connection_params": {
+            "provider_config": {
                 "drive_id": "test-drive-id",
                 "folder_path": "/Documents",
-            },
-            "credentials": {
                 "client_id": "test-client-id",
                 "client_secret": "test-client-secret",  # pragma: allowlist secret
             },
@@ -140,8 +138,8 @@ class TestIngestSourceOperatorInitialization:
         operator = IngestSourceOperator(config)
 
         assert operator.provider == "onedrive"
-        assert operator.connection_params["drive_id"] == "test-drive-id"
-        assert operator.connection_params["folder_path"] == "/Documents"
+        assert operator.provider_config["drive_id"] == "test-drive-id"
+        assert operator.provider_config["folder_path"] == "/Documents"
 
     def test_init_with_custom_provider(self):
         """Test initialization with custom provider."""
@@ -149,21 +147,68 @@ class TestIngestSourceOperatorInitialization:
 
         config = {
             "provider": "custom",
-            "connection_params": {
+            "provider_config": {
                 "loader_class_path": "my_package.loaders.CustomLoader",
                 "custom_param": "value",
+                "api_key": "test-api-key",  # pragma: allowlist secret
             },
-            "credentials": {"api_key": "test-api-key"},  # pragma: allowlist secret
         }
 
         operator = IngestSourceOperator(config)
 
         assert operator.provider == "custom"
-        assert operator.connection_params["loader_class_path"] == "my_package.loaders.CustomLoader"
+        assert operator.provider_config["loader_class_path"] == "my_package.loaders.CustomLoader"
 
 
 class TestGetMetadata:
     """Test cases for get_metadata method."""
+
+    def test_all_adapter_managed_providers_are_consistent(self):
+        """Every provider in ADAPTER_MANAGED_PROVIDERS must be consistent across three surfaces:
+        1. Registered in SourceAdapterFactory (or covered by a factory alias)
+        2. Listed in get_metadata() provider valid_values
+        3. Has a schema entry in get_metadata() provider_config.providers
+
+        This is a single regression guard that will catch any future provider that
+        is added to one place but forgotten in another.
+        """
+        import docpipe.core.operators.ingest.adapters.outbound.sources  # noqa: F401 — triggers adapter registration
+        from docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory import (
+            SourceAdapterFactory,
+        )
+        from docpipe.core.operators.ingest.ingest_source import (
+            ADAPTER_MANAGED_PROVIDERS,
+            IngestSourceOperator,
+        )
+
+        metadata = IngestSourceOperator.get_metadata()
+        valid_values = set(metadata["attributes"]["provider"]["valid_values"])
+        provider_schemas = metadata["attributes"]["provider_config"]["providers"]
+        registered = set(SourceAdapterFactory.get_registered_names())
+
+        missing_from_factory: list[str] = []
+        missing_from_valid_values: list[str] = []
+        missing_from_schemas: list[str] = []
+
+        for provider in sorted(ADAPTER_MANAGED_PROVIDERS):
+            if provider not in registered:
+                missing_from_factory.append(provider)
+            if provider not in valid_values:
+                missing_from_valid_values.append(provider)
+            if provider not in provider_schemas:
+                missing_from_schemas.append(provider)
+
+        assert not missing_from_factory, (
+            f"Providers in ADAPTER_MANAGED_PROVIDERS but not registered in SourceAdapterFactory: {missing_from_factory}"
+        )
+        assert not missing_from_valid_values, (
+            f"Providers in ADAPTER_MANAGED_PROVIDERS but missing from get_metadata() valid_values: "
+            f"{missing_from_valid_values}"
+        )
+        assert not missing_from_schemas, (
+            f"Providers in ADAPTER_MANAGED_PROVIDERS but missing from get_metadata() provider_config.providers: "
+            f"{missing_from_schemas}"
+        )
 
     def test_get_metadata_declares_all_output_columns(self):
         """Operator metadata must declare every column produced at runtime.
@@ -209,8 +254,9 @@ class TestGetLoader:
 
         config = {
             "provider": "s3",
-            "connection_params": {"bucket": "test-bucket", "prefix": "test-prefix/"},
-            "credentials": {
+            "provider_config": {
+                "bucket": "test-bucket",
+                "prefix": "test-prefix/",
                 "access_key": "test-access-key",  # pragma: allowlist secret
                 "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
@@ -227,12 +273,10 @@ class TestGetLoader:
 
         config = {
             "provider": "ibm_cos",
-            "connection_params": {
+            "provider_config": {
                 "bucket": "test-bucket",
                 "prefix": "test-prefix/",
                 "endpoint_url": "https://s3.us-south.cloud-object-storage.appdomain.cloud",
-            },
-            "credentials": {
                 "access_key": "test-access-key",  # pragma: allowlist secret
                 "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
@@ -249,8 +293,9 @@ class TestGetLoader:
 
         config = {
             "provider": "google_drive",
-            "connection_params": {"folder_id": "test-folder-id", "recursive": True},
-            "credentials": {
+            "provider_config": {
+                "folder_id": "test-folder-id",
+                "recursive": True,
                 "credentials_json_path": "/path/to/credentials.json",
                 "token_path": "/path/to/token.json",
                 "scopes": ["https://www.googleapis.com/auth/drive.readonly"],
@@ -273,8 +318,8 @@ class TestGetLoader:
 
         config = {
             "provider": "sharepoint",
-            "connection_params": {"document_library_id": "test-library-id"},
-            "credentials": {
+            "provider_config": {
+                "document_library_id": "test-library-id",
                 "client_id": "test-client-id",
                 "client_secret": "test-client-secret",  # pragma: allowlist secret
                 "tenant_id": "test-tenant-id",
@@ -295,11 +340,9 @@ class TestGetLoader:
 
         config = {
             "provider": "onedrive",
-            "connection_params": {
+            "provider_config": {
                 "drive_id": "test-drive-id",
                 "folder_path": "/Documents",
-            },
-            "credentials": {
                 "client_id": "test-client-id",
                 "client_secret": "test-client-secret",  # pragma: allowlist secret
                 "tenant_id": "test-tenant-id",
@@ -324,11 +367,11 @@ class TestGetLoader:
 
         config = {
             "provider": "custom",
-            "connection_params": {
+            "provider_config": {
                 "loader_class_path": "my_package.loaders.CustomLoader",
                 "custom_param": "value",
+                "api_key": "test-api-key",  # pragma: allowlist secret
             },
-            "credentials": {"api_key": "test-api-key"},  # pragma: allowlist secret
         }
 
         operator = IngestSourceOperator(config)
@@ -338,7 +381,7 @@ class TestGetLoader:
         mock_loader_class.assert_called_once()
 
     def test_get_loader_custom_passes_merged_init_kwargs(self):
-        """Test _get_loader merges connection params and credentials for custom loaders."""
+        """Test _get_loader passes all provider_config params to custom loaders."""
         from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
         mock_loader_class = Mock()
@@ -347,11 +390,11 @@ class TestGetLoader:
 
         config = {
             "provider": "custom",
-            "connection_params": {
+            "provider_config": {
                 "loader_class_path": "my_package.loaders.CustomLoader",
                 "custom_param": "value",
+                "api_key": "test-api-key",  # pragma: allowlist secret
             },
-            "credentials": {"api_key": "test-api-key"},  # pragma: allowlist secret
         }
 
         with patch("importlib.import_module", return_value=mock_module):
@@ -368,7 +411,7 @@ class TestGetLoader:
         """Test _get_loader raises error when custom provider missing loader_class_path."""
         from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
 
-        config = {"provider": "custom", "connection_params": {}, "credentials": {}}
+        config = {"provider": "custom", "provider_config": {}}
 
         operator = IngestSourceOperator(config)
 
@@ -381,8 +424,7 @@ class TestGetLoader:
 
         config = {
             "provider": "unsupported_provider",
-            "connection_params": {},
-            "credentials": {},
+            "provider_config": {},
         }
 
         operator = IngestSourceOperator(config)
@@ -452,8 +494,9 @@ class TestTransform:
 
         config = {
             "provider": "s3",
-            "connection_params": {"bucket": "test-bucket", "prefix": "test-prefix/"},
-            "credentials": {
+            "provider_config": {
+                "bucket": "test-bucket",
+                "prefix": "test-prefix/",
                 "access_key": "test-access-key",  # pragma: allowlist secret
                 "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
@@ -519,8 +562,9 @@ class TestTransform:
 
         config = {
             "provider": "s3",
-            "connection_params": {"bucket": "test-bucket", "prefix": "test-prefix/"},
-            "credentials": {
+            "provider_config": {
+                "bucket": "test-bucket",
+                "prefix": "test-prefix/",
                 "access_key": "test-access-key",  # pragma: allowlist secret
                 "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
@@ -566,8 +610,9 @@ class TestTransform:
 
         config = {
             "provider": "s3",
-            "connection_params": {"bucket": "test-bucket", "prefix": "test-prefix/"},
-            "credentials": {
+            "provider_config": {
+                "bucket": "test-bucket",
+                "prefix": "test-prefix/",
                 "access_key": "test-access-key",  # pragma: allowlist secret
                 "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
@@ -628,8 +673,9 @@ class TestTransform:
 
         config = {
             "provider": "s3",
-            "connection_params": {"bucket": "test-bucket", "prefix": "test-prefix/"},
-            "credentials": {
+            "provider_config": {
+                "bucket": "test-bucket",
+                "prefix": "test-prefix/",
                 "access_key": "test-access-key",  # pragma: allowlist secret
                 "secret_key": "test-secret-key",  # pragma: allowlist secret
             },
@@ -705,8 +751,9 @@ class TestTransform:
 
         config = {
             "provider": "google_drive",
-            "connection_params": {"folder_id": "test-folder-id", "recursive": True},
-            "credentials": {
+            "provider_config": {
+                "folder_id": "test-folder-id",
+                "recursive": True,
                 "credentials_json_path": "/path/to/credentials.json",
                 "token_path": "/path/to/token.json",
                 "scopes": ["https://www.googleapis.com/auth/drive.readonly"],
@@ -776,11 +823,12 @@ class TestTransform:
 
         config = {
             "provider": "s3",
-            "connection_params": {"bucket": "test-bucket", "prefix": ""},
-            "credentials": {
+            "provider_config": {
+                "bucket": "test-bucket",
+                "prefix": "",
                 "access_key": "key",
                 "secret_key": "secret",  # pragma: allowlist secret
-            },  # pragma: allowlist secret
+            },
             "job_id": "test-job-123",
             "job_run_id": "test-run-456",
             "force_ingest": True,
@@ -809,8 +857,10 @@ class TestTransform:
 
         config = {
             "provider": "google_drive",
-            "connection_params": {"file_id": "doc123", "folder_id": "test-folder-id", "recursive": False},
-            "credentials": {
+            "provider_config": {
+                "file_id": "doc123",
+                "folder_id": "test-folder-id",
+                "recursive": False,
                 "credentials_path": "/path/to/credentials.json",
                 "token_path": "/path/to/token.json",
                 "scopes": ["https://www.googleapis.com/auth/drive.readonly"],
@@ -901,8 +951,9 @@ class TestIntegrationScenarios:
 
         config = {
             "provider": "s3",
-            "connection_params": {"bucket": "my-bucket", "prefix": "invoices/"},
-            "credentials": {
+            "provider_config": {
+                "bucket": "my-bucket",
+                "prefix": "invoices/",
                 "access_key": "AKIAIOSFODNN7EXAMPLE",  # pragma: allowlist secret
                 "secret_key": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",  # pragma: allowlist secret
             },
@@ -942,8 +993,12 @@ class TestIngestSourceOperatorProcessDocumentUrlExtensionFallback:
 
         config: dict = {
             "provider": "s3",
-            "connection_params": {"bucket": "test-bucket", "prefix": ""},
-            "credentials": {"access_key": "key", "secret_key": "secret"},  # pragma: allowlist secret
+            "provider_config": {
+                "bucket": "test-bucket",
+                "prefix": "",
+                "access_key": "key",
+                "secret_key": "secret",  # pragma: allowlist secret
+            },
         }
         if include_filter:
             config["include_filter"] = include_filter
@@ -1143,8 +1198,7 @@ class TestIngestSourceOperatorAdditionalCoverage:
 
         config = {
             "provider": "custom",
-            "connection_params": {"loader_class_path": "pkg.Loader"},
-            "credentials": {},
+            "provider_config": {"loader_class_path": "pkg.Loader"},
         }
         config.update(overrides)
         return IngestSourceOperator(config)
@@ -1172,8 +1226,7 @@ class TestIngestSourceOperatorAdditionalCoverage:
             IngestSourceOperator(
                 {
                     "provider": "custom",
-                    "connection_params": {"loader_class_path": "pkg.Loader"},
-                    "credentials": {},
+                    "provider_config": {"loader_class_path": "pkg.Loader"},
                     "include_filter": ".unsupported",
                 }
             )
@@ -1182,8 +1235,7 @@ class TestIngestSourceOperatorAdditionalCoverage:
             IngestSourceOperator(
                 {
                     "provider": "custom",
-                    "connection_params": {"loader_class_path": "pkg.Loader"},
-                    "credentials": {},
+                    "provider_config": {"loader_class_path": "pkg.Loader"},
                     "exclude_filter": ".unsupported",
                 }
             )
@@ -1194,8 +1246,7 @@ class TestIngestSourceOperatorAdditionalCoverage:
         operator = IngestSourceOperator(
             {
                 "provider": "custom",
-                "connection_params": {"loader_class_path": "pkg.Loader"},
-                "credentials": {},
+                "provider_config": {"loader_class_path": "pkg.Loader"},
                 "include_filter": ".txt",
                 "exclude_filter": ".pdf",
             }
@@ -1260,8 +1311,7 @@ class TestIngestSourceOperatorAdditionalCoverage:
         operator = IngestSourceOperator(
             {
                 "provider": "custom",
-                "connection_params": {"loader_class_path": "pkg.Loader"},
-                "credentials": {},
+                "provider_config": {"loader_class_path": "pkg.Loader"},
                 "max_files": 2,
                 "include_filter": ".txt",
             }

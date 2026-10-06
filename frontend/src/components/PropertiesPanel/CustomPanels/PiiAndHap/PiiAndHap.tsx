@@ -54,6 +54,7 @@ import {
   PROVIDER_CONFIG_DESCRIPTION,
 } from './constants';
 import common from '../../CommonPropertiesPanel.module.scss';
+import { useProviderConfigDefaults } from '@/hooks/useProviderConfigDefaults';
 
 interface PiiAndHapPanelBodyProps {
   controller: any;
@@ -165,6 +166,8 @@ export function PiiAndHapPanelBody({ controller }: PiiAndHapPanelBodyProps): Rea
   // No hardcoded fallback — the Dropdown renders an empty list until metadata loads.
   const providerValidValues = (nodeAttributes[ATTR.PROVIDER] as Record<string, unknown> | undefined)?.valid_values;
   const providerItems: string[] = Array.isArray(providerValidValues) ? (providerValidValues as string[]) : [];
+
+  useProviderConfigDefaults(controller, nodeAttributes);
 
   // ── Required param validation ─────────────────────────────────────────────
   const validate = getRequiredParamValidator(nodeAttributes);
