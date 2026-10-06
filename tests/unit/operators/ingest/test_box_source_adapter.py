@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from unittest.mock import Mock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from docpipe.core.operators.ingest.adapters.outbound.sources.box.adapter import BoxSourceAdapter
 from docpipe.core.operators.ingest.adapters.outbound.sources.box.config import BoxSourceConfig
@@ -49,7 +50,7 @@ class TestBoxSourceConfig:
 
     def test_validates_max_file_size(self):
         """Test that max_file_size_mb must be positive."""
-        with pytest.raises(ValueError, match="max_file_size_mb must be positive"):
+        with pytest.raises(ValidationError, match="Input should be greater than or equal to 1"):
             BoxSourceConfig(
                 credentials_path="/tmp/box_config.json",
                 max_file_size_mb=-1,
