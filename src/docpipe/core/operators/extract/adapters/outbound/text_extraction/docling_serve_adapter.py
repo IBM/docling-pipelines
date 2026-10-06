@@ -405,12 +405,18 @@ class DoclingServeAdapter(TextExtractionPort):
                 logger.info("Generated %s format for %s", fmt, file_path)
 
         if primary_format not in formats_generated:
-            if not result_dict.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT):
+            if result_dict.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT):
+                # Primary content was fetched successfully via a non-standard artifact_type path;
+                # prepend it to formats_generated so the caller sees the correct format list.
+                formats_generated.insert(0, primary_format)
+            else:
                 logger.warning(
                     "Primary format '%s' was not found or failed to fetch in v2 response for %s",
                     primary_format,
                     file_path,
                 )
-            formats_generated.insert(0, primary_format)
+                # Do NOT insert — primary content is genuinely missing. Leaving formats_generated
+                # without the primary format lets the caller treat this as a failed extraction
+                # rather than silently flowing None/empty content downstream.
 
         return result_dict, formats_generated

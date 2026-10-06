@@ -1186,10 +1186,17 @@ class TestDoclingServeAdapterV2Response:
 
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
-    def test_v2_markdown_missing_from_artifacts_still_prepended(
+    def test_v2_primary_format_missing_from_artifacts_not_inserted(
         self, mock_get, mock_client_class, adapter_with_formats
     ):
-        """If no markdown artifact was successfully fetched, markdown is prepended to formats."""
+        """If no primary artifact was fetched, primary format is NOT prepended to formats.
+
+        Regression guard for the bug where formats_generated.insert() ran unconditionally
+        even when DOC_COLUMN_DEFAULT was None/empty, making a failed fetch look successful.
+        With the fix, a missing primary artifact leaves DOC_COLUMN_DEFAULT empty and does NOT
+        add the primary format to formats_generated — preventing None content from flowing
+        silently downstream.
+        """
         mock_client_class.return_value.process_document.return_value = {
             "documents": [
                 {
@@ -1206,8 +1213,49 @@ class TestDoclingServeAdapterV2Response:
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         formats = result[OperatorConstants.Metadata.METADATA]["formats"]
-        # markdown is inserted at index 0 even when not in artifacts
-        assert formats[0] == OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN
+        # Primary format (markdown) was never fetched — must NOT appear in formats_generated
+        assert OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN not in formats
+        # The html artifact that was fetched is still present
+        assert "html" in formats
+        # DOC_COLUMN_DEFAULT must be empty/falsy — not silently filled with None
+        assert not result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_doclang_primary_missing_from_artifacts_not_inserted(self, mock_get, mock_client_class):
+        """When doc_format=doclang and doclang artifact fails, it is NOT inserted into formats_generated.
+
+        Regression guard: a v2 server that produces no doclang artifact (e.g., only markdown)
+        must not silently pretend doclang was produced. Without this guard a None content column
+        would flow downstream into RedactionOperator or VectorDBOperator.
+        """
+        config = {
+            "docling_serve_config": {"base_url": "http://localhost:5001"},
+            OperatorConstants.DOC_FORMAT_KEY: OperatorConstants.DocFormat.DOCLANG,
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        mock_client_class.return_value.process_document.return_value = {
+            "documents": [
+                {
+                    "artifacts": [
+                        # Server only returns markdown, no doclang artifact at all
+                        {"artifact_type": "markdown", "uri": "http://s3/doc.md"},
+                    ]
+                }
+            ],
+            "processing_time": 0.9,
+        }
+        mock_get.side_effect = self._mock_get({"doc.md": "# Fallback markdown"})
+
+        result = adapter.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        formats = result[OperatorConstants.Metadata.METADATA]["formats"]
+        # doclang was never produced — must NOT be inserted
+        assert OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG not in formats
+        # DOC_COLUMN_DEFAULT must be empty (doclang was the primary, never fetched)
+        assert not result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
 
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
