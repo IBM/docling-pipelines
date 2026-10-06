@@ -28,7 +28,8 @@ def produce(*, message: dict) -> None:
         }
     )
     producer.produce(topic=TOPIC, key=None, value=message)
-    if producer.flush(timeout=5):
+    remaining = producer.flush(timeout=5)
+    if remaining > 0:
         raise RuntimeError("Kafka did not deliver the event before the timeout")
     print(f"Produced: {json.dumps(message)}")
 

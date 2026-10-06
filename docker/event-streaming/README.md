@@ -5,7 +5,7 @@ Start in the repository root. This example requires `uv` and Docker Compose.
 ## Start Kafka and register the schema
 
 ```bash
-uv sync --extra dev
+uv sync --extra dev --extra event-streaming
 source .venv/bin/activate
 cd docker/event-streaming
 export KAFKA_TOPIC=docpipe-poc

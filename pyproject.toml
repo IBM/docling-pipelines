@@ -20,7 +20,6 @@ dependencies = [
     "boto3==1.42.55",
     "botocore==1.42.55",
     "box-sdk-gen==1.17.0",
-    "confluent-kafka[schemaregistry]==2.15.1",
     "cryptography==50.0.0",
     "data-prep-toolkit-transforms==1.1.8",
     "datatrove==0.10.0",
@@ -104,6 +103,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+event-streaming = [
+    "confluent-kafka[schemaregistry]==2.15.1",
+]
 lineage = [
     "openlineage-python==1.52.0",
 ]
