@@ -1,6 +1,5 @@
 """JWT token handling module."""
 
-import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -8,7 +7,9 @@ from jose import JWTError, jwt
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-logger = logging.getLogger(__name__)
+from docpipe.utils.infrastructure.logging import get_logger
+
+logger = get_logger(__name__)
 
 _JWT_SECRET_MIN_LENGTH = 32
 

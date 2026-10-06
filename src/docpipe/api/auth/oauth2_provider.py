@@ -1,6 +1,5 @@
 """OAuth2 provider implementation with OIDC support."""
 
-import logging
 import secrets
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime, timedelta
@@ -11,11 +10,12 @@ import httpx
 from jose import JWTError, jwt
 
 from docpipe.exceptions.docpipe_exceptions import ConfigurationError, DocpipeException, ExternalServiceError
+from docpipe.utils.infrastructure.logging import get_logger
 
 from .models import User
 from .oauth2_config import OAuth2Config
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class OAuth2Provider(ABC):

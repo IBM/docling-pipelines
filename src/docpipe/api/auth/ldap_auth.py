@@ -1,16 +1,15 @@
 """LDAP authentication module."""
 
-import logging
-
 import ldap
 from ldap.filter import escape_filter_chars
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from docpipe.exceptions.docpipe_exceptions import ConfigurationError, ExternalServiceError
+from docpipe.utils.infrastructure.logging import get_logger
 
 from .models import User
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LDAPConfig(BaseSettings):
