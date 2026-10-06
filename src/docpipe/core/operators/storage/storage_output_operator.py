@@ -404,9 +404,13 @@ class StorageOutputOperator(AbstractOperator):
         provider = self.destination_config.get("provider", "")
         adapter = DestinationAdapterFactory.create(provider)
         try:
+            provider_config = self.destination_config.get("provider_config") or {}
+            # The UI stores provider-specific fields together in provider_config.
+            # Keep the separate credentials field compatible with existing flows.
+            credentials = {**provider_config, **(self.destination_config.get("credentials") or {})}
             dest_cfg = adapter.build_config_from_operator_params(
-                provider_config=self.destination_config.get("provider_config") or {},
-                credentials=self.destination_config.get("credentials") or {},
+                provider_config=provider_config,
+                credentials=credentials,
             )
         except (ValueError, KeyError) as e:
             config_error_msg = str(e)
@@ -470,10 +474,10 @@ class StorageOutputOperator(AbstractOperator):
         # relative paths for cloud sources (e.g. S3) that don't store relative_path
         # directly in document metadata.
         ingest_source = self._global_config.get(OperatorConstants.Config.INGEST_SOURCE, {})
-        connection_params = ingest_source.get(OperatorConstants.Config.CONNECTION_PARAMS, {})
-        source_prefix: str | None = connection_params.get("prefix")
+        source_config = ingest_source.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+        source_prefix: str | None = source_config.get("prefix")
         # Source paths list — used in hierarchical mode to prefix each root's folder name.
-        source_paths: list[str] | None = connection_params.get("paths") or None
+        source_paths: list[str] | None = source_config.get("paths") or None
 
         # For ingest_source (filesystem) rows there is no metadata column.  Derive the ingest root from
         # the common directory ancestor of all absolute paths in the batch so that the
