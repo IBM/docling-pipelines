@@ -1,25 +1,58 @@
-FROM registry.access.redhat.com/ubi9/python-312:1-1791202627 AS builder
+# Build the React UI into static assets.
+FROM registry.access.redhat.com/ubi10/nodejs-22 AS frontend-builder
 
 USER root
+WORKDIR /frontend
+
+# Cache dependencies separately from frontend source changes.
+COPY frontend/package*.json ./
+RUN npm ci
+
+COPY frontend/src ./src
+COPY frontend/public ./public
+COPY frontend/index.html \
+     frontend/vite.config.ts \
+     frontend/tsconfig.json \
+     ./
+RUN npm run build
+
+# Install Python dependencies before copying application source.
+FROM registry.access.redhat.com/ubi9/python-312 AS backend-builder
+
+USER root
+WORKDIR /opt/app-root
+
 RUN pip install --no-cache-dir uv
 
-WORKDIR /opt/app-root
-COPY pyproject.toml ./
-RUN uv pip install --no-cache -r pyproject.toml
+# Cache dependencies separately from backend source changes.
+COPY pyproject.toml uv.lock ./
+RUN uv export --locked --no-dev --no-emit-project --output-file requirements.txt && \
+    uv pip install --no-cache --require-hashes -r requirements.txt
 
 COPY src/docpipe/ ./src/docpipe/
 
-FROM registry.access.redhat.com/ubi9/python-312:1-1791202627
+# Run the API and serve the built UI as a non-root user.
+FROM registry.access.redhat.com/ubi9/python-312
 
 USER root
 RUN dnf install -y mesa-libGL && \
     dnf clean all && \
     useradd -m -u 1000 docpipe
 
-COPY --from=builder --chown=1000:0 /opt/app-root/ /opt/app-root/
+COPY --from=backend-builder --chown=1000:0 /opt/app-root/ /opt/app-root/
+COPY --from=frontend-builder --chown=1000:0 /frontend/dist /opt/app-root/src/docpipe/api/static/
 
-RUN mkdir -p /data /opt/app-root/nltk_data && \
-    chown -R docpipe:root /data /opt/app-root/nltk_data
+# Allow runtime downloads and storage writes under the supported data paths.
+RUN mkdir -p \
+        /opt/app-root/nltk_data \
+        /opt/app-root/data \
+        /opt/app-root/src/data \
+        /data && \
+    chown -R docpipe:root \
+        /opt/app-root/nltk_data \
+        /opt/app-root/data \
+        /opt/app-root/src/data \
+        /data
 
 WORKDIR /opt/app-root/src
 USER docpipe
