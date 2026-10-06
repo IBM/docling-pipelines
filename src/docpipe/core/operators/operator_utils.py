@@ -544,7 +544,7 @@ class OperatorUtils:
             dt = datetime.datetime.fromtimestamp(epoch_ms / 1000, tz=datetime.UTC)
             return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
         except (ValueError, TypeError, OverflowError) as e:
-            logger.error(f"Failed to convert epoch milliseconds to ISO8601: {e}")
+            logger.error("Failed to convert epoch milliseconds to ISO8601: %s", e)
             return None
 
     @staticmethod
@@ -902,7 +902,7 @@ class OperatorUtils:
         try:
             return input_table.rename_columns(new_names_ordered)
         except Exception as e:
-            logger.error(str(e), stack_info=True, exc_info=True)
+            logger.exception(str(e), stack_info=True)
             raise
 
     @staticmethod
@@ -1182,7 +1182,7 @@ class OperatorUtils:
                     )
                 )
             except Exception as e:
-                logger.error("Error preparing document '%s' at index %s: %s", doc_name, row_idx, str(e), exc_info=True)
+                logger.exception("Error preparing document '%s' at index %s: %s", doc_name, row_idx, str(e))
                 doc_tasks.append({"idx": row_idx, "doc_id": doc_id, "doc_name": doc_name, "error": str(e)})
         return doc_tasks
 
