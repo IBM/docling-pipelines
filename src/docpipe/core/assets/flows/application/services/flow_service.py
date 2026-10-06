@@ -442,7 +442,8 @@ class FlowService(AssetService[Flow]):
         """
         # Delegate to inherited delete() from AssetService
         result = self.delete(asset_id=flow_id)
-        self._delete_job_runs_for_flow(flow_id)
+        if result:
+            self._delete_job_runs_for_flow(flow_id)
         return result
 
     def bulk_delete_flows(self, flow_ids: list[str]) -> dict[str, Any]:
