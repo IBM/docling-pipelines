@@ -248,10 +248,15 @@ pytest                                                           # run tests
 pytest tests/unit/core/operators/ -v                             # run specific test path
 pytest --cov=src/docpipe --cov-report=html                       # with coverage
 
-pre-commit run --files <changed-file> ...                         # check only changed files before pushing
+pre-commit run --from-ref origin/main --to-ref HEAD              # check committed branch changes before pushing
 ```
 
-Never run `pre-commit run --all-files`. Scope pre-commit checks to the files changed by the current task using `--files`, or use `--from-ref <base> --to-ref HEAD` for committed changes.
+## Pre-commit Workflow
+
+- Never run pre-commit with `--all-files`.
+- Stage and commit changes with `git commit -s`, then run `pre-commit run --from-ref origin/main --to-ref HEAD` before pushing.
+- Keep `origin/main` up to date; substitute the actual PR base for stacked branches.
+- If hooks modify files, stage and commit the fixes, then rerun the checks before pushing.
 
 ## Key External Services
 
