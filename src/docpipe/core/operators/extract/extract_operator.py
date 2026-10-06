@@ -1353,8 +1353,9 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                     temp_pages_idx = column_names.index(DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN)
                     column_names[temp_pages_idx] = OperatorConstants.Columns.PAGES_PROCESSED
                     logger.info(
-                        f"Renaming '{DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN}' to "
-                        f"'{OperatorConstants.Columns.PAGES_PROCESSED}'"
+                        "Renaming '%s' to '%s'",
+                        DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN,
+                        OperatorConstants.Columns.PAGES_PROCESSED,
                     )
 
                 table = pa.table(
