@@ -577,7 +577,7 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
 
         Retries are handled by the adapter, so a transient failure re-sends only this
         request. A permanent failure is returned instead of raised so that the caller
-        can fail exactly the documents whose texts were part of the request.
+        can decide which documents it affects (see ``_embed_documents``).
 
         Args:
             texts: Texts sent together in one provider request
@@ -651,14 +651,66 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
                 vectors.append(np.mean([flat_vectors[pos] for pos in slot], axis=0).tolist())
         return vectors
 
+    def _embed_in_isolation(
+        self,
+        *,
+        positions_by_doc: dict[int, list[int]],
+        flat_texts: list[str],
+        flat_vectors: list[list[float] | None],
+    ) -> dict[int, Exception]:
+        """
+        Re-embed texts of failed shared requests, one document per request.
+
+        Only the texts that were in failed requests are re-sent, grouped per document in
+        requests of at most ``batch_size`` texts (with up to ``max_concurrent_requests`` in
+        flight). The number of extra requests is bounded by the number of failed shared
+        requests plus the number of affected documents.
+
+        Args:
+            positions_by_doc: Stream positions to re-embed, per document
+            flat_texts: Flattened request stream
+            flat_vectors: Vectors of the stream; filled in place for successful requests
+
+        Returns:
+            The error of each document that still fails on its own
+        """
+        batch_size = self._batch_size
+        groups: list[tuple[int, list[int]]] = [
+            (doc_pos, positions[start : start + batch_size])
+            for doc_pos, positions in positions_by_doc.items()
+            for start in range(0, len(positions), batch_size)
+        ]
+        logger.warning(
+            "A shared embedding request failed; re-embedding %d affected documents in isolation (%d requests)",
+            len(positions_by_doc),
+            len(groups),
+            extra=self.common_log_arguments,
+        )
+
+        errors: dict[int, Exception] = {}
+        results = self._run_requests(requests=[[flat_texts[pos] for pos in positions] for _, positions in groups])
+        for (doc_pos, positions), result in zip(groups, results, strict=True):
+            if isinstance(result, Exception):
+                errors.setdefault(doc_pos, result)
+                continue
+            for pos, vector in zip(positions, result, strict=True):
+                flat_vectors[pos] = vector
+            if self._embedding_dim is None and result:
+                self._embedding_dim = len(result[0])
+        return errors
+
     def _embed_documents(self, *, texts_per_doc: list[list[str]]) -> list[list[list[float]] | Exception]:
         """
         Embed the texts of several documents using shared, full-size requests.
 
         All texts are flattened into one stream, sent in requests of ``batch_size``
         texts with up to ``max_concurrent_requests`` requests in flight, and the
-        resulting vectors are scattered back to their documents in order. A request
-        that fails permanently fails only the documents whose texts it carried.
+        resulting vectors are scattered back to their documents in order.
+
+        A request that fails permanently and carried texts of a single document fails
+        that document. If it carried texts of several documents, each of them is
+        re-embedded in isolation (see ``_embed_in_isolation``) so that one bad text only
+        fails its own document.
 
         Args:
             texts_per_doc: Texts of each document (one output vector per text)
@@ -697,16 +749,32 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
             )
 
         flat_vectors: list[list[float] | None] = [None] * len(flat_texts)
+        # Stream positions of failed shared requests, per document, to retry in isolation
+        retry_positions: dict[int, list[int]] = {}
         for request_idx, result in enumerate(self._run_requests(requests=requests)):
             start = request_idx * batch_size
+            end = start + len(requests[request_idx])
             if isinstance(result, Exception):
-                for doc_pos in flat_owner[start : start + len(requests[request_idx])]:
-                    doc_errors.setdefault(doc_pos, result)
+                owners = list(dict.fromkeys(flat_owner[start:end]))
+                if len(owners) == 1:
+                    # The request carried only this document's texts: it fails on its own error
+                    doc_errors.setdefault(owners[0], result)
+                else:
+                    for pos in range(start, end):
+                        retry_positions.setdefault(flat_owner[pos], []).append(pos)
                 continue
-            flat_vectors[start : start + len(result)] = result
+            flat_vectors[start:end] = result
             # Cache embedding dimension from the first result available
             if self._embedding_dim is None and result:
                 self._embedding_dim = len(result[0])
+
+        # A document whose own single-document request already failed is not retried
+        retry_positions = {doc: pos for doc, pos in retry_positions.items() if doc not in doc_errors}
+        if retry_positions:
+            for doc_pos, error in self._embed_in_isolation(
+                positions_by_doc=retry_positions, flat_texts=flat_texts, flat_vectors=flat_vectors
+            ).items():
+                doc_errors.setdefault(doc_pos, error)
 
         results: list[list[list[float]] | Exception] = []
         for doc_pos, slots in enumerate(slots_per_doc):

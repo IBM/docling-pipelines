@@ -199,7 +199,7 @@ All input columns are preserved. The operator appends:
 | `chunked_content` column not found | Chunker was skipped | Add `ChunkerOperator` before this step; a validation warning is also emitted |
 | Slow throughput with HuggingFace API | Rate limits | Switch to `use_local: true` for local inference |
 | Rate-limit (HTTP 429) errors from a hosted provider | Too many requests in flight | Lower `provider_config.max_concurrent_requests` (LiteLLM default `4`) |
-| Several neighbouring documents fail together | One request carrying their texts failed permanently | Check the failure reason; documents share requests of `batch_size` texts, so a smaller `batch_size` narrows the impact |
+| Warning `A shared embedding request failed; re-embedding ... documents in isolation` | A request shared by several documents failed permanently | Expected fallback: each affected document is retried on its own and only documents that still fail are recorded as failed; check their failure reasons |
 
 ### API key best practice
 
@@ -244,8 +244,14 @@ The operator flattens the texts of all input documents (chunks for `chunked_cont
 document for `content`) into a single stream, sends it in requests of `batch_size` texts with up to
 `max_concurrent_requests` requests in flight, and maps the returned vectors back to their documents in
 the original order. Whitespace-only texts receive zero vectors and are not sent. Provider retries (LiteLLM,
-watsonx) apply to each request on its own; if a request still fails, only the documents whose texts it
-carried are recorded as failed.
+watsonx) apply to each request on its own.
+
+If a request still fails and it carried texts of several documents, each of those documents is
+re-embedded on its own (only its texts from the failed request, in requests of `batch_size`), so a bad
+text fails only its own document. A failed request that carried a single document fails that document
+directly. This fallback only runs on failures and adds at most (failed shared requests + affected
+documents) requests; during a full provider outage the request count therefore roughly doubles before
+every document is recorded as failed.
 
 `max_concurrent_requests` applies to each operator run. When micro-batching runs several batches at the
 same time, up to `max_concurrent_batches` x `max_concurrent_requests` requests can be in flight, so lower
