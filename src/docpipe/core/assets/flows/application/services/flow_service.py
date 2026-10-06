@@ -74,12 +74,57 @@ class FlowService(AssetService[Flow]):
         self._job_stats_service = job_stats_service
         logger.debug("FlowService initialized with repository: %s", type(repository).__name__)
 
+    @staticmethod
+    def _sync_elyra_definition_name(*, definition: dict[str, Any], new_name: str) -> dict[str, Any]:
+        """Sync app_data.ds_flow.name inside an Elyra pipeline definition.
+
+        When a flow name is updated, the Elyra definition stores the name in
+        ``definition["pipelines"][0]["app_data"]["ds_flow"]["name"]``.  This
+        helper updates that nested field so the definition stays consistent with
+        the top-level ``Flow.name``.
+
+        Args:
+            definition: The existing Elyra-format definition dict (mutated in place
+                        via a shallow copy of the pipelines list entry).
+            new_name: The new flow name to write into the definition.
+
+        Returns:
+            Updated definition dict with the nested name synchronised.
+        """
+        import copy
+
+        # Local import to avoid circular dependency:
+        # elyra_converter -> abstract_operator -> operator_utils -> job_management -> flow_service
+        from docpipe.utils.orchestration.elyra_converter import ElyraConstants
+
+        pipelines = definition.get(ElyraConstants.PIPELINES)
+        if not isinstance(pipelines, list) or not pipelines:
+            return definition
+
+        updated_definition = dict(definition)
+        updated_pipelines = list(pipelines)
+        pipeline = copy.deepcopy(updated_pipelines[0])
+
+        app_data = pipeline.get(ElyraConstants.APP_DATA)
+        if isinstance(app_data, dict):
+            ds_flow = app_data.get(ElyraConstants.DS_FLOW)
+            if isinstance(ds_flow, dict):
+                ds_flow[DocpipeConstants.NAME] = new_name
+                logger.debug("Synced app_data.ds_flow.name to '%s'", new_name)
+
+        updated_pipelines[0] = pipeline
+        updated_definition["pipelines"] = updated_pipelines
+        return updated_definition
+
     def _transform_authoring_updates(self, *, updates: dict[str, Any], existing_flow: Flow) -> dict[str, Any]:
         """Transform authoring format fields to Flow model fields.
 
         Maps authoring-specific fields to Flow attributes:
         - flow_name -> name
         - flow + global_config -> definition (complete authoring format)
+
+        For Elyra-format flows, also syncs the name change into
+        ``definition["pipelines"][0]["app_data"]["ds_flow"]["name"]``.
 
         Args:
             updates: Dictionary with potential authoring format fields
@@ -131,6 +176,19 @@ class FlowService(AssetService[Flow]):
             updates.pop(DocpipeConstants.FLOW, None)
             updates.pop(OperatorConstants.Config.GLOBAL_CONFIG, None)
             logger.debug("Transformed authoring format to definition")
+
+        # For Elyra-format flows, sync the name into app_data.ds_flow.name
+        # when only the top-level name is being changed (no full definition replacement).
+        elif DocpipeConstants.NAME in updates and DocpipeConstants.DEFINITION not in updates:
+            # Local import — same circular-import constraint as _sync_elyra_definition_name
+            from docpipe.utils.orchestration.elyra_converter import ElyraConstants
+
+            existing_def = existing_flow.definition
+            if isinstance(existing_def, dict) and ElyraConstants.PIPELINES in existing_def:
+                updates[DocpipeConstants.DEFINITION] = self._sync_elyra_definition_name(
+                    definition=existing_def,
+                    new_name=updates[DocpipeConstants.NAME],
+                )
 
         return updates
 
