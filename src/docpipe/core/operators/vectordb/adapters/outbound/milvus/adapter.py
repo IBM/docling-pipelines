@@ -78,10 +78,10 @@ class MilvusAdapter(VectorStorePort):
                 - metric_type: Similarity metric (L2, IP, COSINE)
                 - index_parameters: Index-specific parameters
         """
-        # collection_name is now part of provider_config — validate it is present
+        # collection_name is now part of provider_config — read it from config
         self.collection_name = adapter_config.get(OperatorConstants.VectorDB.COLLECTION_NAME)
         if not self.collection_name:
-            raise ValueError("provider_config.collection_name is required for the Milvus adapter")
+            raise ValueError("collection_name is required for the Milvus adapter")
         self.embeddings_column = adapter_config.get(
             OperatorConstants.Columns.EMBEDDINGS_COLUMN, OperatorConstants.Columns.EMBEDDINGS_COLUMN_DEFAULT
         )
@@ -194,7 +194,7 @@ class MilvusAdapter(VectorStorePort):
         # Process batches
         success_count, failed_items = self.batch_processor.process_batches(batches=batches)
 
-        logger.debug(f"Indexed {success_count} documents in {len(batches)} batches, {len(failed_items)} failed")
+        logger.debug("Indexed %s documents in %s batches, %s failed", success_count, len(batches), len(failed_items))
 
         return success_count, failed_items
 
@@ -237,7 +237,7 @@ class MilvusAdapter(VectorStorePort):
         """
         # Pass the full dimension_mapping to create_collection for multi-model support
         self.index_manager.create_collection(dimension_mapping=dimension_mapping)
-        logger.info(f"Created collection: {self.collection_name} with dimension mapping: {dimension_mapping}")
+        logger.info("Created collection: %s with dimension mapping: %s", self.collection_name, dimension_mapping)
 
     def refresh_index(self) -> None:
         """Refresh the collection to make recent changes visible.
@@ -248,9 +248,9 @@ class MilvusAdapter(VectorStorePort):
             # Milvus client flush is handled automatically, but we can call it explicitly
             # The MilvusClient doesn't expose a direct flush method in the simplified API
             # Data is automatically persisted
-            logger.debug(f"Collection '{self.collection_name}' data is automatically persisted")
+            logger.debug("Collection '%s' data is automatically persisted", self.collection_name)
         except Exception as e:
-            logger.warning(f"Error during collection refresh: {e}")
+            logger.warning("Error during collection refresh: %s", e)
 
     def validate_existing_schema(self, *, dimension_mapping: dict[str, int]) -> None:
         """Validate existing Milvus collection schema against runtime vector dimensions."""
