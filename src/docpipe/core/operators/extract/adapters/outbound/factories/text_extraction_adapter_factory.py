@@ -175,30 +175,32 @@ class TextExtractionAdapterFactory:
         # Add mode-specific configuration from provider_config
         if mode == TextExtractionMode.DOCLING_LIBRARY:
             # VLM configuration comes from provider_config.vlm_pipeline
-            vlm_pipeline = provider_config.get(OperatorConstants.Config.VLM_PIPELINE, {})
+            vlm_pipeline = provider_config.get(OperatorConstants.Config.VLM_PIPELINE)
+            vlm_pipeline_config = vlm_pipeline if vlm_pipeline is not None else {}
 
             adapter_config.update(
                 {
-                    OperatorConstants.Config.USE_VLM_PIPELINE: bool(vlm_pipeline),
-                    OperatorConstants.Config.VLM_PRESET: vlm_pipeline.get(
-                        OperatorConstants.Config.PRESET, OperatorConstants.Config.DEFAULT
+                    OperatorConstants.Config.USE_VLM_PIPELINE: vlm_pipeline is not None,
+                    OperatorConstants.Config.VLM_PRESET: vlm_pipeline_config.get(
+                        OperatorConstants.Config.PRESET, OperatorConstants.Config.VLM_PRESET_DEFAULT
                     ),
-                    OperatorConstants.Config.VLM_ENGINE_TYPE: vlm_pipeline.get(
+                    OperatorConstants.Config.VLM_ENGINE_TYPE: vlm_pipeline_config.get(
                         OperatorConstants.Config.ENGINE, OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS
                     ),
-                    OperatorConstants.Config.VLM_PROVIDER_CONFIG: vlm_pipeline.get(
+                    OperatorConstants.Config.VLM_PROVIDER_CONFIG: vlm_pipeline_config.get(
                         OperatorConstants.Config.ENGINE_OPTIONS
                     ),
                 }
             )
 
             # ASR configuration comes from provider_config.asr_pipeline
-            asr_pipeline = provider_config.get(OperatorConstants.Config.ASR_PIPELINE, {})
+            asr_pipeline = provider_config.get(OperatorConstants.Config.ASR_PIPELINE)
+            asr_pipeline_config = asr_pipeline if asr_pipeline is not None else {}
 
             adapter_config.update(
                 {
-                    OperatorConstants.Config.USE_ASR_PIPELINE: bool(asr_pipeline),
-                    OperatorConstants.Config.ASR_MODEL_NAME: asr_pipeline.get(
+                    OperatorConstants.Config.USE_ASR_PIPELINE: asr_pipeline is not None,
+                    OperatorConstants.Config.ASR_MODEL_NAME: asr_pipeline_config.get(
                         OperatorConstants.Config.MODEL_ID, OperatorConstants.Config.ASR_MODEL_DEFAULT
                     ),
                 }
