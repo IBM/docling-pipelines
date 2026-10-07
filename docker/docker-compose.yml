@@ -20,7 +20,7 @@ services:
       - docpipe-data:/data
       - docpipe-data:/opt/app-root/data
       - ../tests/fixtures/invoices:/documents:ro
-      - ../sample_documents:/opt/app-root/sample_documents:ro
+      - ../docker_sample_documents:/opt/app-root/src/sample_documents:ro
     depends_on:
       bff:
         condition: service_healthy
