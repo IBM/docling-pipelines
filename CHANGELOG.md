@@ -40,6 +40,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Fixed
 
+- Empty `vlm_pipeline` and `asr_pipeline` objects enable their respective pipelines with defaults; omitted or `null` blocks keep them disabled. The default VLM preset is `granite_docling` (#123).
 - Storage output now accepts cloud destination credentials and S3 `key_prefix` saved by the UI, while retaining support for the separate `credentials` field and legacy S3 `prefix`, and reads ingest source paths from the normalized `provider_config`.
 - Updated JupyterLab to 4.6.4 in the full and slim notebooks extras to resolve the security alerts tracked in #51.
 - Notification panel now propagates `action_type` from backend validation and fixes stale alert detection (#91)
