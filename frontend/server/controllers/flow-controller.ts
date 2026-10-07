@@ -131,21 +131,25 @@ const syncElyraDefinitionName = (definition: Record<string, unknown>, newName: s
 /**
  * Patch flow
  * BFF controller that proxies partial flow update to Python FastAPI backend.
- * Fetches the current definition first so that app_data.ds_flow.name is kept
- * in sync with the top-level name — that nested field is Elyra UI state that
- * the backend does not manage.
+ * When name is present in the patch body, fetches the current definition and
+ * syncs app_data.ds_flow.name before forwarding — that nested field is Elyra
+ * UI state the backend does not manage. Skipped when name is not being patched
+ * to avoid setting ds_flow.name to undefined.
  */
 const patchFlow = async (req: Request, res: Response) => {
   try {
     const { flowId } = req.params;
-
     const requestUrl = `${process.env.BACKEND_API_URL}/api/v1/flows/${flowId}?is_elyra=true`;
-    const current = await axios.get(requestUrl, { headers: NO_BODY_HEADERS });
 
-    const body = {
-      ...req.body,
-      definition: syncElyraDefinitionName(current.data.definition, req.body.name),
-    };
+    let body = req.body;
+
+    if (req.body.name) {
+      const current = await axios.get(requestUrl, { headers: NO_BODY_HEADERS });
+      body = {
+        ...req.body,
+        definition: syncElyraDefinitionName(current.data.definition, req.body.name),
+      };
+    }
 
     const response = await axios.patch(requestUrl, body, { headers: BODY_HEADERS });
 
