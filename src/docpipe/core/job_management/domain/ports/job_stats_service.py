@@ -456,6 +456,24 @@ class JobStatsService(ABC):
         ...
 
     @abstractmethod
+    def delete_job_runs_by_job_id(self, *, job_id: str) -> int:
+        """
+        Delete all job runs associated with a given job_id (flow UUID).
+
+        Used for cascade-deletion when a flow is deleted.  Fetches all
+        job_run_ids whose job_id matches the given value, then deletes
+        each one from the store.  Failures for individual runs are logged
+        as warnings and do not abort the operation.
+
+        Args:
+            job_id: The flow UUID whose job runs should be deleted.
+
+        Returns:
+            Number of job runs successfully deleted.
+        """
+        ...
+
+    @abstractmethod
     def is_job_run_complete(self, *, job_run_id: str) -> bool:
         """
         Check if job run has reached terminal state.
