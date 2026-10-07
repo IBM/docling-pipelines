@@ -47,10 +47,10 @@ graph TD
 
     EP --> OF
     OF -->|"1. get observer"| LF
-    LF -->|"2a. enabled=true"| OLPA
-    LF -->|"2b. enabled=false"| NOP
-    OLPA -->|"3a. implements"| LPP
-    NOP -->|"3b. implements"| LPP
+    LF -->|"2a. enabled=true"| OEO
+    LF -->|"2b. enabled=false"| None
+    OLPA -->|"3. implements"| LPP
+    NOP -->|"3. implements"| LPP
     LPP -->|"4. injected into"| LS
     LS -->|"5. injected into"| OEO
     OEO -->|"6. implements"| ELOP
@@ -121,8 +121,9 @@ python -c "from openlineage.client import OpenLineageClient; print('ok')"
 ```
 
 > [!NOTE]
-> If lineage is enabled but `openlineage-python` is not installed, docpipe falls back silently to a
-> no-op publisher that discards all events and logs a warning. The pipeline continues to run normally.
+> If lineage is enabled but `openlineage-python` is not installed, docpipe logs a one-time WARNING
+> at startup and falls back to a no-op publisher that silently discards all events. The pipeline
+> continues to run normally.
 
 ### 4.2 Enable lineage
 
@@ -170,7 +171,7 @@ DocpipeFlowManager(flow_file="my_flow.json").execute()
 | `DOCPIPE_LINEAGE_PRODUCER` | `https://github.com/IBM/docling-pipelines` | Producer URI embedded in all facets. Identifies the system that generated events. |
 | `DOCPIPE_LINEAGE_STRICT` | `false` | Reserved for future use. |
 
-### 4.2 OpenLineage SDK transport configuration
+### 5.2 OpenLineage SDK transport configuration
 
 Once `DOCPIPE_LINEAGE_ENABLED=true`, docpipe creates an `OpenLineageClient()` with no transport arguments. The SDK resolves transport entirely from its own environment variables (prefixed `OPENLINEAGE__`) or from an `openlineage.yml` config file in the working directory or `~/.openlineage/`. Docpipe does not intercept or wrap these variables.
 
@@ -306,7 +307,7 @@ These events are emitted in both `flow` and `operator` mode.
 
 | Event | Trigger | Key facets |
 | --- | --- | --- |
-| **Flow START** | Pipeline execution begins | `jobType` (FLOW/BATCH), `documentation`, `docpipeFlowId`, `docpipeOperators` (operator list + count), `nominalTime` |
+| **Flow START** | Pipeline execution begins | `jobType` (FLOW/BATCH), `documentation`, `docpipeFlowId`, `docpipeOperators` (operator list + count, added on START only), `nominalTime` |
 | **Flow RUNNING** | Ingest stage completes; active processing begins | Input dataset: ingest source name with row count and column schema |
 | **Flow COMPLETE** | Pipeline finishes successfully | Output dataset(s) with schema and row count; `docpipeStats` (`totalDocs`, `completedDocs`, `failedDocs`, `skippedDocs`) |
 | **Flow FAIL** | Pipeline terminates with an error | `errorMessage` facet with message and Python stack trace |
@@ -337,7 +338,7 @@ Docpipe attaches the following custom facets to events in addition to the standa
 | Facet | Attaches to | Fields | Description |
 | --- | --- | --- | --- |
 | `docpipeFlowId` | Job (flow) | `flowId` | The flow's asset ID, or a SHA-256 hash of the credentials-stripped flow definition if no asset ID is set. |
-| `docpipeOperators` | Job (flow) | `operators` (list), `count` | The list of operator `short_name` values present in the flow. Added on START and COMPLETE events. |
+| `docpipeOperators` | Job (flow) | `operators` (list), `count` | The list of operator `short_name` values present in the flow. Added on START events only. |
 | `docpipeStats` | Run | `totalDocs`, `completedDocs`, `failedDocs`, `skippedDocs` + operator-specific scalars | Aggregated document counts on flow events. On node COMPLETE events in operator mode, also includes operator-specific scalar metrics from the operator's output metadata, converted from `snake_case` to `camelCase`. |
 | `docpipeSkip` | Run (OTHER) | `reason` | The reason a node was skipped. Present only on Node SKIP (OTHER) events. |
 
