@@ -1,0 +1,60 @@
+import { defineMessages } from 'react-intl';
+
+export const messages = defineMessages({
+  statusLabel: {
+    id: 'src.components.ProjectDetail.FlowsTable.statusLabel',
+    defaultMessage: 'Status',
+  },
+  statusAll: {
+    id: 'src.components.ProjectDetail.FlowsTable.statusAll',
+    defaultMessage: 'All',
+  },
+  statusErrors: {
+    id: 'src.components.ProjectDetail.FlowsTable.statusErrors',
+    defaultMessage: 'Errors',
+  },
+  statusWarnings: {
+    id: 'src.components.ProjectDetail.FlowsTable.statusWarnings',
+    defaultMessage: 'Warnings',
+  },
+  statusRunning: {
+    id: 'src.components.ProjectDetail.FlowsTable.statusRunning',
+    defaultMessage: 'Running',
+  },
+  statusNoRuns: {
+    id: 'src.components.ProjectDetail.FlowsTable.statusNoRuns',
+    defaultMessage: 'No runs',
+  },
+  refreshDescription: {
+    id: 'src.components.ProjectDetail.FlowsTable.refreshDescription',
+    defaultMessage: 'Refresh',
+  },
+  newFlow: {
+    id: 'src.components.ProjectDetail.FlowsTable.newFlow',
+    defaultMessage: 'New flow',
+  },
+  searchPlaceholder: {
+    id: 'src.components.ProjectDetail.FlowsTable.searchPlaceholder',
+    defaultMessage: 'Search flows',
+  },
+  rowActionsDescription: {
+    id: 'src.components.ProjectDetail.FlowsTable.rowActionsDescription',
+    defaultMessage: 'Row actions',
+  },
+  actionEditDetails: {
+    id: 'src.components.ProjectDetail.FlowsTable.actionEditDetails',
+    defaultMessage: 'Edit details',
+  },
+  actionViewFlow: {
+    id: 'src.components.ProjectDetail.FlowsTable.actionViewFlow',
+    defaultMessage: 'View flow',
+  },
+  actionDelete: {
+    id: 'src.components.ProjectDetail.FlowsTable.actionDelete',
+    defaultMessage: 'Delete',
+  },
+  editFlowTitle: {
+    id: 'src.components.ProjectDetail.FlowsTable.editFlowTitle',
+    defaultMessage: 'Edit flow details',
+  },
+});

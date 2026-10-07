@@ -32,6 +32,7 @@ import {
   TableCell,
   Tooltip,
 } from '@carbon/react';
+import { useIntl } from 'react-intl';
 import type { NodeMetadataItem, JobStats } from '@/types';
 import { JOB_RUN_STATUS } from '@/constants/jobRunStatus';
 import {
@@ -42,6 +43,7 @@ import {
   METADATA_TABLE_HEADERS,
 } from '@/constants/runSidePanel';
 import { SharedDataTable, SharedTearsheet } from '@/components/common';
+import { messages } from './NodeSummary.messages';
 import styles from './NodeSummary.module.scss';
 
 // ─── Doc array item shape ─────────────────────────────────────────────────────
@@ -51,12 +53,6 @@ interface DocItem {
   fileName: string;
   reason: string;
 }
-
-const DOC_TABLE_HEADERS = [
-  { key: 'documentId', header: 'Document ID'  },
-  { key: 'fileName',   header: 'File Name'    },
-  { key: 'reason',     header: 'Reason'       },
-];
 
 interface NodeSummaryProps {
   nodeMetadata: NodeMetadataItem;
@@ -238,6 +234,12 @@ interface DocsTearsheetProps {
 }
 
 function DocsTearsheet({ open, title, docs, downloadFilename, onClose }: DocsTearsheetProps): React.JSX.Element {
+  const intl = useIntl();
+  const docTableHeaders = [
+    { key: 'documentId', header: intl.formatMessage(messages.documentIdHeader) },
+    { key: 'fileName',   header: intl.formatMessage(messages.fileNameHeader)   },
+    { key: 'reason',     header: intl.formatMessage(messages.reasonHeader)     },
+  ];
   const rows = docs.map((doc) => ({
     id: doc.id || `doc-${doc.fileName}`,
     documentId: doc.id,
@@ -254,10 +256,10 @@ function DocsTearsheet({ open, title, docs, downloadFilename, onClose }: DocsTea
     >
       <div className={styles.tearsheetContent}>
         <SharedDataTable
-          headers={DOC_TABLE_HEADERS}
+          headers={docTableHeaders}
           rows={rows}
           searchable
-          searchPlaceholder="Search documents"
+          searchPlaceholder={intl.formatMessage(messages.searchDocuments)}
           renderToolbarActions={() => (
             <Button
               kind="primary"
@@ -265,7 +267,7 @@ function DocsTearsheet({ open, title, docs, downloadFilename, onClose }: DocsTea
               renderIcon={Download}
               onClick={() => { downloadDocs(docs, downloadFilename); }}
             >
-              Download
+              {intl.formatMessage(messages.download)}
             </Button>
           )}
         />
@@ -280,6 +282,7 @@ export function NodeSummary({
   nodeMetadata,
   jobStats,
 }: NodeSummaryProps): React.JSX.Element {
+  const intl = useIntl();
   const [skippedDocsOpen, setSkippedDocsOpen] = useState(false);
   const [failedDocsOpen, setFailedDocsOpen] = useState(false);
 
@@ -330,7 +333,7 @@ export function NodeSummary({
                   kind="ghost"
                   size="sm"
                   renderIcon={View}
-                  iconDescription="View skipped documents"
+                  iconDescription={intl.formatMessage(messages.viewSkippedDocs)}
                   hasIconOnly
                   className={styles.viewDocsButton}
                   onClick={() => { setSkippedDocsOpen(true); }}
@@ -359,7 +362,7 @@ export function NodeSummary({
                   kind="ghost"
                   size="sm"
                   renderIcon={View}
-                  iconDescription="View failed documents"
+                  iconDescription={intl.formatMessage(messages.viewFailedDocs)}
                   hasIconOnly
                   className={styles.viewDocsButton}
                   onClick={() => { setFailedDocsOpen(true); }}
@@ -401,21 +404,21 @@ export function NodeSummary({
         {metadataRows.length > 0 && (
           <>
             <div className={styles.sectionHeader}>
-              <span className={styles.sectionTitle}>Node Metadata</span>
+              <span className={styles.sectionTitle}>{intl.formatMessage(messages.nodeSectionTitle)}</span>
             </div>
             <MetadataDataTable rows={metadataRows} />
           </>
         )}
 
         {!nodeStat && metadataRows.length === 0 && (
-          <p className={styles.nodeDescription}>No metadata available for this node.</p>
+          <p className={styles.nodeDescription}>{intl.formatMessage(messages.noMetadata)}</p>
         )}
       </div>
 
       {/* Skipped Docs Tearsheet */}
       <DocsTearsheet
         open={skippedDocsOpen}
-        title="Skipped Documents"
+        title={intl.formatMessage(messages.skippedDocsTearsheetTitle)}
         docs={skippedDocs}
         downloadFilename="skipped_documents.json"
         onClose={() => { setSkippedDocsOpen(false); }}
@@ -424,7 +427,7 @@ export function NodeSummary({
       {/* Failed Docs Tearsheet */}
       <DocsTearsheet
         open={failedDocsOpen}
-        title="Failed Documents"
+        title={intl.formatMessage(messages.failedDocsTearsheetTitle)}
         docs={failedDocs}
         downloadFilename="failed_documents.json"
         onClose={() => { setFailedDocsOpen(false); }}

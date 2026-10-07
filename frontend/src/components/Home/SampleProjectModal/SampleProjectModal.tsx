@@ -9,6 +9,7 @@ import {
   InlineNotification,
 } from '@carbon/react';
 import { CheckmarkFilled, ErrorFilled } from '@carbon/icons-react';
+import { useIntl } from 'react-intl';
 import { useAppDispatch } from '@/hooks/useAppDispatch';
 import type { Project } from '@/types';
 import { createProject, createFlow, getProjects } from '@/services/api';
@@ -18,6 +19,7 @@ import { setProject } from '@/slices/projectsSlice';
 import { setFlow } from '@/slices/flowSlice';
 import { buildFlowDefinition } from '@/lib/helpers/flow';
 import { generateRoute } from '@/config';
+import { messages } from './SampleProjectModal.messages';
 import styles from './SampleProjectModal.module.scss';
 
 const PROJECT_NAME = 'Default_Docling_Pipeline_Project';
@@ -51,11 +53,12 @@ export function SampleProjectModal({
   onClose,
   onSuccess,
 }: SampleProjectModalProps): React.JSX.Element {
+  const intl = useIntl();
   const dispatch = useAppDispatch();
 
   const [steps, setSteps] = useState<Step[]>([
-    { label: 'Creating project', status: 'idle' },
-    { label: 'Creating sample flow', status: 'idle' },
+    { label: intl.formatMessage(messages.stepCreatingProject), status: 'idle' },
+    { label: intl.formatMessage(messages.stepCreatingSampleFlow), status: 'idle' },
   ]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -80,7 +83,7 @@ export function SampleProjectModal({
       if (existing) {
         project = projectMapper.fromResponse(existing);
         setSteps((prev) =>
-          prev.map((s, i) => (i === 0 ? { ...s, label: 'Using existing project' } : s))
+          prev.map((s, i) => (i === 0 ? { ...s, label: intl.formatMessage(messages.stepUsingExistingProject) } : s))
         );
       } else {
         const projectRes = await createProject(
@@ -144,8 +147,8 @@ export function SampleProjectModal({
   useEffect(() => {
     if (!open) {return;}
     setSteps([
-      { label: 'Creating project', status: 'idle' },
-      { label: 'Creating sample flow', status: 'idle' },
+      { label: intl.formatMessage(messages.stepCreatingProject), status: 'idle' },
+      { label: intl.formatMessage(messages.stepCreatingSampleFlow), status: 'idle' },
     ]);
     setErrorMessage(null);
     void runSetup();
@@ -160,13 +163,13 @@ export function SampleProjectModal({
       containerClassName={styles.modal}
     >
       <ModalHeader
-        title="Setting up your sample project"
+        title={intl.formatMessage(messages.modalTitle)}
         buttonOnClick={hasError ? onClose : undefined}
       />
 
       <ModalBody className={styles.body}>
         <p className={styles.description}>
-          We are creating a sample project and pre-loading a ready-to-use ingestion pipeline.
+          {intl.formatMessage(messages.description)}
         </p>
 
         <ul className={styles.stepList}>
@@ -194,7 +197,7 @@ export function SampleProjectModal({
         {hasError && errorMessage && (
           <InlineNotification
             kind="error"
-            title="Setup failed"
+            title={intl.formatMessage(messages.errorTitle)}
             subtitle={errorMessage}
             lowContrast
             hideCloseButton
@@ -207,7 +210,7 @@ export function SampleProjectModal({
       {hasError && (
         <ModalFooter className={styles.footer}>
           <Button kind="secondary" onClick={onClose} className={styles.footerBtn}>
-            Close
+            {intl.formatMessage(messages.close)}
           </Button>
         </ModalFooter>
       )}

@@ -13,8 +13,10 @@ import {
   WarningFilled,
   InProgress,
 } from '@carbon/icons-react';
+import { useIntl } from 'react-intl';
 import type { FlowRow, FlowRunStatus } from '@/types';
 import { SharedDataTable, EditDetailsModal, DeleteModal } from '@/components/common';
+import { messages } from './FlowsTable.messages';
 import styles from './FlowsTable.module.scss';
 
 interface FlowsTableProps {
@@ -28,13 +30,6 @@ interface FlowsTableProps {
   readonly onDeleteFlow: (flowId: string) => Promise<void>;
 }
 
-const STATUS_OPTIONS = [
-  { id: 'all',      label: 'All'      },
-  { id: 'errors',   label: 'Errors'   },
-  { id: 'warnings', label: 'Warnings' },
-  { id: 'running',  label: 'Running'  },
-  { id: 'none',     label: 'No runs'  },
-];
 
 const MAX_VISIBLE_TAGS = 3;
 
@@ -114,6 +109,14 @@ export function FlowsTable({
   onEditFlow,
   onDeleteFlow,
 }: FlowsTableProps): React.JSX.Element {
+  const intl = useIntl();
+  const statusOptions = [
+    { id: 'all',      label: intl.formatMessage(messages.statusAll)      },
+    { id: 'errors',   label: intl.formatMessage(messages.statusErrors)   },
+    { id: 'warnings', label: intl.formatMessage(messages.statusWarnings) },
+    { id: 'running',  label: intl.formatMessage(messages.statusRunning)  },
+    { id: 'none',     label: intl.formatMessage(messages.statusNoRuns)   },
+  ];
   const [statusFilter, setStatusFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState<FlowRow | null>(null);
   const [editTarget, setEditTarget] = useState<FlowRow | null>(null);
@@ -122,27 +125,27 @@ export function FlowsTable({
 
   const renderToolbarLeft = useCallback(() => (
     <div className={styles.toolbarLeft}>
-      <span className={styles.statusLabel}>Status</span>
+      <span className={styles.statusLabel}>{intl.formatMessage(messages.statusLabel)}</span>
       <Dropdown
         id="flow-status-filter"
-        label="All"
+        label={intl.formatMessage(messages.statusAll)}
         titleText=""
         hideLabel
-        items={STATUS_OPTIONS}
+        items={statusOptions}
         itemToString={(item) => item?.label ?? ''}
-        selectedItem={STATUS_OPTIONS.find((o) => o.id === statusFilter) ?? STATUS_OPTIONS[0]}
+        selectedItem={statusOptions.find((o) => o.id === statusFilter) ?? statusOptions[0]}
         onChange={({ selectedItem }) => { setStatusFilter(selectedItem?.id ?? 'all'); }}
         className={styles.statusDropdown}
       />
     </div>
-  ), [statusFilter]);
+  ), [statusFilter, intl, statusOptions]);
 
   const renderToolbarActions = useCallback(() => (
     <>
       <Button
         kind="ghost"
         renderIcon={Renew}
-        iconDescription="Refresh"
+        iconDescription={intl.formatMessage(messages.refreshDescription)}
         hasIconOnly
         tooltipPosition="bottom"
         onClick={onRefresh}
@@ -154,10 +157,10 @@ export function FlowsTable({
         onClick={onNewFlow}
         className={styles.newFlowButton}
       >
-        New flow
+        {intl.formatMessage(messages.newFlow)}
       </Button>
     </>
-  ), [isLoading, onNewFlow, onRefresh]);
+  ), [isLoading, onNewFlow, onRefresh, intl]);
 
   // Note: `id`/`tagsSearch` are extra string fields folded in purely so
   // SharedDataTable's built-in search (which matches any string value in the
@@ -190,7 +193,7 @@ export function FlowsTable({
         headers={TABLE_HEADERS}
         rows={filteredRows}
         searchable
-        searchPlaceholder="Search flows"
+        searchPlaceholder={intl.formatMessage(messages.searchPlaceholder)}
         paginated={false}
         loading={isLoading}
         size="lg"
@@ -237,28 +240,28 @@ export function FlowsTable({
               return renderTagsCell(original.tags);
             case 'actions':
               return (
-                <OverflowMenu
-                  size="sm"
-                  flipped
-                  iconDescription="Row actions"
-                  selectorPrimaryFocus=".cds--overflow-menu-options__option"
-                >
-                  <OverflowMenuItem
-                    itemText="Edit details"
-                    onClick={() => { setEditTarget(original); }}
-                  />
-                  <OverflowMenuItem
-                    itemText="View flow"
-                    onClick={() => { onOpenFlow(original.flow_id); }}
-                  />
-                  <OverflowMenuItem
-                    itemText="Delete"
-                    isDelete
-                    hasDivider
-                    onClick={() => { setDeleteTarget(original); }}
-                  />
-                </OverflowMenu>
-              );
+                 <OverflowMenu
+                   size="sm"
+                   flipped
+                   iconDescription={intl.formatMessage(messages.rowActionsDescription)}
+                   selectorPrimaryFocus=".cds--overflow-menu-options__option"
+                 >
+                   <OverflowMenuItem
+                     itemText={intl.formatMessage(messages.actionEditDetails)}
+                     onClick={() => { setEditTarget(original); }}
+                   />
+                   <OverflowMenuItem
+                     itemText={intl.formatMessage(messages.actionViewFlow)}
+                     onClick={() => { onOpenFlow(original.flow_id); }}
+                   />
+                   <OverflowMenuItem
+                     itemText={intl.formatMessage(messages.actionDelete)}
+                     isDelete
+                     hasDivider
+                     onClick={() => { setDeleteTarget(original); }}
+                   />
+                 </OverflowMenu>
+               );
             default:
               return undefined;
           }
@@ -267,7 +270,7 @@ export function FlowsTable({
 
       <EditDetailsModal
         open={editTarget !== null}
-        title="Edit flow details"
+        title={intl.formatMessage(messages.editFlowTitle)}
         initialValues={{
           name: editTarget?.name ?? '',
           description: editTarget?.description ?? '',

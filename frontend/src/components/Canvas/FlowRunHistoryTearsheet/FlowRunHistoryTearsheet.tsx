@@ -3,6 +3,7 @@ import { Button } from '@carbon/react';
 import { Download } from '@carbon/icons-react';
 import { NoDataEmptyState } from '@carbon/ibm-products';
 import { useNavigate } from 'react-router-dom';
+import { useIntl } from 'react-intl';
 import { SharedDataTable, SharedTearsheet } from '@/components/common';
 import {
   FLOW_RUN_HISTORY_HEADERS,
@@ -19,6 +20,7 @@ import type { RunStatus } from '@/components/FlowDetail';
 import { getJobRunStatusLabel } from '@/constants/jobRunStatus';
 import { formatEpochToDisplay, formatElapsedTime } from '@/utils/dateTimeUtils';
 import { useTheme } from '@/hooks';
+import { messages } from './FlowRunHistoryTearsheet.messages';
 import styles from './FlowRunHistoryTearsheet.module.scss';
 
 export interface FlowRunHistoryTearsheetProps {
@@ -80,6 +82,7 @@ export function FlowRunHistoryTearsheet({
   flowId,
   projectId = '',
 }: FlowRunHistoryTearsheetProps): React.JSX.Element {
+  const intl = useIntl();
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
   const [rawItems, setRawItems] = useState<JobRunListItem[]>([]);
@@ -140,7 +143,7 @@ export function FlowRunHistoryTearsheet({
           kind="ghost"
           size="sm"
           renderIcon={Download}
-          iconDescription="Download logs"
+          iconDescription={intl.formatMessage(messages.downloadLogsDescription)}
           hasIconOnly
           onClick={() => { triggerDownloadLogs(item.job_run_id, timestamp); }}
         />
@@ -153,8 +156,8 @@ export function FlowRunHistoryTearsheet({
       illustrationTheme={isDarkMode ? 'dark' : 'light'}
       illustrationPosition="top"
       size="sm"
-      title="No runs yet"
-      subtitle="Run this flow to see execution history here."
+      title={intl.formatMessage(messages.emptyTitle)}
+      subtitle={intl.formatMessage(messages.emptySubtitle)}
     />
   );
 

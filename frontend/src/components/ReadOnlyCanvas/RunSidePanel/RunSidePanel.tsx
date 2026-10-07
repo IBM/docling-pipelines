@@ -11,6 +11,7 @@
 import React, { useState, useCallback } from 'react';
 import { CopyButton } from '@carbon/react';
 import { Close, Download } from '@carbon/icons-react';
+import { useIntl } from 'react-intl';
 import type { JobRunStatusResponse } from '@/types';
 import { JOB_RUN_STATUS } from '@/constants/jobRunStatus';
 import {
@@ -23,6 +24,7 @@ import {
 } from '@/constants/runSidePanel';
 import { JobRunLogs } from './JobRunLogs';
 import { NodeSummary } from './NodeSummary';
+import { messages } from './RunSidePanel.messages';
 import styles from './RunSidePanel.module.scss';
 
 interface RunSidePanelProps {
@@ -40,6 +42,7 @@ export function RunSidePanel({
   onTabChange,
   onClose,
 }: RunSidePanelProps): React.JSX.Element {
+  const intl = useIntl();
   const [showFullLog, setShowFullLog] = useState<string | null>(null);
   const [showFullLogTitle, setShowFullLogTitle] = useState<string | null>(null);
 
@@ -108,11 +111,11 @@ export function RunSidePanel({
           )}
         </div>
         {activeTabIndex === 0 && (
-          <button className={styles.iconButtonWrapper} onClick={handleDownloadLogs} title="Download Logs">
+          <button className={styles.iconButtonWrapper} onClick={handleDownloadLogs} title={intl.formatMessage(messages.downloadLogs)}>
             <Download size={16} />
           </button>
         )}
-        <button className={styles.closeButton} onClick={onClose} title="Close">
+        <button className={styles.closeButton} onClick={onClose} title={intl.formatMessage(messages.close)}>
           <Close size={20} />
         </button>
       </div>
@@ -156,7 +159,7 @@ export function RunSidePanel({
                 <button
                   className={styles.closeButton}
                   onClick={handleCloseModal}
-                  title="Close"
+                  title={intl.formatMessage(messages.close)}
                 >
                   <Close size={20} />
                 </button>

@@ -2,7 +2,9 @@ import React, { useMemo, useState } from 'react';
 import type { ProjectRow } from '@/types';
 import { Button, OverflowMenu, OverflowMenuItem, Tag } from '@carbon/react';
 import { Add, Renew } from '@carbon/icons-react';
+import { useIntl } from 'react-intl';
 import { SharedDataTable, EditDetailsModal, DeleteModal } from '@/components/common';
+import { messages } from './ProjectsTable.messages';
 import styles from './ProjectsTable.module.scss';
 
 /**
@@ -104,6 +106,7 @@ export function ProjectsTable({
   onDeleteProject,
   onEditProject,
 }: ProjectsTableProps): React.JSX.Element {
+  const intl = useIntl();
   const [deleteTarget, setDeleteTarget] = useState<ProjectRow | null>(null);
   const [editTarget, setEditTarget] = useState<ProjectRow | null>(null);
 
@@ -152,7 +155,7 @@ export function ProjectsTable({
         headers={TABLE_HEADERS}
         rows={tableRows}
         searchable
-        searchPlaceholder="Search"
+        searchPlaceholder={intl.formatMessage(messages.searchPlaceholder)}
         paginated={false}
         loading={isLoading}
         size="lg"
@@ -172,7 +175,7 @@ export function ProjectsTable({
               kind="ghost"
               size="lg"
               renderIcon={Renew}
-              iconDescription="Refresh"
+              iconDescription={intl.formatMessage(messages.refreshDescription)}
               hasIconOnly
               onClick={onRefresh}
               className={styles.refreshButton}
@@ -185,7 +188,7 @@ export function ProjectsTable({
               onClick={onNewProject}
               className={styles.newProjectButton}
             >
-              New project
+              {intl.formatMessage(messages.newProject)}
             </Button>
           </>
         )}
@@ -210,19 +213,19 @@ export function ProjectsTable({
                 <OverflowMenu
                   size="sm"
                   flipped
-                  iconDescription="Row actions"
+                  iconDescription={intl.formatMessage(messages.rowActionsDescription)}
                   selectorPrimaryFocus=".cds--overflow-menu-options__option"
                 >
                   <OverflowMenuItem
-                    itemText="Edit project"
+                    itemText={intl.formatMessage(messages.actionEditProject)}
                     onClick={() => { setEditTarget(original); }}
                   />
                   <OverflowMenuItem
-                    itemText="View project"
+                    itemText={intl.formatMessage(messages.actionViewProject)}
                     onClick={() => { onOpenProject(row.id); }}
                   />
                   <OverflowMenuItem
-                    itemText="Delete"
+                    itemText={intl.formatMessage(messages.actionDelete)}
                     isDelete
                     hasDivider
                     onClick={() => { handleDeleteClick(original); }}
@@ -237,7 +240,7 @@ export function ProjectsTable({
 
       <EditDetailsModal
         open={editTarget !== null}
-        title="Edit project details"
+        title={intl.formatMessage(messages.editProjectTitle)}
         initialValues={{
           name: editTarget?.name ?? '',
           description: editTarget?.description ?? '',
