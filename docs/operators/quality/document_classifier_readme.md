@@ -48,21 +48,33 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 │  │  - ClassificationResponse                             │  │
 │  │  - build_classification_prompt()                      │  │
 │  └──────────────────────────────────────────────────────┘  │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Shared LLM Adapter Infrastructure               │
-│                  (LLMAdapterFactory)                         │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-        ┌────────────────┼────────────────┐
-        ▼                ▼                ▼
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│   LiteLLM    │  │  Watsonx.ai  │  │ HuggingFace  │
-│   Client     │  │   Client     │  │   Client     │
-└──────────────┘  └──────────────┘  └──────────────┘
+│  ┌──────────────────────────────────────────────────────┐  │
+│  │  DocumentClassProvider (injected port)                │  │
+│  │  - get_document_types()                               │  │
+│  │  - get_schema_templates()                             │  │
+│  │  Default: StaticDocumentClassProvider (local JSON)    │  │
+│  └──────────────────────────────────────────────────────┘  │
+└────────────┬─────────────────────────────┬─────────────────┘
+             │                             │
+             │ path A: injected adapter    │ path B: factory
+             ▼                             ▼
+┌────────────────────┐       ┌─────────────────────────────┐
+│  Pre-built         │       │  Shared LLM Adapter          │
+│  LLMInferencePort  │       │  Infrastructure               │
+│  (any provider)    │       │  (LLMAdapterFactory)          │
+└────────────────────┘       └──────────────┬──────────────┘
+                                            │
+                             ┌──────────────┼──────────────┐
+                             ▼              ▼              ▼
+                      ┌──────────┐  ┌──────────┐  ┌──────────┐
+                      │ LiteLLM  │  │ Watsonx  │  │ HuggingFace│
+                      │ Client   │  │ Client   │  │ Client   │
+                      └──────────┘  └──────────┘  └──────────┘
 ```
+
+**Two adapter paths:**
+- **Path A (injected):** A pre-built `LLMInferencePort` is passed directly to `ClassificationService` via `llm_adapter=`. The factory is bypassed entirely. `provider_name` and `model_id` become optional.
+- **Path B (factory):** `provider_name` and `model_id` are provided; `LLMAdapterFactory` constructs the adapter. This is the standard flow JSON path.
 
 ### Component Responsibilities
 
@@ -74,7 +86,8 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 #### 2. **Service Layer** ([`classification_service.py`](../../../src/docpipe/core/operators/quality/classification/classification_service.py))
 - Contains business logic for document classification
 - Validates configuration parameters
-- Manages LLM adapter lifecycle
+- Accepts either a pre-built `LLMInferencePort` adapter (path A) or creates one via `LLMAdapterFactory` (path B)
+- Accepts an optional `DocumentClassProvider` for resolving document types and schemas
 
 #### 3. **Domain Layer** ([`domain/models.py`](../../../src/docpipe/core/operators/quality/classification/domain/models.py))
 - Pure domain models: `ClassificationRequest`, `ClassificationResponse`
@@ -85,6 +98,7 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 - Creates provider-specific LLM adapters (LiteLLM, Watsonx)
 - Manages adapter configuration and initialization
 - Provides unified `LLMInferencePort` interface
+- Only invoked when no pre-built adapter is injected (path B)
 
 ---
 
@@ -636,12 +650,38 @@ class ClassificationService:
         self,
         *,
         model_id: str | None = None,
-        provider_name: str,
+        provider_name: str | None = None,
         provider_config: dict[str, Any] | None = None,
         temperature: float = 0.0,
         max_tokens: int = 500,
+        llm_adapter: LLMInferencePort | None = None,
+        document_class_provider: DocumentClassProvider | None = None,
     ) -> None:
-        """Initialize classification service."""
+        """Initialize classification service.
+
+        At least one of ``llm_adapter`` or ``provider_name`` must be supplied.
+
+        * When ``llm_adapter`` is given it is used directly and ``LLMAdapterFactory``
+          is **not** called. ``model_id`` and ``provider_name`` are then optional
+          (stored only for informational purposes).
+        * When only ``provider_name`` is given the ``LLMAdapterFactory`` path is
+          used (requires ``model_id``).
+
+        Args:
+            model_id: Model identifier for the provider. Required when
+                ``llm_adapter`` is not provided.
+            provider_name: Provider name ('watsonx' or 'litellm'). Required
+                when ``llm_adapter`` is not provided.
+            provider_config: Provider-specific configuration dictionary.
+            temperature: Temperature for LLM generation (default: 0.0).
+            max_tokens: Maximum tokens for LLM response (default: 500).
+            llm_adapter: Pre-built ``LLMInferencePort`` instance. When
+                supplied, ``model_id`` / ``provider_name`` / ``provider_config``
+                are ignored for adapter construction.
+            document_class_provider: Provider for resolving document class
+                metadata (types, schemas, Docling templates). Defaults to
+                ``StaticDocumentClassProvider`` which reads from local JSON files.
+        """
         pass
 
     def classify_document(self, *, request: ClassificationRequest) -> ClassificationResponse:
@@ -726,6 +766,11 @@ class ModelInfo:
 
 ## Version History
 
+- **v2.1.0** : Dependency injection and pluggable document class provider
+  - `ClassificationService` now accepts an optional pre-built `LLMInferencePort` via `llm_adapter=`, bypassing `LLMAdapterFactory`
+  - `provider_name` is now optional when a pre-built adapter is injected
+  - Added `DocumentClassProvider` port; default `StaticDocumentClassProvider` preserves existing local-file behaviour
+  - `ClassificationService` and entity extraction adapters accept `document_class_provider=` for injecting custom metadata sources
 - **v2.0.0** : Simplified architecture
   - Removed hexagonal architecture (ports/adapters) in favor of simplified service-based design
   - Leverages shared LLM infrastructure (`LLMAdapterFactory`)
