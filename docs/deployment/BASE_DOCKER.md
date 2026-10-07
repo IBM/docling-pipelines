@@ -36,11 +36,9 @@ docker compose -f docker/docker-compose.yml down
 ## Run the default flow from the UI
 
 1. Start the stack from the repository root:
-
    ```bash
    docker compose -f docker/docker-compose.yml up -d --no-build
    ```
-
-2. Open `http://localhost:8080/ui` in your browser to access the UI home page.
+2. Open `http://localhost:8080/ui/home` in your browser to access the UI home page.
 3. Click **Start** on the **Get started with sample data** tile. The flow opens automatically in the canvas.
 4. Click **Run flow** in the canvas toolbar to execute the default flow and view its progress and results.
