@@ -248,8 +248,15 @@ pytest                                                           # run tests
 pytest tests/unit/core/operators/ -v                             # run specific test path
 pytest --cov=src/docpipe --cov-report=html                       # with coverage
 
-pre-commit run --all-files                                       # run all hooks before pushing
+pre-commit run --from-ref origin/main --to-ref HEAD              # check committed branch changes before pushing
 ```
+
+## Pre-commit Workflow
+
+- Never run pre-commit with `--all-files`
+- Stage and commit changes with `git commit -s`, then run `pre-commit run --from-ref origin/main --to-ref HEAD` before pushing
+- Keep `origin/main` up to date; substitute the actual PR base for stacked branches
+- If hooks modify files, stage and commit the fixes, then rerun the checks before pushing
 
 ## Key External Services
 
@@ -278,4 +285,4 @@ Full style guide: [`docs/guides/DOCUMENTATION_STYLE_GUIDE.md`](docs/guides/DOCUM
 
 **Mermaid:** validate every diagram at [mermaid.live](https://mermaid.live) before committing; use `graph LR` for pipelines, `graph TD` for hierarchy
 
-**Changelog:** every change goes in `CHANGELOG.md` under `## [Unreleased]` — never inline in doc files
+**Changelog:** maintainers manually update `CHANGELOG.md` at release time. Agents must not update it during PR or commit work unless explicitly requested.

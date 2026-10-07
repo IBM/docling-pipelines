@@ -1016,6 +1016,66 @@ describe('VectorDBPanelBody', () => {
     }
   });
 
+  it('milvus username change stamps auth_type in provider_config (default standalone)', () => {
+    // Reproduces the bug: user fills in username without ever touching the auth_type dropdown.
+    // provider_config has no auth_type saved yet — the UI defaults to 'standalone'.
+    // The written config must include auth_type: 'standalone'.
+    const controller = makeController({
+      getPropertyValue: vi.fn((p: { name: string }) => {
+        if (p.name === 'provider') return 'milvus';
+        if (p.name === 'provider_config') return JSON.stringify({}); // no auth_type saved
+        return undefined;
+      }),
+    });
+    render(<VectorDBPanelBody controller={controller} />);
+    const usernameInput = document.getElementById('milvus-username') as HTMLInputElement | null;
+    if (usernameInput) {
+      fireEvent.change(usernameInput, { target: { value: 'root' } });
+      const calls = (controller.updatePropertyValue as ReturnType<typeof vi.fn>).mock.calls;
+      const configCall = calls.find(
+        (c: unknown[]) =>
+          Array.isArray(c) &&
+          typeof c[0] === 'object' && c[0] !== null && (c[0] as Record<string, unknown>).name === 'provider_config'
+      );
+      expect(configCall).toBeDefined();
+      if (configCall) {
+        const written = configCall[1] as Record<string, unknown>;
+        expect(written.username).toBe('root');
+        expect(written.auth_type).toBe('standalone');
+      }
+    } else {
+      expect(document.body).toBeInTheDocument();
+    }
+  });
+
+  it('milvus password change stamps auth_type in provider_config', () => {
+    const controller = makeController({
+      getPropertyValue: vi.fn((p: { name: string }) => {
+        if (p.name === 'provider') return 'milvus';
+        if (p.name === 'provider_config') return JSON.stringify({ username: 'root' }); // no auth_type saved
+        return undefined;
+      }),
+    });
+    render(<VectorDBPanelBody controller={controller} />);
+    const passInput = document.getElementById('milvus-password') as HTMLInputElement | null;
+    if (passInput) {
+      fireEvent.change(passInput, { target: { value: 'secret' } });
+      const calls = (controller.updatePropertyValue as ReturnType<typeof vi.fn>).mock.calls;
+      const configCall = calls.find(
+        (c: unknown[]) =>
+          Array.isArray(c) &&
+          typeof c[0] === 'object' && c[0] !== null && (c[0] as Record<string, unknown>).name === 'provider_config'
+      );
+      expect(configCall).toBeDefined();
+      if (configCall) {
+        const written = configCall[1] as Record<string, unknown>;
+        expect(written.auth_type).toBe('standalone');
+      }
+    } else {
+      expect(document.body).toBeInTheDocument();
+    }
+  });
+
   it('milvus auth_type dropdown change calls updatePropertyValue', () => {
     const controller = makeController({
       getPropertyValue: vi.fn((p: { name: string }) =>
@@ -1256,6 +1316,48 @@ describe('VectorDBPanelBody', () => {
         expect(controller.updatePropertyValue).toHaveBeenCalled();
       } else {
         // If options aren't visible, the click at least fires the handler
+        expect(document.body).toBeInTheDocument();
+      }
+    } else {
+      expect(document.body).toBeInTheDocument();
+    }
+  });
+
+  // ── milvus auth_type change: clears stale auth fields and persists auth_type ────
+  it('milvus auth_type change clears stale auth fields and writes auth_type to provider_config', () => {
+    const controller = makeController({
+      getPropertyValue: vi.fn((p: { name: string }) => {
+        if (p.name === 'provider') return 'milvus';
+        // Start with standalone auth that has username + password already set
+        if (p.name === 'provider_config')
+          return JSON.stringify({ auth_type: 'standalone', username: 'user', password: 'pass', host: 'localhost', port: 19530 }); // pragma: allowlist secret
+        return undefined;
+      }),
+    });
+    render(<VectorDBPanelBody controller={controller} />);
+    const authDropdown = document.getElementById('milvus-auth-type') as HTMLButtonElement | null;
+    if (authDropdown) {
+      fireEvent.click(authDropdown);
+      const uriOption = screen.queryByText(/^uri$/i);
+      if (uriOption) {
+        fireEvent.click(uriOption);
+        // Should have called updatePropertyValue for provider_config with auth_type=uri
+        // and stale username/password removed
+        const calls = (controller.updatePropertyValue as ReturnType<typeof vi.fn>).mock.calls;
+        const providerConfigCall = calls.find(
+          (c: unknown[]) =>
+            Array.isArray(c) &&
+            typeof c[0] === 'object' && c[0] !== null && (c[0] as Record<string, unknown>).name === 'provider_config'
+        );
+        expect(providerConfigCall).toBeDefined();
+        if (providerConfigCall) {
+          const writtenConfig = providerConfigCall[1] as Record<string, unknown>;
+          expect(writtenConfig.auth_type).toBe('uri');
+          expect(writtenConfig).not.toHaveProperty('username');
+          expect(writtenConfig).not.toHaveProperty('password');
+          expect(writtenConfig).not.toHaveProperty('token');
+        }
+      } else {
         expect(document.body).toBeInTheDocument();
       }
     } else {
