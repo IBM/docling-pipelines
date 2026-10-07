@@ -15,7 +15,7 @@ docker compose -f docker/docker-compose.yml up -d --no-build
 docker compose -f docker/docker-compose.yml logs -f --tail=100 docpipe
 
 # Download the embedding model for the end-to-end flow
-docker compose -f docker/docker-compose.yml exec ollama ollama pull nomic-embed-text:v1.5
+docker compose -f docker/docker-compose.yml exec ollama ollama pull nomic-embed-text
 
 # Upload the flow (run from the repository root)
 curl --fail-with-body -sS \
@@ -32,3 +32,15 @@ curl --fail-with-body -sS \
 # Bring down the stack (retain named data volumes)
 docker compose -f docker/docker-compose.yml down
 ```
+
+## Run the default flow from the UI
+
+1. Start the stack from the repository root:
+
+   ```bash
+   docker compose -f docker/docker-compose.yml up -d --no-build
+   ```
+
+2. Open `http://localhost:8080/ui` in your browser to access the UI home page.
+3. Click **Start** on the **Get started with sample data** tile. The flow opens automatically in the canvas.
+4. Click **Run flow** in the canvas toolbar to execute the default flow and view its progress and results.
