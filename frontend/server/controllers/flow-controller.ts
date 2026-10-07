@@ -109,15 +109,45 @@ const updateFlow = async (req: Request, res: Response) => {
 };
 
 /**
+ * Sync app_data.ds_flow.name inside an Elyra pipeline definition.
+ * Returns a new definition object — the original is not mutated.
+ */
+const syncElyraDefinitionName = (definition: Record<string, unknown>, newName: string): Record<string, unknown> => {
+  const pipelines = definition['pipelines'];
+  if (!Array.isArray(pipelines) || pipelines.length === 0) return definition;
+
+  const pipeline = JSON.parse(JSON.stringify(pipelines[0])) as Record<string, unknown>;
+  const appData = pipeline['app_data'];
+  if (appData && typeof appData === 'object') {
+    const dsFlow = (appData as Record<string, unknown>)['ds_flow'];
+    if (dsFlow && typeof dsFlow === 'object') {
+      (dsFlow as Record<string, unknown>)['name'] = newName;
+    }
+  }
+
+  return { ...definition, pipelines: [pipeline, ...pipelines.slice(1)] };
+};
+
+/**
  * Patch flow
- * BFF controller that proxies partial flow update to Python FastAPI backend
+ * BFF controller that proxies partial flow update to Python FastAPI backend.
+ * Fetches the current definition first so that app_data.ds_flow.name is kept
+ * in sync with the top-level name — that nested field is Elyra UI state that
+ * the backend does not manage.
  */
 const patchFlow = async (req: Request, res: Response) => {
   try {
     const { flowId } = req.params;
-    const requestUrl = `${process.env.BACKEND_API_URL}/api/v1/flows/${flowId}?is_elyra=true`;
 
-    const response = await axios.patch(requestUrl, req.body, { headers: BODY_HEADERS });
+    const requestUrl = `${process.env.BACKEND_API_URL}/api/v1/flows/${flowId}?is_elyra=true`;
+    const current = await axios.get(requestUrl, { headers: NO_BODY_HEADERS });
+
+    const body = {
+      ...req.body,
+      definition: syncElyraDefinitionName(current.data.definition, req.body.name),
+    };
+
+    const response = await axios.patch(requestUrl, body, { headers: BODY_HEADERS });
 
     res.json(response.data);
 

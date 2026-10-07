@@ -337,37 +337,3 @@ def test_validation_errors(flow_service):
 
     with pytest.raises(FlowInvalidDataException):
         flow_service.list_flows(skip=0, limit=0)
-
-
-def test_partial_update_name_syncs_elyra_definition(flow_service):
-    """Renaming an Elyra-format flow via PATCH also updates app_data.ds_flow.name."""
-    elyra_flow = Flow(
-        name="Original Name",
-        description="A flow",
-        definition={
-            "doc_type": "pipeline",
-            "version": "3.0",
-            "pipelines": [
-                {
-                    "id": "pipeline-1",
-                    "nodes": [],
-                    "app_data": {
-                        "ds_flow": {
-                            "name": "Original Name",
-                            "description": "",
-                            "job_name": "Original Name Job",
-                        },
-                        "ui_data": {"comments": []},
-                    },
-                    "runtime_ref": "",
-                }
-            ],
-        },
-    )
-    created_flow = flow_service.create_flow(flow=elyra_flow)
-
-    updated_flow = flow_service.partial_update_flow(flow_id=created_flow.asset_id, updates={"name": "Renamed Flow"})
-
-    assert updated_flow.name == "Renamed Flow"
-    ds_flow_name = updated_flow.definition["pipelines"][0]["app_data"]["ds_flow"]["name"]
-    assert ds_flow_name == "Renamed Flow"
