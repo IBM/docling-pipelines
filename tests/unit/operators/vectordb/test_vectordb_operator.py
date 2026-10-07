@@ -84,22 +84,40 @@ class TestVectorDBOperatorInitialization:
             assert operator.provider == "opensearch"
             assert operator.adapter is not None
 
-    def test_missing_index_name_in_provider_config_reports_validation_error(self, basic_config):
-        """OpenSearch: missing index_name is reported as a validation error, not a runtime exception."""
+    def test_missing_index_name_in_provider_config_raises_on_init(self, basic_config):
+        """OpenSearch: missing index_name raises at construction (adapter guard fires before validate())."""
         config = basic_config.copy()
         provider_cfg = dict(config[OperatorConstants.Config.PROVIDER_CONFIG])
         provider_cfg.pop("index_name", None)
         config[OperatorConstants.Config.PROVIDER_CONFIG] = provider_cfg
 
         with patch("docpipe.core.operators.vectordb.adapters.outbound.opensearch.client.OpenSearch"):
+            with pytest.raises(DocpipeException, match="Failed to initialize vector database adapter"):
+                VectorDBOperator(config=config)
+
+    def test_missing_index_name_also_caught_by_schema_validation(self, basic_config):
+        """OpenSearch: validate() also surfaces index_name via schema-driven check when adapter is mocked."""
+        config = basic_config.copy()
+        provider_cfg = dict(config[OperatorConstants.Config.PROVIDER_CONFIG])
+        provider_cfg.pop("index_name", None)
+        config[OperatorConstants.Config.PROVIDER_CONFIG] = provider_cfg
+
+        mock_adapter = MagicMock()
+        from docpipe.core.operators.vectordb.adapters.outbound.opensearch.config import OpenSearchConfig
+
+        mock_adapter.get_config_schema.return_value = OpenSearchConfig
+        with patch(
+            "docpipe.core.operators.vectordb.adapters.outbound.factories.vector_store_factory.VectorStoreFactory.create"
+        ) as mock_create:
+            mock_create.return_value = mock_adapter
             operator = VectorDBOperator(config=config)
 
         errors: list = []
         operator.validate(errors=errors, warnings=[], available_features=[])
         assert any("index_name is not provided" in e for e in errors)
 
-    def test_missing_collection_name_in_provider_config_reports_validation_error(self):
-        """Milvus: missing collection_name is reported as a validation error, not a runtime exception."""
+    def test_missing_collection_name_in_provider_config_raises_on_init(self):
+        """Milvus: missing collection_name raises at construction (adapter guard fires before validate())."""
         config = {
             OperatorConstants.Config.PROVIDER: "milvus",
             OperatorConstants.VectorDB.CREATE_INDEX: True,
@@ -111,9 +129,32 @@ class TestVectorDBOperatorInitialization:
             },
         }
         with patch(
+            "docpipe.core.operators.vectordb.adapters.outbound.milvus.client.MilvusClient.__init__",
+            return_value=None,
+        ):
+            with pytest.raises(DocpipeException, match="Failed to initialize vector database adapter"):
+                VectorDBOperator(config=config)
+
+    def test_missing_collection_name_also_caught_by_schema_validation(self):
+        """Milvus: validate() also surfaces collection_name via schema-driven check when adapter is mocked."""
+        config = {
+            OperatorConstants.Config.PROVIDER: "milvus",
+            OperatorConstants.VectorDB.CREATE_INDEX: True,
+            OperatorConstants.Columns.DOC_ID_COLUMN: "doc_id_hash",
+            OperatorConstants.Config.PROVIDER_CONFIG: {
+                "host": "localhost",
+                "port": 19530,
+                # collection_name intentionally absent
+            },
+        }
+        mock_adapter = MagicMock()
+        from docpipe.core.operators.vectordb.adapters.outbound.milvus.config import MilvusConfig
+
+        mock_adapter.get_config_schema.return_value = MilvusConfig
+        with patch(
             "docpipe.core.operators.vectordb.adapters.outbound.factories.vector_store_factory.VectorStoreFactory.create"
         ) as mock_create:
-            mock_create.return_value = MagicMock()
+            mock_create.return_value = mock_adapter
             operator = VectorDBOperator(config=config)
 
         errors: list = []

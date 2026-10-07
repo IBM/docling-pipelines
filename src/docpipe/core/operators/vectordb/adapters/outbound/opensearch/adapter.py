@@ -82,6 +82,8 @@ class OpenSearchAdapter(VectorStorePort):
         """
         # Extract operator-level parameters (added by VectorDBOperator)
         self.index_name = adapter_config.get(OperatorConstants.VectorDB.INDEX_NAME)
+        if not self.index_name:
+            raise ValueError("index_name is required for the OpenSearch adapter")
         available_features = adapter_config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
         feature_mappings: list[dict[str, str]] = adapter_config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
 
@@ -145,8 +147,12 @@ class OpenSearchAdapter(VectorStorePort):
         )
 
         logger.info(
-            f"Initialized OpenSearchAdapter for index: {self.index_name} "
-            f"(host: {host}:{port}, engine: {engine}, algorithm: {algorithm})"
+            "Initialized OpenSearchAdapter for index: %s (host: %s:%s, engine: %s, algorithm: %s)",
+            self.index_name,
+            host,
+            port,
+            engine,
+            algorithm,
         )
 
     @staticmethod
@@ -169,7 +175,7 @@ class OpenSearchAdapter(VectorStorePort):
         # Process batches
         success_count, failed_items = self.batch_processor.process_batches(batches)
 
-        logger.debug(f"Indexed {success_count} documents in {len(batches)} batches, {len(failed_items)} failed")
+        logger.debug("Indexed %s documents in %s batches, %s failed", success_count, len(batches), len(failed_items))
 
         return success_count, failed_items
 
@@ -211,7 +217,7 @@ class OpenSearchAdapter(VectorStorePort):
             dimension_mapping: Dictionary mapping vector column names to their dimensions
         """
         self.index_manager.create_index(dimension_mapping=dimension_mapping)
-        logger.info(f"Created index: {self.index_name} with dimension mapping: {dimension_mapping}")
+        logger.info("Created index: %s with dimension mapping: %s", self.index_name, dimension_mapping)
 
     def refresh_index(self) -> None:
         """Refresh the index to make recent changes visible."""
