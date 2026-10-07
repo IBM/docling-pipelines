@@ -129,7 +129,7 @@ class ElyraConverter:
         except Exception as e:
             # If metadata loading fails, continue with empty metadata
             # Converter will fall back to generic descriptions
-            logger.warning(f"Failed to load operator metadata: {e}")
+            logger.warning("Failed to load operator metadata: %s", e)
             self.metadata = {}
 
     def transform_elyra_to_internal(self, *, elyra_json: dict, flow_id: str) -> dict:
@@ -262,7 +262,7 @@ class ElyraConverter:
             for pipeline in pipelines:
                 if pipeline.get(ElyraConstants.ID) == primary_id:
                     return pipeline
-            logger.warning(f"Primary pipeline '{primary_id}' not found, using first pipeline")
+            logger.warning("Primary pipeline '%s' not found, using first pipeline", primary_id)
 
         # Fallback to the first pipeline in the document
         return pipelines[0]

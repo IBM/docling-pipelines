@@ -202,7 +202,8 @@ class FlowValidator:
             self.operator_metadata.get_operator_metadata(internal_features=True)
         except Exception as e:
             self.logger.warning(
-                f"Some operators failed to load metadata (this is normal if external services are unavailable): {e!s}"
+                "Some operators failed to load metadata (this is normal if external services are unavailable): %s",
+                e,
             )
             # Continue with whatever metadata was successfully loaded
         # Use injected propagator when available to avoid a redundant metadata load.
@@ -415,7 +416,7 @@ class FlowValidator:
                     operators=duplicates,
                 )
             )
-            self.logger.error(f"Duplicate operator names have been found with: {','.join(duplicates)}")
+            self.logger.error("Duplicate operator names have been found with: %s", ",".join(duplicates))
 
         validate_results = ValidateStepResults(available_features={}, errors=errors, warnings=warnings)
         session_info = get_session_info()
@@ -443,9 +444,9 @@ class FlowValidator:
         self.validate_last_operator(dag=dag, validate_results=validate_results)
 
         if validate_results.warnings:
-            self.logger.warning(f"Validation warnings: {validate_results.warnings}")
+            self.logger.warning("Validation warnings: %s", validate_results.warnings)
         if validate_results.errors:
-            self.logger.error(f"Validation errors: {validate_results.errors}")
+            self.logger.error("Validation errors: %s", validate_results.errors)
 
         # Raise exception if there are errors OR warnings (warnings need to be returned to API)
         if validate_results.errors or validate_results.warnings:
@@ -547,7 +548,8 @@ class FlowValidator:
         self._traverse_dag(dag=dag, task=feature_propagation_task)
 
         logger.info(
-            f"Feature propagation complete: {len(propagation_result.available_features)} nodes processed",
+            "Feature propagation complete: %d nodes processed",
+            len(propagation_result.available_features),
             extra=self.common_log_arguments,
         )
 
