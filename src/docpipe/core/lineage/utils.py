@@ -60,7 +60,9 @@ class LineageUtils:
     def strip_credentials(flow_def: Any) -> Any:
         """Recursively remove credential keys from a flow definition dict or list."""
         if isinstance(flow_def, dict):
-            return {k: LineageUtils.strip_credentials(v) for k, v in flow_def.items() if k.lower() not in _CREDENTIALS_KEYS}
+            return {
+                k: LineageUtils.strip_credentials(v) for k, v in flow_def.items() if k.lower() not in _CREDENTIALS_KEYS
+            }
         if isinstance(flow_def, list):
             return [LineageUtils.strip_credentials(item) for item in flow_def]
         return flow_def
