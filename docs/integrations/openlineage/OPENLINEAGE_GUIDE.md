@@ -48,7 +48,7 @@ graph TD
     EP --> OF
     OF -->|"1. get observer"| LF
     LF -->|"2a. enabled=true"| OEO
-    LF -->|"2b. enabled=false"| None
+    LF -->|"2b. enabled=false"| NONE["None"]
     OLPA -->|"3. implements"| LPP
     NOP -->|"3. implements"| LPP
     LPP -->|"4. injected into"| LS
@@ -66,7 +66,7 @@ graph TD
 
 **Service** (`LineageService`) — controls *what* each event contains. It translates execution context objects into the neutral domain models (`LineageRun`, `LineageJob`, `LineageDataset`) and builds all standard and custom facets. It has no knowledge of any specific backend or transport.
 
-**Publisher** (`LineagePublisherPort` / `OpenLineagePublisherAdapter`) — controls *where* events go. It receives the neutral domain models and maps them to the target backend's wire format. The `OpenLineagePublisherAdapter` delegates entirely to the `openlineage-python` SDK, which handles transport based on environment configuration. The `NoOpLineagePublisherAdapter` discards all events silently — used when lineage is disabled or as a development aid.
+**Publisher** (`LineagePublisherPort` / `OpenLineagePublisherAdapter`) — controls *where* events go. It receives the neutral domain models and maps them to the target backend's wire format. The `OpenLineagePublisherAdapter` delegates entirely to the `openlineage-python` SDK, which handles transport based on environment configuration. The `NoOpLineagePublisherAdapter` discards all events silently — used as a fallback when `openlineage-python` fails to initialise, or as a development aid.
 
 ---
 
@@ -92,7 +92,7 @@ Lineage graphs are built from dataset edges. The output dataset name of one node
 
 ### Credential safety
 
-Flow definitions are never sent to the lineage backend as-is. Before any facet is built, the service strips all credential keys (`api_key`, `password`, `token`, `connection_params`, and related fields) from the flow definition. Only safe metadata is included in events.
+Flow definitions are never sent to the lineage backend as-is. Before any facet is built, the service strips all credential keys (`api_key`, `apikey`, `secret`, `secret_key`, `password`, `token`, `auth_token`, `access_token`, `credentials`, `connection_params`) from the flow definition. Only safe metadata is included in events.
 
 ---
 
@@ -169,7 +169,7 @@ DocpipeFlowManager(flow_file="my_flow.json").execute()
 | `DOCPIPE_LINEAGE_MODE` | `flow` | `flow` or `operator`. Controls event granularity — see [Section 6](#6-emission-modes--flow-vs-operator). |
 | `DOCPIPE_LINEAGE_NAMESPACE` | `docpipe://local` | OpenLineage namespace for all jobs and datasets. Use a stable, environment-specific value in shared deployments. |
 | `DOCPIPE_LINEAGE_PRODUCER` | `https://github.com/IBM/docling-pipelines` | Producer URI embedded in all facets. Identifies the system that generated events. |
-| `DOCPIPE_LINEAGE_STRICT` | `false` | Reserved for future use. |
+| `DOCPIPE_LINEAGE_STRICT` | `false` | When `true`, observer exceptions are re-raised and halt the pipeline. Default `false` — exceptions are logged as warnings and execution continues. |
 
 ### 5.2 OpenLineage SDK transport configuration
 
@@ -184,10 +184,10 @@ The following transports are available with `openlineage-python==1.52.0` and are
 | Type | Description |
 | --- | --- |
 | `http` | Synchronous HTTP POST to any OpenLineage-compatible backend (Marquez or other compatible platforms). The primary transport for production use. |
-| `file` | Write events to a local JSONL file. Recommended for testing, audit trails, and offline inspection — see [Section 5.3](#53-file-transport) for full configuration. |
+| `file` | Write events to a local JSONL file. Recommended for testing, audit trails, and offline inspection — see [Section 5.4](#54-file-transport) for full configuration. |
 | `console` | Print events to stdout via the Python logger. Zero configuration — the recommended transport for local development and debugging. |
 
-### 5.2 HTTP transport quick reference
+### 5.3 HTTP transport quick reference
 
 Legacy shorthand (also supported for backwards compatibility):
 
@@ -209,7 +209,7 @@ Modern form using the `OPENLINEAGE__` prefix:
 | `OPENLINEAGE__TRANSPORT__COMPRESSION` | — | `gzip` to compress the request body. |
 | `OPENLINEAGE__TRANSPORT__TIMEOUT` | `5` | Connection timeout in seconds. |
 
-### 5.3 File transport
+### 5.4 File transport
 
 The file transport writes each lineage event as a JSON object to a local file. It is the recommended transport when you want to inspect the exact events docpipe emits, run integration tests offline, or maintain a local audit log without standing up a backend.
 
@@ -287,7 +287,7 @@ Set `OPENLINEAGE__TRANSPORT__TYPE=console` (or omit the transport setting entire
 
 ### File transport — offline inspection
 
-Configure the file transport (see [Section 5.3](#53-file-transport)) to write events to a local JSONL file. Open the file in any JSON viewer or use `jq` to inspect individual events without connecting a backend.
+Configure the file transport (see [Section 5.4](#54-file-transport)) to write events to a local JSONL file. Open the file in any JSON viewer or use `jq` to inspect individual events without connecting a backend.
 
 ### OpenLineage-compatible backend
 
@@ -307,11 +307,11 @@ These events are emitted in both `flow` and `operator` mode.
 
 | Event | Trigger | Key facets |
 | --- | --- | --- |
-| **Flow START** | Pipeline execution begins | `jobType` (FLOW/BATCH), `documentation`, `docpipeFlowId`, `docpipeOperators` (operator list + count, added on START only), `nominalTime` |
+| **Flow START** | Pipeline execution begins | `jobType` (FLOW/BATCH), `documentation`, `docpipeFlowId`, `docpipeOperators` (operator list + count, added on START only); `nominalTime` only when `start_time` is provided |
 | **Flow RUNNING** | Ingest stage completes; active processing begins | Input dataset: ingest source name with row count and column schema |
-| **Flow COMPLETE** | Pipeline finishes successfully | Output dataset(s) with schema and row count; `docpipeStats` (`totalDocs`, `completedDocs`, `failedDocs`, `skippedDocs`) |
-| **Flow FAIL** | Pipeline terminates with an error | `errorMessage` facet with message and Python stack trace |
-| **Flow ABORT** | Pipeline is cancelled or stopped | Start and end timestamps |
+| **Flow COMPLETE** | Pipeline finishes successfully | Output dataset(s) with schema and row count; `docpipeStats` (`totalDocs`, `completedDocs`, `failedDocs`, `skippedDocs`) — only present when at least one document was processed |
+| **Flow FAIL** | Pipeline terminates with an error | `errorMessage` facet with message only; `stackTrace` is never included (orchestrator does not pass an exception object to the flow fail context) |
+| **Flow ABORT** | Pipeline is cancelled or stopped | End timestamp (start time is not passed by the orchestrator and will be absent) |
 
 ### 8.2 Operator mode — additional events per DAG node
 
@@ -319,7 +319,7 @@ When `DOCPIPE_LINEAGE_MODE=operator`, all five flow-level events above are still
 
 | Event | Trigger | Key facets |
 | --- | --- | --- |
-| **Node START** | A DAG node begins execution | `jobType` (OPERATOR/BATCH) with operator `short_name` and `operatorCategory`; `parent` run facet; input dataset from predecessor node's output |
+| **Node START** | A DAG node begins execution | `jobType` (OPERATOR/BATCH) with operator `short_name`; `operatorCategory` is not populated on START (not passed by the orchestrator); `parent` run facet; input dataset from predecessor node's output (only present when previous step produced a table) |
 | **Node COMPLETE** | A DAG node finishes successfully | Output dataset(s) with schema and row count; `docpipeStats` with operator-specific camelCase metrics (e.g. `totalChunks`, `docsBeforeFilter`, `chunksIndexedSuccessfully`); `parent` run facet |
 | **Node FAIL** | A DAG node throws an exception | `errorMessage` with message and stack trace; `parent` run facet; input dataset if available |
 | **Node SKIP (OTHER)** | A DAG node is skipped | `docpipeSkip.reason` explaining why the node was skipped; `parent` run facet |
@@ -337,9 +337,10 @@ Docpipe attaches the following custom facets to events in addition to the standa
 
 | Facet | Attaches to | Fields | Description |
 | --- | --- | --- | --- |
-| `docpipeFlowId` | Job (flow) | `flowId` | The flow's asset ID, or a SHA-256 hash of the credentials-stripped flow definition if no asset ID is set. |
-| `docpipeOperators` | Job (flow) | `operators` (list), `count` | The list of operator `short_name` values present in the flow. Added on START events only. |
-| `docpipeStats` | Run | `totalDocs`, `completedDocs`, `failedDocs`, `skippedDocs` + operator-specific scalars | Aggregated document counts on flow events. On node COMPLETE events in operator mode, also includes operator-specific scalar metrics from the operator's output metadata, converted from `snake_case` to `camelCase`. |
+| `docpipeFlowId` | Job (flow) | `flowId` | The flow's asset ID, or a SHA-256 hash of the credentials-stripped flow definition if no asset ID is set. Only attached when a flow definition is available (START and COMPLETE events). |
+| `docpipeOperators` | Job (flow) | `operators` (list), `count` | The list of operator `short_name` values present in the flow. Added on Flow START only, and only when the operator list is non-empty. |
+| `docpipeStats` (flow) | Run — Flow COMPLETE | `totalDocs`, `completedDocs`, `failedDocs`, `skippedDocs` | Aggregated document counts for the entire pipeline run. Only present when at least one document was processed. |
+| `docpipeStats` (node) | Run — Node COMPLETE | operator-specific scalars | All scalar values from the operator's output metadata, converted from `snake_case` to `camelCase` (e.g. `totalChunks`, `docsBeforeFilter`). The four flow-level fields are not included. Only present when the metadata dict contains at least one scalar value. |
 | `docpipeSkip` | Run (OTHER) | `reason` | The reason a node was skipped. Present only on Node SKIP (OTHER) events. |
 
 ---
@@ -408,6 +409,7 @@ class MyCustomPublisher(LineagePublisherPort):
 | | `facets` | `dict` | Run-level facets |
 | | `start_time` | `str \| datetime \| None` | ISO-8601 start timestamp |
 | | `end_time` | `str \| datetime \| None` | ISO-8601 end timestamp |
+| | `status` | `str \| None` | Execution status string (e.g. `"Completed"`, `"Failed"`) |
 | `LineageJob` | `namespace` | `str` | OpenLineage namespace |
 | | `name` | `str` | Job name, e.g. `my-flow` or `my-flow/chunker` |
 | | `facets` | `dict` | Job-level facets |
