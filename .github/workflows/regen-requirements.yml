@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "uv.lock"
+      - "slim/uv.lock"
 
 jobs:
   regen:

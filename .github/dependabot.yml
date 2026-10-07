@@ -5,15 +5,24 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
 
   # Slim Python package (slim/pyproject.toml + slim/uv.lock)
   - package-ecosystem: "uv"
     directory: "/slim"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
 
   # Frontend npm packages (frontend/package.json + frontend/package-lock.json)
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
