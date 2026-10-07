@@ -29,6 +29,39 @@ from docpipe.utils.infrastructure.logging import get_logger
 logger = get_logger()
 
 
+def _extract_flow_name_from_snapshot(flow_def: dict[str, Any]) -> str | None:
+    """Extract the human-readable flow name from a stored flow definition snapshot.
+
+    Handles two formats:
+    - Authoring format (CLI / Library): ``flow_def["flow_name"]``
+    - Elyra format (API / UI):
+        ``flow_def["pipelines"][0]["app_data"]["ds_flow"]["name"]``
+        with a fallback to ``app_data["ui_data"]["name"]``
+    """
+    from docpipe.utils.orchestration.elyra_converter import ElyraConstants
+
+    # Authoring format
+    name = flow_def.get(DocpipeConstants.FLOW_NAME)
+    if name:
+        return name
+
+    # Elyra format — mirror the lookup order used by ElyraConverter
+    pipelines = flow_def.get(ElyraConstants.PIPELINES)
+    if not pipelines or not isinstance(pipelines, list):
+        return None
+
+    app_data = pipelines[0].get(ElyraConstants.APP_DATA, {})
+
+    # Primary location: ui_data.name
+    name = app_data.get(ElyraConstants.UI_DATA, {}).get(ElyraConstants.NAME)
+    if name:
+        return name
+
+    # Fallback: ds_flow.name (matches what ElyraConverter does)
+    name = app_data.get(ElyraConstants.DS_FLOW, {}).get(ElyraConstants.NAME)
+    return name or None
+
+
 class JobManagementService:
     """
     High-level service for job management operations.
@@ -88,13 +121,10 @@ class JobManagementService:
         job = request_body.entity.job
         job_run = request_body.entity.job_run
 
-        # Extract job_id (required)
+        # Extract flow_id (required — the asset UUID)
         flow_id = job.asset_ref if job else None
         if not flow_id:
             raise FlowNotFoundException(message="entity.job.asset_ref is required")
-
-        # Extract flow_name
-        flow_name = (job.name if job else None) or flow_id
 
         # Build flow_config from job and job_run configurations
         flow_config = dict(job.configuration if job else {})
@@ -110,15 +140,12 @@ class JobManagementService:
             user_id = job_run_config_model.user_id
             metadata = dict(job_run_config_model.metadata)
 
-        return self._create_job_run(
-            flow_id=flow_id, flow_name=flow_name, flow_config=flow_config, user_id=user_id, metadata=metadata
-        )
+        return self._create_job_run(flow_id=flow_id, flow_config=flow_config, user_id=user_id, metadata=metadata)
 
     def _create_job_run(
         self,
         *,
         flow_id: str,
-        flow_name: str,
         flow_config: dict[str, Any],
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
@@ -127,8 +154,7 @@ class JobManagementService:
         Create and start a new job run.
 
         Args:
-            flow_id: flow identifier
-            flow_name: Name of the flow being executed
+            flow_id: Flow asset UUID from the API request
             flow_config: Flow configuration dictionary
             user_id: Optional user identifier
             metadata: Optional metadata dictionary
@@ -142,11 +168,6 @@ class JobManagementService:
         flow = self.flow_service.get_flow(flow_id)
         if flow is None:
             raise FlowNotFoundException(f"Flow not found for flow_id: {flow_id}")
-
-        # Resolve flow_name with highest accuracy: flow.name > flow_name > flow_id
-        resolved_flow_name = (
-            (flow.name if flow and flow.name else None) or (flow_name if flow_name != flow_id else None) or flow_id
-        )
 
         if hasattr(flow, DocpipeConstants.JOB_ID) and flow.job_id:
             flow_config[DocpipeConstants.JOB_ID] = flow.job_id
@@ -166,7 +187,8 @@ class JobManagementService:
         self.job_stats_service.start_tracking_job(
             job_id=job_id,
             job_run_id=job_run_id,
-            flow_name=resolved_flow_name,
+            flow_id=flow_id,
+            flow_name=flow.name,
             user_id=user_id,
             metadata=metadata or {},
             initial_status=ExecutionStatus.QUEUED,
@@ -180,22 +202,24 @@ class JobManagementService:
             from docpipe.core.assets.flows.application.services.authoring_compiler import AuthoringCompiler
             from docpipe.core.assets.flows.domain.models.authoring_flow import AuthoringFlow
 
-            logger.info(f"Flow {flow_id} is in authoring format, compiling to runtime DAG")
+            logger.info("Flow %s is in authoring format, compiling to runtime DAG", flow_id)
             authoring_flow = AuthoringFlow.from_dict(data=flow.definition)
             compiler = AuthoringCompiler()
             flow_dag_definition = compiler.compile(authoring_flow=authoring_flow)
         elif "doc_type" in flow.definition:
             # Elyra format - transform to internal DAG
-            logger.info(f"Flow {flow_id} is in Elyra format, transforming to internal DAG")
+            logger.info("Flow %s is in Elyra format, transforming to internal DAG", flow_id)
             converter = ElyraConverter()
             flow_dag_definition = converter.transform_elyra_to_internal(elyra_json=flow.definition, flow_id=flow_id)
         else:
             # Unknown format
             raise FlowInvalidDataException(message=f"Flow {flow_id} has unknown format.", field_name="definition")
 
+        session_info = get_session_info()
+        session_info.flow_id = flow_id
         self.executor.submit(
             self._execute_flow_async,
-            get_session_info(),
+            session_info,
             job_id,
             job_run_id,
             flow_dag_definition,
@@ -231,7 +255,7 @@ class JobManagementService:
         # Notify framework manager
         self.job_run_manager.cancel_job_run(job_run_id=job_run_id)
 
-        logger.info(f"Requested cancellation: job_run_id={job_run_id}")
+        logger.info("Requested cancellation: job_run_id=%s", job_run_id)
 
     def delete_job_run(self, *, job_run_id: str) -> None:
         """
@@ -246,7 +270,7 @@ class JobManagementService:
         # Delete from framework
         self.job_run_manager.delete_job_run(job_run_id=job_run_id)
 
-        logger.info(f"Deleted job run: job_run_id={job_run_id}")
+        logger.info("Deleted job run: job_run_id=%s", job_run_id)
 
     def list_job_runs(
         self,
@@ -288,16 +312,24 @@ class JobManagementService:
                     DocpipeConstants.ORCHESTRATOR,
                 }
             )
-            # flow_id attribute on JobStats holds the flow_name set during start_tracking_job
-            raw_flow_name = getattr(job_run, DocpipeConstants.FLOW_ID, None)
-            if not raw_flow_name or raw_flow_name.lower() == "unknown" or raw_flow_name == job_run.job_id:
+            # Prefer the snapshot stored at run creation time (new rows).
+            # Backward compatibility: for rows created before this fix, flow_name is None.
+            # Fall back to the saved flow definition snapshot to recover the name.
+            flow_name = job_run.flow_name
+            if flow_name is None:
                 try:
-                    matched_flow = self.flow_service.get_flow(job_run.job_id)
-                    if matched_flow and matched_flow.name:
-                        raw_flow_name = matched_flow.name
+                    flow_def = self.job_stats_service.get_flow_definition(job_run_id=job_run.job_run_id)
+                    if flow_def:
+                        flow_name = _extract_flow_name_from_snapshot(flow_def)
                 except Exception as exc:
-                    logger.debug("Failed to resolve flow name for flow_id %s: %s", job_run.job_id, exc)
-            item[DocpipeConstants.FLOW_NAME] = raw_flow_name or None
+                    # Snapshot may not exist for runs created before flow-definition saving
+                    # was introduced, or if storage is unavailable. Leave flow_name as None.
+                    logger.debug(
+                        "Could not recover flow_name from snapshot for job_run_id %s: %s",
+                        job_run.job_run_id,
+                        exc,
+                    )
+            item[DocpipeConstants.FLOW_NAME] = flow_name
             list_items.append(item)
 
         return {
@@ -354,7 +386,7 @@ class JobManagementService:
                     logger.warning("Failed to update job run status to STARTING: %s", exc)
 
             flow_executor.execute(orchestrator=orchestrator, params=params)
-            logger.info(f"Completed async flow execution for job_run_id={job_run_id}")
+            logger.info("Completed async flow execution for job_run_id=%s", job_run_id)
         except FlowValidationException as validation_exc:
             # Log detailed errors, warnings, and traceback (delegated to exception)
             validation_exc.log_details(job_run_id=job_run_id)
@@ -364,7 +396,7 @@ class JobManagementService:
 
             try:
                 # Update job run status with formatted error message
-                logger.debug(f"Updating job run status to Failed with validation details: job_run_id={job_run_id}")
+                logger.debug("Updating job run status to Failed with validation details: job_run_id=%s", job_run_id)
                 try:
                     self.job_run_manager.update_job_run_status(
                         job_run_id=job_run_id,
@@ -373,8 +405,9 @@ class JobManagementService:
                     )
                 except Exception as update_error:
                     logger.warning(
-                        f"Failed to update job run status to FAILED (non-critical): {update_error}. "
-                        f"Error message was: {error_message}"
+                        "Failed to update job run status to FAILED (non-critical): %s. Error message was: %s",
+                        update_error,
+                        error_message,
                     )
 
                 self.job_stats_service.end_job(
@@ -383,9 +416,10 @@ class JobManagementService:
                     job_run_stats={DocpipeConstants.MESSAGE: error_message},
                 )
             except Exception as end_exc:
-                logger.error(
-                    f"Failed to finalize validation error for job_run_id={job_run_id}: {end_exc}",
-                    exc_info=True,
+                logger.exception(
+                    "Failed to finalize validation error for job_run_id=%s: %s",
+                    job_run_id,
+                    end_exc,
                 )
         except Exception as exc:
             # Handle all other exceptions (extraction failures, runtime errors, etc.)
@@ -393,14 +427,14 @@ class JobManagementService:
             full_traceback = "".join(tb_lines)
 
             # Logging traceback as prefect consumes stacktrace
-            logger.error(f"Async flow execution failed for job_run_id={job_run_id}: {full_traceback}", exc_info=True)
+            logger.exception("Async flow execution failed for job_run_id=%s: %s", job_run_id, full_traceback)
 
             # Build error message with more context
             error_message = self._build_detailed_error_message(exc)
 
             try:
                 # Update status to Failed
-                logger.info(f"Updating job run status to Failed: job_run_id={job_run_id}")
+                logger.info("Updating job run status to Failed: job_run_id=%s", job_run_id)
                 try:
                     self.job_run_manager.update_job_run_status(
                         job_run_id=job_run_id,
@@ -408,7 +442,7 @@ class JobManagementService:
                         job_run_stats={DocpipeConstants.MESSAGE: error_message},
                     )
                 except Exception as update_error:
-                    logger.warning(f"Failed to update job run status to FAILED (non-critical): {update_error}")
+                    logger.warning("Failed to update job run status to FAILED (non-critical): %s", update_error)
 
                 self.job_stats_service.end_job(
                     job_run_id=job_run_id,
@@ -416,9 +450,10 @@ class JobManagementService:
                     job_run_stats={DocpipeConstants.MESSAGE: error_message},
                 )
             except Exception as end_exc:
-                logger.error(
-                    f"Failed to finalize error job_run_id={job_run_id}: {end_exc}",
-                    exc_info=True,
+                logger.exception(
+                    "Failed to finalize error job_run_id=%s: %s",
+                    job_run_id,
+                    end_exc,
                 )
 
     def _serialize_validation_alerts(self, alerts: list[Any]) -> list[dict[str, Any]]:
@@ -448,7 +483,7 @@ class JobManagementService:
                     alert_dict = alert.model_dump(exclude_none=True)  # type: ignore[assignment]
                 else:
                     # Fallback: convert to string representation
-                    logger.warning(f"Unknown validation alert type: {type(alert)}, converting to string")
+                    logger.warning("Unknown validation alert type: %s, converting to string", type(alert))
                     serialized.append({"message": str(alert)})
                     continue
 
@@ -468,7 +503,7 @@ class JobManagementService:
                 serialized.append(user_friendly)
 
             except Exception as e:
-                logger.error(f"Failed to serialize validation alert: {e}", exc_info=True)
+                logger.exception("Failed to serialize validation alert: %s", e)
                 # Include error info but don't fail the entire serialization
                 serialized.append({"message": str(alert), "serialization_error": str(e)})
 
@@ -527,7 +562,7 @@ class JobManagementService:
                     if error_details:
                         error_message += f". Details: {'; '.join(error_details)}"
             except Exception as e:
-                logger.debug(f"Could not extract error details: {e}")
+                logger.debug("Could not extract error details: %s", e)
 
         return error_message
 
