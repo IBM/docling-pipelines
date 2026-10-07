@@ -76,7 +76,7 @@ class TestS3SourceConfig:
 
     def test_rejects_negative_max_file_size(self):
         """Test that negative max file size is rejected."""
-        with pytest.raises(ValidationError, match="max_file_size_mb must be positive"):
+        with pytest.raises(ValidationError, match="Input should be greater than or equal to 1"):
             S3SourceConfig(
                 access_key="key",
                 secret_key="secret",  # pragma: allowlist secret

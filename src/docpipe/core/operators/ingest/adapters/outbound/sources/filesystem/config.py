@@ -35,7 +35,9 @@ class FilesystemSourceConfig(BaseModel):
         default_factory=list, description="List of glob patterns to exclude (e.g., ['*.tmp', '__pycache__/*'])"
     )
 
-    max_file_size_mb: int | None = Field(None, description="Maximum file size in MB to process. None means no limit.")
+    max_file_size_mb: int | None = Field(
+        None, description="Maximum file size in MB to process. None means no limit.", ge=1
+    )
 
     follow_symlinks: bool = Field(False, description="Whether to follow symbolic links")
 
@@ -58,14 +60,6 @@ class FilesystemSourceConfig(BaseModel):
     def validate_extensions(cls, v: list[str]) -> list[str]:
         """Ensure extensions start with a dot."""
         return [ext if ext.startswith(".") else f".{ext}" for ext in v]
-
-    @field_validator("max_file_size_mb")
-    @classmethod
-    def validate_max_file_size(cls, v: int | None) -> int | None:
-        """Validate max file size is positive."""
-        if v is not None and v <= 0:
-            raise ValueError("max_file_size_mb must be positive")
-        return v
 
     class Config:
         """Pydantic configuration."""
