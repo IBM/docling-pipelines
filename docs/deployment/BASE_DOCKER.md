@@ -1,6 +1,9 @@
 ```bash
-# Set before running Compose commands (replace with your own strong password)
-export OPENSEARCH_PASSWORD='DocpipeLocal9!Secure'
+# Enter your own strong password before running Compose commands
+printf 'OpenSearch password: '
+read -r -s OPENSEARCH_PASSWORD
+printf '\n'
+export OPENSEARCH_PASSWORD
 
 # Build
 docker compose -f docker/docker-compose.yml build
