@@ -9,8 +9,6 @@
 export const INGEST_SOURCE_ATTRIBUTE = {
   /** Storage provider identifier — e.g. "s3", "ibm_cos", "sharepoint" */
   PROVIDER: 'provider',
-  /** Provider-specific connection parameters (ingest_source uses this instead of provider_config) */
-  CONNECTION_PARAMS: 'connection_params',
   /** Provider-specific configuration */
   PROVIDER_CONFIG: 'provider_config',
   /** Maximum number of files to ingest */
