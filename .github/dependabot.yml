@@ -1,0 +1,19 @@
+version: 2
+updates:
+  # Root Python package (pyproject.toml + uv.lock)
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  # Slim Python package (slim/pyproject.toml + slim/uv.lock)
+  - package-ecosystem: "uv"
+    directory: "/slim"
+    schedule:
+      interval: "weekly"
+
+  # Frontend npm packages (frontend/package.json + frontend/package-lock.json)
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
