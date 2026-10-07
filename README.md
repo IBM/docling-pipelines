@@ -2,9 +2,12 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/docling-pipelines)](https://pypi.org/project/docling-pipelines/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
+[![License MIT](https://img.shields.io/github/license/IBM/docling-pipelines)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/IBM/docling-pipelines/actions/workflows/ci.yml/badge.svg)](https://github.com/IBM/docling-pipelines/actions/workflows/ci.yml)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![License MIT](https://img.shields.io/github/license/IBM/docling-pipelines)](https://opensource.org/licenses/MIT)
+[![DCO](https://img.shields.io/badge/DCO-required-brightgreen)](https://developercertificate.org/)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/15122/badge)](https://www.bestpractices.dev/projects/15122)
 
 ## What is Docling pipelines?
 
@@ -64,13 +67,45 @@ docling-pipelines --list-operators
 ### 2. Python API
 
 ```python
-from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+from docpipe import DocpipeFlowManager
 
 manager = DocpipeFlowManager(flow_file="path/to/flow.json")
 result = manager.execute()
 ```
 
 Log verbosity is controlled via `DS_LOG_LEVEL` (`DEBUG`, `INFO`, `WARNING`).
+
+## UI
+
+Docling pipelines includes a React + TypeScript frontend (IBM Carbon Design System) served by the FastAPI backend at `/ui`.
+
+### Development setup
+
+**Prerequisites:** Node.js 22.15.1 (use `nvm use` in the `frontend/` directory), npm.
+
+**1. Start the backend:**
+```bash
+uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8080
+```
+
+**2. Start the frontend dev server (separate terminal):**
+```bash
+cd frontend
+nvm use
+npm install
+npm run dev
+# UI available at http://localhost:3000
+```
+
+### Production (bundled with the wheel)
+
+The frontend is automatically built and bundled into the wheel during `uv build`. After installing:
+```bash
+uvicorn docpipe.api.main:app --host 0.0.0.0 --port 8080
+# UI available at http://localhost:8080/ui
+```
+
+For full details see [FRONTEND_BUILD_INTEGRATION.md](FRONTEND_BUILD_INTEGRATION.md).
 
 ## Documentation
 
