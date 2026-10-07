@@ -10,7 +10,7 @@ from docpipe.core.lineage.domain.models.event_type import LineageEventType
 from docpipe.core.lineage.domain.models.job import LineageJob
 from docpipe.core.lineage.domain.models.run import LineageRun
 from docpipe.core.lineage.domain.ports.lineage_publisher import LineagePublisherPort
-from docpipe.core.lineage.utils import LineageUtils, _CREDENTIALS_KEYS
+from docpipe.core.lineage.utils import _CREDENTIALS_KEYS, LineageUtils
 from docpipe.core.orchestration.models.execution_event_context import (
     FlowAbortContext,
     FlowCompleteContext,
