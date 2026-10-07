@@ -59,7 +59,7 @@ jobs:
           python -m mypy --config-file=pyproject.toml $MODIFIED
 
       - name: Validate Notebooks
-        run: uv run pre-commit run nbqa-ruff-check --all-files
+        run: pre-commit run nbqa-ruff-check --all-files
 
   frontend-test:
     name: Frontend Tests

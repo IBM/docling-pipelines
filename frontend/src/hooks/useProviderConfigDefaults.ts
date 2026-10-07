@@ -28,7 +28,6 @@
 import { useEffect } from 'react';
 import type { OperatorFeature } from '@/types';
 import { NodeOperator } from '@/constants/operators';
-import { INGEST_SOURCE_ATTRIBUTE } from '@/components/PropertiesPanel/CustomPanels/IngestSource/constants';
 import { STORAGE_OUTPUT_ATTRIBUTE } from '@/components/PropertiesPanel/CustomPanels/StorageOutput/constants';
 import { EXTRACT_ATTRIBUTE, EXTRACTION_KEY } from '@/components/PropertiesPanel/CustomPanels/Extract/constants';
 import { CHUNKER_ATTRIBUTE } from '@/components/PropertiesPanel/CustomPanels/Chunker/constants';
@@ -36,8 +35,6 @@ import { CHUNKER_ATTRIBUTE } from '@/components/PropertiesPanel/CustomPanels/Chu
 // ── Param key constants ───────────────────────────────────────────────────────
 const PROVIDER = EXTRACTION_KEY.PROVIDER;
 const PROVIDER_CONFIG = EXTRACTION_KEY.PROVIDER_CONFIG;
-// Ingest source exposes the same concept under its own metadata constants.
-const INGEST_PROVIDER_CONFIG = INGEST_SOURCE_ATTRIBUTE.PROVIDER_CONFIG;
 const DESTINATION_CONFIG = STORAGE_OUTPUT_ATTRIBUTE.DESTINATION_CONFIG;
 const TEXT_EXTRACTION = EXTRACT_ATTRIBUTE.TEXT_EXTRACTION;
 const ENTITY_EXTRACTION = EXTRACT_ATTRIBUTE.ENTITY_EXTRACTION;
@@ -148,13 +145,9 @@ export function useProviderConfigDefaults(
       return;
     }
 
-    // ── ingest_source ─────────────────────────────────────────────────────────
-    if (nodeOp === NodeOperator.INGEST_SOURCE) {
-      seedFlat(INGEST_PROVIDER_CONFIG);
-    }
-
     // ── flat provider_config operators ────────────────────────────────────────
-    else if (
+    if (
+      nodeOp === NodeOperator.INGEST_SOURCE ||
       nodeOp === NodeOperator.EMBEDDINGS ||
       nodeOp === NodeOperator.DOCUMENT_CLASSIFIER ||
       nodeOp === NodeOperator.PII_AND_HAP

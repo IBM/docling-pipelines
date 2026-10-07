@@ -65,7 +65,7 @@ describe('useProviderConfigDefaults — flat layout', () => {
     );
   });
 
-  it('does not overwrite provider_config when it already has values', () => {
+  it('does not overwrite provider_config when it already has values for ingest_source', () => {
     const nodeAttributes: Record<string, OperatorFeature> = {
       provider_config: {
         type: 'json',
