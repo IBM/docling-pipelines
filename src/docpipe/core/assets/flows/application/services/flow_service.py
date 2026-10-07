@@ -254,7 +254,7 @@ class FlowService(AssetService[Flow]):
             logger.error("Flow validation failed: %s", exc)
             raise FlowInvalidDataException(f"Invalid flow data: {exc!s}") from exc
 
-        logger.info(f"Creating flow with name: {flow.name} (format: {'Elyra' if is_elyra else 'Authoring'})")
+        logger.info("Creating flow with name: %s (format: %s)", flow.name, "Elyra" if is_elyra else "Authoring")
 
         if self._repository.exists_by_name(name=flow.name):
             logger.warning("Attempted to create flow with existing name: %s", flow.name)
