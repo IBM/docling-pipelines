@@ -483,31 +483,48 @@ class TestStartTrackingJob:
     """Test start_tracking_job method."""
 
     def test_start_tracking_job_basic(self, *, job_tracker_service, mock_store):
-        """Start tracking creates initial job stats."""
+        """Start tracking creates initial job stats with correct flow_id and flow_name."""
         job_tracker_service.start_tracking_job(
             job_id=JOB_ID,
             job_run_id=JOB_RUN_ID,
+            flow_id="test-flow-uuid",
             flow_name="test_flow",
             user_id="test_user",
         )
 
-        # Verify store_job_stats was called
         assert mock_store.store_job_stats.called
         call_args = mock_store.store_job_stats.call_args
         job_stats = call_args[0][0]
 
         assert job_stats.job_id == JOB_ID
         assert job_stats.job_run_id == JOB_RUN_ID
-        assert job_stats.flow_id == "test_flow"
+        assert job_stats.flow_id == "test-flow-uuid"
+        assert job_stats.flow_name == "test_flow"
         assert job_stats.user_id == "test_user"
         assert job_stats.status == ExecutionStatus.RUNNING
         assert job_stats.start_time is not None
+
+    def test_start_tracking_job_flow_name_none(self, *, job_tracker_service, mock_store):
+        """start_tracking_job stores flow_name=None without error."""
+        job_tracker_service.start_tracking_job(
+            job_id=JOB_ID,
+            job_run_id=JOB_RUN_ID,
+            flow_id="test-flow-uuid",
+            flow_name=None,
+        )
+
+        call_args = mock_store.store_job_stats.call_args
+        job_stats = call_args[0][0]
+
+        assert job_stats.flow_id == "test-flow-uuid"
+        assert job_stats.flow_name is None
 
     def test_start_tracking_job_custom_initial_status(self, *, job_tracker_service, mock_store):
         """start_tracking_job stores the given initial_status when provided."""
         job_tracker_service.start_tracking_job(
             job_id=JOB_ID,
             job_run_id=JOB_RUN_ID,
+            flow_id="test-flow-uuid",
             flow_name="test_flow",
             initial_status=ExecutionStatus.QUEUED,
         )
@@ -519,7 +536,9 @@ class TestStartTrackingJob:
 
     def test_start_tracking_job_default_user(self, *, job_tracker_service, mock_store):
         """Start tracking with no user_id uses default."""
-        job_tracker_service.start_tracking_job(job_id=JOB_ID, job_run_id=JOB_RUN_ID, flow_name="test_flow")
+        job_tracker_service.start_tracking_job(
+            job_id=JOB_ID, job_run_id=JOB_RUN_ID, flow_id="test-flow-uuid", flow_name="test_flow"
+        )
 
         call_args = mock_store.store_job_stats.call_args
         job_stats = call_args[0][0]

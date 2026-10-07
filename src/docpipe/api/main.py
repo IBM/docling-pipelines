@@ -160,7 +160,13 @@ def _start_bff() -> tuple[subprocess.Popen | None, str]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan."""
-    get_default_factory().initialize_storage()
+    try:
+        get_default_factory().initialize_storage()
+    except Exception as exc:
+        msg = f"STARTUP ERROR — storage initialization failed: {exc}"
+        print(msg, file=sys.stderr, flush=True)
+        logger.error("Storage initialization failed during startup: %s", exc)
+        raise
     # Register secret providers (no-op when secrets.vault.enabled=false in config)
     from docpipe.integrations.secrets.vault_initializer import initialize_secret_providers
 

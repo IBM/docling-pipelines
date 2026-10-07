@@ -184,6 +184,7 @@ class TestPostgresJobStatsStoreInterface:
             mock_job_run_stats.container_kind = None
             mock_job_run_stats.container_id = None
             mock_job_run_stats.flow_id = None
+            mock_job_run_stats.flow_name = None
             mock_job_run_stats.user_id = None
             mock_job_run_stats.account_id = None
             mock_job_run_stats.user_entitlements = None
@@ -326,6 +327,7 @@ class TestPostgresJobStatsStoreInterface:
             mock_job_run_stats.container_kind = None
             mock_job_run_stats.container_id = None
             mock_job_run_stats.flow_id = None
+            mock_job_run_stats.flow_name = None
             mock_job_run_stats.user_id = None
             mock_job_run_stats.account_id = None
             mock_job_run_stats.user_entitlements = None
