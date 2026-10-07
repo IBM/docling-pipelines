@@ -14,6 +14,8 @@ COPY frontend/index.html \
      frontend/vite.config.ts \
      frontend/tsconfig.json \
      ./
+# Copy
+RUN mv ./public/samples/docker_samplePipeline.json ./public/samples/samplePipeline.json
 RUN npm run build
 
 # Install Python dependencies before copying application source.
