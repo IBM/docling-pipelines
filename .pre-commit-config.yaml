@@ -57,6 +57,14 @@ repos:
         args: [--fix]
         files: ^.*\.py$
 
+  - repo: https://github.com/nbQA-dev/nbQA
+    rev: 1.9.1
+    hooks:
+      - id: nbqa-ruff-check
+        additional_dependencies: [ruff==0.15.20]
+        args: ["--select=E902", "--nbqa-dont-skip-bad-cells"]
+        files: \.ipynb$
+
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.6
     hooks:
