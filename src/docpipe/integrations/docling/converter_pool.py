@@ -51,6 +51,7 @@ import atexit
 import enum
 import hashlib
 import json
+import math
 import os
 import threading
 import time
@@ -212,6 +213,7 @@ class DoclingInstancePool:
         self._waiting_logged = False
         self._reaper: threading.Thread | None = None
         self._reaper_stop = threading.Event()
+        self._closed = False
 
     @property
     def max_size(self) -> int:
@@ -289,8 +291,16 @@ class DoclingInstancePool:
         return instance
 
     def _release(self, *, key: str, instance: Any) -> None:
-        """Return a checked-out instance to the idle stack and wake waiters."""
+        """Return a checked-out instance to the idle stack and wake waiters.
+
+        After :meth:`close` the instance is dropped instead, so a lease that outlives
+        the pool's retirement cannot repopulate it or restart its reaper.
+        """
         with self._cond:
+            if self._closed:
+                self._forget_locked(key=key)
+                self._cond.notify_all()
+                return
             self._idle.setdefault(key, []).append((instance, time.monotonic()))
             self._cond.notify_all()
         self._ensure_reaper()
@@ -397,12 +407,22 @@ class DoclingInstancePool:
         self._reaper = None
         self.clear_idle()
 
+    def close(self) -> None:
+        """Retire the pool for good: like :meth:`shutdown`, and late releases are dropped.
+
+        Leases still active when the pool is closed finish normally, but their instances
+        are discarded on release instead of being kept idle, and no reaper is restarted.
+        """
+        with self._cond:
+            self._closed = True
+        self.shutdown()
+
     def _ensure_reaper(self) -> None:
         """Start the daemon thread that expires idle instances (once, lazily)."""
         if self._idle_ttl_seconds <= 0 or self._reaper is not None:
             return
         with self._cond:
-            if self._reaper is not None:
+            if self._reaper is not None or self._closed:
                 return
             self._reaper_stop.clear()
             self._reaper = threading.Thread(target=self._reap_loop, name="docling-converter-pool-reaper", daemon=True)
@@ -441,7 +461,7 @@ def _read_env_number(*, name: str, default: float, minimum: float) -> float:
     except ValueError:
         logger.warning("Ignoring invalid value %r for %s; using %s", raw, name, default)
         return default
-    if value < minimum:
+    if not math.isfinite(value) or value < minimum:
         logger.warning("Ignoring out-of-range value %r for %s; using %s", raw, name, default)
         return default
     return value
@@ -473,12 +493,12 @@ def get_docling_pool() -> DoclingInstancePool:
 
 
 def reset_docling_pool() -> None:
-    """Shut down and discard the process-wide pool; the next use re-reads the environment."""
+    """Close and discard the process-wide pool; the next use re-reads the environment."""
     global _default_pool
     with _default_pool_lock:
         pool, _default_pool = _default_pool, None
     if pool is not None:
-        pool.shutdown()
+        pool.close()
 
 
 def shutdown_docling_pool() -> None:

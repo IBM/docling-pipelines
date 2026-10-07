@@ -313,6 +313,13 @@ class TestDoclingInstancePool:
         assert _Instrumented.constructed == 2
         pool.shutdown()
 
+    def test_close_drops_late_release_and_starts_no_reaper(self):
+        pool = DoclingInstancePool(max_size=2, idle_ttl_seconds=60)
+        with pool.lease(key="k", factory=_Instrumented):
+            pool.close()
+        assert pool.stats() == {"max_size": 2, "live": 0, "idle": 0, "constructed": 1, "keys": 0}
+        assert pool._reaper is None
+
 
 # ---------------------------------------------------------------------------
 # Process-wide pool configuration
@@ -336,11 +343,27 @@ class TestDefaultPool:
         assert pool.idle_ttl_seconds == 0
         assert get_docling_pool() is pool
 
-    @pytest.mark.parametrize("raw", ["zero", "0", "-2", ""])
+    @pytest.mark.parametrize("raw", ["zero", "0", "-2", "", "nan", "NaN", "inf", "-inf"])
     def test_invalid_size_falls_back_to_default(self, monkeypatch, raw):
         monkeypatch.setenv(EnvironmentVariables.DOCPIPE_DOCLING_CONVERTER_POOL_SIZE, raw)
         reset_docling_pool()
         assert get_docling_pool().max_size == converter_pool.default_pool_size()
+
+    @pytest.mark.parametrize("raw", ["nan", "inf", "-1"])
+    def test_invalid_ttl_falls_back_to_default(self, monkeypatch, raw):
+        monkeypatch.setenv(EnvironmentVariables.DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS, raw)
+        reset_docling_pool()
+        assert get_docling_pool().idle_ttl_seconds == converter_pool._DEFAULT_IDLE_TTL_SECONDS
+
+    def test_reset_during_active_lease_does_not_revive_old_pool(self, monkeypatch):
+        monkeypatch.setenv(EnvironmentVariables.DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS, "60")
+        reset_docling_pool()
+        old_pool = get_docling_pool()
+        with old_pool.lease(key="k", factory=_Instrumented):
+            reset_docling_pool()
+        assert old_pool.stats()["idle"] == 0
+        assert old_pool._reaper is None
+        assert get_docling_pool() is not old_pool
 
     def test_fork_hook_gives_child_a_fresh_pool(self):
         pool = get_docling_pool()

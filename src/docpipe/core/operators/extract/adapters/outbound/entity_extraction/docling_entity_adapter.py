@@ -331,7 +331,6 @@ class DoclingEntityAdapter(EntityExtractionPort):
 
         try:
             from docling.datamodel.base_models import InputFormat
-            from docling.document_extractor import DocumentExtractor
             from docling_core.types.io import DocumentStream
 
             # Handle both str and bytes content
@@ -357,7 +356,6 @@ class DoclingEntityAdapter(EntityExtractionPort):
             with get_docling_pool().lease(
                 key=pool_key,
                 factory=lambda: self._build_document_extractor(
-                    extractor_cls=DocumentExtractor,
                     allowed_formats=[InputFormat.IMAGE, InputFormat.PDF],
                     extraction_format_options=format_options,
                 ),
@@ -406,12 +404,24 @@ class DoclingEntityAdapter(EntityExtractionPort):
 
     @staticmethod
     def _build_document_extractor(
-        *, extractor_cls: Any, allowed_formats: list[Any], extraction_format_options: dict[Any, Any] | None
+        *, allowed_formats: list[Any], extraction_format_options: dict[Any, Any] | None
     ) -> Any:
-        """Construct a DocumentExtractor, passing custom format options only when configured."""
+        """Construct a DocumentExtractor, passing custom format options only when configured.
+
+        Raises:
+            RuntimeError: If Docling's DocumentExtractor is not installed.
+        """
+        try:
+            from docling.document_extractor import DocumentExtractor
+        except ImportError as e:
+            msg = "DocumentExtractor is not available. Install with: pip install 'docling[vlm]'"
+            raise RuntimeError(msg) from e
+
         if extraction_format_options:
-            return extractor_cls(allowed_formats=allowed_formats, extraction_format_options=extraction_format_options)
-        return extractor_cls(allowed_formats=allowed_formats)
+            return DocumentExtractor(
+                allowed_formats=allowed_formats, extraction_format_options=extraction_format_options
+            )
+        return DocumentExtractor(allowed_formats=allowed_formats)
 
     def _prepare_document_tasks(
         self, table: Any, document_types: list[str], metadata: dict[str, Any]
