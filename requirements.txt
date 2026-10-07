@@ -184,6 +184,7 @@ dateparser==1.4.3
 defusedxml==0.7.1
     # via
     #   docling-core
+    #   docling-pipelines
     #   docling-slim
     #   nltk
 dill==0.4.1
