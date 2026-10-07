@@ -54,7 +54,7 @@ FLOW_ID=$(curl --fail-with-body -sS \
   -H 'Content-Type: application/json' \
   --data-binary @sample_flows/quickstart/docker_e2e_ollama_opensearch.json \
   | python3 -c 'import json, sys; print(json.load(sys.stdin)["flow_id"])')
-printf '%s\n' "$FLOW_ID"
+printf 'FLOW_ID=%s\n' "$FLOW_ID"
 ```
 
 Start the run in the same terminal using the captured flow ID:
