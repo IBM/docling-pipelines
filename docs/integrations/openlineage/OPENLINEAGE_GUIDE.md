@@ -92,7 +92,7 @@ Lineage graphs are built from dataset edges. The output dataset name of one node
 
 ### Credential safety
 
-Flow definitions are never sent to the lineage backend as-is. Before any facet is built, the service strips all credential keys (`api_key`, `apikey`, `secret`, `secret_key`, `password`, `token`, `auth_token`, `access_token`, `credentials`, `connection_params`) from the flow definition. Only safe metadata is included in events.
+Flow definitions are never sent to the lineage backend as-is. Before any facet is built, the service strips all credential keys (`api_key`, `apikey`, `secret`, `secret_key`, `password`, `token`, `auth_token`, `access_token`, `credentials`, `connection_params`) from the flow definition — including keys nested inside the DAG node list. Operator output metadata passed into `docpipeStats` facets is filtered with the same credential key set before emission.
 
 ---
 
@@ -222,6 +222,7 @@ The file transport writes each lineage event as a JSON object to a local file. I
 **Example — append all events to a single JSONL file:**
 
 ```bash
+mkdir -p /tmp/lineage
 export DOCPIPE_LINEAGE_ENABLED=true
 export OPENLINEAGE__TRANSPORT__TYPE=file
 export OPENLINEAGE__TRANSPORT__LOG_FILE_PATH=/tmp/lineage/events.jsonl
@@ -321,7 +322,7 @@ When `DOCPIPE_LINEAGE_MODE=operator`, all five flow-level events above are still
 | --- | --- | --- |
 | **Node START** | A DAG node begins execution | `jobType` (OPERATOR/BATCH) with operator `short_name`; `operatorCategory` is not populated on START (not passed by the orchestrator); `parent` run facet; input dataset from predecessor node's output (only present when previous step produced a table) |
 | **Node COMPLETE** | A DAG node finishes successfully | Output dataset(s) with schema and row count; `docpipeStats` with operator-specific camelCase metrics (e.g. `totalChunks`, `docsBeforeFilter`, `chunksIndexedSuccessfully`); `parent` run facet |
-| **Node FAIL** | A DAG node throws an exception | `errorMessage` with message and stack trace; `parent` run facet; input dataset if available |
+| **Node FAIL** | A DAG node throws an exception | `errorMessage` with message and full Python stack trace (`Traceback (most recent call last): ...`); `parent` run facet; input dataset if available |
 | **Node SKIP (OTHER)** | A DAG node is skipped | `docpipeSkip.reason` explaining why the node was skipped; `parent` run facet |
 
 > [!TIP]

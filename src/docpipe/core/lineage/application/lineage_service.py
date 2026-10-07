@@ -1,5 +1,6 @@
 """Application service that bridges execution context to OpenLineage events."""
 
+import traceback
 from datetime import datetime
 from typing import Any
 
@@ -9,7 +10,7 @@ from docpipe.core.lineage.domain.models.event_type import LineageEventType
 from docpipe.core.lineage.domain.models.job import LineageJob
 from docpipe.core.lineage.domain.models.run import LineageRun
 from docpipe.core.lineage.domain.ports.lineage_publisher import LineagePublisherPort
-from docpipe.core.lineage.utils import LineageUtils
+from docpipe.core.lineage.utils import LineageUtils, _CREDENTIALS_KEYS
 from docpipe.core.orchestration.models.execution_event_context import (
     FlowAbortContext,
     FlowCompleteContext,
@@ -415,6 +416,9 @@ class LineageService:
         for key, value in metadata.items():
             if key in _INTERNAL_LINEAGE_KEYS:
                 continue
+            # Skip credential keys — operator metadata must not leak secrets.
+            if key.lower() in _CREDENTIALS_KEYS:
+                continue
             # Only include scalar values — skip tables, lists, nested dicts.
             if not isinstance(value, (int, float, str, bool)):
                 continue
@@ -443,7 +447,9 @@ class LineageService:
             }
         }
         if exception is not None:
-            facet["errorMessage"]["stackTrace"] = str(exception)
+            facet["errorMessage"]["stackTrace"] = "".join(
+                traceback.format_exception(type(exception), exception, exception.__traceback__)
+            )
         return facet
 
     def _build_nominal_time_facet(self, *, start_time: datetime | str | None) -> dict[str, Any]:
