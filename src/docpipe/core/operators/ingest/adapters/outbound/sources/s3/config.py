@@ -54,7 +54,9 @@ class S3SourceConfig(BaseModel):
         description="List of glob patterns to exclude (e.g., ['*.tmp', '.DS_Store'])",
     )
 
-    max_file_size_mb: int | None = Field(None, description="Maximum file size in MB to process. None means no limit.")
+    max_file_size_mb: int | None = Field(
+        None, description="Maximum file size in MB to process. None means no limit.", ge=1
+    )
 
     skip_hidden_files: bool = Field(
         True, description="Whether to skip hidden files and directories (starting with '.')"
@@ -96,14 +98,6 @@ class S3SourceConfig(BaseModel):
     def validate_extensions(cls, v: list[str]) -> list[str]:
         """Ensure extensions start with a dot and are lowercase."""
         return [ext.lower() if ext.startswith(".") else f".{ext.lower()}" for ext in v]
-
-    @field_validator("max_file_size_mb")
-    @classmethod
-    def validate_max_file_size(cls, v: int | None) -> int | None:
-        """Validate max file size is positive."""
-        if v is not None and v <= 0:
-            raise ValueError("max_file_size_mb must be positive")
-        return v
 
     @field_validator("prefix")
     @classmethod
