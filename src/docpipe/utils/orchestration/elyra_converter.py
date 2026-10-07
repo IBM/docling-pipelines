@@ -336,22 +336,17 @@ class ElyraConverter:
         return input_edges, has_links
 
     @staticmethod
-    def _node_has_link_from_source(*, node: dict, source_node_id: str) -> bool:
-        """Check if any input port link in node references source_node_id."""
-        for input_port in node.get(ElyraConstants.INPUTS, []):
-            for link in input_port.get(ElyraConstants.LINKS, []):
-                if link.get(ElyraConstants.NODE_ID_REF) == source_node_id:
-                    return True
-        return False
-
-    @classmethod
-    def _build_node_output_edges(cls, *, node_id: str, nodes: list[dict]) -> list[dict]:
+    def _build_node_output_edges(*, node_id: str, nodes: list[dict]) -> list[dict]:
         """Build output edges for a node by inspecting all other nodes' input links."""
         output_edges: list[dict] = []
         for other_node in nodes:
             other_id = other_node[OperatorConstants.Misc.ID]
-            if other_id != node_id and cls._node_has_link_from_source(node=other_node, source_node_id=node_id):
-                output_edges.append({ElyraConstants.NODE_ID_REF: other_id})
+            if other_id == node_id:
+                continue
+            for input_port in other_node.get(ElyraConstants.INPUTS, []):
+                for link in input_port.get(ElyraConstants.LINKS, []):
+                    if link.get(ElyraConstants.NODE_ID_REF) == node_id:
+                        output_edges.append({ElyraConstants.NODE_ID_REF: other_id})
         return output_edges
 
     def _transform_single_elyra_node(
@@ -1181,13 +1176,12 @@ class ElyraConverter:
 
         for dag_node in dag:
             node_id = dag_node[OperatorConstants.Misc.ID]
-            elyra_node = elyra_node_by_id.get(node_id)
-            if elyra_node:
-                self._add_links_for_single_node(
-                    dag_node=dag_node,
-                    elyra_node=elyra_node,
-                    port_mappings=port_mappings,
-                )
+            elyra_node = elyra_node_by_id[node_id]
+            self._add_links_for_single_node(
+                dag_node=dag_node,
+                elyra_node=elyra_node,
+                port_mappings=port_mappings,
+            )
 
         for elyra_node in elyra_nodes:
             if elyra_node[ElyraConstants.OP] == OperatorConstants.Operators.BRANCHING:
