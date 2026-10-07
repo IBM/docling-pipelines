@@ -958,6 +958,40 @@ class JobTrackerService(JobStatsService):
         logger.info("Deleted job run: %s", job_run_id)
         return f"Job run {job_run_id} deleted successfully"
 
+    def delete_job_runs_by_job_id(self, *, job_id: str) -> int:
+        """
+        Delete all job runs associated with a given job_id (flow UUID).
+
+        Fetches all job_run_ids whose job_id matches, then deletes each from
+        the store.  Failures for individual runs are logged as warnings and
+        do not abort the operation.
+
+        Args:
+            job_id: The flow UUID whose job runs should be deleted.
+
+        Returns:
+            Number of job runs successfully deleted.
+        """
+        runs = self.job_stats_store.list_job_runs(job_id=job_id, limit=100_000)
+        if not runs:
+            return 0
+
+        deleted = 0
+        for run in runs:
+            try:
+                self.job_stats_store.delete_job_stats(run.job_run_id)
+                deleted += 1
+            except Exception as exc:
+                logger.warning(
+                    "Failed to delete job run %s for flow %s: %s",
+                    run.job_run_id,
+                    job_id,
+                    exc,
+                )
+
+        logger.info("Cascade-deleted %d job run(s) for flow %s", deleted, job_id)
+        return deleted
+
     @staticmethod
     def _format_schema_line(col_names: list[str] | None) -> str:
         if not col_names:
