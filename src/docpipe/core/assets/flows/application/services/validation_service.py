@@ -213,25 +213,28 @@ class ValidationService:
             "warnings": [],
         }
 
-    @staticmethod
-    def _format_validation_exception_response(*, exception: Any, normalize_fn: Any) -> dict[str, Any]:
-        """Format standardized response from a FlowValidationException."""
+    def _format_validation_exception_response(self, *, exception: Any) -> dict[str, Any]:
+        """Format standardized response from a FlowValidationException.
+
+        Args:
+            exception: FlowValidationException instance containing errors and warnings.
+
+        Returns:
+            Standardized validation result dictionary.
+        """
         logger.warning("Flow validation failed: %s", str(exception))
 
         errors = []
         if hasattr(exception, "errors") and exception.errors:
             for err in exception.errors:
-                errors.append(normalize_fn(alert=err, default_code="VALIDATION_ERROR"))
+                errors.append(self._normalize_validation_alert(alert=err, default_code="VALIDATION_ERROR"))
 
         warnings = []
         if hasattr(exception, "warnings") and exception.warnings:
             for warn in exception.warnings:
-                warnings.append(normalize_fn(alert=warn, default_code="VALIDATION_WARNING"))
+                warnings.append(self._normalize_validation_alert(alert=warn, default_code="VALIDATION_WARNING"))
 
-        if len(errors) > 0:
-            status = "FAILED"
-            message = "Flow validation failed."
-        elif len(warnings) > 0:
+        if len(errors) == 0 and len(warnings) > 0:
             status = "SUCCEEDED_WITH_WARNINGS"
             message = "Flow validation succeeded with warnings."
         else:
@@ -425,9 +428,7 @@ class ValidationService:
                 logger.debug("Flow validation successful with %d nodes", len(propagation_result.available_features))
                 return result
             except FlowValidationException as e:
-                return self._format_validation_exception_response(
-                    exception=e, normalize_fn=self._normalize_validation_alert
-                )
+                return self._format_validation_exception_response(exception=e)
 
         except Exception as e:
             return self._format_unexpected_exception_response(exception=e)
