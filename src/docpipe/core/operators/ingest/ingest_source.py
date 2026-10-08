@@ -196,7 +196,7 @@ class MicrosoftGraphLoader(BaseLoader):
             doc._binary_content = binary_content  # type: ignore[attr-defined]
             return doc
         except Exception as e:
-            logger.error("Failed to download file %s: %s", item.get("name", ""), e, exc_info=True)
+            logger.exception("Failed to download file %s: %s", item.get("name", ""), e)
             return Document(
                 page_content="",
                 metadata={
@@ -358,6 +358,8 @@ class IngestSourceOperator(AbstractOperator):
         self.supported_extensions: list[str] = [
             f".{ext}" if not ext.startswith(".") else ext for ext in supported_extensions_str.split(",")
         ]
+        if self.provider == "filesystem":
+            self.supported_extensions.extend(OperatorConstants.FileExtensions.ARCHIVE_EXTENSIONS)
 
         # Parse and validate included/excluded extensions
         self.included_extensions: list[str] | None = get_filter_extensions(config.get(INCLUDE_FILTER_KEY))
