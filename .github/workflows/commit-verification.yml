@@ -1,9 +1,9 @@
 name: Commit Verification (DCO + GPG + Template)
 
 on:
-  pull_request:
-    types: [opened, edited, reopened, synchronize]
-    branches: [main]
+  workflow_run:
+    workflows: ["CI Pipeline"]
+    types: [completed]
 
 permissions:
   contents: read
@@ -12,6 +12,7 @@ permissions:
 jobs:
   verify-commits:
     name: Verify DCO, GPG & PR Template
+    if: github.event.workflow_run.event == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Verify All Commits (DCO + GPG) & PR Template
@@ -21,19 +22,50 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
-            const prNumber = context.payload.pull_request.number;
-            const prAuthor = context.payload.pull_request.user.login;
-            const baseRef = context.payload.pull_request.base.ref;
-            const prBody = context.payload.pull_request.body || '';
+            const headSha = context.payload.workflow_run.head_sha;
 
-            // Skip DCO/GPG re-check on title-only edits (template check still runs on body edits)
-            // On 'edited' events, check if body actually changed
-            if (context.payload.action === 'edited' && !context.payload.changes?.body) {
-              console.log('PR title edited only — skipping DCO/GPG re-check');
-              // Still run template validation since body might have been edited in a previous event
-              // But if this is a title-only edit, we can exit early with current outputs
-              // We'll just continue to template validation below
+            console.log("HEAD SHA:", headSha);
+
+            // Find the PR associated with the workflow run's commit.
+            const { data: prs } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner,
+              repo,
+              commit_sha: headSha
+            });
+
+            const pr = prs.find(candidate =>
+              candidate.state === "open" &&
+              candidate.base.ref === "main" &&
+              candidate.base.repo.full_name === `${owner}/${repo}` &&
+              candidate.head.sha === headSha
+            );
+
+            if (!pr) {
+              console.log(`No matching PR found for ${headSha}.`);
+              core.setOutput('dco_failed', '[]');
+              core.setOutput('gpg_failed', '[]');
+              core.setOutput('template_failed', '[]');
+              core.setOutput('dco_passed', '0');
+              core.setOutput('gpg_passed', '0');
+              core.setOutput('template_passed', '0');
+              core.setOutput('all_passed', 'true');
+              core.setOutput('pr_number', '0');
+              core.setOutput('pr_author', '');
+              core.setOutput('base_ref', 'main');
+              return;
             }
+
+            const prNumber = pr.number;
+            const prAuthor = pr.user.login;
+            const baseRef = pr.base.ref;
+
+            // Get PR body for template validation
+            const { data: prDetails } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: prNumber
+            });
+            const prBody = prDetails.body || '';
 
             // Get all commits in the PR (handle pagination, max 250 per GitHub API)
             let allCommits = [];
@@ -60,7 +92,7 @@ jobs:
               page++;
             }
 
-            // Edge case: PR with zero commits (should not happen on opened/synchronize, but handle defensively)
+            // Edge case: PR with zero commits - treat as pass (nothing to validate)
             if (allCommits.length === 0) {
               console.log('No commits found in PR');
               core.setOutput('dco_failed', '[]');
@@ -69,7 +101,8 @@ jobs:
               core.setOutput('dco_passed', '0');
               core.setOutput('gpg_passed', '0');
               core.setOutput('template_passed', '0');
-              core.setOutput('all_passed', 'false');
+              core.setOutput('all_passed', 'true');
+              core.setOutput('pr_number', String(prNumber));
               core.setOutput('pr_author', prAuthor);
               core.setOutput('base_ref', baseRef);
               return;
@@ -174,6 +207,7 @@ jobs:
             core.setOutput('gpg_passed', String(results.gpg.passed.length));
             core.setOutput('template_passed', String(results.template.passed.length));
             core.setOutput('all_passed', String(allPassed));
+            core.setOutput('pr_number', String(prNumber));
             core.setOutput('pr_author', prAuthor);
             core.setOutput('base_ref', baseRef);
 
@@ -187,6 +221,7 @@ jobs:
           GPG_PASSED: ${{ steps.verify.outputs.gpg_passed }}
           TEMPLATE_PASSED: ${{ steps.verify.outputs.template_passed }}
           ALL_PASSED: ${{ steps.verify.outputs.all_passed }}
+          PR_NUMBER: ${{ steps.verify.outputs.pr_number }}
           PR_AUTHOR: ${{ steps.verify.outputs.pr_author }}
           BASE_REF: ${{ steps.verify.outputs.base_ref }}
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
@@ -194,7 +229,12 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const { owner, repo } = context.repo;
-            const prNumber = context.payload.pull_request.number;
+            const prNumber = parseInt(process.env.PR_NUMBER || '0', 10);
+
+            if (prNumber === 0) {
+              console.log('No PR to comment on');
+              return;
+            }
 
             // Safely parse env vars (they come from previous step outputs)
             let dcoFailed, gpgFailed, templateFailed;
@@ -221,6 +261,15 @@ jobs:
             const allPassed = process.env.ALL_PASSED === 'true';
             const prAuthor = process.env.PR_AUTHOR || '';
             const baseRef = process.env.BASE_REF || 'main';
+
+            // Sanitize user-provided values for markdown table safety
+            function sanitizeForTable(str) {
+              return String(str)
+                .replace(/\|/g, '\\|')  // Escape pipes
+                .replace(/\n/g, ' ')    // Replace newlines with spaces
+                .replace(/\r/g, '')     // Remove carriage returns
+                .slice(0, 100);         // Truncate long messages
+            }
 
             const commentHeader = "<!-- commit-verification-bot -->";
 
@@ -259,15 +308,15 @@ jobs:
                 body += "| Commit | Author | Message |\n";
                 body += "|--------|--------|---------|\n";
                 for (const c of dcoFailed) {
-                  body += `| \`${c.sha.slice(0,7)}\` | ${c.author} <${c.email}> | ${c.message} |\n`;
+                  body += `| \`${c.sha.slice(0,7)}\` | ${sanitizeForTable(c.author)} <${sanitizeForTable(c.email)}> | ${sanitizeForTable(c.message)} |\n`;
                 }
                 body += "\n**Quick Fix (no history rewrite):** Add a remediation commit:\n";
                 body += "```bash\n";
-                body += `git commit --allow-empty -s -m "DCO Remediation Commit for ${dcoFailed[0].author} <${dcoFailed[0].email}>\n\n`;
+                body += `git commit --allow-empty -s -m "DCO Remediation Commit for ${sanitizeForTable(dcoFailed[0].author)} <${sanitizeForTable(dcoFailed[0].email)}>\n\n`;
                 for (const c of dcoFailed) {
-                  body += `I, ${c.author} <${c.email}>, hereby add my Signed-off-by to this commit: ${c.sha}\n`;
+                  body += `I, ${sanitizeForTable(c.author)} <${sanitizeForTable(c.email)}>, hereby add my Signed-off-by to this commit: ${c.sha}\n`;
                 }
-                body += '`\n';
+                body += '"\n';
                 body += "git push\n```\n";
                 body += "\n*Or sign each commit directly:* `git rebase --signoff origin/${baseRef} && git push --force-with-lease`\n";
               }
@@ -279,7 +328,7 @@ jobs:
                 body += "|--------|--------|--------|---------|\n";
                 for (const c of gpgFailed) {
                   const reason = c.reason || 'unsigned';
-                  body += `| \`${c.sha.slice(0,7)}\` | ${c.author} <${c.email}> | ${reason} | ${c.message} |\n`;
+                  body += `| \`${c.sha.slice(0,7)}\` | ${sanitizeForTable(c.author)} <${sanitizeForTable(c.email)}> | ${sanitizeForTable(reason)} | ${sanitizeForTable(c.message)} |\n`;
                 }
                 body += "\n**Fix:** You must GPG-sign all commits. See [Verified Commits setup guide](https://github.com/IBM/docling-pipelines/blob/main/CONTRIBUTING.md#verified-commits).\n\n";
                 body += "**Single commit:**\n";
