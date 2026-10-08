@@ -13,10 +13,9 @@ def register_schemas(*, schema_files: list[str]) -> None:
     registry_url = os.getenv("SCHEMA_REGISTRY_URL", "http://localhost:8081").rstrip("/")
     topic = os.environ["KAFKA_TOPIC"]
     subject = quote(f"{topic}-value", safe="")
-    schema_dir = Path(__file__).parent / "schemas"
 
     for schema_file in schema_files:
-        schema_path = schema_dir / schema_file
+        schema_path = Path(schema_file)
         if not schema_path.is_file():
             raise FileNotFoundError(f"Schema file does not exist: {schema_path}")
         schema = schema_path.read_text(encoding="utf-8")
@@ -43,13 +42,13 @@ def register_schemas(*, schema_files: list[str]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Register one or more JSON schemas from the schemas directory.")
+    parser = argparse.ArgumentParser(description="Register one or more JSON schema files by path.")
     parser.add_argument(
         "--schema-files",
         nargs="+",
         required=True,
-        metavar="FILE",
-        help="One or more JSON schema filenames in the schemas directory, registered in the order given.",
+        metavar="PATH",
+        help="One or more JSON schema file paths, registered in the order given.",
     )
     args = parser.parse_args()
     register_schemas(schema_files=args.schema_files)

@@ -1,3 +1,79 @@
+# Run Docling Pipelines with Docker Compose
+
+Run from the repository root with Docker running.
+
+## Stage 0: Configure the stack
+
+Compose requires `OPENSEARCH_PASSWORD` and uses `admin` as the username. Run this in each terminal before using Compose:
+
+```bash
+export OPENSEARCH_PASSWORD='MyStrongPass@123'
+```
+
+## Stage 1: Build the image
+
+```bash
+docker compose -f docker/event-streaming/docker-compose.yml config --quiet
+docker compose -f docker/event-streaming/docker-compose.yml build
+```
+
+## Stage 2: Run the API
+
+```bash
+docker compose -f docker/event-streaming/docker-compose.yml up -d --no-build
+docker compose -f docker/event-streaming/docker-compose.yml ps
+```
+
+Check API health:
+
+```bash
+curl --fail http://localhost:8080/health
+```
+
+API docs: `http://localhost:8080/api/v1/docs`.
+
+### API logs (optional)
+
+Log commands stream until you press `Ctrl+C`.
+
+```bash
+docker compose -f docker/event-streaming/docker-compose.yml logs -f --tail=100 docpipe
+```
+
+### Pull an embedding model (optional)
+
+```bash
+docker compose -f docker/event-streaming/docker-compose.yml exec ollama ollama pull nomic-embed-text
+```
+
+Upload the sample flow and use `python3` to capture and print the returned flow ID:
+
+```bash
+FLOW_ID=$(curl --fail-with-body -sS \
+  -X POST http://localhost:8080/api/v1/flows \
+  -H 'Content-Type: application/json' \
+  --data-binary @sample_flows/quickstart/docker_e2e_ollama_opensearch.json \
+  | python3 -c 'import json, sys; print(json.load(sys.stdin)["flow_id"])')
+printf 'FLOW_ID=%s\n' "$FLOW_ID"
+```
+
+Start the run in the same terminal using the captured flow ID:
+
+```bash
+curl --fail-with-body -sS \
+  -X POST http://localhost:8080/api/v1/job_runs \
+  -H 'Content-Type: application/json' \
+  -d "{\"entity\":{\"job\":{\"asset_ref\":\"${FLOW_ID:?Run the flow upload command first}\"}}}"
+```
+
+## Stop the stack
+
+```bash
+docker compose -f docker/event-streaming/docker-compose.yml down
+```
+
+Named data volumes are retained. Add `-v` to remove them.
+
 # Run the Kafka example
 
 Start in the repository root. This example requires `uv` and Docker Compose.
