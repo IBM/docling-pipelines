@@ -13,4 +13,24 @@ export const messages = defineMessages({
     id: 'src.components.Canvas.FlowRunHistoryTearsheet.downloadLogsDescription',
     defaultMessage: 'Download logs',
   },
+  statusCompleted: {
+    id: 'src.components.Canvas.FlowRunHistoryTearsheet.statusCompleted',
+    defaultMessage: 'Completed',
+  },
+  statusInProgress: {
+    id: 'src.components.Canvas.FlowRunHistoryTearsheet.statusInProgress',
+    defaultMessage: 'In progress',
+  },
+  statusRunWithIssues: {
+    id: 'src.components.Canvas.FlowRunHistoryTearsheet.statusRunWithIssues',
+    defaultMessage: 'Run with issues',
+  },
+  statusFailed: {
+    id: 'src.components.Canvas.FlowRunHistoryTearsheet.statusFailed',
+    defaultMessage: 'Failed',
+  },
+  statusCanceled: {
+    id: 'src.components.Canvas.FlowRunHistoryTearsheet.statusCanceled',
+    defaultMessage: 'Canceled',
+  },
 });

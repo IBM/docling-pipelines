@@ -15,7 +15,7 @@ import { getJobRuns } from '@/services/api';
 import { getJobRun } from '@/services/api/actions/job-run-actions';
 import { generateRoute } from '@/config';
 import type { JobRunListItem } from '@/types';
-import { StatusIcon, STATUS_LABELS } from '@/components/FlowDetail';
+import { StatusIcon } from '@/components/FlowDetail';
 import type { RunStatus } from '@/components/FlowDetail';
 import { getJobRunStatusLabel } from '@/constants/jobRunStatus';
 import { formatEpochToDisplay, formatElapsedTime } from '@/utils/dateTimeUtils';
@@ -83,6 +83,15 @@ export function FlowRunHistoryTearsheet({
   projectId = '',
 }: FlowRunHistoryTearsheetProps): React.JSX.Element {
   const intl = useIntl();
+
+  const statusLabels: Record<string, string> = {
+    run:             intl.formatMessage(messages.statusCompleted),
+    in_progress:     intl.formatMessage(messages.statusInProgress),
+    run_with_issues: intl.formatMessage(messages.statusRunWithIssues),
+    failed:          intl.formatMessage(messages.statusFailed),
+    cancelled:       intl.formatMessage(messages.statusCanceled),
+  };
+
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
   const [rawItems, setRawItems] = useState<JobRunListItem[]>([]);
@@ -134,7 +143,7 @@ export function FlowRunHistoryTearsheet({
       status: uiStatus ? (
         <span className={styles.statusCell}>
           <StatusIcon status={uiStatus} iconStyles={styles} />
-          {STATUS_LABELS[uiStatus]}
+          {statusLabels[uiStatus]}
         </span>
       ) : getJobRunStatusLabel(item.status),
       duration: formatElapsedTime(item.duration),
