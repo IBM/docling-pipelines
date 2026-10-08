@@ -161,20 +161,14 @@ export function Home(): React.JSX.Element {
         />
       </div>
 
-      {/* Beta notice — persistent banner below the animated header */}
-      <div className={styles.betaBanner}>
-        <Grid>
-          <Column sm={4} md={8} lg={16}>
-            <InlineNotification
-              kind="warning"
-              title="Beta: "
-              subtitle="The web UI is experimental and not yet production-ready. For production workloads, use the CLI or Python API."
-              lowContrast
-              hideCloseButton
-            />
-          </Column>
-        </Grid>
-      </div>
+      {/* Beta notice — full-width banner below the animated header */}
+      <InlineNotification
+        className={styles.betaBanner}
+        kind="warning"
+        title="Beta: "
+        subtitle="The web UI is experimental and not yet production-ready. For production workloads, use the CLI or Python API."
+        hideCloseButton
+      />
 
       {/* Zone 2: Recently Visited — hidden when cache is empty */}
       {recentChips.length > 0 && (

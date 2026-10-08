@@ -54,7 +54,7 @@ export function AppHeader(): React.JSX.Element {
           {APP_INFO.NAME}
         </HeaderName>
         <span className={styles.betaTag}>
-          <Tag type="teal" size="sm">Beta</Tag>
+          <Tag type="outline" size="sm">Beta</Tag>
         </span>
         <HeaderNavigation aria-label="Main navigation">
           <HeaderMenuItem
