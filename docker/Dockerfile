@@ -28,9 +28,7 @@ RUN pip install --no-cache-dir uv
 
 # Cache dependencies separately from backend source changes.
 COPY pyproject.toml uv.lock ./
-# Default to GPU; use --build-arg COMPUTE_BACKEND=cpu for CPU-only wheels.
-ARG COMPUTE_BACKEND=gpu
-RUN uv export --locked --no-dev --extra "$COMPUTE_BACKEND" \
+RUN uv export --locked --no-dev \
         --no-emit-project --format pylock.toml --output-file pylock.toml && \
     uv venv --python /usr/bin/python3.12 /opt/docpipe-venv && \
     uv pip install --python /opt/docpipe-venv/bin/python \

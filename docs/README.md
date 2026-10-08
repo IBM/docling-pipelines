@@ -76,6 +76,7 @@ Documentation for the Docling Pipelines REST API server:
 
 Integration-specific documentation:
 
+- **[OpenLineage](integrations/openlineage/OPENLINEAGE_GUIDE.md)** - Data lineage tracking via the OpenLineage standard
 - **[OpenSearch](integrations/opensearch/)** - Vector storage with OpenSearch
   - [Quick Start](integrations/opensearch/OPENSEARCH_QUICKSTART.md)
   - [Environment Setup](integrations/opensearch/ENVIRONMENT_SETUP.md)
