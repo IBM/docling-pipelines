@@ -13,6 +13,7 @@ export OPENSEARCH_PASSWORD='DocpipeLocal9!Secure'
 ## Stage 1: Build the images
 
 ```bash
+docker compose -f docker/docker-compose.yml config --quiet
 docker compose -f docker/docker-compose.yml build
 ```
 
@@ -20,6 +21,7 @@ docker compose -f docker/docker-compose.yml build
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d --no-build
+docker compose -f docker/docker-compose.yml ps
 ```
 
 Check API health:
@@ -87,3 +89,12 @@ docker compose -f docker/docker-compose.yml down
 ```
 
 Named data volumes are retained. Add `-v` to remove them.
+
+## Run with a GPU build
+
+To bring up Docker Compose with a GPU build of Docling Pipelines:
+
+```bash
+docker compose -f docker/docker-compose.yml build --build-arg COMPUTE_BACKEND=gpu docpipe
+docker compose -f docker/docker-compose.yml up -d --no-build
+```

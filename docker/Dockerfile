@@ -28,11 +28,28 @@ RUN pip install --no-cache-dir uv
 
 # Cache dependencies separately from backend source changes.
 COPY pyproject.toml uv.lock ./
-RUN uv export --locked --no-dev \
-        --no-emit-project --format pylock.toml --output-file pylock.toml && \
-    uv venv --python /usr/bin/python3.12 /opt/docpipe-venv && \
-    uv pip install --python /opt/docpipe-venv/bin/python \
-        --no-cache --require-hashes -r pylock.toml
+ARG COMPUTE_BACKEND=cpu
+# Use CPU dependencies by default, or select GPU support with COMPUTE_BACKEND=gpu.
+RUN uv venv --python /usr/bin/python3.12 /opt/docpipe-venv && \
+    case "$COMPUTE_BACKEND" in \
+        gpu) \
+            uv export --locked --no-dev --no-emit-project \
+                --format pylock.toml --output-file pylock.toml && \
+            uv pip install --python /opt/docpipe-venv/bin/python \
+                --no-cache --require-hashes -r pylock.toml ;; \
+        cpu) \
+            uv export --locked --no-dev --no-emit-project \
+                --prune torch --prune torchvision \
+                --format pylock.toml --output-file pylock.toml && \
+            uv pip install --python /opt/docpipe-venv/bin/python \
+                --no-cache --require-hashes -r pylock.toml && \
+            uv export --locked --no-dev --no-emit-project --no-hashes \
+                --only-emit-package torch --only-emit-package torchvision \
+                --format requirements.txt --output-file requirements-cpu.txt && \
+            uv pip install --python /opt/docpipe-venv/bin/python \
+                --no-cache --torch-backend=cpu -r requirements-cpu.txt ;; \
+        *) echo "COMPUTE_BACKEND must be cpu or gpu" >&2; exit 1 ;; \
+    esac
 
 # Run the API and serve the built UI as a non-root user.
 FROM registry.access.redhat.com/ubi9/python-312-minimal
