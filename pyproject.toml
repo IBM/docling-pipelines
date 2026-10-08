@@ -104,9 +104,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Versions remain constrained by the main dependencies and dependency graph.
-cpu = ["torch", "torchvision"]
-gpu = ["torch", "torchvision"]
 event-streaming = [
     "confluent-kafka[schemaregistry]==2.15.1",
 ]
@@ -221,7 +218,6 @@ exclude = [
 ]
 
 [tool.uv]
-conflicts = [[{ extra = "cpu" }, { extra = "gpu" }]]
 override-dependencies = [
     # Dependabot: bump oauthlib to 4.0.0 (transitive via requests-oauthlib).
     "oauthlib==4.0.0",
@@ -234,26 +230,6 @@ override-dependencies = [
     "rapidocr==3.9.0",
     # CVE-2026-49476, CVE-2026-49477: Security fix for soupsieve vulnerability (transitive via beautifulsoup4).
     "soupsieve>=2.8.4",
-]
-
-[[tool.uv.index]]
-name = "pypi"
-url = "https://pypi.org/simple"
-default = true
-
-[[tool.uv.index]]
-name = "pytorch-cpu"
-url = "https://download.pytorch.org/whl/cpu"
-explicit = true
-
-[tool.uv.sources]
-torch = [
-    { index = "pytorch-cpu", extra = "cpu", marker = "sys_platform == 'linux'" },
-    { index = "pypi", extra = "gpu" },
-]
-torchvision = [
-    { index = "pytorch-cpu", extra = "cpu", marker = "sys_platform == 'linux'" },
-    { index = "pypi", extra = "gpu" },
 ]
 
 [tool.ruff]
