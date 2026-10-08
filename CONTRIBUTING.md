@@ -150,8 +150,8 @@ git checkout -b feature/your-feature-name
 2. **Run code quality checks**:
 
 ```bash
-# Run pre-commit hooks (from project root)
-uv run pre-commit run --all-files
+# Run pre-commit hooks on committed branch changes (from project root)
+pre-commit run --from-ref origin/main --to-ref HEAD
 
 # Or run individual tools (from project root)
 uv run ruff check --fix .
@@ -737,8 +737,8 @@ git rebase main
 2. **Run all checks**:
 
 ```bash
-# Code quality (from project root)
-uv run pre-commit run --all-files
+# Code quality for committed branch changes (from project root)
+pre-commit run --from-ref origin/main --to-ref HEAD
 
 # Tests (from project root)
 uv run pytest -v --cov=src

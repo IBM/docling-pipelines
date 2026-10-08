@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 import os
+import sys
 import threading
 from pathlib import Path
 from typing import Any, ClassVar
@@ -58,7 +59,10 @@ logger = get_logger()
 # macOS (arm64) and is unreliable on Linux. Each thread gets its own converter
 # instance, keyed by a stable MD5 hash of the format_options configuration so
 # that different pipeline configs (e.g. standard vs OCR-disabled) remain separate.
-_DOCLING_AVAILABLE = importlib.util.find_spec("docling") is not None
+try:
+    _DOCLING_AVAILABLE = importlib.util.find_spec("docling") is not None
+except ValueError:
+    _DOCLING_AVAILABLE = "docling" in sys.modules
 
 # Pre-instantiate DocLangDocDeserializer at module import time under Python's import lock.
 # DocLangDocDeserializer is stateless pure-Python/Pydantic code and completely thread-safe.
@@ -1624,6 +1628,7 @@ class OperatorUtils:
             Dict mapping column names to their exported string values.
         """
         export_fns: dict[str, Any] = {
+            OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN: doc.export_to_markdown,
             OperatorConstants.Extraction.OUTPUT_FORMAT_TEXT: doc.export_to_text,
             OperatorConstants.Extraction.OUTPUT_FORMAT_HTML: doc.export_to_html,
             OperatorConstants.Extraction.OUTPUT_FORMAT_JSON: lambda: json.dumps(doc.export_to_dict()),
@@ -1652,6 +1657,7 @@ class OperatorUtils:
         file_path: str,
         binary_content: bytes,
         additional_formats: list[str] | None = None,
+        doc_format: str = OperatorConstants.DocFormat.MARKDOWN,
     ) -> dict[str, Any]:
         """
         Extract content from plain text files (.txt, .md).
@@ -1688,13 +1694,26 @@ class OperatorUtils:
                         OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
                     }
 
+            is_doclang_primary = doc_format == OperatorConstants.DocFormat.DOCLANG
+            primary_content = raw_text
+            if is_doclang_primary:
+                try:
+                    from docling_core.types.doc import DoclingDocument
+                    from docling_core.types.doc.labels import DocItemLabel
+
+                    doc = DoclingDocument(name=Path(file_path).name)
+                    doc.add_text(label=DocItemLabel.TEXT, text=raw_text)
+                    primary_content = doc.export_to_doclang()
+                except Exception as doc_err:
+                    logger.warning("Failed to export text file %s to doclang: %s", file_path, doc_err)
+
             logger.info("Completed extraction for text file: %s", file_path)
 
             result: dict[str, Any] = {
                 OperatorConstants.Extraction.SUCCESS: True,
-                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: raw_text,
+                OperatorConstants.Columns.DOC_COLUMN_DEFAULT: primary_content,
                 OperatorConstants.Metadata.METADATA: {
-                    "char_count": len(raw_text),
+                    "char_count": len(primary_content),
                     "is_text_file": True,
                 },
             }
@@ -1724,20 +1743,22 @@ class OperatorUtils:
 
     @staticmethod
     def extract_content(
+        *,
         file_path: str,
         binary_content: bytes,
         converter_config: dict[str, Any] | None = None,
         additional_formats: list[str] | None = None,
         converter: Any = None,
+        doc_format: str = OperatorConstants.DocFormat.MARKDOWN,
     ) -> dict[str, Any]:
         """
         Common method for document extraction using Docling's DocumentConverter.
 
         This method handles the complete extraction workflow:
         1. File extension detection
-        2. Temporary file creation
+        2. Temporary file creation (for audio/video) or DocumentStream conversion
         3. Document conversion
-        4. Multi-format export (markdown is MANDATORY, additional formats optional)
+        4. Primary format export (markdown or doclang based on doc_format) and additional format export
 
         Args:
             file_path: Path to the document file (used for logging and extension detection)
@@ -1745,39 +1766,43 @@ class OperatorUtils:
             converter_config: Optional configuration for DocumentConverter initialization.
                              If provided, should contain 'format_options' key with format-specific settings.
                              Example: {'format_options': {InputFormat.PDF: PdfFormatOption(...)}}
-            additional_formats: Optional list of additional formats to generate beyond mandatory markdown.
-                               Options: 'html', 'json', 'text', 'doctags', 'doclang'.
+            additional_formats: Optional list of additional formats to generate beyond the primary format.
+                               Options: 'html', 'json', 'text', 'doctags', 'doclang', 'markdown'.
                                Each format creates a separate column in the output.
-                               Note: Markdown is ALWAYS generated and should NOT be included in this list.
             converter: Optional pre-built DocumentConverter instance. When provided,
                        ``converter_config`` is ignored and the supplied converter is used
                        directly. Intended for GPU-accelerated adapters that construct the
                        converter once and reuse it across documents.
+            doc_format: Target format for the primary content column (default: "markdown").
 
         Returns:
             Dictionary containing:
                 - success: True if extraction succeeded
-                - content: Extracted content as markdown (ALWAYS present - required by downstream operators)
+                - content: Extracted primary content (doclang XML or markdown based on doc_format)
                 - content_html: HTML format (if 'html' in additional_formats)
                 - content_json: JSON format (if 'json' in additional_formats)
                 - content_text: Plain text format (if 'text' in additional_formats)
                 - content_doctags: DocTags format (if 'doctags' in additional_formats)
-                - content_doclang: DocLang format (if 'doclang' in additional_formats)
+                - content_doclang: DocLang format (if 'doclang' in additional_formats and doc_format != 'doclang')
+                - content_markdown: Markdown format (if 'markdown' in additional_formats and doc_format == 'doclang')
                 - metadata: Extraction metadata (char_count, page_count, formats)
                 - error: Error message if extraction failed
         """
-        # Markdown is ALWAYS generated (required by downstream operators like Chunker, Embeddings, PII, HAP)
-        # Additional formats are optional
         if additional_formats is None:
             additional_formats = []
 
-        # Filter out 'markdown' if user mistakenly included it (it's always generated)
-        additional_formats = [
-            fmt for fmt in additional_formats if fmt.lower() != OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN
-        ]
+        is_doclang_primary = doc_format == OperatorConstants.DocFormat.DOCLANG
+        primary_format_name = (
+            OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG
+            if is_doclang_primary
+            else OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN
+        )
 
-        # Build complete format list for logging (markdown + additional)
-        all_formats = [OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN, *additional_formats]
+        # Filter out the primary format if user mistakenly included it in additional_formats
+        additional_formats = [fmt for fmt in additional_formats if fmt.lower() != primary_format_name]
+
+        # Build complete format list for logging (primary + additional)
+        all_formats = [primary_format_name, *additional_formats]
         logger.info("Processing file with Docling (formats: %s): %s", all_formats, file_path)
 
         try:
@@ -1795,6 +1820,7 @@ class OperatorUtils:
                     file_path=file_path,
                     binary_content=binary_content,
                     additional_formats=additional_formats,
+                    doc_format=doc_format,
                 )
 
             # Use supplied converter when provided (GPU path), otherwise retrieve
@@ -1824,17 +1850,19 @@ class OperatorUtils:
             formats_generated = []
             formats_failed = []
 
-            # Always generate markdown first (mandatory)
+            # Export primary format directly
             try:
-                content_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = result.document.export_to_markdown()
-                formats_generated.append(OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN)
-                logger.info("Generated markdown format for %s", file_path)
+                if is_doclang_primary:
+                    content_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = result.document.export_to_doclang()
+                else:
+                    content_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = result.document.export_to_markdown()
+                formats_generated.append(primary_format_name)
+                logger.info("Generated %s format for %s", primary_format_name, file_path)
             except Exception as e:
-                # Markdown is mandatory - if it fails, the entire extraction fails
-                logger.error("Failed to generate mandatory markdown format for %s: %s", file_path, e)
+                logger.error("Failed to generate primary %s format for %s: %s", primary_format_name, file_path, e)
                 return {
                     OperatorConstants.Extraction.SUCCESS: False,
-                    OperatorConstants.Extraction.ERROR: f"Failed to generate mandatory markdown format: {e}",
+                    OperatorConstants.Extraction.ERROR: f"Failed to generate primary {primary_format_name} format: {e}",
                     OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
                 }
 
@@ -1852,9 +1880,9 @@ class OperatorUtils:
                     else:
                         formats_failed.append(fmt)
 
-            # Get character count from markdown (default format)
-            markdown_content = content_dict.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT, "")
-            char_count = len(markdown_content) if markdown_content else 0
+            # Get character count from primary content
+            primary_content = content_dict.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT, "")
+            char_count = len(primary_content) if primary_content else 0
 
             # Get native page count from Docling result
             native_page_count = len(result.document.pages) if hasattr(result.document, "pages") else 0

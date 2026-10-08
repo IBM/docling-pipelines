@@ -12,6 +12,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 ### Added
 
 - Unified `Commit Verification` workflow (`.github/workflows/commit-verification.yml`) enforcing DCO sign-off, GPG verification, and PR template completeness on every PR; replaces `dco-advisor.yml` (#188)
+- `docs/integrations/openlineage/OPENLINEAGE_GUIDE.md` — new integration guide covering OpenLineage support: installation, enabling, configuration reference (all env vars, HTTP and File transport), emission modes (flow vs operator), event catalog by mode, custom facets reference, and a step-by-step guide for adding a custom lineage client.
 - React frontend UI with Elyra-based pipeline canvas, per-operator properties panels, project/flow management, and Node.js BFF layer; bundled into the wheel and served at `/ui/` (#58)
 - `StorageOutputOperator` — writes processed documents to a configurable destination with `processed_content`, `refetch_original`, and `comprehensive_export` modes (#58)
 - `S3DestinationAdapter` — writes to S3 / IBM COS / MinIO with env-var credentials and bucket pre-flight validation (#58)
@@ -41,6 +42,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Fixed
 
+- Empty `vlm_pipeline` and `asr_pipeline` objects enable their respective pipelines with defaults; omitted or `null` blocks keep them disabled. The default VLM preset is `granite_docling` (#123).
 - Storage output now accepts cloud destination credentials and S3 `key_prefix` saved by the UI, while retaining support for the separate `credentials` field and legacy S3 `prefix`, and reads ingest source paths from the normalized `provider_config`.
 - Updated JupyterLab to 4.6.4 in the full and slim notebooks extras to resolve the security alerts tracked in #51.
 - Notification panel now propagates `action_type` from backend validation and fixes stale alert detection (#91)
