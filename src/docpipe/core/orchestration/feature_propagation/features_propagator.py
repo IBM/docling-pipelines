@@ -466,37 +466,6 @@ class FeaturePropagator:
         features_to_drop_obj.add_features(features=features_to_drop)
         result.set_output_features_to_drop(node_id=node_id, features_to_drop=features_to_drop_obj)
 
-    def _apply_merge_special_case(
-        self,
-        *,
-        operator_config: dict[str, Any],
-        result: FeaturePropagationResult,
-        parent_results: list[FeaturePropagationResult],
-    ) -> None:
-        """Apply merge feature propagation logic for MergeOperator."""
-        if not parent_results:
-            return
-
-        merge_type = operator_config.get(OperatorConstants.Merge.MERGE_TYPE, OperatorConstants.Merge.ROWS)
-        column_option = (
-            operator_config.get(OperatorConstants.Merge.COLUMN_OPTION)
-            if merge_type == OperatorConstants.Merge.COLUMNS
-            else None
-        )
-        input_links = operator_config.get(OperatorConstants.Merge.INPUT_LINKS, [])
-        node_id_to_link_name: dict[str, str] | None = {
-            lnk["node_id_ref"]: lnk[OperatorConstants.Misc.LINK_NAME]
-            for lnk in input_links
-            if lnk.get("node_id_ref") and lnk.get(OperatorConstants.Misc.LINK_NAME)
-        } or None
-
-        result.feature_metadata = self.merge_features(
-            parent_results=parent_results,
-            merge_type=merge_type,
-            column_option=column_option,
-            node_id_to_link_name=node_id_to_link_name,
-        )
-
     def _apply_special_case_logic(
         self,
         *,
@@ -527,9 +496,24 @@ class FeaturePropagator:
             self._apply_extract_special_case(operator_config=operator_config, result=result, node_id=node_id)
         elif operator_short_name == OperatorConstants.Operators.SQL_FILTER:
             self._apply_sql_filter_special_case(operator_config=operator_config, result=result, node_id=node_id)
-        elif operator_short_name == OperatorConstants.Operators.MERGE:
-            self._apply_merge_special_case(
-                operator_config=operator_config, result=result, parent_results=parent_results
+        elif operator_short_name == OperatorConstants.Operators.MERGE and parent_results:
+            merge_type = operator_config.get(OperatorConstants.Merge.MERGE_TYPE, OperatorConstants.Merge.ROWS)
+            column_option = (
+                operator_config.get(OperatorConstants.Merge.COLUMN_OPTION)
+                if merge_type == OperatorConstants.Merge.COLUMNS
+                else None
+            )
+            input_links = operator_config.get(OperatorConstants.Merge.INPUT_LINKS, [])
+            node_id_to_link_name: dict[str, str] | None = {
+                lnk["node_id_ref"]: lnk[OperatorConstants.Misc.LINK_NAME]
+                for lnk in input_links
+                if lnk.get("node_id_ref") and lnk.get(OperatorConstants.Misc.LINK_NAME)
+            } or None
+            result.feature_metadata = self.merge_features(
+                parent_results=parent_results,
+                merge_type=merge_type,
+                column_option=column_option,
+                node_id_to_link_name=node_id_to_link_name,
             )
 
         return result
@@ -717,4 +701,8 @@ class FeaturePropagator:
                 join_key=join_key,
             )
 
-        return self._merge_rows_features(parent_results=parent_results)
+        # Unrecognised merge_type/column_option combination — return plain union
+        fallback_merged_features: dict[str, FeatureMetadata] = {}
+        for parent in parent_results:
+            fallback_merged_features.update(parent.feature_metadata)
+        return fallback_merged_features
