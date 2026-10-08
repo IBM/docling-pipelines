@@ -1,0 +1,4806 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Operator Reference — Docling Pipelines</title>
+  <meta name="description" content="Operator Reference — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link active" href="OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Operator Reference</span>
+      </nav>
+      <hr />
+<h2 id="title-operator-reference">title: Operator Reference</h2>
+<h1>Operator Reference</h1>
+
+</li>
+<li><a href="#operator-api-reference">Operator API Reference</a><ul>
+<li><a href="#common-operator-contract">Common Operator Contract</a></li>
+<li><a href="#operator-ownership-attribute">Operator Ownership Attribute</a></li>
+<li><a href="#ingest-operators">Ingest Operators</a></li>
+<li><a href="#ingestsourceoperator">IngestSourceOperator</a></li>
+<li><a href="#extract-operators">Extract Operators</a></li>
+<li><a href="#extractoperator">ExtractOperator</a></li>
+<li><a href="#quality-operators">Quality Operators</a></li>
+<li><a href="#documentclassifieroperator">DocumentClassifierOperator</a></li>
+<li><a href="#languagedetect">LanguageDetect</a></li>
+<li><a href="#readabilityoperator">ReadabilityOperator</a></li>
+<li><a href="#redactionoperator">RedactionOperator</a></li>
+<li><a href="#piiandhapannotator">PIIAndHAPAnnotator</a></li>
+<li><a href="#ededupoperator">EdedupOperator</a></li>
+<li><a href="#mlenrichmentoperator">MLEnrichmentOperator</a></li>
+<li><a href="#sqlfilteroperator">SQLFilterOperator</a></li>
+<li><a href="#functional-operators">Functional Operators</a></li>
+<li><a href="#chunkeroperator">ChunkerOperator</a></li>
+<li><a href="#entitycurationoperator">EntityCurationOperator</a></li>
+<li><a href="#embeddingsoperator">EmbeddingsOperator</a></li>
+<li><a href="#branchingoperator">BranchingOperator</a></li>
+<li><a href="#mergeoperator">MergeOperator</a></li>
+<li><a href="#noopoperator">NOOPOperator</a></li>
+<li><a href="#docidhashoperator">DocIdHashOperator</a></li>
+<li><a href="#vectordb-operators">VectorDB Operators</a></li>
+<li><a href="#vectordboperator">VectorDBOperator</a></li>
+<li><a href="#storage-operators">Storage Operators</a></li>
+<li><a href="#documentsetoperator">DocumentSetOperator</a></li>
+<li><a href="#storageoutputoperator">StorageOutputOperator</a></li>
+</ul>
+</li>
+<li><a href="#docpipeflowmanager-api">DocpipeFlowManager API</a><ul>
+<li><a href="#constructor">Constructor</a></li>
+<li><a href="#validate"><code>validate()</code></a></li>
+<li><a href="#execute"><code>execute()</code></a></li>
+<li><a href="#get_execution_metadata"><code>get_execution_metadata()</code></a></li>
+<li><a href="#get_execution_logs"><code>get_execution_logs()</code></a></li>
+<li><a href="#list_operatorsverbosefalse"><code>list_operators(verbose=False)</code></a></li>
+<li><a href="#method-name-note">Method name note</a></li>
+</ul>
+</li>
+<li><a href="#cli-api-reference">CLI API Reference</a><ul>
+<li><a href="#command-forms">Command forms</a></li>
+<li><a href="#global-arguments">Global arguments</a></li>
+<li><a href="#exit-codes">Exit codes</a></li>
+</ul>
+</li>
+<li><a href="#flow-configuration-api">Flow Configuration API</a><ul>
+<li><a href="#root-structure">Root structure</a></li>
+<li><a href="#flow-fields">Flow fields</a></li>
+<li><a href="#operator-structure">Operator structure</a></li>
+<li><a href="#operator-fields">Operator fields</a></li>
+<li><a href="#dependency-declaration">Dependency declaration</a></li>
+<li><a href="#validation-rules">Validation rules</a></li>
+</ul>
+</li>
+<li><a href="#exception-reference">Exception Reference</a><ul>
+<li><a href="#docpipeexception"><code>DocpipeException</code></a></li>
+<li><a href="#flowexecutionfailedexception"><code>FlowExecutionFailedException</code></a></li>
+<li><a href="#flowvalidationexception"><code>FlowValidationException</code></a></li>
+<li><a href="#prefectflowfailed"><code>PrefectFlowFailed</code></a></li>
+<li><a href="#validationexception"><code>ValidationException</code></a></li>
+<li><a href="#configurationerror"><code>ConfigurationError</code></a></li>
+<li><a href="#dependencyerror"><code>DependencyError</code></a></li>
+<li><a href="#externalserviceerror"><code>ExternalServiceError</code></a></li>
+<li><a href="#flownotfoundexception"><code>FlowNotFoundException</code></a></li>
+<li><a href="#flowalreadyexistsexception"><code>FlowAlreadyExistsException</code></a></li>
+<li><a href="#flowinvaliddataexception"><code>FlowInvalidDataException</code></a></li>
+<li><a href="#flowstorageexception"><code>FlowStorageException</code></a></li>
+<li><a href="#repositoryconfigurationexception"><code>RepositoryConfigurationException</code></a></li>
+<li><a href="#validationalert"><code>ValidationAlert</code></a></li>
+<li><a href="#validationalertencoder"><code>ValidationAlertEncoder</code></a></li>
+</ul>
+</li>
+<li><a href="#utilities-api">Utilities API</a><ul>
+<li><a href="#pyarrow-handler-utilities">PyArrow handler utilities</a></li>
+<li><a href="#baseparquettablehandler"><code>BaseParquetTableHandler</code></a></li>
+<li><a href="#cpdparquettablehandler"><code>CpdParquetTableHandler</code></a></li>
+<li><a href="#get_parquet_table_handler"><code>get_parquet_table_handler()</code></a></li>
+<li><a href="#schema-utilities">Schema utilities</a></li>
+<li><a href="#align_table_schematable-all_cols"><code>align_table_schema(table, all_cols)</code></a></li>
+<li><a href="#_combine_tablestables-table_type"><code>_combine_tables(tables, table_type)</code></a></li>
+<li><a href="#_total_rowstables"><code>_total_rows(tables)</code></a></li>
+<li><a href="#document-class-utilities">Document class utilities</a></li>
+<li><a href="#documentclassutilsnormalize_filenamename"><code>DocumentClassUtils.normalize_filename(name)</code></a></li>
+<li><a href="#documentclassutilsload_document_classdoc_class_path"><code>DocumentClassUtils.load_document_class(doc_class_path)</code></a></li>
+<li><a href="#documentclassutilsgenerate_docling_templatedoc_class_path-include_nestedtrue-max_fieldsnone"><code>DocumentClassUtils.generate_docling_template(doc_class_path, include_nested=True, max_fields=None)</code></a></li>
+<li><a href="#operator-display-utility">Operator display utility</a></li>
+<li><a href="#list_operatorsverbosefalse-1"><code>list_operators(verbose=False)</code></a></li>
+</ul>
+</li>
+</ul>
+<h2 id="overview">Overview</h2>
+<p><a href="../reference/OPERATORS.html"><code>OPERATOR_REFERENCE.md</code></a> centralizes the public APIs that are visible to pipeline authors, application integrators, and operator users.</p>
+<p>This reference is organized around four entry points:</p>
+<ul>
+<li><strong>Operators</strong>: flow node implementations under <a href="../../src/docpipe/core/operators"><code>src/docpipe/core/operators</code></a></li>
+<li><strong>Programmatic execution</strong>: <a href="../../src/docpipe/lib/docpipe_flow_manager.py#L24"><code>DocpipeFlowManager</code></a></li>
+<li><strong>CLI execution</strong>: <a href="../../src/docpipe/cli/docpipe_cli.py#L147"><code>docling-pipelines</code></a></li>
+<li><strong>Flow JSON definitions</strong>: DAG configuration consumed by the orchestrator</li>
+</ul>
+<h3 id="how-to-use-this-reference">How to use this reference</h3>
+<ul>
+<li>Use the operator sections when authoring flow JSON.</li>
+<li>Use the flow manager section when embedding Docling Pipelines in Python code.</li>
+<li>Use the CLI section when running or validating flows from the shell.</li>
+<li>For classification-specific architecture details, see <a href="../operators/quality/document_classifier_readme.html"><code>docs/operators/quality/document_classifier_readme.md</code></a>, which documents the simplified service-based architecture used by <code>DocumentClassifierOperator</code>.</li>
+</ul>
+<hr />
+<h2 id="operator-api-reference">Operator API Reference</h2>
+<h3 id="common-operator-contract">Common Operator Contract</h3>
+<p>All operators ultimately inherit from <a href="../../src/docpipe/core/operators/abstract_operator.py#L28"><code>AbstractOperator</code></a>.</p>
+<p><strong>Shared behavior</strong></p>
+<ul>
+<li>Operators receive a <code>config</code> dictionary during initialization.</li>
+<li>Operators expose metadata through the static method <a href="../../src/docpipe/core/operators/abstract_operator.py#L59"><code>get_metadata()</code></a>, which can be called on the class without instantiation (e.g., <code>OperatorClass.get_metadata()</code>).</li>
+<li>Input column requirements are expressed with <a href="../../src/docpipe/core/operators/abstract_operator.py#L55"><code>get_required_features()</code></a>.</li>
+<li>Validation hooks are implemented via <a href="../../src/docpipe/core/operators/abstract_operator.py#L51"><code>validate()</code></a>.</li>
+<li>Runtime work is usually performed by <code>transform()</code> or <code>runner()</code> methods depending on the operator.</li>
+</ul>
+<p><strong>Common input shape</strong></p>
+<p>Most operators consume a <code>pyarrow.Table</code> with some subset of these columns:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>Document identifier</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Source path or display name</td>
+</tr>
+<tr>
+<td><code>content</code></td>
+<td>string</td>
+<td>Extracted text or serialized document content</td>
+</tr>
+<tr>
+<td><code>doc_id_hash</code></td>
+<td>string</td>
+<td>Stable hashed identifier</td>
+</tr>
+<tr>
+<td><code>chunked_content</code></td>
+<td>list or JSON string</td>
+<td>Chunk payloads generated by chunking</td>
+</tr>
+<tr>
+<td><code>embeddings</code></td>
+<td>vector/list[float] or list[list[float]]</td>
+<td>Dense vector output</td>
+</tr>
+</tbody>
+</table></div>
+<h4>Operator Ownership Attribute</h4>
+<p>All operators must declare an <code>owner</code> class variable to support priority-based resolution when multiple operators share the same <code>short_name</code>.</p>
+<pre><code class="language-python"># Built-in docpipe operators
+from docpipe.core.constants.constants import DocpipeConstants
+owner: str = DocpipeConstants.OWNER_DOCPIPE  # MUST be set for all built-in operators
+
+# Custom operators
+owner: str = &quot;custom&quot;  # MUST be set for all custom operators
+</code></pre>
+<p>For full details on the priority system, override behaviour, and registering custom tiers, see <a href="../../CONTRIBUTING.html#custom-operator-requirements">CONTRIBUTING.md — Custom Operator Requirements</a> and <a href="../guides/EXTERNAL_OPERATOR_INTEGRATION.html#operator-priority-and-override">External Operator Integration — Operator Priority</a>.</p>
+<h3 id="ingest-operators">Ingest Operators</h3>
+<h4>IngestSourceOperator</h4>
+<p><strong>Purpose:</strong> Multi-provider ingest abstraction for sources such as object storage, SharePoint, OneDrive, Google Drive, Box, Dropbox, web pages, and filesystem adapters.</p>
+<p><strong>Category:</strong> Ingest</p>
+<p><strong>Class:</strong> <code>core.operators.ingest.ingest_source.IngestSourceOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source_type</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td>-</td>
+<td>Adapter type</td>
+</tr>
+<tr>
+<td><code>include_filter</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td>-</td>
+<td>Extension include list</td>
+</tr>
+<tr>
+<td><code>exclude_filter</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td>-</td>
+<td>Extension exclude list</td>
+</tr>
+<tr>
+<td><code>force_ingest</code></td>
+<td>bool</td>
+<td style="text-align: right;">No</td>
+<td><code>false</code></td>
+<td>Reprocess prior docs</td>
+</tr>
+<tr>
+<td><code>provider_config</code></td>
+<td>object</td>
+<td style="text-align: right;">Yes</td>
+<td>-</td>
+<td>Provider-specific configuration</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Input Schema</strong></p>
+<ul>
+<li>No input table required</li>
+</ul>
+<p><strong>Output Schema</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>MD5 hash of the source path</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Source identifier (file path, URL, etc.)</td>
+</tr>
+<tr>
+<td><code>document_format</code></td>
+<td>string</td>
+<td>File extension (e.g., <code>.pdf</code>, <code>.xlsx</code>, <code>.docx</code>)</td>
+</tr>
+<tr>
+<td><code>metadata</code></td>
+<td>string</td>
+<td>JSON-serialized metadata from the source document</td>
+</tr>
+<tr>
+<td><code>source_id</code></td>
+<td>string</td>
+<td>The source identifier</td>
+</tr>
+<tr>
+<td><code>path</code></td>
+<td>string</td>
+<td>Source path/URL for on-demand binary loading</td>
+</tr>
+<tr>
+<td><code>modified_time</code></td>
+<td>int64</td>
+<td>Document modification timestamp (Unix timestamp)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Exceptions</strong></p>
+<ul>
+<li><code>ImportError</code></li>
+<li><code>ValueError</code></li>
+<li>authentication and network failures</li>
+</ul>
+<p><strong>Example</strong></p>
+<p><strong>Folder Ingestion:</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;ingest-source-node&quot;,
+  &quot;name&quot;: &quot;s3-ingest&quot;,
+  &quot;operator&quot;: &quot;ingest_source&quot;,
+  &quot;config&quot;: {
+    &quot;source_type&quot;: &quot;s3&quot;,
+    &quot;provider_config&quot;: {
+      &quot;bucket&quot;: &quot;example-bucket&quot;,
+      &quot;prefix&quot;: &quot;incoming/&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>File-Level Ingestion (S3 Only):</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;ingest-source-node&quot;,
+  &quot;name&quot;: &quot;s3-file-ingest&quot;,
+  &quot;operator&quot;: &quot;ingest_source&quot;,
+  &quot;config&quot;: {
+    &quot;source_type&quot;: &quot;s3&quot;,
+    &quot;provider_config&quot;: {
+      &quot;bucket&quot;: &quot;example-bucket&quot;,
+      &quot;prefix&quot;: &quot;incoming/document.pdf&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Note:</strong> S3 is the only provider that supports file-level ingestion. Use the <code>prefix</code> parameter to specify either a folder path (e.g., <code>"incoming/"</code>) or a specific file path (e.g., <code>"incoming/document.pdf"</code>).</p>
+<hr />
+<h3 id="extract-operators">Extract Operators</h3>
+<h4>ExtractOperator</h4>
+<p><strong>Purpose:</strong> Unified extraction operator using hexagonal architecture with multiple adapters for text extraction (docling_library, docling_serve) and entity extraction (litellm, watsonx, docling, none).</p>
+<p><strong>Category:</strong> Extract</p>
+<p><strong>Class:</strong> <code>core.operators.extract.extract_operator.ExtractOperator</code></p>
+<blockquote>
+<p><strong>Streaming execution:</strong> When <code>entity_extraction</code> is enabled, text and entity extraction run concurrently. Each document is submitted for entity extraction as soon as its text extraction finishes, without waiting for the full batch. When entity extraction is disabled the operator behaves as before.</p>
+</blockquote>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Supported Providers</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>text_extraction</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>{"provider": "docling_library", "doc_column": "content"}</code></td>
+<td>All</td>
+<td>Text extraction configuration (see below)</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>docling_library</code></td>
+<td>All</td>
+<td>Text extraction provider: <code>docling_library</code> (local with optional VLM) or <code>docling_serve</code> (remote API)</td>
+</tr>
+<tr>
+<td><code>text_extraction.doc_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>content</code></td>
+<td>All</td>
+<td>Column name for storing extracted text content</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.additional_formats</code></td>
+<td>array</td>
+<td style="text-align: right;">No</td>
+<td><code>[]</code></td>
+<td>All</td>
+<td>Additional output formats beyond markdown: <code>html</code>, <code>json</code>, <code>text</code>, <code>doctags</code>, <code>doclang</code></td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.vlm_pipeline</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>null</code></td>
+<td><code>docling_library</code></td>
+<td>VLM (Vision-Language Model) pipeline configuration. When present, VLM processing is enabled.</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.vlm_pipeline.preset</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>granite_docling</code></td>
+<td><code>docling_library</code></td>
+<td>VLM preset name. Valid presets: <code>smoldocling</code>, <code>granite_docling</code>, <code>deepseek_ocr</code>, <code>granite_vision</code>, <code>pixtral</code>, <code>got_ocr</code>, <code>phi4</code>, <code>qwen</code>, <code>nanonets_ocr2</code>, <code>gemma_12b</code>, <code>gemma_27b</code>, <code>dolphin</code>, <code>glm_ocr</code>, <code>lightonocr</code>, <code>falcon_ocr</code></td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.vlm_pipeline.engine</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>api_ollama</code></td>
+<td><code>docling_library</code></td>
+<td>VLM engine type. Valid engines: <code>api_ollama</code>, <code>api_openai</code>, <code>api_watsonx</code>, <code>api_lmstudio</code>, <code>api</code> (generic), <code>transformers</code> (local), <code>mlx</code> (macOS)</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.vlm_pipeline.engine_options</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>{}</code></td>
+<td><code>docling_library</code></td>
+<td>Engine-specific options (api_base, model_id, etc.)</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.asr_pipeline</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>null</code></td>
+<td><code>docling_library</code></td>
+<td>ASR (Automatic Speech Recognition) pipeline configuration. When present, ASR processing is enabled.</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.asr_pipeline.model_id</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>whisper_turbo</code></td>
+<td><code>docling_library</code></td>
+<td>ASR model name. Valid values: <code>whisper_tiny</code>, <code>whisper_small</code>, <code>whisper_medium</code>, <code>whisper_base</code>, <code>whisper_large</code>, <code>whisper_turbo</code>, and their <code>_mlx</code>/<code>_native</code> variants (e.g., <code>whisper_tiny_mlx</code>, <code>whisper_tiny_native</code>)</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.standard_pipeline</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>null</code></td>
+<td><code>docling_library</code></td>
+<td>Standard pipeline acceleration configuration. Omit entirely for default behaviour.</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.standard_pipeline.accelerator</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>null</code></td>
+<td><code>docling_library</code></td>
+<td>GPU accelerator options for PDF and image processing. When present, the adapter builds one <code>DocumentConverter</code> and reuses it across all documents. <strong>Requires <code>max_workers: 1</code> and <code>use_processes: false</code>.</strong> Cannot be combined with <code>vlm_pipeline</code>.</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.standard_pipeline.accelerator.device</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td>auto-detected</td>
+<td><code>docling_library</code></td>
+<td>GPU device to use. Accepted values: <code>mps</code> (Apple Silicon), <code>cuda</code> (NVIDIA, any device), <code>cuda:&lt;index&gt;</code> (e.g. <code>cuda:0</code>), <code>xpu</code> (Intel). When omitted, the best available device is auto-detected via torch (CUDA → MPS → XPU). Device availability is checked at runtime via torch backends.</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.standard_pipeline.accelerator.num_threads</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td><code>4</code></td>
+<td><code>docling_library</code></td>
+<td>Number of CPU-side threads for the Docling pipeline. Must be a positive integer. Booleans are rejected.</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>{}</code></td>
+<td>All</td>
+<td>Provider-specific configuration</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.base_url</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td>None</td>
+<td>Docling Serve API endpoint (docling_serve mode). Required when using docling_serve provider.</td>
+<td></td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.api_key</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>null</code></td>
+<td><code>docling_serve</code></td>
+<td>Optional API key for authentication</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.timeout</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td><code>300</code></td>
+<td><code>docling_serve</code></td>
+<td>Request timeout in seconds</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.ocr</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>null</code></td>
+<td>Both</td>
+<td>OCR configuration block. Omit to use the default OCR configuration (OCR on, RapidOCR engine, default mode).</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.ocr.enabled</code></td>
+<td>bool</td>
+<td style="text-align: right;">No</td>
+<td><code>true</code></td>
+<td>Both</td>
+<td>Enable OCR processing.</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.ocr.engine</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>"rapidocr"</code></td>
+<td>Both</td>
+<td>OCR engine: <code>auto</code>, <code>easyocr</code>, <code>tesserocr</code>, <code>tesseract</code>, <code>rapidocr</code>, <code>ocrmac</code>, <code>kserve_v2_ocr</code>, <code>nemotron-ocr</code>. <code>rapidocr</code> is the default.</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.ocr.mode</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>"default"</code></td>
+<td>Both</td>
+<td>OCR scanning mode: <code>default</code>, <code>full_page</code>, <code>layout_regions</code>, <code>pdf_aware_layout_regions</code></td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.ocr.engine_options</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>null</code></td>
+<td>Both</td>
+<td>Engine-specific parameters (see engine options reference in extract_operator_readme.md)</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.pdf_backend</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>dlparse_v2</code></td>
+<td><code>docling_serve</code></td>
+<td>PDF backend: <code>dlparse_v4</code>, <code>dlparse_v3</code>, <code>pypdfium2</code></td>
+</tr>
+<tr>
+<td><code>entity_extraction</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>{"provider": "none"}</code></td>
+<td>All</td>
+<td>Entity extraction configuration (see below)</td>
+</tr>
+<tr>
+<td><code>entity_extraction.provider</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>none</code></td>
+<td>All</td>
+<td>Entity extraction provider: <code>litellm</code> (includes Ollama via openai/ prefix), <code>watsonx</code>, <code>docling</code>, or <code>none</code>. <strong>Note:</strong> When using any entity extraction provider (not <code>none</code>), either <code>custom_schema</code> must be provided OR a <code>document_type</code> column must be present from an upstream classification operator.</td>
+</tr>
+<tr>
+<td><code>entity_extraction.output_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>entities</code></td>
+<td>All</td>
+<td>Column name for storing extracted entities</td>
+</tr>
+<tr>
+<td><code>entity_extraction.max_doc_chars</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td><code>8000</code></td>
+<td>All</td>
+<td>Maximum document characters to process for entity extraction</td>
+</tr>
+<tr>
+<td><code>entity_extraction.expand_extracted_data</code></td>
+<td>bool</td>
+<td style="text-align: right;">No</td>
+<td><code>false</code></td>
+<td>All</td>
+<td>Expand entity JSON into individual columns</td>
+</tr>
+<tr>
+<td><code>entity_extraction.custom_schema</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>{}</code></td>
+<td><code>litellm</code>, <code>watsonx</code>, <code>docling</code></td>
+<td>Schema dictionary for structured extraction. <strong>Required</strong> when using entity extraction providers unless a <code>document_type</code> column is present.</td>
+</tr>
+<tr>
+<td><code>entity_extraction.provider_config</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>{}</code></td>
+<td><code>litellm</code>, <code>watsonx</code>, <code>docling</code></td>
+<td>Provider-specific configuration including <code>model_id</code> (see below)</td>
+</tr>
+<tr>
+<td><code>entity_extraction.provider_config.model_id</code></td>
+<td>string</td>
+<td style="text-align: right;">Conditional</td>
+<td>varies by provider</td>
+<td><code>litellm</code>, <code>watsonx</code></td>
+<td>LLM model identifier (required for litellm/watsonx providers). <strong>Must include provider prefix when using LiteLLM</strong> (e.g., <code>openai/gpt-4</code>, <code>openai/llama3.2</code> for Ollama, <code>anthropic/claude-3-opus</code>)</td>
+</tr>
+<tr>
+<td><code>entity_extraction.provider_config.temperature</code></td>
+<td>float</td>
+<td style="text-align: right;">No</td>
+<td><code>0.0</code></td>
+<td><code>litellm</code>, <code>watsonx</code></td>
+<td>Sampling temperature</td>
+</tr>
+<tr>
+<td><code>entity_extraction.provider_config.max_tokens</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td><code>2000</code></td>
+<td><code>litellm</code>, <code>watsonx</code></td>
+<td>Maximum response tokens</td>
+</tr>
+<tr>
+<td><code>entity_extraction.provider_config.api_key</code></td>
+<td>string</td>
+<td style="text-align: right;">Conditional</td>
+<td>-</td>
+<td><code>litellm</code>, <code>watsonx</code></td>
+<td>Provider API key (required for most providers)</td>
+</tr>
+<tr>
+<td><code>entity_extraction.provider_config.api_base</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td>-</td>
+<td><code>litellm</code>, <code>watsonx</code></td>
+<td>API endpoint URL (e.g., <code>http://localhost:11434/v1</code> for Ollama)</td>
+</tr>
+<tr>
+<td><code>entity_extraction.provider_config.container_id</code></td>
+<td>string</td>
+<td style="text-align: right;">Conditional</td>
+<td>-</td>
+<td><code>watsonx</code></td>
+<td>WatsonX container ID (required for watsonx provider)</td>
+</tr>
+<tr>
+<td><code>entity_extraction.provider_config.container_kind</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>project</code></td>
+<td><code>watsonx</code></td>
+<td>WatsonX container kind</td>
+</tr>
+<tr>
+<td><code>entity_extraction.provider_config.stream</code></td>
+<td>bool</td>
+<td style="text-align: right;">No</td>
+<td><code>false</code></td>
+<td><code>litellm</code></td>
+<td>Enable HTTP chunked transfer encoding for streaming responses. Recommended for remote vLLM clusters processing large documents to prevent connection drops.</td>
+</tr>
+<tr>
+<td><code>entity_extraction.provider_config.timeout</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td><code>600</code></td>
+<td><code>litellm</code>, <code>watsonx</code></td>
+<td>HTTP client read timeout in seconds. Set to 1800 (30 minutes) for large documents requiring extended generation time.</td>
+</tr>
+<tr>
+<td><code>entity_extraction.provider_config.vlm_pipeline</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>{}</code></td>
+<td><code>docling</code></td>
+<td>Custom VLM model configuration for Docling entity extraction</td>
+</tr>
+<tr>
+<td><code>max_workers</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td>auto</td>
+<td>All</td>
+<td>Maximum parallel workers (auto-detected based on CPU)</td>
+</tr>
+<tr>
+<td><code>use_processes</code></td>
+<td>bool</td>
+<td style="text-align: right;">No</td>
+<td><code>false</code></td>
+<td>All</td>
+<td>Use ProcessPoolExecutor vs ThreadPoolExecutor</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Input Schema</strong></p>
+<ul>
+<li><code>name</code> (<code>string</code>)</li>
+<li>binary payload column from an ingest operator</li>
+<li>optional existing content column</li>
+</ul>
+<p><strong>Output Schema</strong></p>
+<ul>
+<li><code>content</code> (or configured via <code>doc_column</code> parameter) - Extracted markdown text (always generated)</li>
+<li><code>content_html</code> - HTML format (if <code>additional_formats</code> includes "html")</li>
+<li><code>content_json</code> - JSON structured format (if <code>additional_formats</code> includes "json")</li>
+<li><code>content_text</code> - Plain text format (if <code>additional_formats</code> includes "text")</li>
+<li><code>content_doctags</code> - Docling's native DocTags format (if <code>additional_formats</code> includes "doctags")</li>
+<li><code>content_doclang</code> - DocLang format (if <code>additional_formats</code> includes "doclang")</li>
+<li><code>entities</code> (or configured <code>output_column</code>) - Extracted entities as JSON string (if entity extraction enabled)</li>
+<li><code>doc_id_hash</code> - Document hash identifier</li>
+<li><code>pages_processed</code> - Number of pages in the document. Obtained from Docling extraction metadata when available; otherwise estimated using 3000 characters = 1 page</li>
+<li>Individual entity columns (if <code>expand_extracted_data=true</code>)</li>
+</ul>
+<p><strong>Execution Metadata</strong></p>
+<p>The operator provides the following metadata after execution:</p>
+<ul>
+<li><code>page_type_stats</code> (dict): Aggregate estimated pages grouped by source document format (e.g., <code>{"pdf": 120, "docx": 45}</code>)</li>
+<li><code>total_pages_converted</code> (int): Total estimated pages across all successfully processed documents</li>
+</ul>
+<p><strong>Exceptions</strong></p>
+<ul>
+<li><code>FlowExecutionFailedException</code></li>
+<li><code>ValueError</code> for invalid configuration</li>
+<li>Provider-specific exceptions (Ollama, LiteLLM, Docling)</li>
+</ul>
+<p><strong>Example: Basic Text Extraction</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;,
+      &quot;provider_config&quot;: {}
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: VLM Text Extraction</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;provider_config&quot;: {
+        &quot;vlm_pipeline&quot;: {
+          &quot;preset&quot;: &quot;granite_docling&quot;,
+          &quot;engine&quot;: &quot;api_ollama&quot;,
+          &quot;engine_options&quot;: {
+            &quot;api_base&quot;: &quot;http://localhost:11434&quot;,
+            &quot;model_id&quot;: &quot;ibm/granite-docling:258m&quot;
+          }
+        }
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    },
+    &quot;max_workers&quot;: 1
+  }
+}
+</code></pre>
+<p><strong>Example: GPU-Accelerated Text Extraction</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;,
+      &quot;provider_config&quot;: {
+        &quot;standard_pipeline&quot;: {
+          &quot;accelerator&quot;: {
+            &quot;device&quot;: &quot;mps&quot;,
+            &quot;num_threads&quot;: 6
+          }
+        }
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    },
+    &quot;max_workers&quot;: 1,
+    &quot;use_processes&quot;: false
+  }
+}
+</code></pre>
+<p><strong>Example: Docling Serve with OCR</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_serve&quot;,
+      &quot;provider_config&quot;: {
+        &quot;base_url&quot;: &quot;http://localhost:5001&quot;,
+        &quot;ocr&quot;: {
+          &quot;enabled&quot;: true,
+          &quot;engine&quot;: &quot;easyocr&quot;
+        },
+        &quot;pdf_backend&quot;: &quot;dlparse_v4&quot;
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: Text + LiteLLM Entity Extraction (with Ollama)</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;litellm&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;openai/granite4:latest&quot;,
+        &quot;temperature&quot;: 0.0,
+        &quot;max_tokens&quot;: 4096,
+        &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+        &quot;api_key&quot;: &quot;&lt;ollama_key&gt;&quot;
+      },
+      &quot;custom_schema&quot;: {
+        &quot;invoice_number&quot;: &quot;string&quot;,
+        &quot;total_amount&quot;: &quot;float&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: Text + LiteLLM Entity Extraction (with OpenAI)</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;litellm&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;openai/gpt-3.5-turbo&quot;,
+        &quot;temperature&quot;: 0.0,
+        &quot;max_tokens&quot;: 2000,
+        &quot;api_key&quot;: &quot;${OPENAI_API_KEY}&quot;,
+        &quot;api_base&quot;: &quot;https://api.openai.com/v1&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: Multi-Format Output</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;provider_config&quot;: {
+        &quot;additional_formats&quot;: [&quot;html&quot;, &quot;json&quot;, &quot;text&quot;, &quot;doclang&quot;]
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: Text + WatsonX Entity Extraction</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;watsonx&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;ibm/granite-13b-chat-v2&quot;,
+        &quot;temperature&quot;: 0.0,
+        &quot;max_tokens&quot;: 2000,
+        &quot;api_key&quot;: &quot;${WATSONX_API_KEY}&quot;,
+        &quot;container_id&quot;: &quot;${WATSONX_CONTAINER_ID}&quot;,
+        &quot;api_base&quot;: &quot;https://us-south.ml.cloud.ibm.com&quot;,
+        &quot;container_kind&quot;: &quot;project&quot;
+      },
+      &quot;custom_schema&quot;: {
+        &quot;invoice_number&quot;: &quot;string&quot;,
+        &quot;total_amount&quot;: &quot;float&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: Docling Template-Based Entity Extraction</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling&quot;,
+      &quot;custom_schema&quot;: {
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;properties&quot;: {
+          &quot;invoice_number&quot;: { &quot;type&quot;: &quot;string&quot; },
+          &quot;total_amount&quot;: { &quot;type&quot;: &quot;number&quot; }
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: Docling Entity Extraction with Custom Inline Model</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling&quot;,
+      &quot;provider_config&quot;: {
+        &quot;vlm_pipeline&quot;: {
+          &quot;model_type&quot;: &quot;inline&quot;,
+          &quot;inline_model&quot;: {
+            &quot;repo_id&quot;: &quot;numind/NuExtract-2.0-2B&quot;,
+            &quot;inference_framework&quot;: &quot;transformers&quot;,
+            &quot;scale&quot;: 2.0,
+            &quot;temperature&quot;: 0.0,
+            &quot;max_new_tokens&quot;: 4096,
+            &quot;load_in_8bit&quot;: true,
+            &quot;torch_dtype&quot;: &quot;bfloat16&quot;
+          }
+        }
+      },
+      &quot;custom_schema&quot;: {
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;properties&quot;: {
+          &quot;invoice_number&quot;: { &quot;type&quot;: &quot;string&quot; },
+          &quot;total_amount&quot;: { &quot;type&quot;: &quot;number&quot; }
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Custom VLM Configuration for Docling Entity Extraction</strong></p>
+<p>The <code>vlm_pipeline</code> parameter enables custom VLM model configuration for the Docling entity extraction adapter. Only inline models (HuggingFace) are supported as DocumentExtractor does not support remote API endpoints.</p>
+<p><strong>Note:</strong> For API-based entity extraction, use <code>entity_extraction.provider: "litellm"</code> or <code>"watsonx"</code> instead of Docling.</p>
+<p><strong>Configuration Structure:</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vlm_pipeline</code></td>
+<td>object</td>
+<td>No</td>
+<td>Custom VLM model configuration for Docling entity extraction</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.model_type</code></td>
+<td>string</td>
+<td>Yes*</td>
+<td>Model type: must be <code>inline</code> (*required if <code>vlm_pipeline</code> provided)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model</code></td>
+<td>object</td>
+<td>Yes*</td>
+<td>Inline model configuration (*required if <code>vlm_pipeline</code> provided)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.repo_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>HuggingFace model repository ID (e.g., <code>numind/NuExtract-2.0-2B</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.inference_framework</code></td>
+<td>string</td>
+<td>No</td>
+<td>Inference framework: <code>transformers</code>, <code>vllm</code>, or <code>mlx</code> (default: <code>transformers</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.scale</code></td>
+<td>float</td>
+<td>No</td>
+<td>Image scaling factor (default: <code>2.0</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.temperature</code></td>
+<td>float</td>
+<td>No</td>
+<td>Sampling temperature (default: <code>0.0</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.max_new_tokens</code></td>
+<td>int</td>
+<td>No</td>
+<td>Maximum generation length (default: <code>4096</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.load_in_8bit</code></td>
+<td>bool</td>
+<td>No</td>
+<td>Enable 8-bit quantization (default: <code>true</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.torch_dtype</code></td>
+<td>string</td>
+<td>No</td>
+<td>Precision type: <code>bfloat16</code>, <code>float16</code>, <code>float32</code> (default: <code>bfloat16</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.prompt</code></td>
+<td>string</td>
+<td>No</td>
+<td>Custom prompt template (default: <code>""</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.response_format</code></td>
+<td>string</td>
+<td>No</td>
+<td>Response format: <code>markdown</code>, <code>doctags</code>, <code>html</code>, etc. (default: <code>markdown</code>)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Usage Notes:</strong></p>
+<ul>
+<li><strong>Inline Models Only</strong>: Only HuggingFace models loaded directly into memory are supported. DocumentExtractor does not support remote API endpoints.</li>
+<li><strong>API-Based Extraction</strong>: For API-based entity extraction (Ollama via LiteLLM, OpenAI, etc.), use <code>entity_extraction.provider: "litellm"</code> or <code>"watsonx"</code> instead.</li>
+<li><strong>Default Behavior</strong>: If <code>vlm_pipeline</code> is not provided, Docling uses its default model configuration.</li>
+<li><strong>Performance</strong>: Inline models require sufficient GPU memory and are suitable for local deployment with GPU resources.</li>
+<li><strong>Compatibility</strong>: Ensure the chosen model supports the inference framework and hardware configuration.</li>
+</ul>
+<p><strong>Architecture</strong></p>
+<p>The ExtractOperator uses hexagonal architecture (ports and adapters pattern) with clear separation of concerns:</p>
+<p><strong>Layers:</strong></p>
+<ul>
+<li><strong>Domain Layer</strong>: <code>EntityExtractionService</code> handles business logic (prompt building, schema validation, response parsing)</li>
+<li><strong>Port Layer</strong>: <code>TextExtractionPort</code> and <code>EntityExtractionPort</code> define extraction interfaces</li>
+<li><strong>Adapter Layer</strong>: Concrete implementations for different extraction strategies</li>
+<li>Text: <code>DoclingAdapter</code> (docling_library), <code>DoclingServeAdapter</code> (docling_serve)</li>
+<li>Entity: <code>LLMEntityAdapter</code> (unified for litellm/watsonx), <code>DoclingEntityAdapter</code> (docling)</li>
+<li><strong>Factory Layer</strong>: <code>TextExtractionAdapterFactory</code> and <code>EntityExtractionAdapterFactory</code> create adapters based on provider</li>
+</ul>
+<p><strong>Key Benefits:</strong></p>
+<ul>
+<li>Easy addition of new extraction strategies by implementing ports</li>
+<li>Clear separation between business logic, interfaces, and implementations</li>
+<li>Independent text and entity extraction provider selection</li>
+<li>Unified LLM support: Both <code>litellm</code> and <code>watsonx</code> providers use the same <code>LLMEntityAdapter</code></li>
+<li>Parallel processing with auto-optimized worker counts</li>
+</ul>
+<p><strong>Integration Requirements</strong></p>
+<ul>
+<li><strong>Ollama</strong> (for litellm entity provider with Ollama): Server at <code>http://localhost:11434</code>, model pulled (e.g., <code>ollama pull llama3.2</code>). Access via litellm provider with <code>openai/</code> model prefix</li>
+<li><strong>Docling Serve</strong> (for docling_serve text provider): Service at configured URL (default <code>http://localhost:5001</code>)</li>
+<li><strong>LiteLLM</strong> (for litellm entity provider): API keys for chosen provider (OpenAI, Anthropic, etc.)</li>
+<li><strong>WatsonX</strong> (for watsonx entity provider): Environment variables <code>WATSONX_API_KEY</code>, <code>WATSONX_CONTAINER_ID</code>, optional <code>WATSONX_API_BASE_URL</code>, <code>WATSONX_CONTAINER_KIND</code></li>
+<li><strong>ffmpeg</strong> (for audio/video processing): Required for M4A, AAC, OGG, FLAC audio formats and all video formats (MP4, AVI, MOV). Not required for WAV/MP3. Install: <code>brew install ffmpeg</code> (macOS) or <code>sudo apt install ffmpeg</code> (Linux)</li>
+</ul>
+<p><strong>Usage Notes</strong></p>
+<ul>
+<li>Dual-provider operation: text and entity extraction in single operator</li>
+<li>Text providers: <code>docling_library</code> (local, optional VLM/ASR) or <code>docling_serve</code> (remote API with OCR)</li>
+<li>Entity providers: <code>litellm</code> (100+ providers including Ollama via openai/ prefix), <code>watsonx</code> (IBM WatsonX.ai), <code>docling</code> (template-based), <code>none</code> (default)</li>
+<li><strong>Entity Extraction Validation</strong>: When using any entity extraction provider (not <code>none</code>), you must provide either:</li>
+<li>A <code>custom_schema</code> in the operator configuration, OR</li>
+<li>A <code>document_type</code> column from an upstream classification operator (e.g., DocumentClassifierOperator)</li>
+<li>If neither is provided, a <code>ConfigurationError</code> will be thrown with message: "Entity extraction requires either a custom_schema in operator config OR a document_type column from upstream classification operator"</li>
+<li><strong>VLM Pipeline</strong>: Configure via nested <code>text_extraction.provider_config.vlm_pipeline</code> object with <code>preset</code>, <code>engine</code>, and <code>engine_options</code> for enhanced extraction of complex documents</li>
+<li><strong>ASR Pipeline</strong>: Configure via nested <code>text_extraction.provider_config.asr_pipeline</code> object with <code>model_id</code> for audio/video transcription</li>
+<li>Docling Serve provider supports OCR for scanned documents and multi-language processing</li>
+<li><strong>Text File Handling</strong>: <code>.txt</code> files are automatically processed locally using UTF-8/latin-1 decoding, bypassing Docling Serve even when <code>docling_serve</code> provider is configured</li>
+<li><strong>Extension Detection</strong>: Files without extensions are automatically detected using magic byte analysis (supports PDF, DOCX, XLSX, PPTX, images, HTML, and text formats)</li>
+<li>Audio/Video Support: Processes audio (WAV, MP3, M4A, AAC, OGG, FLAC) and video (MP4, AVI, MOV) files using ASR. Requires ffmpeg for M4A, AAC, OGG, FLAC, and all video formats</li>
+<li><strong>Extension Validation</strong>: Files with unsupported extensions are automatically skipped and logged. Supported extensions vary by provider:</li>
+<li><code>docling_library</code>: PDF, DOCX, PPTX, XLSX, images, HTML, Markdown, AsciiDoc, TXT, and audio/video (with ASR)</li>
+<li><code>docling_serve</code>: Same as docling_library except NO audio/video support</li>
+<li><code>docling</code> entity extraction: PDF, DOCX, PPTX, HTML, images (excludes XLSX, TXT, MD, WEBP)</li>
+<li>See <a href="../operators/extract/extract_operator_readme.html">ExtractOperator</a> for complete documentation including detailed extension support</li>
+</ul>
+<hr />
+<h3 id="quality-operators">Quality Operators</h3>
+<h4>DocumentClassifierOperator</h4>
+<p><strong>Purpose:</strong> Classifies documents into predefined types using LLM-based classification with confidence scoring and reasoning. Uses simplified service-based architecture with shared LLM infrastructure supporting multiple providers (LiteLLM, Watsonx).</p>
+<p><strong>Category:</strong> Quality</p>
+<p><strong>Class:</strong> <code>core.operators.quality.classification.document_classifier.DocumentClassifierOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"litellm"</code></td>
+<td>LLM provider: <code>"litellm"</code> or <code>"watsonx"</code></td>
+</tr>
+<tr>
+<td><code>provider_config</code></td>
+<td>object</td>
+<td>No</td>
+<td><code>{}</code></td>
+<td>Provider-specific configuration (api_key, api_base, etc.)</td>
+</tr>
+<tr>
+<td><code>provider_config.model_id</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"openai/granite3.1-dense:8b"</code></td>
+<td>Model identifier in <code>&lt;provider&gt;/&lt;model_id&gt;</code> format (e.g., <code>"openai/granite3.1-dense:8b"</code> for Ollama, <code>"openai/gpt-4o-mini"</code>, <code>"huggingface/meta-llama/Llama-3.3-70B-Instruct"</code>)</td>
+</tr>
+<tr>
+<td><code>document_types</code></td>
+<td>list/dict</td>
+<td>No</td>
+<td>Auto-loaded</td>
+<td>Document types to classify into (list or dict with descriptions)</td>
+</tr>
+<tr>
+<td><code>confidence_threshold</code></td>
+<td>float</td>
+<td>No</td>
+<td><code>7.0</code></td>
+<td>Minimum confidence for classification (1-10 scale)</td>
+</tr>
+<tr>
+<td><code>doc_column</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"content"</code></td>
+<td>Column containing document text</td>
+</tr>
+<tr>
+<td><code>output_column</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"document_type"</code></td>
+<td>Column name for classification result</td>
+</tr>
+<tr>
+<td><code>include_confidence</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>true</code></td>
+<td>Include confidence score in output</td>
+</tr>
+<tr>
+<td><code>include_reasoning</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Include reasoning explanation in output</td>
+</tr>
+<tr>
+<td><code>max_content_length</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>2000</code></td>
+<td>Maximum content length to send to LLM</td>
+</tr>
+<tr>
+<td><code>max_workers</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Auto</td>
+<td>Number of parallel workers</td>
+</tr>
+<tr>
+<td><code>use_processes</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Use processes instead of threads</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Provider-Specific Configuration</strong></p>
+<p><strong>LiteLLM (100+ providers):</strong></p>
+<pre><code class="language-json">{
+  &quot;provider&quot;: &quot;litellm&quot;,
+  &quot;provider_config&quot;: {
+    &quot;model_id&quot;: &quot;openai/gpt-4o-mini&quot;,
+    &quot;api_key&quot;: &quot;${OPENAI_API_KEY}&quot;,
+    &quot;timeout&quot;: 120
+  }
+}
+</code></pre>
+<p>Supported LiteLLM providers:</p>
+<ul>
+<li>OpenAI: <code>openai/gpt-4o-mini</code>, <code>openai/gpt-4</code>, <code>openai/gpt-3.5-turbo</code></li>
+<li>Anthropic: <code>anthropic/claude-3-opus</code>, <code>anthropic/claude-3-sonnet</code>, <code>anthropic/claude-3-haiku</code></li>
+<li>Azure OpenAI: <code>azure/gpt-4</code></li>
+<li>AWS Bedrock: <code>bedrock/anthropic.claude-3-sonnet</code></li>
+<li>Google Vertex AI: <code>vertex_ai/gemini-pro</code></li>
+<li>HuggingFace: <code>huggingface/meta-llama/Llama-3.3-70B-Instruct</code>, <code>huggingface/mistralai/Mistral-7B-Instruct-v0.2</code></li>
+<li>Ollama via OpenAI-compatible endpoint: <code>openai/llama3.2:latest</code>, <code>openai/granite3.1-dense:8b</code> with <code>api_base: "http://localhost:11434/v1"</code></li>
+</ul>
+<p><strong>Watsonx:</strong></p>
+<pre><code class="language-json">{
+  &quot;provider&quot;: &quot;watsonx&quot;,
+  &quot;provider_config&quot;: {
+    &quot;model_id&quot;: &quot;ibm/granite-13b-chat-v2&quot;,
+    &quot;api_base&quot;: &quot;https://us-south.ml.cloud.ibm.com&quot;,
+    &quot;api_key&quot;: &quot;${WATSONX_API_KEY}&quot;,
+    &quot;container_kind&quot;: &quot;project&quot;,
+    &quot;container_id&quot;: &quot;${WATSONX_CONTAINER_ID}&quot;,
+    &quot;timeout&quot;: 120
+  }
+}
+</code></pre>
+<p><strong>Input Schema</strong></p>
+<ul>
+<li>PyArrow Table with document content (text column or binary content for extraction)</li>
+<li>Optional <code>content</code> column (if not present, will be fetched from binary content)</li>
+<li><strong>File Extension Validation</strong>: Only documents with supported file extensions are processed: <code>.pdf</code>, <code>.docx</code>, <code>.pptx</code>, <code>.doc</code>, <code>.ppt</code></li>
+<li>Unsupported file types are <strong>skipped</strong> (not classified) but remain in the output table with <code>None</code> classification values</li>
+</ul>
+<p><strong>Output Schema</strong></p>
+<p>Adds the following columns:</p>
+<ul>
+<li><code>document_type</code> (string): Classified document type</li>
+<li><code>document_type_confidence</code> (float): Confidence score 1-10 (if <code>include_confidence=true</code>)</li>
+<li><code>document_type_reasoning</code> (string): Classification explanation (if <code>include_reasoning=true</code>)</li>
+<li><code>content</code> (string): Document content (if fetched and not already present)</li>
+</ul>
+<p><strong>Metadata</strong></p>
+<p>The operator tracks document processing statistics in metadata:</p>
+<ul>
+<li><code>processed_docs</code>: Number of successfully classified documents</li>
+<li><code>failed_docs</code>: List of failed document paths with reasons (errors during processing)</li>
+<li><code>failed_docs_count</code>: Total number of failed documents</li>
+<li><code>skipped_docs</code>: List of skipped document paths with reasons (includes unsupported file extensions)</li>
+<li><code>skipped_docs_count</code>: Total number of skipped documents</li>
+</ul>
+<p><strong>Document Types Configuration</strong></p>
+<p>Simple list format:</p>
+<pre><code class="language-json">{
+  &quot;document_types&quot;: [&quot;invoice&quot;, &quot;receipt&quot;, &quot;contract&quot;, &quot;report&quot;, &quot;letter&quot;]
+}
+</code></pre>
+<p>Detailed dictionary format (recommended):</p>
+<pre><code class="language-json">{
+  &quot;document_types&quot;: {
+    &quot;invoice&quot;: &quot;Business invoice with line items, totals, and payment terms&quot;,
+    &quot;receipt&quot;: &quot;Payment receipt or transaction confirmation&quot;,
+    &quot;contract&quot;: &quot;Legal contract or agreement document&quot;,
+    &quot;report&quot;: &quot;Business or technical report with analysis and findings&quot;,
+    &quot;other&quot;: &quot;Other document types not fitting above categories&quot;
+  }
+}
+</code></pre>
+<p><strong>Exceptions</strong></p>
+<ul>
+<li><code>DocpipeException</code>: Adapter initialization failures, invalid provider configuration</li>
+<li><code>ValueError</code>: Invalid response format from LLM</li>
+<li><code>json.JSONDecodeError</code>: Failed to parse LLM response</li>
+</ul>
+<p><strong>Example - LiteLLM with OpenAI</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;classify-node&quot;,
+  &quot;name&quot;: &quot;classify&quot;,
+  &quot;operator&quot;: &quot;classification_operator&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;litellm&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;openai/gpt-4o-mini&quot;,
+      &quot;api_key&quot;: &quot;${OPENAI_API_KEY}&quot;
+    },
+    &quot;document_types&quot;: {
+      &quot;invoice&quot;: &quot;Business invoice with line items and totals&quot;,
+      &quot;receipt&quot;: &quot;Payment receipt or confirmation&quot;,
+      &quot;contract&quot;: &quot;Legal contract or agreement&quot;,
+      &quot;report&quot;: &quot;Business or technical report&quot;
+    },
+    &quot;confidence_threshold&quot;: 8.0,
+    &quot;include_confidence&quot;: true,
+    &quot;include_reasoning&quot;: true,
+    &quot;max_content_length&quot;: 4000
+  }
+}
+</code></pre>
+<p><strong>Example - LiteLLM with Ollama OpenAI-Compatible Endpoint</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;classify-node&quot;,
+  &quot;name&quot;: &quot;classify&quot;,
+  &quot;operator&quot;: &quot;document_classifier&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;litellm&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;openai/llama3.2:latest&quot;,
+      &quot;api_key&quot;: &quot;${api-key}&quot;,
+      &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;
+    },
+    &quot;document_types&quot;: {
+      &quot;invoice&quot;: &quot;Business invoice with line items, totals, and payment terms&quot;,
+      &quot;receipt&quot;: &quot;Payment receipt or transaction confirmation&quot;,
+      &quot;contract&quot;: &quot;Legal contract or agreement document&quot;,
+      &quot;other&quot;: &quot;Other document types&quot;
+    },
+    &quot;confidence_threshold&quot;: 7.0,
+    &quot;include_confidence&quot;: true,
+    &quot;include_reasoning&quot;: true
+  }
+}
+</code></pre>
+<p><strong>Architecture</strong></p>
+<p>Uses simplified service-based architecture:</p>
+<ul>
+<li><strong>Operator Layer</strong>: <code>DocumentClassifierOperator</code> handles PyArrow table processing and orchestration</li>
+<li><strong>Service Layer</strong>: <code>ClassificationService</code> contains business logic for document classification</li>
+<li><strong>Domain Layer</strong>: Pure domain models (<code>ClassificationRequest</code>, <code>ClassificationResponse</code>) and prompt building</li>
+<li><strong>Infrastructure Layer</strong>: Leverages shared <code>LLMAdapterFactory</code> for multi-provider LLM support (LiteLLM, Watsonx)</li>
+</ul>
+<p>This simplified design removes the port/adapter overhead while maintaining clean separation of concerns and provider flexibility through the shared LLM infrastructure.</p>
+<p><strong>Related Documentation</strong></p>
+<ul>
+<li><a href="../operators/quality/document_classifier_readme.html">Classification Operator Guide</a></li>
+<li><a href="../operators/extract/extract_operator_readme.html">Extract Operator</a></li>
+</ul>
+<hr />
+<h4>LanguageDetect</h4>
+<p><strong>Purpose:</strong> Detect document language and confidence scores using a pluggable adapter.</p>
+<p><strong>Category:</strong> Quality</p>
+<p><strong>Class:</strong> <code>core.operators.quality.language_detection.lang_id.LanguageDetect</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>doc_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>content</code></td>
+<td>Text input column</td>
+</tr>
+<tr>
+<td><code>filter_unknown_language</code></td>
+<td>bool</td>
+<td style="text-align: right;">No</td>
+<td><code>false</code></td>
+<td>Drop documents that cannot be classified</td>
+</tr>
+<tr>
+<td><code>language_provider</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>langdetect</code></td>
+<td>Detection provider</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Output Schema</strong></p>
+<ul>
+<li><code>content</code> (or configured via <code>doc_column</code> parameter) - Extracted markdown text (always generated)</li>
+<li><code>content_html</code> - HTML format (if <code>additional_formats</code> includes "html")</li>
+<li><code>content_json</code> - JSON structured format (if <code>additional_formats</code> includes "json")</li>
+<li><code>content_text</code> - Plain text format (if <code>additional_formats</code> includes "text")</li>
+<li><code>content_doctags</code> - Docling's native DocTags format (if <code>additional_formats</code> includes "doctags")</li>
+<li><code>content_doclang</code> - DocLang format (if <code>additional_formats</code> includes "doclang")</li>
+<li><code>entities</code> (or configured <code>output_column</code>) - Extracted entities as JSON string (if entity extraction enabled)</li>
+<li><code>doc_id_hash</code> - Document hash identifier</li>
+<li><code>pages_processed</code> - Number of pages in the document. Obtained from Docling extraction metadata when available; otherwise estimated using 3000 characters = 1 page</li>
+<li>Individual entity columns (if <code>expand_extracted_data=true</code>)</li>
+</ul>
+<p><strong>Execution Metadata</strong></p>
+<p>The operator provides the following metadata after execution:</p>
+<ul>
+<li><code>page_type_stats</code> (dict): Aggregate estimated pages grouped by source document format (e.g., <code>{"pdf": 120, "docx": 45}</code>)</li>
+<li><code>total_pages_converted</code> (int): Total estimated pages across all successfully processed documents</li>
+</ul>
+<p><strong>Exceptions</strong></p>
+<ul>
+<li><a href="../../src/docpipe/exceptions/docpipe_exceptions.py"><code>FlowExecutionFailedException</code></a></li>
+<li><code>ValueError</code> for invalid configuration</li>
+<li>Provider-specific exceptions (Ollama, LiteLLM, Docling)</li>
+</ul>
+<p><strong>Example: Basic Text Extraction</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;,
+      &quot;provider_config&quot;: {
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: VLM Text Extraction</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;provider_config&quot;: {
+        &quot;vlm_pipeline&quot;: {
+          &quot;preset&quot;: &quot;granite_docling&quot;,
+          &quot;engine&quot;: &quot;api_ollama&quot;,
+          &quot;engine_options&quot;: {
+            &quot;api_base&quot;: &quot;http://localhost:11434&quot;,
+            &quot;model_id&quot;: &quot;ibm/granite-docling:258m&quot;
+          }
+        }
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    },
+    &quot;max_workers&quot;: 1
+  }
+}
+</code></pre>
+<p><strong>Example: Docling Serve with OCR</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_serve&quot;,
+      &quot;provider_config&quot;: {
+        &quot;base_url&quot;: &quot;http://localhost:5001&quot;,
+        &quot;ocr&quot;: {
+          &quot;enabled&quot;: true,
+          &quot;engine&quot;: &quot;easyocr&quot;
+        },
+        &quot;pdf_backend&quot;: &quot;dlparse_v4&quot;
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: Text + LiteLLM Entity Extraction (with Ollama)</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;litellm&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;openai/granite4:latest&quot;,
+        &quot;temperature&quot;: 0.0,
+        &quot;max_tokens&quot;: 4096,
+        &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+        &quot;api_key&quot;: &quot;&lt;ollama_key&gt;&quot;
+      },
+      &quot;custom_schema&quot;: {
+        &quot;invoice_number&quot;: &quot;string&quot;,
+        &quot;total_amount&quot;: &quot;float&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: Text + LiteLLM Entity Extraction (with OpenAI)</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;litellm&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;openai/gpt-3.5-turbo&quot;,
+        &quot;temperature&quot;: 0.0,
+        &quot;max_tokens&quot;: 2000,
+        &quot;api_key&quot;: &quot;${OPENAI_API_KEY}&quot;,
+        &quot;api_base&quot;: &quot;https://api.openai.com/v1&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: Multi-Format Output</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;provider_config&quot;: {
+        &quot;additional_formats&quot;: [&quot;html&quot;, &quot;json&quot;, &quot;text&quot;, &quot;doclang&quot;],
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: Text + WatsonX Entity Extraction</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;watsonx&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;ibm/granite-13b-chat-v2&quot;,
+        &quot;temperature&quot;: 0.0,
+        &quot;max_tokens&quot;: 2000,
+        &quot;api_key&quot;: &quot;${WATSONX_API_KEY}&quot;,
+        &quot;container_id&quot;: &quot;${WATSONX_CONTAINER_ID}&quot;,
+        &quot;api_base&quot;: &quot;https://us-south.ml.cloud.ibm.com&quot;,
+        &quot;container_kind&quot;: &quot;project&quot;
+      },
+      &quot;custom_schema&quot;: {
+        &quot;invoice_number&quot;: &quot;string&quot;,
+        &quot;total_amount&quot;: &quot;float&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: Docling Template-Based Entity Extraction</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling&quot;,
+      &quot;custom_schema&quot;: {
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;properties&quot;: {
+          &quot;invoice_number&quot;: { &quot;type&quot;: &quot;string&quot; },
+          &quot;total_amount&quot;: { &quot;type&quot;: &quot;number&quot; }
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Example: Docling Entity Extraction with Custom Inline Model</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;extract-node&quot;,
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;operator&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling&quot;,
+      &quot;provider_config&quot;: {
+        &quot;vlm_pipeline&quot;: {
+          &quot;model_type&quot;: &quot;inline&quot;,
+          &quot;inline_model&quot;: {
+            &quot;repo_id&quot;: &quot;numind/NuExtract-2.0-2B&quot;,
+            &quot;inference_framework&quot;: &quot;transformers&quot;,
+            &quot;scale&quot;: 2.0,
+            &quot;temperature&quot;: 0.0,
+            &quot;max_new_tokens&quot;: 4096,
+            &quot;load_in_8bit&quot;: true,
+            &quot;torch_dtype&quot;: &quot;bfloat16&quot;
+          }
+        }
+      },
+      &quot;custom_schema&quot;: {
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;properties&quot;: {
+          &quot;invoice_number&quot;: { &quot;type&quot;: &quot;string&quot; },
+          &quot;total_amount&quot;: { &quot;type&quot;: &quot;number&quot; }
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Custom VLM Configuration for Docling Entity Extraction</strong></p>
+<p>The <code>vlm_pipeline</code> parameter enables custom VLM model configuration for the Docling entity extraction adapter. Only inline models (HuggingFace) are supported as DocumentExtractor does not support remote API endpoints.</p>
+<p><strong>Note:</strong> For API-based entity extraction, use <code>entity_extraction.provider: "litellm"</code> or <code>"watsonx"</code> instead of Docling.</p>
+<p><strong>Configuration Structure:</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vlm_pipeline</code></td>
+<td>object</td>
+<td>No</td>
+<td>Custom VLM model configuration for Docling entity extraction</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.model_type</code></td>
+<td>string</td>
+<td>Yes*</td>
+<td>Model type: must be <code>inline</code> (*required if <code>vlm_pipeline</code> provided)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model</code></td>
+<td>object</td>
+<td>Yes*</td>
+<td>Inline model configuration (*required if <code>vlm_pipeline</code> provided)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.repo_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>HuggingFace model repository ID (e.g., <code>numind/NuExtract-2.0-2B</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.inference_framework</code></td>
+<td>string</td>
+<td>No</td>
+<td>Inference framework: <code>transformers</code>, <code>vllm</code>, or <code>mlx</code> (default: <code>transformers</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.scale</code></td>
+<td>float</td>
+<td>No</td>
+<td>Image scaling factor (default: <code>2.0</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.temperature</code></td>
+<td>float</td>
+<td>No</td>
+<td>Sampling temperature (default: <code>0.0</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.max_new_tokens</code></td>
+<td>int</td>
+<td>No</td>
+<td>Maximum generation length (default: <code>4096</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.load_in_8bit</code></td>
+<td>bool</td>
+<td>No</td>
+<td>Enable 8-bit quantization (default: <code>true</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.torch_dtype</code></td>
+<td>string</td>
+<td>No</td>
+<td>Precision type: <code>bfloat16</code>, <code>float16</code>, <code>float32</code> (default: <code>bfloat16</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.prompt</code></td>
+<td>string</td>
+<td>No</td>
+<td>Custom prompt template (default: <code>""</code>)</td>
+</tr>
+<tr>
+<td><code>vlm_pipeline.inline_model.response_format</code></td>
+<td>string</td>
+<td>No</td>
+<td>Response format: <code>markdown</code>, <code>doctags</code>, <code>html</code>, etc. (default: <code>markdown</code>)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Usage Notes:</strong></p>
+<ul>
+<li><strong>Inline Models Only</strong>: Only HuggingFace models loaded directly into memory are supported. DocumentExtractor does not support remote API endpoints.</li>
+<li><strong>API-Based Extraction</strong>: For API-based entity extraction (Ollama via LiteLLM, OpenAI, etc.), use <code>entity_extraction.provider: "litellm"</code> or <code>"watsonx"</code> instead.</li>
+<li><strong>Default Behavior</strong>: If <code>vlm_pipeline</code> is not provided, Docling uses its default model configuration.</li>
+<li><strong>Performance</strong>: Inline models require sufficient GPU memory and are suitable for local deployment with GPU resources.</li>
+<li><strong>Compatibility</strong>: Ensure the chosen model supports the inference framework and hardware configuration.</li>
+</ul>
+<p><strong>Architecture</strong></p>
+<p>The ExtractOperator uses hexagonal architecture (ports and adapters pattern) with clear separation of concerns:</p>
+<p><strong>Layers:</strong><br />
+- <strong>Domain Layer</strong>: <code>EntityExtractionService</code> handles business logic (prompt building, schema validation, response parsing)<br />
+- <strong>Port Layer</strong>: <code>TextExtractionPort</code> and <code>EntityExtractionPort</code> define extraction interfaces<br />
+- <strong>Adapter Layer</strong>: Concrete implementations for different extraction strategies<br />
+  - Text: <code>DoclingAdapter</code> (docling_library), <code>DoclingServeAdapter</code> (docling_serve)<br />
+  - Entity: <code>LLMEntityAdapter</code> (unified for litellm/watsonx), <code>DoclingEntityAdapter</code> (docling)<br />
+- <strong>Factory Layer</strong>: <code>TextExtractionAdapterFactory</code> and <code>EntityExtractionAdapterFactory</code> create adapters based on provider</p>
+<p><strong>Key Benefits:</strong><br />
+- Easy addition of new extraction strategies by implementing ports<br />
+- Clear separation between business logic, interfaces, and implementations<br />
+- Independent text and entity extraction provider selection<br />
+- Unified LLM support: Both <code>litellm</code> and <code>watsonx</code> providers use the same <code>LLMEntityAdapter</code><br />
+- Parallel processing with auto-optimized worker counts</p>
+<p><strong>Integration Requirements</strong></p>
+<ul>
+<li><strong>Ollama</strong> (for litellm entity provider with Ollama): Server at <code>http://localhost:11434</code>, model pulled (e.g., <code>ollama pull llama3.2</code>). Access via litellm provider with <code>openai/</code> model prefix</li>
+<li><strong>Docling Serve</strong> (for docling_serve text provider): Service at configured URL (default <code>http://localhost:5001</code>)</li>
+<li><strong>LiteLLM</strong> (for litellm entity provider): API keys for chosen provider (OpenAI, Anthropic, etc.)</li>
+<li><strong>WatsonX</strong> (for watsonx entity provider): Environment variables <code>WATSONX_API_KEY</code>, <code>WATSONX_CONTAINER_ID</code>, optional <code>WATSONX_API_BASE_URL</code>, <code>WATSONX_CONTAINER_KIND</code></li>
+<li><strong>ffmpeg</strong> (for audio/video processing): Required for M4A, AAC, OGG, FLAC audio formats and all video formats (MP4, AVI, MOV). Not required for WAV/MP3. Install: <code>brew install ffmpeg</code> (macOS) or <code>sudo apt install ffmpeg</code> (Linux)</li>
+</ul>
+<p><strong>Usage Notes</strong></p>
+<ul>
+<li>Dual-provider operation: text and entity extraction in single operator</li>
+<li>Text providers: <code>docling_library</code> (local, optional VLM/ASR) or <code>docling_serve</code> (remote API with OCR)</li>
+<li>Entity providers: <code>litellm</code> (100+ providers including Ollama via openai/ prefix), <code>watsonx</code> (IBM WatsonX.ai), <code>docling</code> (template-based), <code>none</code> (default)</li>
+<li><strong>Entity Extraction Validation</strong>: When using any entity extraction provider (not <code>none</code>), you must provide either:</li>
+<li>A <code>custom_schema</code> in the operator configuration, OR</li>
+<li>A <code>document_type</code> column from an upstream classification operator (e.g., DocumentClassifierOperator)</li>
+<li>If neither is provided, a <code>ConfigurationError</code> will be thrown with message: "Entity extraction requires either a custom_schema in operator config OR a document_type column from upstream classification operator"</li>
+<li><strong>VLM Pipeline</strong>: Configure via nested <code>text_extraction.provider_config.vlm_pipeline</code> object with <code>preset</code>, <code>engine</code>, and <code>engine_options</code> for enhanced extraction of complex documents</li>
+<li><strong>ASR Pipeline</strong>: Configure via nested <code>text_extraction.provider_config.asr_pipeline</code> object with <code>model_id</code> for audio/video transcription</li>
+<li>Docling Serve provider supports OCR for scanned documents and multi-language processing</li>
+<li><strong>Text File Handling</strong>: <code>.txt</code> files are automatically processed locally using UTF-8/latin-1 decoding, bypassing Docling Serve even when <code>docling_serve</code> provider is configured</li>
+<li><strong>Extension Detection</strong>: Files without extensions are automatically detected using magic byte analysis (supports PDF, DOCX, XLSX, PPTX, images, HTML, and text formats)</li>
+<li>Audio/Video Support: Processes audio (WAV, MP3, M4A, AAC, OGG, FLAC) and video (MP4, AVI, MOV) files using ASR. Requires ffmpeg for M4A, AAC, OGG, FLAC, and all video formats</li>
+<li><strong>Extension Validation</strong>: Files with unsupported extensions are automatically skipped and logged. Supported extensions vary by provider:</li>
+<li><code>docling_library</code>: PDF, DOCX, PPTX, XLSX, images, HTML, Markdown, AsciiDoc, TXT, and audio/video (with ASR)</li>
+<li><code>docling_serve</code>: Same as docling_library except NO audio/video support</li>
+<li><code>docling</code> entity extraction: PDF, DOCX, PPTX, HTML, images (excludes XLSX, TXT, MD, WEBP)</li>
+<li>See <a href="../operators/extract/extract_operator_readme.html">ExtractOperator</a> for complete documentation including detailed extension support</li>
+</ul>
+<hr />
+<h4>ReadabilityOperator</h4>
+<p><strong>Purpose:</strong> Compute readability metrics using <code>dpk_readability</code>.</p>
+<p><strong>Category:</strong> Quality</p>
+<p><strong>Class:</strong> <code>core.operators.quality.readability.ReadabilityOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>doc_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>content</code></td>
+<td>Input text column</td>
+</tr>
+<tr>
+<td><code>readability_score_list</code></td>
+<td>list[string]</td>
+<td style="text-align: right;">Yes</td>
+<td>default score set</td>
+<td>Metrics to compute</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Output Schema</strong></p>
+<ul>
+<li>selected readability columns</li>
+</ul>
+<hr />
+<h4>RedactionOperator</h4>
+<p><strong>Purpose:</strong> Mask words or regex matches in document content.</p>
+<p><strong>Category:</strong> Quality</p>
+<p><strong>Class:</strong> <code>core.operators.quality.redaction.RedactionOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>doc_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>content</code></td>
+<td>Input text column</td>
+</tr>
+<tr>
+<td><code>regex</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td>-</td>
+<td>Pattern or literal to redact</td>
+</tr>
+<tr>
+<td><code>masking_character</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>*</code></td>
+<td>Replacement character</td>
+</tr>
+<tr>
+<td><code>stats_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>redaction_stats</code></td>
+<td>Per-row redaction count</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Output Schema</strong></p>
+<ul>
+<li>updated <code>content</code></li>
+<li>redaction stats column</li>
+</ul>
+<hr />
+<h4>PIIAndHAPAnnotator</h4>
+<p><strong>Purpose:</strong> Detect Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using LLM-based detection, with optional redaction.</p>
+<p><strong>Category:</strong> Quality</p>
+<p><strong>Short Name:</strong> <code>pii_and_hap</code></p>
+<p><strong>Class:</strong> <code>core.operators.quality.pii_and_hap.pii_and_hap_annotator.PIIAndHAPAnnotator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>litellm</code></td>
+<td>Detection provider: <code>litellm</code> or <code>watsonx</code></td>
+</tr>
+<tr>
+<td><code>provider_config</code></td>
+<td>object</td>
+<td>No</td>
+<td><code>{}</code></td>
+<td>Provider-specific configuration (see below)</td>
+</tr>
+<tr>
+<td><code>doc_column</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>content</code></td>
+<td>Input text column</td>
+</tr>
+<tr>
+<td><code>expected_redactions</code></td>
+<td>list</td>
+<td>No</td>
+<td><code>["pii","hap"]</code></td>
+<td>Detection types to run: any subset of <code>["pii","hap"]</code></td>
+</tr>
+<tr>
+<td><code>pii_list</code></td>
+<td>list</td>
+<td>No</td>
+<td>all 13 types</td>
+<td>PII types to detect</td>
+</tr>
+<tr>
+<td><code>redaction</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Replace detected PII spans with <code>redaction_character</code></td>
+</tr>
+<tr>
+<td><code>redaction_character</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>*</code></td>
+<td>Masking character for PII redaction</td>
+</tr>
+<tr>
+<td><code>hap_redaction</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Replace detected HAP spans with <code>hap_redaction_character</code></td>
+</tr>
+<tr>
+<td><code>hap_redaction_character</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>*</code></td>
+<td>Masking character for HAP redaction</td>
+</tr>
+<tr>
+<td><code>pii_threshold</code></td>
+<td>float</td>
+<td>No</td>
+<td><code>0.5</code></td>
+<td>Confidence threshold for PII detection (0.0–1.0)</td>
+</tr>
+<tr>
+<td><code>hap_threshold</code></td>
+<td>float</td>
+<td>No</td>
+<td><code>0.8</code></td>
+<td>Confidence threshold for HAP detection (0.0–1.0)</td>
+</tr>
+<tr>
+<td><code>display_pii</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Add extra columns with detected PII values (<strong>testing only</strong>)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong><code>provider_config</code> — LiteLLM:</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Model ID with provider prefix (e.g. <code>openai/granite4</code> for Ollama)</td>
+</tr>
+<tr>
+<td><code>api_base</code></td>
+<td>string</td>
+<td>No</td>
+<td>API endpoint URL (e.g. <code>http://localhost:11434/v1</code> for Ollama)</td>
+</tr>
+<tr>
+<td><code>api_key</code></td>
+<td>string</td>
+<td>No</td>
+<td>Authentication key</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong><code>provider_config</code> — WatsonX:</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>WatsonX model identifier</td>
+</tr>
+<tr>
+<td><code>api_key</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>IBM Cloud API key</td>
+</tr>
+<tr>
+<td><code>url</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>WatsonX endpoint URL</td>
+</tr>
+<tr>
+<td><code>container_kind</code></td>
+<td>string</td>
+<td>Yes</td>
+<td><code>"project"</code> or <code>"space"</code></td>
+</tr>
+<tr>
+<td><code>container_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Project or space UUID</td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>integer</td>
+<td>No</td>
+<td>Request timeout in seconds (default: <code>300</code>)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Output Schema:</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>pii_bank_account</code></td>
+<td>int64</td>
+<td>Count of bank account numbers detected</td>
+</tr>
+<tr>
+<td><code>pii_credit_card</code></td>
+<td>int64</td>
+<td>Count of credit card numbers detected</td>
+</tr>
+<tr>
+<td><code>pii_email_address</code></td>
+<td>int64</td>
+<td>Count of email addresses detected</td>
+</tr>
+<tr>
+<td><code>pii_ip_address</code></td>
+<td>int64</td>
+<td>Count of IP addresses detected</td>
+</tr>
+<tr>
+<td><code>pii_phone_number</code></td>
+<td>int64</td>
+<td>Count of phone numbers detected</td>
+</tr>
+<tr>
+<td><code>pii_ssn_details</code></td>
+<td>int64</td>
+<td>Count of Social Security Numbers detected</td>
+</tr>
+<tr>
+<td><code>pii_person_name</code></td>
+<td>int64</td>
+<td>Count of person names detected</td>
+</tr>
+<tr>
+<td><code>pii_date_of_birth</code></td>
+<td>int64</td>
+<td>Count of dates of birth detected</td>
+</tr>
+<tr>
+<td><code>pii_address</code></td>
+<td>int64</td>
+<td>Count of physical addresses detected</td>
+</tr>
+<tr>
+<td><code>pii_passport_number</code></td>
+<td>int64</td>
+<td>Count of passport numbers detected</td>
+</tr>
+<tr>
+<td><code>pii_driver_license</code></td>
+<td>int64</td>
+<td>Count of driver's license numbers detected</td>
+</tr>
+<tr>
+<td><code>pii_national_id</code></td>
+<td>int64</td>
+<td>Count of national identity numbers detected</td>
+</tr>
+<tr>
+<td><code>pii_medical_record</code></td>
+<td>int64</td>
+<td>Count of medical record numbers detected</td>
+</tr>
+<tr>
+<td><code>hap</code></td>
+<td>int64</td>
+<td>Count of HAP instances detected</td>
+</tr>
+</tbody>
+</table></div>
+<p>When <code>display_pii: true</code>, additional <code>*_info</code> columns are appended for each PII type. <strong>Never enable in production.</strong></p>
+<p><strong>See Also:</strong> <a href="../operators/quality/pii_and_hap_readme.html">PII and HAP Documentation</a></p>
+<hr />
+<h4>EdedupOperator</h4>
+<p><strong>Purpose:</strong> Remove exact duplicate documents using <code>dpk_ededup</code>.</p>
+<p><strong>Category:</strong> Quality</p>
+<p><strong>Class:</strong> <code>core.operators.quality.ededup.EdedupOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>doc_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>content</code></td>
+<td>Content column to compare</td>
+</tr>
+<tr>
+<td><code>doc_id_hash</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>doc_id_hash</code></td>
+<td>Hash/id column</td>
+</tr>
+<tr>
+<td><code>filter</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>HashFilter({})</code></td>
+<td>Hash filter state/config</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h4>MLEnrichmentOperator</h4>
+<p><strong>Purpose:</strong> Compute text quality features using <code>dpk_enrichment</code>.</p>
+<p><strong>Category:</strong> Quality</p>
+<p><strong>Class:</strong> <code>core.operators.quality.ml_enrichment.MLEnrichmentOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>doc_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>content</code></td>
+<td>Input text column</td>
+</tr>
+<tr>
+<td><code>lang_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td>language constant</td>
+<td>Language column</td>
+</tr>
+<tr>
+<td><code>output_column_prefix</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>""</code></td>
+<td>Prefix for generated feature columns</td>
+</tr>
+<tr>
+<td><code>newline_normalized_column_name</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>""</code></td>
+<td>Optional normalized text output</td>
+</tr>
+<tr>
+<td><code>error_column_name</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>""</code></td>
+<td>Optional per-row error column</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h4>SQLFilterOperator</h4>
+<p><strong>Purpose:</strong> Filter rows with SQL-like expressions or structured criteria and optionally drop selected columns.</p>
+<p><strong>Category:</strong> Quality</p>
+<p><strong>Class:</strong> <code>core.operators.quality.sql_filter.SQLFilterOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>filter_criteria_list</code></td>
+<td>list[string]</td>
+<td style="text-align: right;">No</td>
+<td><code>[]</code></td>
+<td>SQL-style predicates</td>
+</tr>
+<tr>
+<td><code>filter_logical_operator</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>AND</code></td>
+<td>Join operator for criteria</td>
+</tr>
+<tr>
+<td><code>features_to_drop</code></td>
+<td>list[string]</td>
+<td style="text-align: right;">No</td>
+<td><code>[]</code></td>
+<td>Columns to remove after filtering</td>
+</tr>
+<tr>
+<td><code>filter_criteria_json</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td>-</td>
+<td>Structured criteria format</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h3 id="functional-operators">Functional Operators</h3>
+<h4>ChunkerOperator</h4>
+<p><strong>Purpose:</strong> Split extracted text into chunks using simple, semantic, or hybrid/docling strategies with optional multi-provider LLM summarization.</p>
+<p><strong>Category:</strong> Functional</p>
+<p><strong>Class:</strong> <code>core.operators.functional.chunker.ChunkerOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>doc_column</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td><code>content</code></td>
+<td>Input content column</td>
+</tr>
+<tr>
+<td><code>chunk_type</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td><code>simple</code></td>
+<td><code>simple</code>, <code>semantic</code>, or <code>hybrid</code></td>
+</tr>
+<tr>
+<td><code>chunk_size</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td>project default</td>
+<td>Character or token size depending on chunker</td>
+</tr>
+<tr>
+<td><code>chunk_overlap</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td><code>200</code></td>
+<td>Overlap between chunks</td>
+</tr>
+<tr>
+<td><code>chunk_overlap_percentage</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td><code>20</code></td>
+<td>Overlap as a percentage of <code>chunk_size</code> (0–40). Validated for <code>simple</code> and <code>hybrid</code> only. Values above 20 produce a warning.</td>
+</tr>
+<tr>
+<td><code>semantic_embeddings_model</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td>None</td>
+<td>Ollama model for semantic chunking (required if chunk_type is semantic)</td>
+</tr>
+<tr>
+<td><code>breakpoint_threshold_type</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>percentile</code></td>
+<td>Semantic split threshold method</td>
+</tr>
+<tr>
+<td><code>breakpoint_threshold_amount</code></td>
+<td>float</td>
+<td style="text-align: right;">No</td>
+<td><code>null</code></td>
+<td>Threshold amount</td>
+</tr>
+<tr>
+<td><code>docling_tokenizer</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>sentence-transformers/all-MiniLM-L6-v2</code></td>
+<td>Tokenizer for hybrid chunking (only used when chunk_type is hybrid)</td>
+</tr>
+<tr>
+<td><code>retain_original_content</code></td>
+<td>bool</td>
+<td style="text-align: right;">No</td>
+<td><code>false</code></td>
+<td>Keep original content</td>
+</tr>
+<tr>
+<td><code>summarization</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>{}</code></td>
+<td><strong>Nested config object</strong> for all summarization settings. When present with provider specified, summarization is enabled.</td>
+</tr>
+<tr>
+<td><code>summarization.provider</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>litellm</code></td>
+<td>LLM provider: <code>litellm</code> or <code>watsonx</code></td>
+</tr>
+<tr>
+<td><code>summarization.provider_config</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>{}</code></td>
+<td>Provider-specific configuration including <code>model_id</code></td>
+</tr>
+<tr>
+<td><code>summarization.provider_config.model_id</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>granite4</code></td>
+<td>Model ID (auto-prefixed with <code>openai/</code> for LiteLLM)</td>
+</tr>
+<tr>
+<td><code>summarization.max_input_tokens</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td><code>8000</code></td>
+<td>Maximum tokens per LLM request (range: 1000-32000)</td>
+</tr>
+<tr>
+<td><code>summarization.overlap_ratio</code></td>
+<td>float</td>
+<td style="text-align: right;">No</td>
+<td><code>0.2</code></td>
+<td>Overlap ratio for sliding window summarization</td>
+</tr>
+<tr>
+<td><code>summarization.summary_sentences</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td><code>2</code></td>
+<td>Target sentences per summary (range: 1-5)</td>
+</tr>
+<tr>
+<td><code>summarization.summary_max_words</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td><code>20</code></td>
+<td>Maximum words per summary (range: 10-100)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Note:</strong> Flat configuration (top-level <code>summarization_provider</code>, <code>summarization_provider_config</code>, etc.) is still supported for backward compatibility but the nested <code>summarization</code> object is recommended.</p>
+<p><strong>Summarization Providers:</strong></p>
+<p>When <code>summarization</code> object is present with a <code>provider</code> specified, the operator uses the common LLM infrastructure to generate summaries for each chunk:</p>
+<ul>
+<li><strong>LiteLLM</strong> (default): Unified API for 100+ providers (OpenAI, Azure, Anthropic, Cohere, AWS Bedrock, GCP Vertex AI, etc.)</li>
+<li><strong>Watsonx</strong>: IBM watsonx.ai cloud service (enterprise AI)</li>
+</ul>
+<p><strong>Provider-Specific Configuration (<code>summarization.provider_config</code>):</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LiteLLM</strong></td>
+<td><code>api_base</code></td>
+<td>string</td>
+<td><code>http://localhost:11434/v1</code></td>
+<td>API endpoint URL (defaults to Ollama)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>api_key</code></td>
+<td>string</td>
+<td><code>ollama</code></td>
+<td>Provider API key</td>
+</tr>
+<tr>
+<td><strong>Watsonx</strong></td>
+<td><code>api_key</code></td>
+<td>string</td>
+<td>-</td>
+<td>IBM Cloud API key</td>
+</tr>
+<tr>
+<td></td>
+<td><code>container_id</code></td>
+<td>string</td>
+<td>-</td>
+<td>watsonx.ai project/space ID</td>
+</tr>
+<tr>
+<td></td>
+<td><code>container_kind</code></td>
+<td>string</td>
+<td>-</td>
+<td>Container type (<code>project</code> or <code>space</code>)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>api_base</code></td>
+<td>string</td>
+<td><code>https://us-south.ml.cloud.ibm.com</code></td>
+<td>watsonx.ai service URL</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Configuration Structure:</strong></p>
+<p>The <strong>recommended approach</strong> is to use the nested <code>summarization</code> object:</p>
+<pre><code class="language-json">{
+  &quot;summarization&quot;: {
+    &quot;provider&quot;: &quot;litellm&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;openai/llama3.2:3b&quot;,
+      &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+      &quot;api_key&quot;: &quot;&lt;ollama&gt;&quot;
+    },
+    &quot;summary_sentences&quot;: 3,
+    &quot;summary_max_words&quot;: 50
+  }
+}
+</code></pre>
+<p><strong>Backward Compatibility:</strong></p>
+<p>The flat configuration structure is still supported:</p>
+<pre><code class="language-json">{
+  &quot;summarization&quot;: {
+    &quot;provider&quot;: &quot;litellm&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;openai/llama3.2:3b&quot;,
+      &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+      &quot;api_key&quot;: &quot;&lt;ollama&gt;&quot;
+    },
+    &quot;summary_sentences&quot;: 3
+  },
+  &quot;summary_max_words&quot;: 50
+}
+</code></pre>
+<p><strong>Input Schema</strong></p>
+<ul>
+<li>configured <code>doc_column</code>, usually <code>content</code></li>
+</ul>
+<p><strong>Output Schema</strong></p>
+<ul>
+<li><code>chunk_sequence_number</code></li>
+<li><code>start_index</code></li>
+<li><code>chunked_content</code> (array of objects with <code>chunk</code>, <code>start_index</code>, and optional <code>summary</code> fields when summarization is configured)</li>
+</ul>
+<p><strong>Exceptions</strong></p>
+<ul>
+<li><a href="../../src/docpipe/exceptions/docpipe_exceptions.py"><code>DocpipeException</code></a></li>
+<li>validation messages</li>
+<li>Ollama errors for semantic chunking</li>
+<li>LLM provider errors for summarization (handled gracefully)</li>
+</ul>
+<p><strong>Examples</strong></p>
+<p>Basic chunking without summarization:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;chunk-node&quot;,
+  &quot;name&quot;: &quot;chunk&quot;,
+  &quot;operator&quot;: &quot;chunker&quot;,
+  &quot;config&quot;: {
+    &quot;chunk_type&quot;: &quot;hybrid&quot;,
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;chunk_size&quot;: 512,
+    &quot;chunk_overlap&quot;: 128
+  }
+}
+</code></pre>
+<p>Chunking with LiteLLM summarization (Ollama) - Nested Structure:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;chunk-with-summary&quot;,
+  &quot;name&quot;: &quot;chunk&quot;,
+  &quot;operator&quot;: &quot;chunker&quot;,
+  &quot;config&quot;: {
+    &quot;chunk_type&quot;: &quot;simple&quot;,
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;chunk_size&quot;: 1000,
+    &quot;chunk_overlap&quot;: 200,
+    &quot;summarization&quot;: {
+      &quot;provider&quot;: &quot;litellm&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;openai/llama3.2:3b&quot;,
+        &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+        &quot;api_key&quot;: &quot;&lt;ollama&gt;&quot;
+      },
+      &quot;summary_sentences&quot;: 2,
+      &quot;summary_max_words&quot;: 20
+    }
+  }
+}
+</code></pre>
+<p>Chunking with Watsonx summarization - Nested Structure:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;chunk-watsonx&quot;,
+  &quot;name&quot;: &quot;chunk&quot;,
+  &quot;operator&quot;: &quot;chunker&quot;,
+  &quot;config&quot;: {
+    &quot;chunk_type&quot;: &quot;simple&quot;,
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;chunk_size&quot;: 1000,
+    &quot;summarization&quot;: {
+      &quot;provider&quot;: &quot;watsonx&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;ibm/granite-13b-chat-v2&quot;,
+        &quot;api_key&quot;: &quot;${WATSONX_API_KEY}&quot;,
+        &quot;api_base&quot;: &quot;${WATSONX_API_BASE}&quot;,
+        &quot;container_id&quot;: &quot;${WATSONX_PROJECT_ID}&quot;,
+        &quot;container_kind&quot;: &quot;project&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<h4>EntityCurationOperator</h4>
+<p><strong>Purpose:</strong> Transform extracted entities into structured, curated data using document class schemas with 4 core transformation functions for currency, date, number, and weight parsing.</p>
+<p><strong>Category:</strong> Functional</p>
+<p><strong>Class:</strong> <code>docpipe.core.operators.functional.entity_curation.entity_curation_operator.EntityCurationOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>entities_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>entities</code></td>
+<td>Column containing extracted entities (dict)</td>
+</tr>
+<tr>
+<td><code>document_type_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>document_type</code></td>
+<td>Column containing document type identifier</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Input Schema</strong></p>
+<ul>
+<li><code>entities</code> (dict): Extracted entity key-value pairs from ExtractOperator</li>
+<li><code>document_type</code> (string): Document class identifier (e.g., "invoice", "purchase_order")</li>
+<li>Other columns are preserved</li>
+</ul>
+<p><strong>Output Schema</strong></p>
+<ul>
+<li>All input columns preserved</li>
+<li><code>transformed_entities</code> column: JSON string containing nested structure of curated entities organized by target tables</li>
+</ul>
+<p><strong>Transformation Functions</strong></p>
+<p>The operator includes 4 core transformations:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Purpose</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>currency_to_numeric</code></td>
+<td>Locale-aware currency parsing (Babel)</td>
+<td><code>"1.234,56 €"</code> (de_DE) → <code>1234.56</code></td>
+</tr>
+<tr>
+<td><code>make_date_uniform</code></td>
+<td>Date normalization to YYYY-MM-DD</td>
+<td><code>"January 15, 2024"</code> → <code>"2024-01-15"</code></td>
+</tr>
+<tr>
+<td><code>to_number</code></td>
+<td>Multi-language number parsing</td>
+<td><code>"一千二百三十四"</code> (Chinese) → <code>1234</code></td>
+</tr>
+<tr>
+<td><code>weight_to_numeric</code></td>
+<td>Locale-aware weight conversion to kg</td>
+<td><code>"5斤"</code> (zh_CN) → <code>2.5</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Document Class Schemas</strong></p>
+<p>Schemas are defined with <code>target_tables</code> specifying field mappings and transformations. Supports 40+ document classes including invoice, purchase_order, receipt, insurance_claim, passport, and more.</p>
+<p><strong>Exceptions</strong></p>
+<ul>
+<li><a href="../../src/docpipe/exceptions/docpipe_exceptions.py"><code>ValidationError</code></a> - Missing required columns</li>
+<li>Transformation errors are logged but don't stop processing (graceful degradation)</li>
+</ul>
+<p><strong>Example</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;curate-node&quot;,
+  &quot;name&quot;: &quot;entity_curation&quot;,
+  &quot;operator&quot;: &quot;entity_curation&quot;,
+  &quot;config&quot;: {
+    &quot;entities_column&quot;: &quot;entities&quot;,
+    &quot;document_type_column&quot;: &quot;document_type&quot;
+  }
+}
+</code></pre>
+<p><strong>Usage Notes</strong></p>
+<ul>
+<li>Should be placed after <code>ExtractOperator</code> in the pipeline when entity extraction is enabled</li>
+<li>Requires document class schemas for transformation (returns empty dict for unknown document types)</li>
+<li>Output is always in JSON format with nested structure matching schema's target tables</li>
+<li>See <a href="../operators/functional/entity_curation_readme.html">Entity Curation README</a> for detailed documentation</li>
+</ul>
+<hr />
+<hr />
+<h4>EmbeddingsOperator</h4>
+<p><strong>Purpose:</strong> Generate dense embeddings using pluggable providers such as Ollama, HuggingFace, LiteLLM-backed vendors, and IBM watsonx.ai.</p>
+<p><strong>Category:</strong> Functional</p>
+<p><strong>Class:</strong> <code>core.operators.functional.embeddings.embeddings_operator.EmbeddingsOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td><code>litellm</code></td>
+<td>Provider type: <code>litellm</code>, <code>watsonx</code>, <code>huggingface</code></td>
+</tr>
+<tr>
+<td><code>provider_config</code></td>
+<td>object</td>
+<td style="text-align: right;">Yes</td>
+<td>-</td>
+<td>Provider-specific configuration (see table below)</td>
+</tr>
+<tr>
+<td><code>embeddings_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>embeddings</code></td>
+<td>Output vector column</td>
+</tr>
+<tr>
+<td><code>doc_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>content</code></td>
+<td>Input content column</td>
+</tr>
+<tr>
+<td><code>doc_id_hash</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>doc_id_hash</code></td>
+<td>Hash column name</td>
+</tr>
+<tr>
+<td><code>overlap_ratio</code></td>
+<td>float</td>
+<td style="text-align: right;">No</td>
+<td><code>0.2</code></td>
+<td>Long-text chunk overlap ratio</td>
+</tr>
+<tr>
+<td><code>token_limit</code></td>
+<td>integer</td>
+<td style="text-align: right;">No</td>
+<td><code>8192</code></td>
+<td>Maximum token limit for text chunking. Adjust based on model's context window (512-8192 tokens).</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Supported Providers:</strong></p>
+<ul>
+<li><strong>LiteLLM</strong>: Unified API for 100+ providers (OpenAI, Azure, Cohere, AWS, GCP, Ollama, HuggingFace API)</li>
+<li><strong>Watsonx</strong>: IBM watsonx.ai cloud service (enterprise AI)</li>
+<li><strong>HuggingFace</strong>: Native local or API-based inference with sentence-transformers models</li>
+</ul>
+<p><strong>Provider-Specific Configuration (<code>provider_config</code>):</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LiteLLM</strong></td>
+<td><code>model_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>-</td>
+<td>Model identifier with provider prefix (e.g., <code>openai/nomic-embed-text</code>, <code>huggingface/sentence-transformers/all-MiniLM-L6-v2</code>)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>api_base</code></td>
+<td>string</td>
+<td>No</td>
+<td>-</td>
+<td>Custom API endpoint URL (e.g., <code>http://localhost:11434</code> for Ollama)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>api_key</code></td>
+<td>string</td>
+<td>No</td>
+<td>-</td>
+<td>Provider API key (required for most providers, not needed for Ollama)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>batch_size</code></td>
+<td>int</td>
+<td>No</td>
+<td><code>32</code></td>
+<td>Number of texts to process in each batch</td>
+</tr>
+<tr>
+<td></td>
+<td><code>timeout</code></td>
+<td>int</td>
+<td>No</td>
+<td><code>120</code></td>
+<td>Request timeout in seconds</td>
+</tr>
+<tr>
+<td><strong>Watsonx</strong></td>
+<td><code>model_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>-</td>
+<td>Model identifier (e.g., <code>ibm/slate-125m-english-rtrvr</code>)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>api_key</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>-</td>
+<td>IBM Cloud API key</td>
+</tr>
+<tr>
+<td></td>
+<td><code>api_base</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>-</td>
+<td>WatsonX API URL (e.g., <code>https://us-south.ml.cloud.ibm.com</code>)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>container_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>-</td>
+<td>WatsonX project or space ID</td>
+</tr>
+<tr>
+<td></td>
+<td><code>container_kind</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>-</td>
+<td>Container type: <code>project</code> or <code>space</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>batch_size</code></td>
+<td>int</td>
+<td>No</td>
+<td><code>800</code></td>
+<td>Number of texts to process in each batch</td>
+</tr>
+<tr>
+<td></td>
+<td><code>timeout</code></td>
+<td>int</td>
+<td>No</td>
+<td><code>120</code></td>
+<td>Request timeout in seconds</td>
+</tr>
+<tr>
+<td></td>
+<td><code>enable_rate_limiting</code></td>
+<td>bool</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Enable rate limiting for API calls</td>
+</tr>
+<tr>
+<td><strong>HuggingFace</strong></td>
+<td><code>model_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>-</td>
+<td>Model identifier (e.g., <code>sentence-transformers/all-MiniLM-L6-v2</code>)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>use_local</code></td>
+<td>bool</td>
+<td>No</td>
+<td><code>true</code></td>
+<td>Use local model inference (true) or HuggingFace API (false)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>device</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>cpu</code></td>
+<td>Device for local inference: <code>cpu</code>, <code>cuda</code>, <code>mps</code></td>
+</tr>
+<tr>
+<td></td>
+<td><code>api_token</code></td>
+<td>string</td>
+<td>No</td>
+<td>-</td>
+<td>HuggingFace API token (required for API mode)</td>
+</tr>
+<tr>
+<td></td>
+<td><code>batch_size</code></td>
+<td>int</td>
+<td>No</td>
+<td><code>32</code></td>
+<td>Number of texts to process in each batch</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Note:</strong> For Ollama models via LiteLLM, use <code>openai/</code> prefix (e.g., <code>openai/nomic-embed-text</code>). For HuggingFace API via LiteLLM, use <code>huggingface/</code> prefix (e.g., <code>huggingface/sentence-transformers/all-MiniLM-L6-v2</code>). For native HuggingFace local inference, use <code>provider: "huggingface"</code> with the model name directly.</p>
+<p><strong>Input Schema</strong></p>
+<ul>
+<li><code>content</code> or <code>chunked_content</code></li>
+</ul>
+<p><strong>Output Schema</strong></p>
+<ul>
+<li><code>embeddings</code></li>
+</ul>
+<p><strong>Exceptions</strong></p>
+<ul>
+<li><a href="../../src/docpipe/exceptions/docpipe_exceptions.py"><code>DocpipeException</code></a></li>
+<li>provider authentication/network failures</li>
+</ul>
+<p><strong>Example 1: LiteLLM with Ollama (local)</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;embedding-node&quot;,
+  &quot;name&quot;: &quot;embeddings&quot;,
+  &quot;operator&quot;: &quot;embeddings&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;litellm&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;openai/nomic-embed-text&quot;,
+      &quot;api_base&quot;: &quot;http://localhost:11434&quot;,
+      &quot;batch_size&quot;: 32,
+      &quot;timeout&quot;: 120
+    },
+    &quot;embeddings_column&quot;: &quot;embeddings&quot;,
+    &quot;text_column&quot;: &quot;content&quot;
+  }
+}
+</code></pre>
+<p><strong>Example 2: LiteLLM with HuggingFace API</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;embedding-node&quot;,
+  &quot;name&quot;: &quot;embeddings&quot;,
+  &quot;operator&quot;: &quot;embeddings&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;litellm&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;huggingface/sentence-transformers/all-MiniLM-L6-v2&quot;,
+      &quot;api_key&quot;: &quot;${HUGGINGFACE_API_KEY}&quot;,
+      &quot;batch_size&quot;: 16
+    },
+    &quot;embeddings_column&quot;: &quot;embeddings&quot;,
+    &quot;text_column&quot;: &quot;content&quot;
+  }
+}
+</code></pre>
+<p><strong>Example 2b: Native HuggingFace (Local Inference)</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;embedding-node&quot;,
+  &quot;name&quot;: &quot;embeddings&quot;,
+  &quot;operator&quot;: &quot;embeddings&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;huggingface&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;sentence-transformers/all-MiniLM-L6-v2&quot;,
+      &quot;use_local&quot;: true,
+      &quot;device&quot;: &quot;cpu&quot;,
+      &quot;batch_size&quot;: 16
+    },
+    &quot;embeddings_column&quot;: &quot;embeddings&quot;,
+    &quot;text_column&quot;: &quot;content&quot;
+  }
+}
+</code></pre>
+<p><strong>Example 3: WatsonX embeddings</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;embedding-node&quot;,
+  &quot;name&quot;: &quot;embeddings&quot;,
+  &quot;operator&quot;: &quot;embeddings&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;watsonx&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;ibm/slate-125m-english-rtrvr&quot;,
+      &quot;api_key&quot;: &quot;${WATSONX_API_KEY}&quot;,
+      &quot;api_base&quot;: &quot;https://us-south.ml.cloud.ibm.com&quot;,
+      &quot;container_id&quot;: &quot;${WATSONX_PROJECT_ID}&quot;,
+      &quot;container_kind&quot;: &quot;project&quot;,
+      &quot;batch_size&quot;: 32
+    },
+    &quot;embeddings_column&quot;: &quot;embeddings&quot;,
+    &quot;text_column&quot;: &quot;content&quot;
+  }
+}
+</code></pre>
+<p><strong>Example 4: LiteLLM with OpenAI</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;embedding-node&quot;,
+  &quot;name&quot;: &quot;embeddings&quot;,
+  &quot;operator&quot;: &quot;embeddings&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;litellm&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;openai/text-embedding-3-small&quot;,
+      &quot;api_key&quot;: &quot;${OPENAI_API_KEY}&quot;,
+      &quot;batch_size&quot;: 32
+    },
+    &quot;embeddings_column&quot;: &quot;embeddings&quot;,
+    &quot;text_column&quot;: &quot;content&quot;
+  }
+}
+</code></pre>
+<hr />
+<h4>BranchingOperator</h4>
+<p><strong>Purpose:</strong> Split a table into multiple output tables using SQL-like filter conditions.</p>
+<p><strong>Category:</strong> Functional</p>
+<p><strong>Class:</strong> <code>core.operators.functional.branching_operator.BranchingOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>branches</code></td>
+<td>list[object]</td>
+<td style="text-align: right;">Yes</td>
+<td><code>[]</code></td>
+<td>Branch definitions</td>
+</tr>
+<tr>
+<td><code>branches[].link_id</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td>-</td>
+<td>Output edge identifier</td>
+</tr>
+<tr>
+<td><code>branches[].link_name</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td>-</td>
+<td>Human-friendly branch name</td>
+</tr>
+<tr>
+<td><code>branches[].logical_operator</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>AND</code>/per-branch</td>
+<td>Logical join between criteria</td>
+</tr>
+<tr>
+<td><code>branches[].filter_criteria_list</code></td>
+<td>list[string]</td>
+<td style="text-align: right;">No</td>
+<td><code>[]</code></td>
+<td>SQL-like filters</td>
+</tr>
+<tr>
+<td><code>branches[].filter_criteria_json</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td>-</td>
+<td>Structured filter criteria</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Input Schema</strong></p>
+<ul>
+<li>Any table with columns referenced by branch criteria</li>
+</ul>
+<p><strong>Output Schema</strong></p>
+<ul>
+<li>Multiple output tables, one per branch</li>
+</ul>
+<p><strong>Exceptions</strong></p>
+<ul>
+<li>validation errors</li>
+<li>propagated SQL filter errors</li>
+</ul>
+<hr />
+<h4>MergeOperator</h4>
+<p><strong>Purpose:</strong> Combine multiple PyArrow tables from different branches using row concatenation or column joins.</p>
+<p><strong>Category:</strong> Functional</p>
+<p><strong>Class:</strong> <code>core.operators.functional.merge.MergeOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>merge_type</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td><code>rows</code></td>
+<td>Merge strategy: <code>rows</code> (concatenate) or <code>columns</code> (join)</td>
+</tr>
+<tr>
+<td><code>column_option</code></td>
+<td>string</td>
+<td style="text-align: right;">Conditional</td>
+<td>-</td>
+<td>Join type when <code>merge_type=columns</code>: <code>inner_join</code> or <code>full_outer</code></td>
+</tr>
+<tr>
+<td><code>input_links</code></td>
+<td>list[object]</td>
+<td style="text-align: right;">Yes</td>
+<td><code>[]</code></td>
+<td>Input link configurations</td>
+</tr>
+<tr>
+<td><code>input_links[].link_name</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td>-</td>
+<td>Unique identifier for each input branch</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Input Schema</strong></p>
+<ul>
+<li>Multiple PyArrow tables from different branches, each identified by <code>link_name</code></li>
+<li>All tables must contain an <code>id</code> column for row merge duplicate detection and column merge joins</li>
+</ul>
+<p><strong>Output Schema</strong></p>
+<ul>
+<li><strong>Row Merge (<code>merge_type=rows</code>)</strong>: Single table with all rows concatenated vertically</li>
+<li>Preserves all columns from all input tables</li>
+<li>Validates no duplicate IDs across tables</li>
+<li><strong>Column Merge (<code>merge_type=columns</code>)</strong>: Single table with columns joined horizontally</li>
+<li><code>inner_join</code>: Only rows with matching IDs across all tables</li>
+<li><code>full_outer</code>: All rows from all tables, with nulls for missing values</li>
+<li>Non-ID columns from subsequent tables get <code>_&lt;link_name&gt;</code> suffix</li>
+<li>Complex types (lists, structs) are remapped without suffix</li>
+</ul>
+<p><strong>Exceptions</strong></p>
+<ul>
+<li><code>FlowExecutionFailedException</code>: Fewer than 2 input links provided</li>
+<li><code>DocpipeException</code>: Duplicate IDs detected in row merge</li>
+<li>Validation errors for missing or invalid configuration</li>
+</ul>
+<p><strong>Usage Notes</strong></p>
+<ul>
+<li>Typically used after <a href="#branchingoperator"><code>BranchingOperator</code></a> to recombine split data flows</li>
+<li>The order of <code>input_links</code> determines column suffix application in column merge</li>
+<li>Row merge requires unique IDs across all input tables</li>
+<li>Column merge performs ID-based joins, similar to SQL JOIN operations</li>
+</ul>
+<p><strong>Example Flow Configuration</strong></p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;merge-node&quot;,
+  &quot;name&quot;: &quot;merge_branches&quot;,
+  &quot;operator&quot;: &quot;merge&quot;,
+  &quot;config&quot;: {
+    &quot;merge_type&quot;: &quot;columns&quot;,
+    &quot;column_option&quot;: &quot;inner_join&quot;,
+    &quot;input_links&quot;: [{ &quot;link_name&quot;: &quot;branch1&quot; }, { &quot;link_name&quot;: &quot;branch2&quot; }]
+  },
+  &quot;input_edges&quot;: [
+    { &quot;node_id_ref&quot;: &quot;branch1-node&quot;, &quot;link_name&quot;: &quot;branch1&quot; },
+    { &quot;node_id_ref&quot;: &quot;branch2-node&quot;, &quot;link_name&quot;: &quot;branch2&quot; }
+  ]
+}
+</code></pre>
+<hr />
+<h4>NOOPOperator</h4>
+<p><strong>Purpose:</strong> Pass input rows through unchanged, optionally sleeping for a configured interval.</p>
+<p><strong>Category:</strong> Functional</p>
+<p><strong>Class:</strong> <code>core.operators.functional.noop.NOOPOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>sleep_sec</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td><code>1</code></td>
+<td>Optional delay for testing/debugging</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Input Schema</strong></p>
+<ul>
+<li>Any <code>pyarrow.Table</code></li>
+</ul>
+<p><strong>Output Schema</strong></p>
+<ul>
+<li>Same as input table</li>
+</ul>
+<hr />
+<h4>DocIdHashOperator</h4>
+<p><strong>Purpose:</strong> Generate a stable hash identifier from content.</p>
+<p><strong>Category:</strong> Functional</p>
+<p><strong>Class:</strong> <code>core.operators.functional.doc_id_hash.DocIdHashOperator</code></p>
+<p><strong>Availability:</strong> Internal operator.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>doc_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>content</code></td>
+<td>Input text column</td>
+</tr>
+<tr>
+<td><code>doc_id_hash</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>doc_id_hash</code></td>
+<td>Output hash column</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Output Schema</strong></p>
+<ul>
+<li><code>doc_id_hash</code></li>
+</ul>
+<h3 id="vectordb-operators">VectorDB Operators</h3>
+<h4>VectorDBOperator</h4>
+<p><strong>Purpose:</strong> Index documents and embeddings into a vector database through a provider adapter interface.</p>
+<p><strong>Category:</strong> VectorDB</p>
+<p><strong>Class:</strong> <code>core.operators.vectordb.vectordb_operator.VectorDBOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td>-</td>
+<td>VectorDB backend (<code>opensearch</code> or <code>milvus</code>)</td>
+</tr>
+<tr>
+<td><code>doc_id_column</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>doc_id_hash</code></td>
+<td>Primary document id column</td>
+</tr>
+<tr>
+<td><code>create_index</code></td>
+<td>bool</td>
+<td style="text-align: right;">No</td>
+<td><code>true</code></td>
+<td>Auto-create index/collection if it does not exist</td>
+</tr>
+<tr>
+<td><code>provider_config</code></td>
+<td>object</td>
+<td style="text-align: right;">Yes</td>
+<td>-</td>
+<td>Connection parameters and resource name for the backend (see examples below)</td>
+</tr>
+<tr>
+<td><code>available_features</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td>-</td>
+<td>Feature definitions for vector DB schema</td>
+</tr>
+<tr>
+<td><code>feature_mappings</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td>-</td>
+<td>Mapping of PyArrow columns to vector DB fields</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Multi-Model Embeddings Support:</strong></p>
+<p>The VectorDBOperator supports multiple embedding columns with different dimensions:</p>
+<ul>
+<li><strong>OpenSearch</strong>: Full multi-model support</li>
+<li>Automatically detects all vector columns from <code>available_features</code> (columns with <code>type: "vector"</code>)</li>
+<li>Auto-detects dimension for each vector column from actual embedding data</li>
+<li>Creates index fields for all vector columns with their respective dimensions</li>
+<li>Example: Store both 384-dim and 768-dim embeddings in same document (e.g., <code>embeddings</code> and <code>embeddings_alt</code>)</li>
+<li>Use with BranchingOperator + multiple EmbeddingsOperators + MergeOperator for multi-model pipelines</li>
+<li>See <code>sample_flows/advanced/branching_dual_embeddings_with_ingest_report.json</code> for complete example</li>
+<li><strong>Milvus</strong>: Single-model support (uses <code>embeddings</code> column only)</li>
+<li>Dimension auto-detected from <code>embeddings</code> column data</li>
+<li>Additional vector columns in the table are stored as metadata but not indexed as vectors</li>
+<li>Multi-model support planned for future update</li>
+<li>For multi-model scenarios with Milvus, use separate collections per embedding model</li>
+</ul>
+<p><strong>Supported Vector Databases:</strong></p>
+<ol>
+<li><strong>OpenSearch</strong> (<code>provider: "opensearch"</code>)</li>
+<li>Multiple KNN engines: NMSLIB, Faiss, Lucene</li>
+<li>Configurable space types: cosinesimil, l2, innerproduct</li>
+<li>
+<p>HTTP/HTTPS connections with optional authentication</p>
+</li>
+<li>
+<p><strong>Milvus</strong> (<code>provider: "milvus"</code>)</p>
+</li>
+<li><strong>Index Types</strong>:<ul>
+<li>Dense: HNSW, IVF_FLAT, IVF_SQ8, IVF_PQ, FLAT, DISKANN, AUTOINDEX</li>
+<li>Sparse: SPARSE_INVERTED_INDEX, SPARSE_WAND</li>
+</ul>
+</li>
+<li><strong>Metric Types</strong>:<ul>
+<li>Dense: L2 (Euclidean), IP (Inner Product), COSINE</li>
+<li>Sparse: BM25 (required for sparse mode)</li>
+</ul>
+</li>
+<li><strong>Vector Modes</strong>:<ul>
+<li>Dense vectors only (default)</li>
+<li>Sparse + Dense vectors (dual storage with BM25 function)</li>
+</ul>
+</li>
+<li><strong>Deployment Options</strong>:<ul>
+<li>Standalone Milvus (local or remote)</li>
+<li>Watsonx.data Milvus (IBM Cloud, SSL-enabled)</li>
+</ul>
+</li>
+<li><strong>Features</strong>:<ul>
+<li>Auto-detection of vector dimensions from embeddings</li>
+<li>BM25 sparse vector generation from content</li>
+<li>Configurable index parameters (M, efConstruction for HNSW)</li>
+<li>Batch processing with configurable batch sizes</li>
+<li>SSL/TLS support for secure connections</li>
+</ul>
+</li>
+</ol>
+<p><strong>OpenSearch Configuration Example:</strong></p>
+<pre><code class="language-json">{
+  &quot;operator&quot;: &quot;vectordb&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;create_index&quot;: true,
+    &quot;provider_config&quot;: {
+      &quot;index_name&quot;: &quot;my_documents&quot;,
+      &quot;host&quot;: &quot;localhost&quot;,
+      &quot;port&quot;: 9200,
+      &quot;engine&quot;: &quot;nmslib&quot;,
+      &quot;space_type&quot;: &quot;cosinesimil&quot;,
+      &quot;username&quot;: &quot;&lt;value&gt;&quot;,
+      &quot;password&quot;: &quot;&lt;value&gt;&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Milvus Standalone Configuration Example:</strong></p>
+<pre><code class="language-json">{
+  &quot;operator&quot;: &quot;vectordb&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;milvus&quot;,
+    &quot;create_index&quot;: true,
+    &quot;add_sparse_vector&quot;: false,
+    &quot;provider_config&quot;: {
+      &quot;collection_name&quot;: &quot;my_collection&quot;,
+      &quot;auth_type&quot;: &quot;standalone&quot;,
+      &quot;host&quot;: &quot;localhost&quot;,
+      &quot;port&quot;: 19530,
+      &quot;uri&quot;: null,
+      &quot;token&quot;: null,
+      &quot;username&quot;: &quot;root&quot;,
+      &quot;password&quot;: &quot;&lt;your-milvus-password&gt;&quot;,
+      &quot;database&quot;: &quot;default&quot;,
+      &quot;secure&quot;: false,
+      &quot;index_type&quot;: &quot;HNSW&quot;,
+      &quot;metric_type&quot;: &quot;L2&quot;,
+      &quot;index_parameters&quot;: {
+        &quot;M&quot;: 16,
+        &quot;efConstruction&quot;: 256
+      },
+      &quot;batch_size&quot;: 100,
+      &quot;primary_key_field&quot;: &quot;pk&quot;
+    },
+    &quot;available_features&quot;: {
+      &quot;doc_id_hash&quot;: {
+        &quot;name&quot;: &quot;Document ID&quot;,
+        &quot;available_for_vector_db&quot;: true,
+        &quot;mandatory_for_vector_db&quot;: true,
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;is_primary&quot;: true
+      },
+      &quot;embeddings&quot;: {
+        &quot;name&quot;: &quot;Embeddings&quot;,
+        &quot;available_for_vector_db&quot;: true,
+        &quot;mandatory_for_vector_db&quot;: true,
+        &quot;type&quot;: &quot;vector&quot;
+      }
+    },
+    &quot;feature_mappings&quot;: {
+      &quot;doc_id_hash&quot;: &quot;pk&quot;,
+      &quot;embeddings&quot;: &quot;vector_embeddings&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Milvus Watsonx.data with gRPC Configuration Example:</strong></p>
+<pre><code class="language-json">{
+  &quot;operator&quot;: &quot;vectordb&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;milvus&quot;,
+    &quot;add_sparse_vector&quot;: false,
+    &quot;create_index&quot;: true,
+    &quot;provider_config&quot;: {
+      &quot;collection_name&quot;: &quot;wxdata_collection&quot;,
+      &quot;auth_type&quot;: &quot;grpc&quot;,
+      &quot;host&quot;: &quot;YOUR_WXDATA_HOST.lakehouse.ibmappdomain.cloud&quot;,
+      &quot;port&quot;: 32671,
+      &quot;uri&quot;: null,
+      &quot;token&quot;: null,
+      &quot;username&quot;: &quot;ibmlhapikey_YOUR_USERNAME&quot;,
+      &quot;password&quot;: &quot;&lt;your-api-key&gt;&quot;,
+      &quot;database&quot;: &quot;default&quot;,
+      &quot;secure&quot;: true,
+      &quot;index_type&quot;: &quot;HNSW&quot;,
+      &quot;metric_type&quot;: &quot;L2&quot;,
+      &quot;index_parameters&quot;: {
+        &quot;M&quot;: 16,
+        &quot;efConstruction&quot;: 256
+      },
+      &quot;batch_size&quot;: 100,
+      &quot;primary_key_field&quot;: &quot;pk&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Milvus Watsonx.data with IAM Token Configuration Example:</strong></p>
+<pre><code class="language-json">{
+  &quot;operator&quot;: &quot;vectordb&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;milvus&quot;,
+    &quot;create_index&quot;: true,
+    &quot;add_sparse_vector&quot;: false,
+    &quot;provider_config&quot;: {
+      &quot;collection_name&quot;: &quot;wxdata_token_collection&quot;,
+      &quot;auth_type&quot;: &quot;token&quot;,
+      &quot;host&quot;: &quot;YOUR_WXDATA_HOST.lakehouse.ibmappdomain.cloud&quot;,
+      &quot;port&quot;: 32671,
+      &quot;uri&quot;: null,
+      &quot;token&quot;: &quot;YOUR_IAM_TOKEN&quot;,
+      &quot;username&quot;: &quot;YOUR_USERNAME&quot;,
+      &quot;password&quot;: null,
+      &quot;database&quot;: &quot;default&quot;,
+      &quot;secure&quot;: true,
+      &quot;index_type&quot;: &quot;HNSW&quot;,
+      &quot;metric_type&quot;: &quot;L2&quot;,
+      &quot;index_parameters&quot;: {
+        &quot;M&quot;: 16,
+        &quot;efConstruction&quot;: 256
+      },
+      &quot;batch_size&quot;: 100,
+      &quot;primary_key_field&quot;: &quot;pk&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Provider Config Parameters:</strong></p>
+<p><strong>OpenSearch:</strong></p>
+<ul>
+<li><code>host</code>: OpenSearch server hostname</li>
+<li><code>port</code>: OpenSearch server port (default: 9200)</li>
+<li><code>engine</code>: KNN engine (nmslib, faiss, lucene)</li>
+<li><code>space_type</code>: Distance metric (cosinesimil, l2, innerproduct)</li>
+<li><code>username</code>: Optional authentication username</li>
+<li><strong>password</strong>: Optional authentication password</li>
+</ul>
+<p><strong>Milvus:</strong></p>
+<ul>
+<li><code>auth_type</code>: <strong>Required</strong> - Authentication type (<code>standalone</code>, <code>grpc</code>, <code>uri</code>, or <code>token</code>)</li>
+<li><code>host</code>: Milvus server hostname (required for <code>standalone</code>, <code>grpc</code>, <code>token</code>)</li>
+<li><code>port</code>: Milvus server port (default: 19530, required for <code>standalone</code>, <code>grpc</code>, <code>token</code>)</li>
+<li><code>uri</code>: Full connection URI (required for <code>uri</code> auth_type)</li>
+<li><code>token</code>: IAM token (required for <code>token</code> auth_type)</li>
+<li><code>username</code>: Authentication username (optional for <code>standalone</code>, required for <code>grpc</code> and <code>token</code>)</li>
+<li><strong>password</strong>: Authentication password/API key (optional for <code>standalone</code>, required for <code>grpc</code> - should be API key)</li>
+<li><code>database</code>: Database name (default: "default")</li>
+<li><code>secure</code> : Required for IBM watsonx.data MilvusDB for https connection and is set to true in this case.</li>
+<li><code>index_type</code>: Index algorithm (HNSW, IVF_FLAT, IVF_SQ8, IVF_PQ, FLAT, DISKANN, AUTOINDEX for dense; SPARSE_INVERTED_INDEX, SPARSE_WAND for sparse)</li>
+<li><code>metric_type</code>: Distance metric (L2, IP, COSINE for dense; BM25 required for sparse mode)</li>
+<li><code>index_parameters</code>: Index-specific parameters (e.g., M and efConstruction for HNSW)</li>
+<li><code>batch_size</code>: Batch size for bulk operations (default: 100)</li>
+<li><code>primary_key_field</code>: Name of the primary key field in Milvus collection (default: "pk")</li>
+</ul>
+<p><strong>Milvus Authentication Types:</strong></p>
+<ul>
+<li><code>standalone</code>: Local Milvus with optional username/password</li>
+<li><code>grpc</code>: IBM wx.data with gRPC (username must have <code>ibmlhapikey_</code> prefix, password is API key)</li>
+<li><code>uri</code>: Pre-constructed URI with embedded API key (format: <code>https://ibmlhapikey_&lt;username&gt;:&lt;api-key&gt;@&lt;host&gt;:&lt;port&gt;</code>)</li>
+<li><code>token</code>: IAM token-based (constructs URI internally: <code>https://ibmlhtoken_&lt;username&gt;:&lt;token&gt;@&lt;host&gt;:&lt;port&gt;</code>)</li>
+</ul>
+<p><strong>Sparse Vector Mode:</strong></p>
+<p>When <code>add_sparse_vector: true</code> is set:</p>
+<ul>
+<li>Requires <code>metric_type: "BM25"</code> (validated)</li>
+<li>Creates BM25 function for automatic sparse vector generation from text content</li>
+<li>Feature mappings must include:</li>
+<li><code>embeddings</code> → <code>vector</code> (dense embeddings)</li>
+<li><code>sparse_embeddings</code> → <code>sparse_vector</code> (BM25-generated)</li>
+<li><code>content</code> → <code>text</code> (source text for BM25)</li>
+<li>Index type auto-set to <code>SPARSE_INVERTED_INDEX</code> if not specified</li>
+<li>See <a href="../../sample_flows/vectordb/milvus_integration.json"><code>sample_flows/vectordb/milvus_integration.json</code></a> for complete example</li>
+</ul>
+<p><strong>Notes:</strong></p>
+<ul>
+<li>Vector dimensions are auto-detected from actual embedding data for each vector column</li>
+<li>OpenSearch supports multiple vector columns with different dimensions in a single index</li>
+<li>Milvus currently supports single vector column (multi-model support planned for future update)</li>
+<li>See <a href="../integrations/milvus/README.html"><code>docs/integrations/milvus/README.md</code></a> for detailed Milvus configuration</li>
+<li>See <a href="../operators/vectordb/vectordb_readme.html"><code>VectorDB Operator README</code></a> for provider configuration patterns</li>
+</ul>
+<p><strong>Provider Config (OpenSearch)</strong></p>
+<p>The <code>provider_config</code> object supports the following parameters for OpenSearch:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>host</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>localhost</code></td>
+<td>OpenSearch host</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td><code>9200</code></td>
+<td>OpenSearch port</td>
+</tr>
+<tr>
+<td><code>engine</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>faiss</code></td>
+<td>KNN engine (faiss, lucene, nmslib, jvector)</td>
+</tr>
+<tr>
+<td><code>algorithm</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>hnsw</code></td>
+<td>KNN algorithm (hnsw, ivf)</td>
+</tr>
+<tr>
+<td><code>space_type</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>l2</code></td>
+<td>Similarity metric (l2, cosine, inner_product)</td>
+</tr>
+<tr>
+<td><code>schema_template_path</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>null</code></td>
+<td>Path to JSON schema template (relative to <code>src/docpipe/core/operators/vectordb/</code>)</td>
+</tr>
+<tr>
+<td><code>engine_parameters</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td>Auto-configured</td>
+<td>Engine-specific parameters (ef_construction, m, nlist, nprobe)</td>
+</tr>
+<tr>
+<td><code>index_settings</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>{}</code></td>
+<td>Additional OpenSearch index settings</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Schema Templates</strong></p>
+<p>Schema templates provide reusable index configurations with placeholder-based dynamic values:</p>
+<ul>
+<li><strong>Built-in Templates</strong>:</li>
+<li><code>schemas/default_schema.v1.json</code>: Basic schema with standard field types</li>
+<li>
+<p><code>schemas/template_with_content_analyzer.v1.json</code>: Template with custom content analyzer for text processing</p>
+</li>
+<li>
+<p><strong>Placeholders</strong>: Templates support the following placeholders that are replaced at runtime:</p>
+</li>
+<li><code>__VECTOR_DIMENSION__</code>: Vector embedding dimension</li>
+<li><code>__ENGINE__</code>: KNN engine name</li>
+<li><code>__ALGORITHM__</code>: KNN algorithm name</li>
+<li><code>__SPACE_TYPE__</code>: Similarity metric</li>
+<li>
+<p><code>__ENGINE_PARAMETERS__</code>: Engine-specific parameters object</p>
+</li>
+<li>
+<p><strong>Fallback Behavior</strong>: If template is not found or invalid, the system falls back to dynamic schema generation with a warning</p>
+</li>
+</ul>
+<p><strong>Metadata Normalization</strong></p>
+<p>The VectorDBOperator automatically normalizes and aggregates metadata columns:</p>
+<ul>
+<li><strong>Column Aliases</strong>: Automatically maps common column name variations:</li>
+<li><code>path</code> → <code>source</code></li>
+<li><code>pages_processed</code> → <code>page_count</code></li>
+<li>
+<p><code>mime_type</code>, <code>content_type</code> → <code>mimetype</code></p>
+</li>
+<li>
+<p><strong>Field Derivation</strong>: Automatically derives missing metadata fields:</p>
+</li>
+<li><code>extension</code>: Derived from <code>name</code> or <code>source</code> if missing</li>
+<li>
+<p><code>mimetype</code>: Derived from <code>extension</code> using standard MIME type mappings</p>
+</li>
+<li>
+<p><strong>Predefined Metadata Fields</strong>: The following fields are automatically collected into a <code>metadata</code> object:</p>
+</li>
+<li><code>name</code>, <code>size</code>, <code>created_time</code>, <code>modified_time</code>, <code>source</code>, <code>mimetype</code>, <code>extension</code>, <code>page_count</code></li>
+</ul>
+<p><strong>Input Schema</strong></p>
+<ul>
+<li><code>doc_id_column</code></li>
+<li><code>embeddings_column</code></li>
+</ul>
+<p><strong>Output Schema</strong></p>
+<ul>
+<li>input table unchanged</li>
+<li>side effect: indexed vector records</li>
+</ul>
+<p><strong>Exceptions</strong></p>
+<ul>
+<li><a href="../../src/docpipe/exceptions/docpipe_exceptions.py"><code>DocpipeException</code></a></li>
+</ul>
+<p><strong>Example Configuration</strong></p>
+<p>Basic usage with default schema:</p>
+<pre><code class="language-json">{
+  &quot;operator_type&quot;: &quot;docpipe.core.operators.vectordb.vectordb_operator.VectorDBOperator&quot;,
+  &quot;operator_params&quot;: {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;provider_config&quot;: {
+      &quot;index_name&quot;: &quot;my_documents&quot;,
+      &quot;host&quot;: &quot;localhost&quot;,
+      &quot;port&quot;: 9200,
+      &quot;engine&quot;: &quot;faiss&quot;,
+      &quot;algorithm&quot;: &quot;hnsw&quot;,
+      &quot;vector_dimension&quot;: 384
+    }
+  }
+}
+</code></pre>
+<p>Using a schema template:</p>
+<pre><code class="language-json">{
+  &quot;operator_type&quot;: &quot;docpipe.core.operators.vectordb.vectordb_operator.VectorDBOperator&quot;,
+  &quot;operator_params&quot;: {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;provider_config&quot;: {
+      &quot;index_name&quot;: &quot;document_chunks&quot;,
+      &quot;schema_template_path&quot;: &quot;schemas/template_with_content_analyzer.v1.json&quot;,
+      &quot;host&quot;: &quot;localhost&quot;,
+      &quot;port&quot;: 9200,
+      &quot;engine&quot;: &quot;faiss&quot;,
+      &quot;algorithm&quot;: &quot;hnsw&quot;,
+      &quot;vector_dimension&quot;: 768
+    }
+  }
+}
+</code></pre>
+<hr />
+<h3 id="storage-operators">Storage Operators</h3>
+<h4>DocumentSetOperator</h4>
+<p><strong>Purpose:</strong> Store PyArrow table data and document-set metadata using a hexagonal architecture with pluggable metadata and data adapters.</p>
+<p><strong>Category:</strong> Storage</p>
+<p><strong>Class:</strong> <code>core.operators.document_sets.document_set_operator.DocumentSetOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>document_set_name</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td>-</td>
+<td>Unique name for the document set</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>null</code></td>
+<td>Description of the document set</td>
+</tr>
+<tr>
+<td><code>metadata</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td><code>null</code></td>
+<td>Additional metadata payload stored with the document set</td>
+</tr>
+<tr>
+<td><code>document_set_id</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>null</code></td>
+<td>Existing document set UUID for update flows</td>
+</tr>
+<tr>
+<td><code>data_backend</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>duckdb</code></td>
+<td>Data store backend for PyArrow table data</td>
+</tr>
+<tr>
+<td><code>database_path</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>data/duckdb/document_sets.duckdb</code></td>
+<td>Database file path used by DuckDB-backed adapters</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Description</strong></p>
+<p>The Document Set operator persists table rows and document-set metadata through separate port interfaces:</p>
+<ul>
+<li><code>DocumentSetMetadataRepository</code></li>
+<li><code>DocumentSetStorage</code></li>
+</ul>
+<p>The operator creates concrete adapters through:</p>
+<ul>
+<li><code>MetadataRepositoryFactory</code></li>
+<li><code>DataStoreFactory</code></li>
+</ul>
+<p>The metadata backend is controlled by <code>global_config.metadata_storage_type</code> (default: <code>duckdb</code>). The data backend is controlled per-operator via <code>data_backend</code>. Current production support is DuckDB for both. The operator returns the input table unchanged, so it can be placed mid-pipeline without breaking downstream processing.</p>
+<p><strong>Architecture</strong></p>
+<ul>
+<li>Hexagonal architecture with ports and adapters</li>
+<li>Separate metadata and data storage abstractions</li>
+<li>Factory-based backend creation</li>
+<li>Shared DuckDB storage reuse for current adapters</li>
+</ul>
+<p><strong>Input Schema</strong></p>
+<ul>
+<li><code>id</code> (required): UUID document identifier</li>
+</ul>
+<p>Common upstream fields from the sample flow:</p>
+<ul>
+<li><code>name</code></li>
+<li>binary content from ingest</li>
+<li><code>content</code></li>
+</ul>
+<p><strong>Output Schema</strong></p>
+<ul>
+<li>Input table unchanged (pass-through design)</li>
+<li>Side effect: data and metadata persisted through configured adapters</li>
+</ul>
+<p><strong>Metadata Output</strong></p>
+<ul>
+<li><code>document_set_id</code>: UUID of the document set</li>
+<li><code>document_set_name</code>: Name of the document set</li>
+<li><code>database_path</code>: Database path used for storage</li>
+<li><code>stored_documents</code>: Number of rows written in the operation</li>
+<li><code>total_size_bytes</code>: Total size in bytes of all stored rows</li>
+<li><code>total_pages</code>: Total pages across all stored documents</li>
+<li><code>table_name</code>: Backend-specific data location identifier populated by the storage adapter</li>
+<li><code>metadata_storage_type</code>: Metadata adapter used (from <code>global_config.metadata_storage_type</code>)</li>
+<li><code>data_storage_type</code>: Data adapter used (from <code>data_backend</code>)</li>
+<li><code>error</code>: Error message when persistence fails</li>
+</ul>
+<p><strong>Features</strong></p>
+<ul>
+<li>Persistent storage of document collections</li>
+<li>Hexagonal architecture for backend extensibility</li>
+<li>Separate metadata and data persistence layers</li>
+<li>Automatic schema handling through data-store adapters</li>
+<li>Automatic metric recomputation through <code>DocumentSetService</code></li>
+<li>Pass-through design allows chaining with downstream operators</li>
+</ul>
+<p><strong>Exceptions</strong></p>
+<ul>
+<li><a href="../../src/docpipe/exceptions/docpipe_exceptions.py"><code>FlowValidationException</code></a>: Invalid operator configuration</li>
+<li><a href="../../src/docpipe/exceptions/docpipe_exceptions.py"><code>FlowExecutionFailedException</code></a>: Storage execution failed</li>
+<li><a href="../../src/docpipe/exceptions/docpipe_exceptions.py"><code>DocpipeException</code></a>: Adapter, validation, or persistence error</li>
+</ul>
+<p><strong>Sample Flow Configuration</strong></p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;document_set&quot;,
+  &quot;name&quot;: &quot;documents&quot;,
+  &quot;config&quot;: {
+    &quot;document_set_name&quot;: &quot;documents_collection&quot;,
+    &quot;description&quot;: &quot;Persistent storage of extracted document content with metadata tracking&quot;,
+    &quot;database_path&quot;: &quot;./data/document_sets/extracted_docs.duckdb&quot;,
+    &quot;data_backend&quot;: &quot;duckdb&quot;,
+    &quot;metadata&quot;: {
+      &quot;pipeline_version&quot;: &quot;1.0&quot;,
+      &quot;extraction_method&quot;: &quot;docling&quot;,
+      &quot;created_by&quot;: &quot;docpipe_pipeline&quot;,
+      &quot;purpose&quot;: &quot;demonstration_flow&quot;
+    }
+  },
+  &quot;depends_on&quot;: [&quot;extract_content&quot;]
+}
+</code></pre>
+<p><strong>Configuration Notes:</strong></p>
+<ul>
+<li><code>global_config.metadata_storage_type</code> controls the metadata storage backend (default: <code>duckdb</code>)</li>
+<li><code>database_path</code> in the operator config specifies the DuckDB file path for both metadata and data</li>
+<li><code>data_backend</code> in the operator config controls the PyArrow table data adapter (default: <code>duckdb</code>)</li>
+</ul>
+<p><strong>Flow Pattern</strong></p>
+<pre><code class="language-text">IngestSourceOperator -&gt; ExtractOperator -&gt; DocumentSetOperator
+</code></pre>
+<p><strong>End-to-End Flow Example</strong></p>
+<pre><code class="language-json">{
+  &quot;flow_name&quot;: &quot;ingest-extract-documentset&quot;,
+  &quot;global_config&quot;: {
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;storage&quot;: &quot;in-memory&quot;,
+    &quot;execute_type&quot;: &quot;local&quot;
+  },
+  &quot;flow&quot;: [
+    {
+      &quot;type&quot;: &quot;ingest_source&quot;,
+      &quot;name&quot;: &quot;ingest_documents&quot;,
+      &quot;config&quot;: {
+        &quot;provider&quot;: &quot;filesystem&quot;,
+        &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./documents&quot;]},
+        &quot;include_filter&quot;: &quot;pdf,txt&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;extract_operator&quot;,
+      &quot;name&quot;: &quot;extract_content&quot;,
+      &quot;config&quot;: {
+        &quot;text_extraction&quot;: { &quot;provider&quot;: &quot;docling_library&quot; }
+      },
+      &quot;depends_on&quot;: [&quot;ingest_documents&quot;]
+    },
+    {
+      &quot;type&quot;: &quot;document_set&quot;,
+      &quot;name&quot;: &quot;store_documents&quot;,
+      &quot;config&quot;: {
+        &quot;document_set_name&quot;: &quot;integration_test_documents&quot;,
+        &quot;description&quot;: &quot;Integration test for hexagonal architecture&quot;,
+        &quot;database_path&quot;: &quot;data/integration_test.db&quot;,
+        &quot;data_backend&quot;: &quot;duckdb&quot;
+      },
+      &quot;depends_on&quot;: [&quot;extract_content&quot;]
+    }
+  ]
+}
+</code></pre>
+<p><strong>API Integration</strong></p>
+<p>Document sets are also exposed through <code>/api/v1/document-sets</code>:</p>
+<ul>
+<li><code>POST /api/v1/document-sets</code></li>
+<li><code>GET /api/v1/document-sets</code></li>
+<li><code>GET /api/v1/document-sets/{id}</code></li>
+<li><code>PATCH /api/v1/document-sets/{id}</code></li>
+<li><code>DELETE /api/v1/document-sets/{id}</code></li>
+<li><code>GET /api/v1/document-sets/{id}/preview</code></li>
+</ul>
+<p><strong>Error Codes</strong></p>
+<ul>
+<li><code>document_set_not_found</code></li>
+<li><code>document_set_invalid_data</code></li>
+<li><code>document_set_storage_error</code></li>
+<li><code>document_set_already_exists</code></li>
+<li><code>document_set_data_store_error</code></li>
+<li><code>document_set_table_not_found</code></li>
+</ul>
+<p><strong>Testing</strong></p>
+<pre><code class="language-bash">source .venv/bin/activate
+export PYTHONPATH=&quot;$(pwd)/src:${PYTHONPATH}&quot;
+uv run pytest tests/integration/api/test_document_sets_api.py -v
+</code></pre>
+<p><strong>Extension</strong></p>
+<p>For new backends, implement the <code>DocumentSetStorage</code> and <code>DocumentSetMetadataRepository</code> ports, register the adapters with <code>DataStoreFactory</code> and <code>MetadataRepositoryFactory</code> respectively. Configure <code>data_backend</code> in the operator config to select the data adapter, and <code>global_config.metadata_storage_type</code> to select the metadata adapter. See <a href="../../ARCHITECTURE.html"><code>ARCHITECTURE.md</code></a>.</p>
+<hr />
+<h4>StorageOutputOperator</h4>
+<p><strong>Purpose:</strong> Write pipeline documents to a pluggable storage destination, supporting three modes: <code>processed_content</code>, <code>refetch_original</code>, and <code>comprehensive_export</code>.</p>
+<p><strong>Category:</strong> Storage</p>
+<p><strong>Class:</strong> <code>core.operators.storage.storage_output_operator.StorageOutputOperator</code></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mode</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>—</td>
+<td><code>processed_content</code>, <code>refetch_original</code>, or <code>comprehensive_export</code></td>
+</tr>
+<tr>
+<td><code>destination_config</code></td>
+<td>object</td>
+<td>Yes</td>
+<td>—</td>
+<td>Destination connection configuration</td>
+</tr>
+<tr>
+<td><code>output_format</code></td>
+<td>object</td>
+<td>No</td>
+<td><code>{}</code></td>
+<td>Controls content format and metadata sidecar output</td>
+</tr>
+<tr>
+<td><code>output_structure</code></td>
+<td>object</td>
+<td>No</td>
+<td><code>{}</code></td>
+<td>Controls output directory structure and file naming</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong><code>destination_config</code> fields</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td>string</td>
+<td>Adapter name: <code>filesystem</code>, <code>s3</code>, <code>ibm_cos</code>, <code>sharepoint</code>, <code>dropbox</code>, <code>onedrive</code>, or <code>google_drive</code></td>
+</tr>
+<tr>
+<td><code>provider_config</code></td>
+<td>object</td>
+<td>Provider-specific connection parameters (see operator README)</td>
+</tr>
+<tr>
+<td><code>credentials</code></td>
+<td>object</td>
+<td>Provider-specific credentials</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong><code>output_format</code> fields</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>content_format</code></td>
+<td>string</td>
+<td><code>md</code></td>
+<td>Content file extension: <code>md</code>, <code>txt</code>, or <code>json</code></td>
+</tr>
+<tr>
+<td><code>include_metadata_sidecar</code></td>
+<td>bool</td>
+<td><code>false</code></td>
+<td>Write a <code>.meta.json</code> sidecar per document (<code>comprehensive_export</code> only)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong><code>output_structure</code> fields</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td><code>flat</code></td>
+<td><code>flat</code> or <code>hierarchical</code> (mirrors source directory tree)</td>
+</tr>
+<tr>
+<td><code>path_template</code></td>
+<td>string</td>
+<td><code>{name}.{ext}</code></td>
+<td>Template string for the output file path relative to <code>root_path</code></td>
+</tr>
+<tr>
+<td><code>overwrite_existing</code></td>
+<td>bool</td>
+<td><code>true</code></td>
+<td>When <code>false</code>, existing files are skipped with <code>write_status = skipped</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Path template variables:</strong> <code>{doc_id}</code>, <code>{name}</code>, <code>{ext}</code>, <code>{year}</code>, <code>{month}</code>, <code>{day}</code>, <code>{relative_dir}</code></p>
+<p><strong>Output Schema</strong></p>
+<p>All input columns are passed through unchanged. The following columns are appended:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Values</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>write_status</code></td>
+<td>string</td>
+<td><code>success</code>, <code>failed</code>, <code>skipped</code></td>
+</tr>
+<tr>
+<td><code>destination_path</code></td>
+<td>string</td>
+<td>Full path written; <code>null</code> on failure</td>
+</tr>
+<tr>
+<td><code>bytes_written</code></td>
+<td>int64</td>
+<td>Bytes written; <code>0</code> on failure</td>
+</tr>
+<tr>
+<td><code>write_error</code></td>
+<td>string</td>
+<td>Error message; <code>null</code> on success</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Sample Flow Configuration</strong></p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;storage_output&quot;,
+  &quot;name&quot;: &quot;write_output&quot;,
+  &quot;config&quot;: {
+    &quot;mode&quot;: &quot;processed_content&quot;,
+    &quot;destination_config&quot;: {
+      &quot;provider&quot;: &quot;filesystem&quot;,
+      &quot;provider_config&quot;: {
+        &quot;root_path&quot;: &quot;/output/docs&quot;,
+        &quot;create_dirs&quot;: true
+      },
+      &quot;credentials&quot;: {}
+    },
+    &quot;output_format&quot;: { &quot;content_format&quot;: &quot;md&quot; },
+    &quot;output_structure&quot;: { &quot;path_template&quot;: &quot;{year}/{month}/{doc_id}.{ext}&quot; }
+  },
+  &quot;depends_on&quot;: [&quot;extract&quot;]
+}
+</code></pre>
+<p><strong>Flow Pattern</strong></p>
+<pre><code class="language-text">IngestSourceOperator -&gt; ExtractOperator -&gt; StorageOutputOperator
+</code></pre>
+<p>For full provider reference, operating mode details, and per-provider examples see <a href="../operators/storage/storage_output_readme.html"><code>docs/operators/storage/storage_output_readme.md</code></a>.</p>
+<hr />
+<h2 id="docpipeflowmanager-api">DocpipeFlowManager API</h2>
+<p><strong>Class:</strong> <a href="../../src/docpipe/lib/docpipe_flow_manager.py#L24"><code>DocpipeFlowManager</code></a></p>
+<h3 id="constructor">Constructor</h3>
+<ul>
+<li><code>DocpipeFlowManager(flow_file=None, flow_def=None, job_id=None, job_run_id=None, flow_id=None, enable_custom_operators=None)</code></li>
+</ul>
+<p>Exactly one of <code>flow_file</code> or <code>flow_def</code> must be provided.</p>
+<h3 id="validate"><code>validate()</code></h3>
+<p>Defined at <a href="../../src/docpipe/lib/docpipe_flow_manager.py#L165"><code>validate()</code></a>.</p>
+<p>Returns:</p>
+<pre><code class="language-python">{
+  &quot;valid&quot;: bool,
+  &quot;errors&quot;: list,
+  &quot;warnings&quot;: list
+}
+</code></pre>
+<h3 id="execute"><code>execute()</code></h3>
+<p>Defined at <a href="../../src/docpipe/lib/docpipe_flow_manager.py#L213"><code>execute()</code></a>.</p>
+<p>Returns the result of flow execution from the executor.</p>
+<h3 id="get-execution-metadata"><code>get_execution_metadata()</code></h3>
+<p>Defined at <a href="../../src/docpipe/lib/docpipe_flow_manager.py#L245"><code>get_execution_metadata()</code></a>.</p>
+<p>Returns job and flow metadata.</p>
+<h3 id="get-execution-logs"><code>get_execution_logs()</code></h3>
+<p>Defined at <a href="../../src/docpipe/lib/docpipe_flow_manager.py#L272"><code>get_execution_logs()</code></a>.</p>
+<p>Returns <code>list[str]</code>.</p>
+<h3 id="list-operatorsverbosefalse"><code>list_operators(verbose=False)</code></h3>
+<p>Defined at <a href="../../src/docpipe/lib/docpipe_flow_manager.py#L308"><code>list_operators()</code></a>.</p>
+<p>Returns a formatted operator listing via <a href="../../src/docpipe/utils/operators/display.py"><code>docpipe.utils.operators.display.list_operators()</code></a>.</p>
+<p><strong>Display Modes:</strong></p>
+<ul>
+<li><strong>Default (verbose=False)</strong>: Summary table with Owner, Attributes (count), Features (count) columns</li>
+<li><strong>Verbose (verbose=True)</strong>: Detailed view with full operator parameters and descriptions</li>
+</ul>
+<p><strong>Category Sorting Order:</strong><br />
+Operators are sorted by category: Ingest, Extract, Quality, Functional, VectorDB, Storage</p>
+<h3 id="method-name-note">Method name note</h3>
+<p>The current class does <strong>not</strong> expose <code>execute_flow()</code> or <code>validate_flow()</code> methods. Use:</p>
+<ul>
+<li><a href="../../src/docpipe/lib/docpipe_flow_manager.py#L213"><code>execute()</code></a></li>
+<li><a href="../../src/docpipe/lib/docpipe_flow_manager.py#L165"><code>validate()</code></a></li>
+</ul>
+<hr />
+<h2 id="cli-api-reference">CLI API Reference</h2>
+<p><strong>Entry point:</strong> <a href="../../src/docpipe/cli/docpipe_cli.py#L147"><code>main()</code></a></p>
+<h3 id="command-forms">Command forms</h3>
+<pre><code class="language-bash">docling-pipelines --flow-file ./path/to/flow.json
+docling-pipelines --flow-file ./path/to/flow.json --validate
+docling-pipelines validate-flow ./path/to/flow.json
+docling-pipelines --list-operators              # Summary table
+docling-pipelines --list-operators --verbose    # Detailed view
+</code></pre>
+<h3 id="global-arguments">Global arguments</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Argument</th>
+<th>Short</th>
+<th style="text-align: right;">Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--flow-file</code></td>
+<td><code>-f</code></td>
+<td style="text-align: right;">Conditional</td>
+<td>Flow JSON path</td>
+</tr>
+<tr>
+<td><code>--list-operators</code></td>
+<td><code>-lo</code></td>
+<td style="text-align: right;">No</td>
+<td>List operators and exit (summary table format)</td>
+</tr>
+<tr>
+<td><code>--verbose</code></td>
+<td><code>-v</code></td>
+<td style="text-align: right;">No</td>
+<td>Show detailed operator info (use with <code>-lo</code>)</td>
+</tr>
+<tr>
+<td><code>--validate</code></td>
+<td>-</td>
+<td style="text-align: right;">No</td>
+<td>Validate instead of executing</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="exit-codes">Exit codes</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Exit code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>0</code></td>
+<td>Validation succeeded</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Validation failed or file/JSON loading failed</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="flow-configuration-api">Flow Configuration API</h2>
+<p>Docling Pipelines uses a simplified authoring format for creating flows. See <a href="../../sample_flows/quickstart/complete_pipeline_ollama.json"><code>sample_flows/quickstart/complete_pipeline_ollama.json</code></a> for a complete example.</p>
+<h3 id="root-structure">Root structure</h3>
+<pre><code class="language-json">{
+  &quot;flow_name&quot;: &quot;invoice processing flow&quot;,
+  &quot;description&quot;: &quot;description&quot;,
+  &quot;flow&quot;: [],
+  &quot;global_config&quot;: {
+    &quot;storage&quot;: &quot;in-memory&quot;,
+    &quot;execute_type&quot;: &quot;local&quot;
+  }
+}
+</code></pre>
+<p><a href="../../src/docpipe/lib/docpipe_flow_manager.py#L140"><code>DocpipeFlowManager</code></a> also accepts root-level flow definitions without a wrapping <code>flow</code> key.</p>
+<h3 id="flow-fields">Flow fields</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>flow_name</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td>Human-readable flow name</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td>Flow description</td>
+</tr>
+<tr>
+<td><code>flow</code></td>
+<td>array</td>
+<td style="text-align: right;">Yes</td>
+<td>Ordered operator definitions</td>
+</tr>
+<tr>
+<td><code>global_config</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td>Shared runtime config</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="operator-structure">Operator structure</h3>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;operator_name&quot;,
+  &quot;type&quot;: &quot;operator_type&quot;,
+  &quot;depends_on&quot;: [&quot;upstream_operator&quot;],
+  &quot;config&quot;: {}
+}
+</code></pre>
+<h3 id="operator-fields">Operator fields</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th style="text-align: right;">Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td>Unique operator name within the flow</td>
+</tr>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td style="text-align: right;">Yes</td>
+<td>Registered operator type (e.g., <code>chunker</code>)</td>
+</tr>
+<tr>
+<td><code>depends_on</code></td>
+<td>array</td>
+<td style="text-align: right;">No</td>
+<td>List of upstream operator names</td>
+</tr>
+<tr>
+<td><code>config</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td>Operator-specific configuration</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="dependency-declaration">Dependency declaration</h3>
+<p>Operators declare dependencies using the <code>depends_on</code> field:</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;type&quot;: &quot;extract_operator&quot;,
+  &quot;depends_on&quot;: [&quot;ingest&quot;],
+  &quot;config&quot;: {}
+}
+</code></pre>
+<p>The system automatically generates the execution DAG from these dependencies.</p>
+<h3 id="validation-rules">Validation rules</h3>
+<p>Validation is performed by <a href="../../src/docpipe/lib/docpipe_flow_manager.py#L20"><code>FlowValidator</code></a> and CLI validation helpers.</p>
+<p>Practical rules from the reviewed code:</p>
+<ul>
+<li>operator short names must resolve to registered operators</li>
+<li>required operator config must validate</li>
+<li>required input features must be present</li>
+<li>branch and filter references must use valid columns</li>
+<li>flow file must be valid JSON</li>
+</ul>
+<hr />
+<h2 id="exception-reference">Exception Reference</h2>
+<p>All custom exception types reviewed here come from <a href="../../src/docpipe/exceptions/docpipe_exceptions.py"><code>docpipe_exceptions.py</code></a>.</p>
+<h3 id="docpipeexception"><code>DocpipeException</code></h3>
+<p>Base exception for application-level failures.</p>
+<p>Use when:</p>
+<ul>
+<li>a caller needs an HTTP status code</li>
+<li>an error code should propagate through middleware</li>
+<li>a general Docling Pipelines runtime/configuration failure occurs</li>
+</ul>
+<h3 id="flowexecutionfailedexception"><code>FlowExecutionFailedException</code></h3>
+<p>Raised for flow execution failures.</p>
+<h3 id="flowvalidationexception"><code>FlowValidationException</code></h3>
+<p>Raised when a flow definition is invalid.</p>
+<p>Carries:</p>
+<ul>
+<li><code>errors</code></li>
+<li><code>warnings</code></li>
+</ul>
+<h3 id="prefectflowfailed"><code>PrefectFlowFailed</code></h3>
+<p>Raised when Prefect-backed orchestration fails for a task.</p>
+<h3 id="validationexception"><code>ValidationException</code></h3>
+<p>Generic validation failure outside full flow validation.</p>
+<h3 id="configurationerror"><code>ConfigurationError</code></h3>
+<p>Raised for invalid or missing configuration.</p>
+<h3 id="dependencyerror"><code>DependencyError</code></h3>
+<p>Raised when an optional dependency is missing.</p>
+<h3 id="externalserviceerror"><code>ExternalServiceError</code></h3>
+<p>Raised when external services fail.</p>
+<p>Typical cases:</p>
+<ul>
+<li>API calls</li>
+<li>auth problems</li>
+<li>rate limits</li>
+<li>network failures</li>
+</ul>
+<h3 id="flownotfoundexception"><code>FlowNotFoundException</code></h3>
+<p>Raised when requested flow storage entries do not exist.</p>
+<h3 id="flowalreadyexistsexception"><code>FlowAlreadyExistsException</code></h3>
+<p>Raised when creating a duplicate flow.</p>
+<h3 id="flowinvaliddataexception"><code>FlowInvalidDataException</code></h3>
+<p>Raised when flow payload or fields are malformed.</p>
+<h3 id="flowstorageexception"><code>FlowStorageException</code></h3>
+<p>Raised when storage operations fail, such as file I/O problems.</p>
+<h3 id="repositoryconfigurationexception"><code>RepositoryConfigurationException</code></h3>
+<p>Raised when repository type or repository config is invalid.</p>
+<h3 id="validationalert"><code>ValidationAlert</code></h3>
+<p>Dictionary-like validation payload used in warnings/errors.</p>
+<h3 id="validationalertencoder"><code>ValidationAlertEncoder</code></h3>
+<p>JSON encoder for validation alerts.</p>
+<hr />
+<h2 id="utilities-api">Utilities API</h2>
+<h3 id="pyarrow-handler-utilities">PyArrow handler utilities</h3>
+<p>Defined in <a href="../../src/docpipe/utils/data/pyarrow_handler.py"><code>pyarrow_handler.py</code></a></p>
+<h4><code>BaseParquetTableHandler</code></h4>
+<p>Abstract contract for parquet read/write/delete operations.</p>
+<p>Key methods:</p>
+<ul>
+<li><code>read_table()</code> - Read PyArrow table from file</li>
+<li><code>save_table()</code> - Save PyArrow table to file</li>
+<li><code>delete_rows()</code> - Delete rows from table</li>
+<li><code>delete_file()</code> - Delete file from storage</li>
+</ul>
+<h4><code>CpdParquetTableHandler</code></h4>
+<p>Concrete local-file implementation.</p>
+<h4><code>get_parquet_table_handler()</code></h4>
+<p>Defined at <a href="../../src/docpipe/utils/data/pyarrow_handler.py"><code>get_parquet_table_handler()</code></a> in docpipe utilities</p>
+<p>Returns the default parquet handler implementation.</p>
+<h3 id="schema-utilities">Schema utilities</h3>
+<p>Defined in <a href="../../src/docpipe/utils/data/schema_utils.py"><code>schema_utils.py</code></a></p>
+<h4><code>align_table_schema(table, all_cols)</code></h4>
+<p>Defined at <a href="../../src/docpipe/utils/data/schema_utils.py"><code>align_table_schema()</code></a> in schema utilities</p>
+<p>Adds missing columns with null values and aligns ordering.</p>
+<h4><code>_combine_tables(tables, table_type)</code></h4>
+<p>Defined at <a href="../../src/docpipe/utils/data/schema_utils.py"><code>_combine_tables()</code></a> in schema utilities</p>
+<p>Safely concatenates tables and warns on duplicate IDs.</p>
+<h4><code>_total_rows(tables)</code></h4>
+<p>Defined at <a href="../../src/docpipe/utils/data/schema_utils.py"><code>_total_rows()</code></a> in schema utilities</p>
+<p>Computes total row counts across a table, list, dict, or <code>None</code>.</p>
+<h3 id="document-class-utilities">Document class utilities</h3>
+<p>Defined in <a href="../../src/docpipe/utils/document_class_utils.py"><code>document_class_utils.py</code></a></p>
+<h4><code>DocumentClassUtils.normalize_filename(name)</code></h4>
+<p>Defined at <a href="../../src/docpipe/utils/document_class_utils.py"><code>normalize_filename()</code></a> in document class utilities</p>
+<p>Normalizes human labels into stable filenames.</p>
+<h4><code>DocumentClassUtils.load_document_class(doc_class_path)</code></h4>
+<p>Defined at <a href="../../src/docpipe/utils/document_class_utils.py"><code>load_document_class()</code></a> in document class utilities</p>
+<p>Loads a document class JSON definition.</p>
+<h4><code>DocumentClassUtils.generate_docling_template(doc_class_path, include_nested=True, max_fields=None)</code></h4>
+<p>Defined at <a href="../../src/docpipe/utils/document_class_utils.py"><code>generate_docling_template()</code></a> in document class utilities</p>
+<p>Builds a Docling extraction template from a document class schema.</p>
+<p><strong>Raises</strong></p>
+<ul>
+<li><code>FileNotFoundError</code></li>
+<li><code>json.JSONDecodeError</code></li>
+</ul>
+<h3 id="operator-display-utility">Operator display utility</h3>
+<p>Defined in <a href="../../src/docpipe/utils/operators/display.py"><code>display.py</code></a></p>
+<h4><code>list_operators(verbose=False)</code></h4>
+<p>Defined at <a href="../../src/docpipe/utils/operators/display.py"><code>list_operators()</code></a></p>
+<p>Generates the same operator catalog used by the CLI and <a href="../../src/docpipe/lib/docpipe_flow_manager.py"><code>DocpipeFlowManager.list_operators()</code></a>.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>verbose</code> (bool): If True, shows detailed operator information with all parameters. If False (default), shows summary table with Owner, Attributes, Features columns.</li>
+</ul>
+<p><strong>Output Format:</strong></p>
+<ul>
+<li><strong>Summary mode</strong>: Table with columns: Owner (operator name), Attributes (parameter count), Features (capability count)</li>
+<li><strong>Verbose mode</strong>: Detailed listing with full parameter descriptions, types, and default values</li>
+<li><strong>Category order</strong>: Ingest, Extract, Quality, Functional, VectorDB, Storage</li>
+</ul>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#title-operator-reference">title: Operator Reference</a>
+      <a href="#overview">Overview</a>
+      <a href="#operator-api-reference">Operator API Reference</a>
+      <a href="#docpipeflowmanager-api">DocpipeFlowManager API</a>
+      <a href="#cli-api-reference">CLI API Reference</a>
+      <a href="#flow-configuration-api">Flow Configuration API</a>
+      <a href="#exception-reference">Exception Reference</a>
+      <a href="#utilities-api">Utilities API</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

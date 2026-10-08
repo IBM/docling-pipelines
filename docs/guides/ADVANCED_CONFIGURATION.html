@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Docling Pipelines Advanced Configuration Guide — Docling Pipelines</title>
+  <meta name="description" content="Docling Pipelines Advanced Configuration Guide — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter active" href="ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Docling Pipelines Advanced Configuration Guide</span>
+      </nav>
+      <h1>Docling Pipelines Advanced Configuration Guide</h1>
+<p>This guide covers advanced configuration topics for production deployments, distributed execution, and performance optimization.</p>
+
+<hr />
+<h2 id="job-stats-storage-configuration">Job Stats Storage Configuration</h2>
+<p>Docling Pipelines supports pluggable job stats storage for job runs, node execution state, and micro-batch progress tracking.</p>
+<h3 id="available-backends">Available Backends</h3>
+<ul>
+<li><strong>In-memory</strong> - test and development scenarios</li>
+<li><strong>Filesystem storage</strong> - local file-backed persistence</li>
+<li><strong>DuckDB</strong> - embedded database for local development (no server required)</li>
+<li><strong>PostgreSQL</strong> - durable storage for concurrent and distributed execution</li>
+</ul>
+<h3 id="backend-selection">Backend Selection</h3>
+<p>Job-management components are wired through <a href="../../src/docpipe/core/job_management/adapters/config/job_management_factory.py"><code>JobManagementFactory</code></a>. Backend selection is controlled by environment variables and defaults.</p>
+<p>The main user-facing configuration is controlled via environment variables:</p>
+<pre><code class="language-yaml">job_management:
+  framework:
+    type: default
+    config: {}
+  store:
+    type: filesystem
+    config:
+      base_dir: ./data/job_stats_store_data
+</code></pre>
+<p>This allows users to configure:</p>
+<ul>
+<li>the job framework type via <code>DOCPIPE_FRAMEWORK_TYPE</code> environment variable</li>
+<li>the job stats store backend via <code>DOCPIPE_STORAGE_BACKEND</code> environment variable</li>
+<li>the job stats store runtime config via backend-specific environment variables</li>
+<li>the flow repository via <code>LOCAL_FLOWS_DIR</code> environment variable</li>
+</ul>
+<p>Common overrides include:</p>
+<ul>
+<li><code>DOCPIPE_CONFIG_PATH</code></li>
+<li><code>DOCPIPE_STORAGE_BACKEND</code></li>
+<li><code>DOCPIPE_FRAMEWORK_TYPE</code></li>
+<li><code>DOCPIPE_JOB_STATS_BASE_DIR</code></li>
+<li><code>DOCPIPE_POSTGRES_HOST</code></li>
+<li><code>DOCPIPE_POSTGRES_PORT</code></li>
+<li><code>DOCPIPE_POSTGRES_DB</code></li>
+<li><code>DOCPIPE_POSTGRES_USER</code></li>
+<li><code>DOCPIPE_POSTGRES_PASSWORD</code></li>
+</ul>
+<p>Effective precedence for job-management runtime selection is:</p>
+<ol>
+<li>explicit environment variables</li>
+<li>built-in defaults in <a href="../../src/docpipe/core/job_management/adapters/config/job_management_factory.py"><code>JobManagementFactory</code></a></li>
+</ol>
+<h3 id="filesystem-storage-guidance">Filesystem Storage Guidance</h3>
+<p>Filesystem storage is useful for single-host execution and simple local testing.</p>
+<p>Important requirements:</p>
+<ul>
+<li>the job stats base directory must be writable</li>
+<li>for distributed Prefect workers, the configured path must resolve to the same shared filesystem location for the submitter and workers</li>
+<li>local-only paths on the submitter machine are not sufficient for distributed workers</li>
+<li>when JSON storage is selected from config, worker propagation resolves <code>base_dir</code> to an absolute path before injecting it into the worker environment</li>
+</ul>
+<h3 id="duckdb-guidance">DuckDB Guidance</h3>
+<p>DuckDB is an embedded analytical database that provides persistent storage without requiring a server. It's ideal for local development and testing.</p>
+<p>Use DuckDB when:</p>
+<ul>
+<li>you want persistent storage without running a database server</li>
+<li>you need SQL query capabilities for analyzing job statistics</li>
+<li>you're working in a single-host environment</li>
+<li>you want faster queries than JSON storage</li>
+</ul>
+<p>Configuration example:</p>
+<pre><code class="language-yaml">job_management:
+  store:
+    type: duckdb
+    config:
+      database_path: ./data/duckdb/job_stats.duckdb
+</code></pre>
+<p>Important notes:</p>
+<ul>
+<li>DuckDB stores all data in a single file</li>
+<li>Not recommended for distributed execution (use PostgreSQL instead)</li>
+<li>Provides SQL interface for querying job statistics</li>
+<li>See <a href="../../examples/duckdb_job_stats/"><code>examples/duckdb_job_stats/</code></a> for usage examples</li>
+</ul>
+<h3 id="postgresql-guidance">PostgreSQL Guidance</h3>
+<p>PostgreSQL is the recommended backend for multi-process and distributed execution because it provides durable shared storage and stronger concurrency behavior than file-backed JSON storage.</p>
+<p>Use PostgreSQL when:</p>
+<ul>
+<li>multiple workers need to update job stats concurrently</li>
+<li>workers do not share a reliable filesystem path</li>
+<li>you need a single durable backend for job status APIs</li>
+<li>you want workers on different containers, pods, or machines to share a single backend without filesystem coupling</li>
+</ul>
+<h3 id="metadata-aggregation-maintenance">Metadata Aggregation Maintenance</h3>
+<p>Node stats are aggregated on the read path, not in the storage adapter. When operators add new metadata fields, maintainers must review <a href="../../src/docpipe/core/job_management/application/aggregation/strategies.py"><code>DEFAULT_STRATEGIES</code></a> and update it if the field should not use the default <code>LAST</code> aggregation behavior.</p>
+<p>See <a href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><code>docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md</code></a> for the maintainer workflow.</p>
+<h3 id="distributed-execution-and-work-pool-environment-inheritance">Distributed Execution and Work Pool Environment Inheritance</h3>
+<p>For distributed Prefect execution, work pool runtime configuration is modeled in <a href="../../src/docpipe/core/orchestration/prefect/config/work_pool_config.py"><code>work_pool_config.py</code></a> and applied by <a href="../../src/docpipe/core/orchestration/prefect/adapters/work_pool_adapter.py"><code>WorkPoolAdapter</code></a>.</p>
+<p>Important behavior:</p>
+<ul>
+<li>worker <code>env</code> values configured directly in the work pool take highest precedence</li>
+<li>if job-management env values are omitted from the work pool config, workers inherit the submitter's effective job-management configuration</li>
+<li>the inherited effective configuration is resolved from:</li>
+<li>submitter environment variables</li>
+<li>code defaults</li>
+</ul>
+<p>This makes it possible to configure job management via environment variables per environment or per deployment.</p>
+<p>For full distributed execution examples and work-pool-specific configuration, see <a href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><code>DISTRIBUTED_EXECUTION_GUIDE.md</code></a>.</p>
+<hr />
+<h2 id="incremental-metadata-configuration">Incremental Metadata Configuration</h2>
+<p>Docling Pipelines supports incremental processing to avoid reprocessing unchanged input data. Incremental metadata stores processing state such as file identity and modification information so ingest operators can determine whether an item is new, changed, or already processed.</p>
+<h3 id="configuration">Configuration</h3>
+<p>Use the <code>incremental_metadata</code> section in <code>docling-pipelines-config.yaml</code>:</p>
+<pre><code class="language-yaml">incremental_metadata:
+  storage:
+    type: &quot;filesystem&quot;  # Options: filesystem, postgresql
+    config:
+      base_dir: &quot;./data&quot;
+      lock_timeout: 30.0
+</code></pre>
+<p>This configuration is the single source of truth for incremental metadata backend selection and runtime settings.</p>
+<h3 id="storage-backends">Storage Backends</h3>
+<h4>JSON</h4>
+<p>JSON storage is the default backend. It is file-based, easy to inspect, and suitable for development or smaller single-host deployments.</p>
+<pre><code class="language-yaml">incremental_metadata:
+  storage:
+    type: &quot;json&quot;
+    config:
+      base_dir: &quot;./data/incremental_metadata&quot;
+      lock_timeout: 30.0
+</code></pre>
+<p>Use JSON when:</p>
+<ul>
+<li>you want a simple file-based backend</li>
+<li>you are running locally or on a single host</li>
+<li>you want metadata files that are easy to inspect during debugging</li>
+</ul>
+<h4>Parquet</h4>
+<p>Parquet storage uses a columnar file format and is better suited to larger datasets or analytics-oriented workflows.</p>
+<pre><code class="language-yaml">incremental_metadata:
+  storage:
+    type: &quot;parquet&quot;
+    config:
+      base_dir: &quot;./data/incremental_metadata&quot;
+      lock_timeout: 30.0
+</code></pre>
+<p>Use Parquet when:</p>
+<ul>
+<li>you need more efficient columnar storage than JSON</li>
+<li>you want better compression for larger metadata volumes</li>
+<li>you are operating on a shared filesystem but do not need a database backend</li>
+</ul>
+<h4>PostgreSQL</h4>
+<p>PostgreSQL is the recommended backend for production deployments that require stronger concurrency behavior and durable centralized storage.</p>
+<pre><code class="language-yaml">incremental_metadata:
+  storage:
+    type: &quot;postgresql&quot;
+    config:
+      base_dir: &quot;./data&quot;
+      lock_timeout: 30.0
+  postgres:
+    host: &quot;${POSTGRES_HOST:-localhost}&quot;
+    port: 5432
+    database: &quot;${POSTGRES_DB:-docpipe}&quot;
+    user: &quot;${POSTGRES_USER:-docpipe_user}&quot;
+    password: &quot;${POSTGRES_PASSWORD}&quot;
+    schema: &quot;incremental_metadata&quot;
+</code></pre>
+<p>Use PostgreSQL when:</p>
+<ul>
+<li>multiple workers need to access incremental metadata concurrently</li>
+<li>submitters and workers do not share a reliable local filesystem path</li>
+<li>you need durable centralized state for distributed or production execution</li>
+</ul>
+<h3 id="environment-variables-for-sensitive-data">Environment Variables for Sensitive Data</h3>
+<p>Use environment variable substitution in <code>docling-pipelines-config.yaml</code> for credentials and deployment-specific values.</p>
+<pre><code class="language-yaml">incremental_metadata:
+  storage:
+    type: &quot;postgresql&quot;
+    config:
+      base_dir: &quot;${DATA_DIR:-./data}&quot;
+      lock_timeout: &quot;${LOCK_TIMEOUT:-30.0}&quot;
+  postgres:
+    host: &quot;${INCR_META_DB_HOST:-localhost}&quot;
+    port: &quot;${INCR_META_DB_PORT:-5432}&quot;
+    database: &quot;${INCR_META_DB_NAME:-docpipe}&quot;
+    user: &quot;${INCR_META_DB_USER:-docpipe_user}&quot;
+    password: &quot;${INCR_META_DB_PASSWORD}&quot;
+    schema: &quot;${INCR_META_DB_SCHEMA:-incremental_metadata}&quot;
+</code></pre>
+<p>Guidance:</p>
+<ul>
+<li>use <code>${VAR_NAME}</code> for required secrets</li>
+<li>use <code>${VAR_NAME:-default}</code> for optional values with safe defaults</li>
+<li>do not commit real credentials into version control</li>
+</ul>
+<p>See <a href="../../docling-pipelines-config.yaml.example"><code>docling-pipelines-config.yaml.example</code></a> for complete backend examples and environment variable patterns.</p>
+<hr />
+<h2 id="execution-models">Execution Models</h2>
+<p>Docling Pipelines uses Prefect as its orchestration engine and supports two Prefect execution modes:</p>
+<h3 id="ephemeral-mode-default">Ephemeral Mode (Default)</h3>
+<p>By default, Docling Pipelines runs Prefect in <strong>ephemeral mode</strong> with a temporary in-memory server. This mode is ideal for:</p>
+<ul>
+<li>Development and testing</li>
+<li>Small to medium workloads (&lt; 1000 documents)</li>
+<li>Single-machine processing</li>
+<li>Quick prototyping and learning</li>
+</ul>
+<p><strong>How it works:</strong></p>
+<ul>
+<li>Prefect server runs temporarily in-memory</li>
+<li>No external Prefect server setup required</li>
+<li>Automatic cleanup after execution</li>
+<li>Zero configuration needed</li>
+</ul>
+<p><strong>Usage:</strong></p>
+<pre><code class="language-bash"># Simply run your flow - Prefect ephemeral mode is automatic
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
+</code></pre>
+<h3 id="distributed-execution-with-prefect-work-pools-optional">Distributed Execution with Prefect Work Pools (Optional)</h3>
+<p>For production workloads and large-scale processing, Docling Pipelines supports <strong>Prefect's distributed execution</strong> using work pools and workers.</p>
+<p><strong>When to use:</strong></p>
+<ul>
+<li>Processing large document collections (1000+ documents)</li>
+<li>Horizontal scaling across multiple machines</li>
+<li>Production deployments with high availability</li>
+<li>Resource-intensive operations requiring distributed processing</li>
+</ul>
+<p><strong>Deployment options:</strong></p>
+<ol>
+<li><strong>Local POC</strong>: Test distributed patterns with Prefect server and workers on a single machine</li>
+<li><strong>Docker Compose</strong>: Multi-worker setup with containerized Prefect infrastructure</li>
+</ol>
+<p>For complete setup instructions, work pool configuration, and deployment guides, see:</p>
+<p><strong><a href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html">Prefect Distributed Execution Guide</a></strong></p>
+<p>This guide covers:</p>
+<ul>
+<li>Prefect server and work pool setup</li>
+<li>Worker deployment for different environments</li>
+<li>Batch storage strategies (inline and local filesystem)</li>
+<li>Docker deployment configurations</li>
+<li>Troubleshooting and performance tuning</li>
+</ul>
+<hr />
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><strong><a href="../../USER_GUIDE_PIPELINE_SETUP.html">User Guide: Pipeline Setup</a></strong> - Basic setup and first pipeline</li>
+<li><strong><a href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html">Prefect Distributed Execution Guide</a></strong> - Detailed distributed execution setup</li>
+<li><strong><a href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html">Job Stats Management</a></strong> - Maintainer guide for metadata aggregation</li>
+</ul>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#job-stats-storage-configuration">Job Stats Storage Configuration</a>
+      <a href="#incremental-metadata-configuration">Incremental Metadata Configuration</a>
+      <a href="#execution-models">Execution Models</a>
+      <a href="#related-documentation">Related Documentation</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

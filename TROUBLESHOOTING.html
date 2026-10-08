@@ -1,0 +1,2677 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Docling Pipelines Troubleshooting Guide — Docling Pipelines</title>
+  <meta name="description" content="Docling Pipelines Troubleshooting Guide — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="docs/assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="docs/index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="docs/index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link active" href="TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="docs/guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="docs/guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="docs/guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="docs/guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="docs/guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="docs/guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="docs/guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="docs/guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="docs/guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="docs/guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="docs/guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="docs/guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="docs/guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="docs/guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="docs/guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="docs/guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="docs/guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="docs/guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="docs/operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="docs/operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="docs/operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="docs/operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="docs/operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="docs/operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="docs/operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="docs/operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="docs/operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="docs/operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="docs/operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="docs/operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="docs/operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="docs/operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="docs/operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="docs/operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="docs/operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="docs/operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="docs/operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="docs/operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="docs/operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="docs/operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="docs/operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="docs/operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="docs/reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="docs/reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="docs/api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="docs/api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="docs/integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="docs/integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="docs/integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="docs/integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="docs/integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="docs/integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="docs/internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="docs/index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Docling Pipelines Troubleshooting Guide</span>
+      </nav>
+      <h1>Docling Pipelines Troubleshooting Guide</h1>
+<p>This comprehensive guide helps you diagnose and resolve common issues when working with Docling Pipelines pipelines.</p>
+
+<hr />
+<h2 id="quick-diagnostics">Quick Diagnostics</h2>
+<p>Run these commands to quickly check your Docling Pipelines environment:</p>
+<pre><code class="language-bash"># 1. Check Python version (must be 3.12)
+python3.12 --version
+
+# 2. Check if virtual environment is activated
+which python  # Should point to .venv/bin/python
+
+# 3. Verify PYTHONPATH is set correctly
+echo $PYTHONPATH  # Should include src
+
+# 4. Check Ollama service
+curl http://localhost:11434/api/tags
+
+# 5. Check OpenSearch service
+curl -u admin:${OPENSEARCH_PASSWORD} http://localhost:9200
+
+# 6. Check Milvus service
+python3 -c &quot;from pymilvus import connections; connections.connect(host='localhost', port=19530); print('Milvus: Connected')&quot;
+
+# 7. Verify you're in the project root
+pwd  # Should end with /docling-pipelines
+
+# 8. List available Ollama models
+ollama list
+
+# 9. Check OpenSearch cluster health
+curl -u admin:MyStrongPass123! &quot;http://localhost:9200/_cluster/health?pretty&quot;
+</code></pre>
+<p><strong>Health Check Script:</strong></p>
+<pre><code class="language-bash">#!/bin/bash
+echo &quot;=== Docling Pipelines Environment Health Check ===&quot;
+echo &quot;&quot;
+echo &quot;1. Python Version:&quot;
+python3.12 --version || echo &quot;❌ Python 3.12 not found&quot;
+echo &quot;&quot;
+echo &quot;2. Virtual Environment:&quot;
+which python | grep -q &quot;.venv&quot; &amp;&amp; echo &quot;✅ Virtual environment active&quot; || echo &quot;❌ Virtual environment not active&quot;
+echo &quot;&quot;
+echo &quot;3. PYTHONPATH:&quot;
+[[ -n &quot;$PYTHONPATH&quot; ]] &amp;&amp; echo &quot;✅ PYTHONPATH set: $PYTHONPATH&quot; || echo &quot;❌ PYTHONPATH not set&quot;
+echo &quot;&quot;
+echo &quot;4. Ollama Service:&quot;
+curl -s http://localhost:11434/api/tags &gt; /dev/null &amp;&amp; echo &quot;✅ Ollama running&quot; || echo &quot;❌ Ollama not responding&quot;
+echo &quot;&quot;
+echo &quot;5. OpenSearch Service:&quot;
+curl -s -u admin:MyStrongPass123! http://localhost:9200 &gt; /dev/null &amp;&amp; echo &quot;✅ OpenSearch running&quot; || echo &quot;❌ OpenSearch not responding&quot;
+echo &quot;&quot;
+echo &quot;6. Milvus Service:&quot;
+python3 -c &quot;from pymilvus import connections; connections.connect(host='localhost', port=19530)&quot; 2&gt;/dev/null &amp;&amp; echo &quot;✅ Milvus running&quot; || echo &quot;❌ Milvus not responding&quot;
+</code></pre>
+<hr />
+<h2 id="common-issues-by-category">Common Issues by Category</h2>
+<h3 id="installation-amp-setup">Installation &amp; Setup</h3>
+<h4>Issue: Python 3.12 Not Found</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code>bash: python3.12: command not found
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<p><strong>macOS:</strong></p>
+<pre><code class="language-bash">brew install python@3.12
+</code></pre>
+<p><strong>Ubuntu/Debian:</strong></p>
+<pre><code class="language-bash">sudo apt update
+sudo apt install python3.12 python3.12-venv python3.12-dev
+</code></pre>
+<p><strong>Fedora/RHEL:</strong></p>
+<pre><code class="language-bash">sudo dnf install python3.12 python3.12-devel
+</code></pre>
+<p><strong>Verify installation:</strong></p>
+<pre><code class="language-bash">python3.12 --version
+</code></pre>
+<hr />
+<h4>Issue: uv Package Manager Not Found</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code>bash: uv: command not found
+</code></pre>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-bash"># Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Add to PATH (add to ~/.bashrc or ~/.zshrc)
+export PATH=&quot;$HOME/.cargo/bin:$PATH&quot;
+
+# Reload shell
+source ~/.bashrc  # or source ~/.zshrc
+
+# Verify installation
+uv --version
+</code></pre>
+<hr />
+<h4>Issue: Virtual Environment Creation Failed</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code>Error: Failed to create virtual environment
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Ensure Python 3.12 is installed:</strong></li>
+</ol>
+<pre><code class="language-bash">python3.12 --version
+</code></pre>
+<ol>
+<li><strong>Remove existing .venv and recreate:</strong></li>
+</ol>
+<pre><code class="language-bash"># From project root
+rm -rf .venv
+uv venv --python python3.12
+</code></pre>
+<ol>
+<li><strong>Install dependencies:</strong></li>
+</ol>
+<pre><code class="language-bash"># From project root
+uv sync --extra dev
+</code></pre>
+<hr />
+<h4>Issue: <code>fasttext-wheel</code> Build Failure on macOS 15+ (Sequoia / Tahoe)</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code>× Failed to build `fasttext-wheel==0.9.2`
+...
+fatal error: 'istream' file not found
+error: command '/usr/bin/c++' failed with exit code 1
+</code></pre>
+<p><strong>Cause:</strong></p>
+<p><code>fasttext-wheel</code> 0.9.2 compiles a C++ extension from source. On macOS 15+ with clang 17, the<br />
+compiler no longer resolves the C++ standard library headers at the deployment target hardcoded<br />
+by <code>fasttext-wheel</code> (<code>-mmacosx-version-min=11.0</code>). No pre-built binary is available for arm64.</p>
+<p><strong>Solution:</strong></p>
+<p>Set these environment variables before running <code>uv sync</code>:</p>
+<pre><code class="language-bash">CPLUS_INCLUDE_PATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include \
+CXXFLAGS=&quot;-isysroot $(xcrun --show-sdk-path) -mmacosx-version-min=14.0&quot; \
+uv sync --extra dev
+</code></pre>
+<p>To avoid setting these every time, add them to a <code>.envrc</code> in the project root (if you use<br />
+<a href="https://direnv.net/">direnv</a>) or to your <code>~/.zshrc</code>:</p>
+<pre><code class="language-bash">export CPLUS_INCLUDE_PATH=/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include/c++/v1:/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/include
+export CXXFLAGS=&quot;-isysroot $(xcrun --show-sdk-path) -mmacosx-version-min=14.0&quot;
+</code></pre>
+<p><strong>Verify Xcode CLT is installed:</strong></p>
+<pre><code class="language-bash">xcode-select --print-path
+# Expected: /Library/Developer/CommandLineTools
+
+xcrun --show-sdk-path
+# Expected: /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk
+</code></pre>
+<p>If <code>xcode-select</code> prints nothing, install the tools first:</p>
+<pre><code class="language-bash">xcode-select --install
+</code></pre>
+<hr />
+<h4>Issue: Permission Denied During Setup</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code>Permission denied: './scripts/setup_docling_pipelines_environment.sh'
+</code></pre>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-bash">chmod +x scripts/setup_docling_pipelines_environment.sh
+./scripts/setup_docling_pipelines_environment.sh
+</code></pre>
+<hr />
+<h4>Issue: Distributed workers show inconsistent or missing job status</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code class="language-text">Job run exists on the submitter but worker updates do not appear in job status APIs
+</code></pre>
+<p><strong>Likely cause:</strong><br />
+- Filesystem job stats storage is configured with a local path that workers cannot access<br />
+- submitter and workers resolve different filesystem paths<br />
+- worker environment does not receive the same job stats backend configuration</p>
+<p><strong>Solutions:</strong><br />
+1. Check job management configuration via environment variables and confirm the selected backend matches your deployment model.<br />
+2. For distributed execution, prefer PostgreSQL job stats storage.<br />
+3. If using filesystem storage, configure a shared filesystem path visible to both submitter and workers.<br />
+4. Ensure worker environments inherit the same effective backend configuration and connection settings.<br />
+5. If needed, override config explicitly with <code>DOCPIPE_STORAGE_BACKEND</code>, <code>DOCPIPE_FRAMEWORK_TYPE</code>, <code>DOCPIPE_JOB_STATS_BASE_DIR</code>, and PostgreSQL env variables.<br />
+6. Review <a href="docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><code>docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md</code></a> for distributed storage guidance.</p>
+<hr />
+<h4>Issue: Job status is stored, but aggregated node metadata looks wrong</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code class="language-text">Counters are too low or too high
+Lists are overwritten instead of combined
+Batch progress looks incorrect in aggregated results
+</code></pre>
+<p><strong>Likely cause:</strong><br />
+- a new operator metadata field was added without reviewing aggregation behavior<br />
+- the field was left on the default <code>LAST</code> strategy when it should use <code>SUM</code>, <code>UNION</code>, <code>WEIGHTED_AVERAGE</code>, or another explicit strategy</p>
+<p><strong>Solutions:</strong><br />
+1. Review <a href="src/docpipe/core/job_management/application/aggregation/strategies.py"><code>DEFAULT_STRATEGIES</code></a> in <a href="src/docpipe/core/job_management/application/aggregation/strategies.py"><code>strategies.py</code></a>.<br />
+2. Add explicit mappings for newly introduced metadata fields when needed.<br />
+3. Add or update tests covering multi-batch aggregation behavior.<br />
+4. See <a href="docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><code>docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md</code></a> for maintainer guidance.</p>
+<hr />
+<h4>Issue: Job run ends in crashed or canceled state during batch execution</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code class="language-text">Batch work starts, but the final job state becomes CRASHED or CANCELED unexpectedly
+</code></pre>
+<p><strong>Likely cause:</strong><br />
+- the outer Prefect flow finished before submitted batch futures completed<br />
+- task-runner shutdown canceled in-flight batch work before final job state was recorded cleanly</p>
+<p><strong>Solutions:</strong><br />
+1. Confirm the execution path waits for submitted batch work before the outer flow exits.<br />
+2. Check <a href="src/docpipe/core/orchestration/prefect/prefect_engine.py"><code>PrefectEngine</code></a> behavior when debugging batch failures.<br />
+3. Validate that job-management terminal-state updates are still reached on failure paths.<br />
+4. Prefer PostgreSQL storage in concurrent/distributed environments to reduce ambiguity in final state updates.</p>
+<hr />
+<h3 id="ollama-issues">Ollama Issues</h3>
+<h4>Issue: Ollama Connection Refused</h4>
+<p><strong>Error Code:</strong> <code>OLLAMA_CONNECTION_FAILED</code></p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>ConnectionError: Failed to connect to Ollama at http://localhost:11434
+Error code: ollama_connection_failed
+</code></pre>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check if Ollama is running
+curl http://localhost:11434/api/tags
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Start Ollama server:</strong></li>
+</ol>
+<pre><code class="language-bash">ollama serve
+</code></pre>
+<ol>
+<li><strong>Run in background:</strong></li>
+</ol>
+<pre><code class="language-bash">ollama serve &gt; /dev/null 2&gt;&amp;1 &amp;
+</code></pre>
+<ol>
+<li><strong>Check if port 11434 is in use:</strong></li>
+</ol>
+<pre><code class="language-bash">lsof -i :11434
+# If another process is using it, kill it or change Ollama port
+</code></pre>
+<ol>
+<li><strong>Verify Ollama installation:</strong></li>
+</ol>
+<pre><code class="language-bash">which ollama
+ollama --version
+</code></pre>
+<hr />
+<h4>Issue: Ollama Model Not Found</h4>
+<p><strong>Error Code:</strong> <code>OLLAMA_MODEL_NOT_FOUND</code></p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>Error: Model 'granite4' not found
+Error code: ollama_model_not_found
+</code></pre>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># List installed models
+ollama list
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Pull the required model:</strong></li>
+</ol>
+<pre><code class="language-bash"># For LLM operations
+ollama pull granite4
+
+# For embeddings
+ollama pull nomic-embed-text
+
+# For entity extraction
+ollama pull llama3.2
+</code></pre>
+<ol>
+<li><strong>Verify model is available:</strong></li>
+</ol>
+<pre><code class="language-bash">ollama list | grep granite4
+</code></pre>
+<ol>
+<li><strong>Check model size before pulling:</strong></li>
+</ol>
+<pre><code class="language-bash"># granite4: ~2.5GB
+# llama3.2: ~2GB
+# nomic-embed-text: ~274MB
+</code></pre>
+<hr />
+<h4>Issue: Ollama Using Too Much Memory</h4>
+<p><strong>Symptoms:</strong></p>
+<ul>
+<li>System slowdown</li>
+<li>Out of memory errors</li>
+<li>Ollama process consuming &gt;8GB RAM</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Use smaller models:</strong></li>
+</ol>
+<pre><code class="language-bash"># Instead of granite4 (2.5GB), use smaller variants
+ollama pull granite4:3b  # Smaller version
+
+# For embeddings, nomic-embed-text is already small (274MB)
+ollama pull nomic-embed-text
+</code></pre>
+<ol>
+<li><strong>Limit Ollama memory usage:</strong></li>
+</ol>
+<pre><code class="language-bash"># Set environment variable before starting Ollama
+export OLLAMA_MAX_LOADED_MODELS=1
+ollama serve
+</code></pre>
+<ol>
+<li><strong>Stop unused models:</strong></li>
+</ol>
+<pre><code class="language-bash"># Ollama automatically unloads models after 5 minutes of inactivity
+# To force unload, restart Ollama
+pkill -f &quot;ollama serve&quot;
+ollama serve
+</code></pre>
+<hr />
+<h4>Issue: Slow Ollama Model Downloads</h4>
+<p><strong>Symptoms:</strong></p>
+<ul>
+<li>Model download taking &gt;30 minutes</li>
+<li>Download speed &lt;1MB/s</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Download smaller models first:</strong></li>
+</ol>
+<pre><code class="language-bash"># Start with the smallest model
+ollama pull nomic-embed-text  # Only 274MB, ~30 seconds
+
+# Then larger models
+ollama pull granite4  # 2.5GB, ~5 minutes
+</code></pre>
+<ol>
+<li><strong>Check internet connection:</strong></li>
+</ol>
+<pre><code class="language-bash"># Test download speed
+curl -o /dev/null http://speedtest.wdc01.softlayer.com/downloads/test10.zip
+</code></pre>
+<ol>
+<li><strong>Use a different mirror (if available):</strong></li>
+</ol>
+<pre><code class="language-bash"># Check Ollama documentation for mirror options
+</code></pre>
+<hr />
+<h3 id="watsonx-issues">WatsonX Issues</h3>
+<h4>Issue: WatsonX Authentication Failed</h4>
+<p><strong>Error Code:</strong> <code>WATSONX_AUTH_FAILED</code></p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>AuthenticationError: Failed to authenticate with WatsonX
+Error: Invalid API key or credentials
+</code></pre>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check if environment variables are set
+echo $WATSONX_API_KEY
+echo $WATSONX_CONTAINER_ID
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Set required environment variables:</strong></li>
+</ol>
+<pre><code class="language-bash">export WATSONX_API_KEY=&quot;your-api-key&quot;   #pragma: allowlist secret
+export WATSONX_CONTAINER_ID=&quot;your-project-or-space-id&quot;
+</code></pre>
+<ol>
+<li><strong>Verify API key is valid:</strong></li>
+</ol>
+<pre><code class="language-bash"># Test authentication with curl
+curl -X POST &quot;https://us-south.ml.cloud.ibm.com/ml/v1/text/generation?version=2023-05-29&quot; \
+  -H &quot;Authorization: Bearer ${WATSONX_API_KEY}&quot; \
+  -H &quot;Content-Type: application/json&quot;
+</code></pre>
+<ol>
+<li><strong>Check container ID format:</strong></li>
+</ol>
+<pre><code class="language-bash"># Project ID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+# Space ID format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+</code></pre>
+<ol>
+<li><strong>Verify container kind:</strong></li>
+</ol>
+<pre><code class="language-bash"># Set container kind if using space instead of project
+export WATSONX_CONTAINER_KIND=&quot;space&quot;  # or &quot;project&quot; (default)
+</code></pre>
+<hr />
+<h4>Issue: WatsonX Model Not Found</h4>
+<p><strong>Error Code:</strong> <code>WATSONX_MODEL_NOT_FOUND</code></p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>Error: Model 'ibm/granite-13b-chat-v2' not found or not accessible
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Verify model is available in your WatsonX instance:</strong></li>
+</ol>
+<p>Check WatsonX.ai console for available models in your project/space.</p>
+<ol>
+<li><strong>Use correct model identifier:</strong></li>
+</ol>
+<pre><code class="language-json">{
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;watsonx&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;ibm/granite-13b-chat-v2&quot;,
+      &quot;api_key&quot;: &quot;${WATSONX_API_KEY}&quot;,
+      &quot;container_id&quot;: &quot;${WATSONX_CONTAINER_ID}&quot;
+    }
+  }
+}
+</code></pre>
+<ol>
+<li><strong>Check model access permissions:</strong></li>
+</ol>
+<p>Ensure your API key has access to the specified model in the project/space.</p>
+<hr />
+<h4>Issue: WatsonX Connection Timeout</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code>TimeoutError: Request to WatsonX timed out after 120 seconds
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Increase timeout in provider config:</strong></li>
+</ol>
+<pre><code class="language-json">{
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;watsonx&quot;,
+    &quot;provider_config&quot;: {
+      &quot;api_key&quot;: &quot;${WATSONX_API_KEY}&quot;,
+      &quot;container_id&quot;: &quot;${WATSONX_CONTAINER_ID}&quot;,
+      &quot;timeout&quot;: 300
+    }
+  }
+}
+</code></pre>
+<ol>
+<li><strong>Check network connectivity:</strong></li>
+</ol>
+<pre><code class="language-bash"># Test connection to WatsonX endpoint
+curl -I https://us-south.ml.cloud.ibm.com
+</code></pre>
+<ol>
+<li><strong>Verify API base URL:</strong></li>
+</ol>
+<pre><code class="language-bash"># Set correct region endpoint
+export WATSONX_API_BASE_URL=&quot;https://us-south.ml.cloud.ibm.com&quot;
+# Or use eu-de, eu-gb, jp-tok, etc.
+</code></pre>
+<hr />
+<h4>Issue: WatsonX Rate Limiting</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code>Error: Rate limit exceeded (429 Too Many Requests)
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Reduce parallel workers:</strong></li>
+</ol>
+<pre><code class="language-json">{
+  &quot;max_workers&quot;: 1,
+  &quot;entity_extraction&quot;: {&quot;provider&quot;: &quot;watsonx&quot;}
+}
+</code></pre>
+<ol>
+<li><strong>Add retry logic in provider config:</strong></li>
+</ol>
+<pre><code class="language-json">{
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;watsonx&quot;,
+    &quot;provider_config&quot;: {
+      &quot;max_retries&quot;: 3,
+      &quot;retry_delay&quot;: 2
+    }
+  }
+}
+</code></pre>
+<ol>
+<li><strong>Check WatsonX quota limits:</strong></li>
+</ol>
+<p>Review your WatsonX plan limits and usage in the IBM Cloud console.</p>
+<hr />
+<h3 id="opensearch-issues">OpenSearch Issues</h3>
+<h4>Issue: OpenSearch Connection Refused</h4>
+<p><strong>Error Code:</strong> <code>OPENSEARCH_CONNECTION_FAILED</code></p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>ConnectionError: Failed to connect to OpenSearch at http://localhost:9200
+Error code: opensearch_connection_failed
+</code></pre>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check if OpenSearch is running
+curl -u admin:${OPENSEARCH_PASSWORD} http://localhost:9200
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Start OpenSearch using podman-compose:</strong></li>
+</ol>
+<pre><code class="language-bash">podman-compose -f docker/docker-compose.opensearch.yml up -d
+</code></pre>
+<ol>
+<li><strong>Or using docker-compose:</strong></li>
+</ol>
+<pre><code class="language-bash">docker-compose -f docker/docker-compose.opensearch.yml up -d
+</code></pre>
+<ol>
+<li><strong>Wait for startup (30-60 seconds):</strong></li>
+</ol>
+<pre><code class="language-bash"># Check logs
+podman-compose -f docker/docker-compose.opensearch.yml logs -f opensearch-node
+
+# Wait for &quot;Node started&quot; message
+</code></pre>
+<ol>
+<li><strong>Verify cluster health:</strong></li>
+</ol>
+<pre><code class="language-bash">curl -u admin:MyStrongPass123! &quot;http://localhost:9200/_cluster/health?pretty&quot;
+</code></pre>
+<hr />
+<h4>Issue: OpenSearch Index Creation Failed</h4>
+<p><strong>Error Code:</strong> <code>OPENSEARCH_INDEX_ERROR</code></p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>Error: Failed to create index 'my-index'
+Error code: opensearch_index_error
+</code></pre>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check if index already exists
+curl -u admin:MyStrongPass123! &quot;http://localhost:9200/_cat/indices?v&quot;
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Delete existing index and recreate:</strong></li>
+</ol>
+<pre><code class="language-bash"># Delete index
+curl -X DELETE -u admin:MyStrongPass123! &quot;http://localhost:9200/my-index&quot;
+
+# Verify deletion
+curl -u admin:MyStrongPass123! &quot;http://localhost:9200/_cat/indices?v&quot;
+</code></pre>
+<ol>
+<li><strong>Check index settings in flow configuration:</strong></li>
+</ol>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;vectordb&quot;,
+  &quot;name&quot;: &quot;opensearch_store&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;index_name&quot;: &quot;my-index&quot;,  // Must be lowercase, no spaces
+    &quot;vector_dimension&quot;: 768,  // Must match embedding model dimension
+    &quot;provider_config&quot;: {
+        &quot;host&quot;: &quot;localhost&quot;,
+        &quot;port&quot;: 9200,
+        &quot;engine&quot;: &quot;nmslib&quot;,  // Valid: nmslib, faiss, lucene
+        &quot;algorithm&quot;: &quot;hnsw&quot;,
+        &quot;space_type&quot;: &quot;l2&quot;
+    }
+  }
+}
+</code></pre>
+<ol>
+<li><strong>Verify dimension matches embedding model:</strong></li>
+</ol>
+<pre><code class="language-bash"># nomic-embed-text: 768 dimensions
+# Check your model's documentation for correct dimension
+</code></pre>
+<hr />
+<h4>Issue: OpenSearch Cluster Status Red</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code class="language-json">{
+  &quot;status&quot;: &quot;red&quot;,
+  &quot;unassigned_shards&quot;: 5
+}
+</code></pre>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check cluster health
+curl -u admin:MyStrongPass123! &quot;http://localhost:9200/_cluster/health?pretty&quot;
+
+# Check shard allocation
+curl -u admin:MyStrongPass123! &quot;http://localhost:9200/_cat/shards?v&quot;
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Restart OpenSearch:</strong></li>
+</ol>
+<pre><code class="language-bash">podman-compose -f docker/docker-compose.opensearch.yml restart
+</code></pre>
+<ol>
+<li><strong>Check disk space:</strong></li>
+</ol>
+<pre><code class="language-bash">df -h
+# OpenSearch requires at least 10% free disk space
+</code></pre>
+<ol>
+<li><strong>Reset cluster (WARNING: deletes all data):</strong></li>
+</ol>
+<pre><code class="language-bash">podman-compose -f docker/docker-compose.opensearch.yml down -v
+podman-compose -f docker/docker-compose.opensearch.yml up -d
+</code></pre>
+<hr />
+<h4>Issue: OpenSearch Authentication Failed</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code>401 Unauthorized
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Verify credentials:</strong></li>
+</ol>
+<pre><code class="language-bash"># Default credentials from docker/docker-compose.opensearch.yml
+# Username: admin
+# Password: &lt;your-opensearch-password&gt;
+
+curl -u admin:${OPENSEARCH_PASSWORD} http://localhost:9200
+</code></pre>
+<ol>
+<li><strong>Check if credentials were changed:</strong></li>
+</ol>
+<pre><code class="language-bash"># View docker/docker-compose.opensearch.yml
+cat docker/docker-compose.opensearch.yml | grep -A 5 &quot;OPENSEARCH_INITIAL_ADMIN_PASSWORD&quot;
+</code></pre>
+<ol>
+<li><strong>Reset admin password:</strong></li>
+</ol>
+<pre><code class="language-bash"># Stop OpenSearch
+podman-compose -f docker/docker-compose.opensearch.yml down
+
+# Edit docker/docker-compose.opensearch.yml and change password
+# Restart
+podman-compose -f docker/docker-compose.opensearch.yml up -d
+</code></pre>
+<hr />
+<h3 id="milvus-issues">Milvus Issues</h3>
+<h4>Issue: Milvus Connection Refused</h4>
+<p><strong>Symptoms:</strong><br />
+- Error: <code>Connection refused</code> or <code>Failed to connect to Milvus</code><br />
+- Pipeline fails at VectorDB operator with Milvus adapter</p>
+<p><strong>Causes:</strong><br />
+1. Milvus server not running<br />
+2. Wrong host/port configuration<br />
+3. Firewall blocking connection</p>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Check if Milvus is running:</strong><br />
+   ```bash<br />
+   # Docker<br />
+   docker ps | grep milvus</li>
+</ol>
+<p># Podman<br />
+   podman ps | grep milvus<br />
+   ```</p>
+<ol>
+<li>
+<p><strong>Start Milvus if not running:</strong><br />
+<code>bash
+   docker-compose -f docker-compose.milvus.yml up -d</code></p>
+</li>
+<li>
+<p><strong>Verify connection:</strong><br />
+<code>bash
+   python3 -c "from pymilvus import connections; connections.connect(host='localhost', port=19530); print('Connected successfully')"</code></p>
+</li>
+<li>
+<p><strong>Check configuration in flow:</strong><br />
+<code>json
+   {
+     "type": "vectordb",
+     "name": "milvus_store",
+     "config": {
+       "provider": "milvus",
+       "index_name": "my_collection",
+       "provider_config": {
+         "host": "localhost",
+         "port": 19530
+       }
+     }
+   }</code></p>
+</li>
+</ol>
+<h4>Issue: Milvus Collection Creation Failed</h4>
+<p><strong>Symptoms:</strong><br />
+- Error: <code>Collection already exists</code> or <code>Invalid collection name</code><br />
+- VectorDB operator fails during initialization</p>
+<p><strong>Causes:</strong><br />
+1. Collection name conflicts<br />
+2. Invalid collection name format<br />
+3. Dimension mismatch with existing collection</p>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>
+<p><strong>Drop existing collection:</strong><br />
+<code>bash
+   python3 -c "from pymilvus import connections, utility; connections.connect(host='localhost', port=19530); utility.drop_collection('your_collection_name')"</code></p>
+</li>
+<li>
+<p><strong>Use unique collection names:</strong></p>
+</li>
+<li>Avoid special characters</li>
+<li>Use alphanumeric and underscores only</li>
+<li>
+<p>Keep names under 255 characters</p>
+</li>
+<li>
+<p><strong>Verify dimension matches embeddings:</strong><br />
+<code>json
+   {
+     "type": "vectordb",
+     "name": "milvus_collection",
+     "config": {
+       "provider": "milvus",
+       "index_name": "my_collection",
+       "vector_dimension": 768,
+       "provider_config": {
+         "index_type": "HNSW"
+       }
+     }
+   }</code></p>
+</li>
+</ol>
+<h4>Issue: Milvus Dimension Mismatch</h4>
+<p><strong>Symptoms:</strong><br />
+- Error: <code>Dimension mismatch</code> or <code>Invalid vector dimension</code><br />
+- Insertion fails with dimension error</p>
+<p><strong>Causes:</strong><br />
+1. Configured dimension doesn't match embedding dimension<br />
+2. Chunked embeddings not properly detected<br />
+3. Wrong embedding model used</p>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>
+<p><strong>Verify embedding dimension:</strong><br />
+<code>python
+   # Check your embedding model's output dimension
+   # For Ollama nomic-embed-text: 768
+   # For sentence-transformers: varies by model</code></p>
+</li>
+<li>
+<p><strong>Let auto-detection work:</strong></p>
+</li>
+<li>Remove <code>vector_dimension</code> from config to enable auto-detection</li>
+<li>
+<p>System will detect dimension from first batch</p>
+</li>
+<li>
+<p><strong>Match embedding model:</strong><br />
+<code>json
+   {
+     "type": "embeddings",
+     "name": "generate_embeddings",
+     "config": {
+       "provider": "litellm",
+       "provider_config": {
+         "model_id": "openai/nomic-embed-text",
+         "api_base": "http://localhost:11434/v1"
+       },
+       "embeddings_column": "embeddings"
+     }
+   },
+   {
+     "type": "vectordb",
+     "name": "store_in_milvus",
+     "config": {
+       "provider": "milvus",
+       "index_name": "my_collection",
+       "vector_dimension": 768,
+       "provider_config": {
+         "index_type": "HNSW"
+       }
+     }
+   }</code></p>
+</li>
+</ol>
+<h4>Issue: Milvus Index Build Failed</h4>
+<p><strong>Symptoms:</strong><br />
+- Error: <code>Index build failed</code> or <code>Invalid index parameters</code><br />
+- Collection created but index not built</p>
+<p><strong>Causes:</strong><br />
+1. Invalid index type for metric type<br />
+2. Insufficient memory for index building<br />
+3. Invalid index parameters</p>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>
+<p><strong>Use compatible index and metric combinations:</strong><br />
+<code>json
+   {
+     "type": "vectordb",
+     "name": "milvus_hnsw",
+     "config": {
+       "provider": "milvus",
+       "index_name": "my_collection",
+       "provider_config": {
+         "index_type": "HNSW",
+         "metric_type": "L2"
+       }
+     }
+   }</code></p>
+</li>
+<li>
+<p><strong>Adjust index parameters:</strong><br />
+<code>json
+   {
+     "type": "vectordb",
+     "name": "milvus_tuned",
+     "config": {
+       "provider": "milvus",
+       "index_name": "my_collection",
+       "provider_config": {
+         "index_type": "HNSW",
+         "index_parameters": {
+           "M": 16,
+           "efConstruction": 256
+         }
+       }
+     }
+   }</code></p>
+</li>
+<li>
+<p><strong>Check Milvus memory:</strong><br />
+<code>bash
+   docker stats milvus-standalone</code></p>
+</li>
+</ol>
+<h4>Issue: Unable to Access Watsonx.data Milvus from macOS</h4>
+<p><strong>Symptoms:</strong><br />
+- Error: <code>MilvusException: (code=2, message=Fail connecting to server on &lt;host&gt;:&lt;port&gt;)</code><br />
+- Connection fails when accessing watsonx.data Milvus from non-VM macOS system<br />
+- Works fine from Linux or VM environments</p>
+<p><strong>Cause:</strong><br />
+- gRPC DNS resolution issue on macOS when connecting to watsonx.data Milvus<br />
+- The default DNS resolver doesn't work properly with GRPC certificates on macOS</p>
+<p><strong>Solution:</strong></p>
+<p>Set the <code>GRPC_DNS_RESOLVER</code> environment variable to <code>"native"</code> before running your Python script:</p>
+<pre><code class="language-python">import os
+os.environ[&quot;GRPC_DNS_RESOLVER&quot;] = &quot;native&quot;
+
+from pymilvus import connections
+connections.connect(
+    alias=&quot;&lt;db_name&gt;&quot;,
+    host=&quot;&lt;host&gt;&quot;,
+    port=443,
+    secure=True,
+    server_name=&quot;&lt;host&gt;&quot;,
+    user=&quot;&lt;username&gt;&quot;,
+    password=&quot;&lt;password&gt;&quot;
+)
+</code></pre>
+<p><strong>Alternative: Set environment variable before execution:</strong></p>
+<pre><code class="language-bash">export GRPC_DNS_RESOLVER=&quot;native&quot;
+docling-pipelines --flow-file sample_flows/vectordb/milvus_integration.json
+</code></pre>
+<p><strong>Verification Steps:</strong></p>
+<ol>
+<li>Check if Milvus instance was deleted and recreated (GRPC server/host URL might have changed)</li>
+<li>Verify the certificate is a GRPC certificate (not an https certificate)</li>
+<li>Add the environment variable setting to your script or shell</li>
+</ol>
+<p><strong>Reference:</strong><br />
+- <a href="https://www.ibm.com/docs/en/watsonxdata/standard/2.3.x?topic=milvus-unable-access-from-non-vm-macos-system">IBM watsonx.data Documentation</a></p>
+<hr />
+<h3 id="pipeline-execution">Pipeline Execution</h3>
+<h4>Issue: Flow Validation Failed</h4>
+<p><strong>Error Code:</strong> <code>FLOW_VALIDATION_FAILED</code></p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>FlowValidationException: Invalid Flow definition
+Error code: flow_validation_failed
+</code></pre>
+<p><strong>Common Validation Errors:</strong></p>
+<ol>
+<li><strong>Missing Required Operator:</strong></li>
+</ol>
+<pre><code>Error: The first operator in the flow must be an &quot;Ingest data&quot; operator
+Message code: INGEST_OPERATOR_MISPLACED
+</code></pre>
+<p><strong>Solution:</strong> Ensure your flow starts with an ingest operator:</p>
+<pre><code class="language-json">{
+  &quot;flow&quot;: [
+    {
+      &quot;type&quot;: &quot;ingest_source&quot;,
+      &quot;name&quot;: &quot;ingest_1&quot;,
+      &quot;config&quot;: {
+        &quot;provider&quot;: &quot;filesystem&quot;,
+        &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;sample_documents&quot;]}
+      }
+    }
+  ]
+}
+</code></pre>
+<ol>
+<li><strong>Disconnected Operators:</strong></li>
+</ol>
+<pre><code>Error: Flow contains disconnected operators
+Message code: DISJOINT_OPERATORS_DETECTED
+</code></pre>
+<p><strong>Solution:</strong> Ensure all operators are connected via edges:</p>
+<pre><code class="language-json">{
+  &quot;edges&quot;: [
+    { &quot;source&quot;: &quot;ingest_1&quot;, &quot;target&quot;: &quot;extract_1&quot; },
+    { &quot;source&quot;: &quot;extract_1&quot;, &quot;target&quot;: &quot;chunk_1&quot; }
+  ]
+}
+</code></pre>
+<ol>
+<li><strong>Duplicate Operator Names:</strong></li>
+</ol>
+<pre><code>Error: Same operator name(s) are used for multiple operators
+Message code: OPERATOR_NAME_REPEATED
+</code></pre>
+<p><strong>Solution:</strong> Use unique IDs for each operator node.</p>
+<hr />
+<h4>Issue: Flow Execution Failed</h4>
+<p><strong>Error Code:</strong> <code>FLOW_EXECUTION_FAILED</code></p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>FlowExecutionFailedException: Pipeline execution failed
+Error code: flow_execution_failed
+</code></pre>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Enable debug logging
+export DS_LOG_LEVEL=DEBUG
+docling-pipelines --flow-file my_flow.json
+</code></pre>
+<p><strong>Common Causes:</strong></p>
+<ol>
+<li><strong>Input files not found:</strong></li>
+</ol>
+<pre><code class="language-bash"># Verify input folder exists
+ls -la sample_documents/
+
+# Check file paths in flow configuration
+</code></pre>
+<ol>
+<li><strong>Operator configuration invalid:</strong></li>
+</ol>
+<pre><code class="language-bash"># Check operator parameters match requirements
+# See operator documentation in README.md
+</code></pre>
+<ol>
+<li><strong>Service unavailable (Ollama/OpenSearch):</strong></li>
+</ol>
+<pre><code class="language-bash"># Verify services are running
+curl http://localhost:11434/api/tags
+curl -u admin:${OPENSEARCH_PASSWORD} http://localhost:9200
+</code></pre>
+<hr />
+<h4>Issue: Prefect Flow Task Failed</h4>
+<p><strong>Error Code:</strong> <code>PREFECT_FLOW_TASK_FAILED</code></p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>PrefectFlowFailed: Task execution failed
+Error code: prefect_flow_failed
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Check Prefect logs:</strong></li>
+</ol>
+<pre><code class="language-bash"># Logs are in the terminal output
+# Look for the specific task that failed
+</code></pre>
+<ol>
+<li><strong>Run with verbose logging:</strong></li>
+</ol>
+<pre><code class="language-bash">export DS_LOG_LEVEL=DEBUG
+docling-pipelines --flow-file my_flow.json
+</code></pre>
+<ol>
+<li><strong>Check operator-specific errors:</strong></li>
+</ol>
+<pre><code class="language-bash"># Each operator logs its own errors
+# Look for the operator name in the error message
+</code></pre>
+<hr />
+<h4>Issue: Documents Being Skipped (Already Ingested) - CLI Execution</h4>
+<p><strong>Applies To:</strong> <code>docling-pipelines</code> CLI execution only</p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>Documents are being skipped during ingestion with &quot;already ingested&quot; messages, even though they should be processed
+</code></pre>
+<p><strong>Cause:</strong></p>
+<p>When using <code>docling-pipelines</code>, multiple flows with the same <code>flow_name</code> will generate the same <code>job_id</code>, causing incremental metadata conflicts. Documents processed in one pipeline may be incorrectly marked as processed in another pipeline with the same flow_name.</p>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check if multiple flows use the same flow_name
+grep -r &quot;flow_name&quot; sample_flows/*.json
+
+# Example: Both flows below would generate the same job_id (UUID v5)
+# Flow 1: flow_name &quot;my-pipeline&quot; → job_id &quot;5f543fcf-ccf4-5537-a2a5-e6bdca4f6060&quot;
+# Flow 2: flow_name &quot;my-pipeline&quot; → job_id &quot;5f543fcf-ccf4-5537-a2a5-e6bdca4f6060&quot; (conflict!)
+</code></pre>
+<p><strong>Solution:</strong></p>
+<ol>
+<li><strong>Use unique flow_name for each logically different pipeline:</strong></li>
+</ol>
+<p><strong>Before (Problematic):</strong></p>
+<pre><code class="language-json">// flow1.json
+{
+  &quot;flow_name&quot;: &quot;document-pipeline&quot;,
+  &quot;description&quot;: &quot;PDF processing pipeline&quot;,
+  &quot;flow&quot;: [...]
+}
+
+// flow2.json
+{
+  &quot;flow_name&quot;: &quot;document-pipeline&quot;,
+  &quot;description&quot;: &quot;Word document processing pipeline&quot;,
+  &quot;flow&quot;: [...]
+}
+</code></pre>
+<p><strong>After (Fixed):</strong></p>
+<pre><code class="language-json">// flow1.json
+{
+  &quot;flow_name&quot;: &quot;pdf-document-pipeline&quot;,
+  &quot;description&quot;: &quot;PDF processing pipeline&quot;,
+  &quot;flow&quot;: [...]
+}
+
+// flow2.json
+{
+  &quot;flow_name&quot;: &quot;word-document-pipeline&quot;,
+  &quot;description&quot;: &quot;Word document processing pipeline&quot;,
+  &quot;flow&quot;: [...]
+}
+</code></pre>
+<ol>
+<li><strong>Force re-ingestion if you need to reprocess documents:</strong></li>
+</ol>
+<pre><code class="language-json">{
+  &quot;flow_name&quot;: &quot;my-pipeline&quot;,
+  &quot;global_config&quot;: {
+    &quot;force_ingest&quot;: true
+  },
+  &quot;flow&quot;: [...]
+}
+</code></pre>
+<p><strong>Prevention:</strong></p>
+<ul>
+<li>Use descriptive, unique flow_name values for each logically different pipeline</li>
+<li>Document your flow_name conventions in your project</li>
+<li>The job_id is automatically generated from flow_name as a deterministic UUID v5 (36-character format)</li>
+</ul>
+<p><strong>Note:</strong> This issue does not apply when using <code>DocpipeFlowManager</code> programmatically with custom job_id parameters.</p>
+<p><strong>Related Documentation:</strong><br />
+- See <a href="docs/guides/FLOW_CONFIGURATION_GUIDE.html#flow-identification-flow_name-and-job_id"><code>docs/guides/FLOW_CONFIGURATION_GUIDE.md</code></a> section "Flow Identification: flow_name and job_id"</p>
+<hr />
+<h3 id="importpath-errors">Import/Path Errors</h3>
+<h4>Issue: ModuleNotFoundError</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code>ModuleNotFoundError: No module named 'docpipe_app'
+ModuleNotFoundError: No module named 'common'
+ModuleNotFoundError: No module named 'core'
+</code></pre>
+<p><strong>Root Cause:</strong> PYTHONPATH not set correctly or running from wrong directory.</p>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Set PYTHONPATH correctly (from project root):</strong></li>
+</ol>
+<pre><code class="language-bash"># Navigate to project root
+cd /path/to/docling-pipelines
+
+# Set PYTHONPATH
+export PYTHONPATH=&quot;$(pwd)/src:${PYTHONPATH}&quot;
+
+# Verify
+echo $PYTHONPATH
+</code></pre>
+<ol>
+<li><strong>Ensure you're in the project root:</strong></li>
+</ol>
+<pre><code class="language-bash">pwd  # Should end with /docling-pipelines
+
+# If not, navigate to project root
+cd /path/to/docling-pipelines
+</code></pre>
+<ol>
+<li><strong>Activate virtual environment:</strong></li>
+</ol>
+<pre><code class="language-bash"># From project root
+source .venv/bin/activate
+</code></pre>
+<ol>
+<li><strong>Add to shell profile for persistence:</strong></li>
+</ol>
+<pre><code class="language-bash"># Add to ~/.bashrc or ~/.zshrc
+echo 'export PYTHONPATH=&quot;/path/to/docling-pipelines/src:${PYTHONPATH}&quot;' &gt;&gt; ~/.bashrc
+source ~/.bashrc
+</code></pre>
+<hr />
+<h4>Issue: Running from Wrong Directory</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code>FileNotFoundError: [Errno 2] No such file or directory: 'sample_flows/...'
+</code></pre>
+<p><strong>Solution:</strong></p>
+<p><strong>Always run docling-pipelines from the project root:</strong></p>
+<pre><code class="language-bash"># ✅ CORRECT: From project root
+cd /path/to/docling-pipelines
+docling-pipelines --flow-file sample_flows/use_cases/invoice_processing.json
+
+# ❌ INCORRECT: From subdirectory - will cause path resolution issues
+cd some/subdirectory
+docling-pipelines --flow-file ...  # WILL FAIL
+</code></pre>
+<hr />
+<h4>Issue: File Paths in Flow Configuration</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code>FileNotFoundError: Input folder not found: ~/documents
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Use absolute paths:</strong></li>
+</ol>
+<pre><code class="language-json">{
+  &quot;config&quot;: {
+    &quot;paths&quot;: &quot;/Users/username/docling-pipelines/sample_documents&quot;
+  }
+}
+</code></pre>
+<ol>
+<li><strong>Use relative paths from project root:</strong></li>
+</ol>
+<pre><code class="language-json">{
+  &quot;config&quot;: {
+    &quot;paths&quot;: &quot;sample_documents&quot;
+  }
+}
+</code></pre>
+<ol>
+<li><strong>Avoid using ~ or $HOME:</strong></li>
+</ol>
+<pre><code class="language-bash"># ❌ Don't use
+&quot;paths&quot;: &quot;~/documents&quot;
+
+# ✅ Use instead
+&quot;paths&quot;: &quot;/Users/username/documents&quot;
+</code></pre>
+<hr />
+<h3 id="operator-specific-issues">Operator-Specific Issues</h3>
+<h4>Issue: Chunker Invalid Chunk Type</h4>
+<p><strong>Error Message:</strong></p>
+<pre><code>Invalid chunk_type: invalid_type
+Message code: CHUNKER_INVALID_CHUNK_TYPE
+</code></pre>
+<p><strong>Valid chunk types:</strong></p>
+<ul>
+<li><code>simple</code>: Fixed-size chunking</li>
+<li><code>semantic</code>: Semantic similarity-based chunking</li>
+<li><code>hybrid</code>: Docling-based chunking (requires ExtractOperator)</li>
+</ul>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;chunker&quot;,
+  &quot;name&quot;: &quot;semantic_chunker&quot;,
+  &quot;config&quot;: {
+    &quot;chunk_type&quot;: &quot;semantic&quot;, // Must be: simple, semantic, or hybrid
+    &quot;chunk_size&quot;: 512,
+    &quot;chunk_overlap&quot;: 50
+  }
+}
+</code></pre>
+<h4>Issue: Semantic Chunking Requires Embeddings Support</h4>
+<p><strong>Error Message:</strong></p>
+<pre><code>This server does not support embeddings
+</code></pre>
+<p>or chunking operation fails when using <code>chunk_type: "semantic"</code>.</p>
+<p><strong>Root Cause:</strong></p>
+<p>Semantic chunking requires Ollama embeddings support to calculate semantic similarity between text segments. This error occurs when:<br />
+- Ollama doesn't have an embeddings model installed<br />
+- Ollama version is outdated and lacks embeddings support<br />
+- The embeddings endpoint is not accessible</p>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Install an embeddings model:</strong></li>
+</ol>
+<pre><code class="language-bash">ollama pull granite4
+</code></pre>
+<ol>
+<li><strong>Update Ollama to the latest version:</strong></li>
+</ol>
+<pre><code class="language-bash"># macOS
+brew upgrade ollama
+
+# Linux
+curl -fsSL https://ollama.com/install.sh | sh
+</code></pre>
+<ol>
+<li><strong>Switch to simple chunking in your flow JSON:</strong></li>
+</ol>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;chunker&quot;,
+  &quot;name&quot;: &quot;chunker_node&quot;,
+  &quot;config&quot;: {
+    &quot;chunk_type&quot;: &quot;simple&quot;,  // Changed from &quot;semantic&quot;
+    &quot;chunk_size&quot;: 512,
+    &quot;chunk_overlap&quot;: 50
+  }
+}
+</code></pre>
+<p><strong>Verification:</strong></p>
+<p>Test embeddings support:</p>
+<pre><code class="language-bash">curl http://localhost:11434/api/embeddings -d '{
+  &quot;model&quot;: &quot;granite4&quot;,
+  &quot;prompt&quot;: &quot;test&quot;
+}'
+</code></pre>
+<p><strong>See Also:</strong><br />
+- <a href="QUICKSTART.html">QUICKSTART.md</a> for Ollama setup instructions<br />
+- <a href="docs/operators/functional/chunker_readme.html">Chunker documentation</a> for chunking strategies</p>
+<h4>Issue: Audio/Video Processing Fails with ffmpeg Error</h4>
+<p><strong>Error Message:</strong></p>
+<pre><code>ffmpeg not found or codec error during audio/video processing
+</code></pre>
+<p><strong>Symptoms:</strong></p>
+<ul>
+<li>Audio files (M4A, AAC, OGG, FLAC) fail to process</li>
+<li>Video files (MP4, AVI, MOV) fail to process</li>
+<li>Error mentions "ffmpeg" or "codec"</li>
+</ul>
+<p><strong>Diagnosis:</strong></p>
+<pre><code class="language-bash"># Check if ffmpeg is installed
+ffmpeg -version
+
+# Check if ffmpeg is in PATH
+which ffmpeg  # macOS/Linux
+where ffmpeg  # Windows
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Install ffmpeg:</strong></li>
+</ol>
+<p><strong>macOS:</strong></p>
+<pre><code class="language-bash">brew install ffmpeg
+</code></pre>
+<p><strong>Linux (Ubuntu/Debian):</strong></p>
+<pre><code class="language-bash">sudo apt update
+sudo apt install ffmpeg
+</code></pre>
+<p><strong>Linux (RHEL/CentOS/Fedora):</strong></p>
+<pre><code class="language-bash">sudo dnf install ffmpeg
+</code></pre>
+<ol>
+<li><strong>Verify installation:</strong></li>
+</ol>
+<pre><code class="language-bash">ffmpeg -version
+</code></pre>
+<ol>
+<li><strong>Add ffmpeg to PATH (if installed but not found):</strong></li>
+</ol>
+<p><strong>macOS:</strong></p>
+<pre><code class="language-bash">export PATH=&quot;/opt/homebrew/bin:$PATH&quot;
+# Add to ~/.zshrc or ~/.bash_profile for persistence
+</code></pre>
+<p><strong>Linux:</strong></p>
+<pre><code class="language-bash">export PATH=&quot;/usr/local/bin:$PATH&quot;
+# Add to ~/.bashrc for persistence
+</code></pre>
+<ol>
+<li><strong>Restart terminal after installation</strong></li>
+</ol>
+<p><strong>Note:</strong> WAV and MP3 audio files do not require ffmpeg and should work without it.</p>
+<p><strong>Supported Formats:</strong><br />
+- <strong>Requires ffmpeg</strong>: M4A, AAC, OGG, FLAC (audio), MP4, AVI, MOV (video)<br />
+- <strong>No ffmpeg needed</strong>: WAV, MP3 (audio)</p>
+<hr />
+<h4>Issue: Embeddings Invalid Type</h4>
+<p><strong>Error Message:</strong></p>
+<pre><code>Invalid embeddings type: invalid_type
+Message code: EMBEDDINGS_INVALID_TYPE
+</code></pre>
+<p><strong>Valid embeddings types:</strong></p>
+<ul>
+<li><code>huggingface</code>: Native HuggingFace local or API embeddings</li>
+<li><code>litellm</code>: LiteLLM-managed embedding providers (100+ including Ollama, HuggingFace API, OpenAI, etc.)</li>
+<li><code>watsonx</code>: Native IBM watsonx.ai adapter</li>
+</ul>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-json">{
+  &quot;operator_type&quot;: &quot;EmbeddingsOperator&quot;,
+  &quot;operator_params&quot;: {
+    &quot;provider&quot;: &quot;watsonx&quot;,
+    &quot;model_id&quot;: &quot;ibm/slate-125m-english-rtrvr&quot;,
+    &quot;provider_config&quot;: {
+      &quot;api_key&quot;: &quot;${WATSONX_API_KEY}&quot;,
+      &quot;api_base&quot;: &quot;${WATSONX_API_BASE}&quot;,
+      &quot;container_id&quot;: &quot;${WATSONX_CONTAINER_ID}&quot;,
+      &quot;container_kind&quot;: &quot;project&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Important distinction:</strong></p>
+<ul>
+<li>Native watsonx uses <code>api_base</code> and <code>container_id</code></li>
+<li>LiteLLM watsonx uses LiteLLM-specific parameter names such as <code>api_base</code> and provider-specific IDs</li>
+</ul>
+<hr />
+<h4>Issue: SQL Filter Dropping Mandatory Columns</h4>
+<p><strong>Error Message:</strong></p>
+<pre><code>Mandatory features drop attempted: ['id', 'content']
+Message code: DROPPING_MANDATORY_FEATURES
+</code></pre>
+<p><strong>Mandatory columns that cannot be dropped:</strong></p>
+<ul>
+<li><code>id</code>: Document identifier</li>
+<li><code>content</code>: Document content</li>
+<li><code>pages_processed</code>: Processing metadata</li>
+</ul>
+<p><strong>Solution:</strong></p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;sql_filter&quot;,
+  &quot;name&quot;: &quot;filter_documents&quot;,
+  &quot;config&quot;: {
+    &quot;filter_criteria&quot;: &quot;SELECT * FROM table WHERE length &gt; 100&quot;
+    // Don't use: SELECT column1, column2 (missing id, content)
+  }
+}
+</code></pre>
+<hr />
+<h4>Issue: Extract Operator Missing</h4>
+<p><strong>Error Message:</strong></p>
+<pre><code>Extract operator is either missing or not connected in the flow
+Message code: EXTRACT_OPERATOR_MISSING
+</code></pre>
+<p><strong>Solution:</strong> Add an extract operator before chunking:</p>
+<pre><code class="language-json">{
+  &quot;flow&quot;: [
+    {
+      &quot;type&quot;: &quot;ingest_source&quot;,
+      &quot;name&quot;: &quot;ingest_1&quot;,
+      &quot;config&quot;: {
+        &quot;provider&quot;: &quot;filesystem&quot;,
+        &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./sample_documents&quot;]}
+      }
+    },
+    {
+      &quot;type&quot;: &quot;extract_operator&quot;,
+      &quot;name&quot;: &quot;extract_1&quot;,
+      &quot;config&quot;: {
+        &quot;text_extraction&quot;: {
+          &quot;provider&quot;: &quot;docling_library&quot;
+        }
+      },
+      &quot;depends_on&quot;: [&quot;ingest_1&quot;]
+    },
+    {
+      &quot;type&quot;: &quot;chunker&quot;,
+      &quot;name&quot;: &quot;chunk_1&quot;,
+      &quot;config&quot;: {
+        &quot;chunk_type&quot;: &quot;simple&quot;,
+        &quot;chunk_size&quot;: 512
+      },
+      &quot;depends_on&quot;: [&quot;extract_1&quot;]
+    }
+  ]
+}
+
+### Document Set Storage Issues
+
+**Problem:** Database file not created or cannot be found
+
+**Symptoms:**
+```text
+FileNotFoundError: Database file not found at data/duckdb/document_sets.db
+</code></pre>
+<p><strong>Solutions:</strong><br />
+1. Verify workspace directory is correct:<br />
+<code>bash
+   pwd  # Should be at project root</code></p>
+<ol>
+<li>Check database path configuration:</li>
+</ol>
+<p><code>python
+   # Default path is relative to workspace
+   data/duckdb/document_sets.db</code></p>
+<ol>
+<li>Ensure directory exists:</li>
+</ol>
+<p><code>bash
+   mkdir -p data/duckdb</code></p>
+<ol>
+<li>Check file permissions:<br />
+<code>bash
+   ls -la data/duckdb/
+   chmod 755 data/duckdb</code></li>
+</ol>
+<hr />
+<p><strong>Problem:</strong> Document set name validation errors</p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>ValueError: Invalid document_set_name: must be alphanumeric with underscores/hyphens
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>Use valid characters only (alphanumeric, underscore, hyphen):</li>
+</ol>
+<p><code>json
+   "document_set_name": "my_documents_2024"  // Valid
+   "document_set_name": "my documents!"      // Invalid</code></p>
+<ol>
+<li>Avoid special characters and spaces</li>
+<li>Keep names under 255 characters</li>
+</ol>
+<hr />
+<p><strong>Problem:</strong> Schema evolution errors when adding new columns</p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>DuckDBError: Column 'new_field' does not exist in table
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>Schema evolution is automatic - verify the operator is receiving the new column</li>
+<li>Check PyArrow table schema before storage:</li>
+</ol>
+<p><code>python
+   print(table.schema)</code></p>
+<ol>
+<li>Ensure column names are valid SQL identifiers</li>
+<li>Restart pipeline if schema changes are not detected</li>
+</ol>
+<hr />
+<p><strong>Problem:</strong> Row count mismatch after storage</p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>AssertionError: Row count mismatch: expected 100, got 95
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>Check for data corruption in upstream operators</li>
+<li>Verify no filtering is happening before storage</li>
+<li>Enable debug logging to see detailed row counts:</li>
+</ol>
+<p><code>bash
+   DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file your_flow.json</code></p>
+<ol>
+<li>Inspect the PyArrow table before storage:<br />
+<code>python
+   print(f"Table has {len(table)} rows")</code></li>
+</ol>
+<hr />
+<p><strong>Problem:</strong> Database locked or in use</p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>sqlite3.OperationalError: database is locked
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>Close other connections to the database</li>
+<li>Check for running processes:</li>
+</ol>
+<p><code>bash
+   lsof data/duckdb/document_sets.db</code></p>
+<ol>
+<li>Wait for concurrent operations to complete</li>
+<li>Use connection pooling for concurrent access</li>
+</ol>
+<hr />
+<p><strong>Problem:</strong> Metadata not being stored correctly</p>
+<p><strong>Symptoms:</strong></p>
+<ul>
+<li>Custom metadata fields missing from document set</li>
+<li>Metadata appears as empty dictionary</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>Verify metadata is valid JSON:</li>
+</ol>
+<p><code>json
+   "metadata": {
+     "key": "value",
+     "number": 123,
+     "boolean": true
+   }</code></p>
+<ol>
+<li>Check metadata is not null or undefined</li>
+<li>Ensure metadata values are JSON-serializable</li>
+<li>Avoid nested objects deeper than 2-3 levels</li>
+</ol>
+<hr />
+<p><strong>Problem:</strong> Cannot query stored documents</p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>DuckDBError: Table 'document_set_name' does not exist
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>Verify document set was created successfully:</li>
+</ol>
+<p><code>python
+   from storage.duckdb_storage import DuckDBStorage
+   storage = DuckDBStorage(db_path="data/duckdb/document_sets.db")
+   tables = storage.list_tables()
+   print(tables)</code></p>
+<ol>
+<li>Check table name matches exactly (case-sensitive)</li>
+<li>Ensure database file path is correct</li>
+<li>Verify flow completed without errors</li>
+</ol>
+<hr />
+<p><strong>Problem:</strong> Performance issues with large document sets</p>
+<p><strong>Symptoms:</strong></p>
+<ul>
+<li>Slow write operations</li>
+<li>High memory usage</li>
+<li>Database file growing very large</li>
+</ul>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>Use batch processing for large datasets</li>
+<li>Consider partitioning large document sets</li>
+<li>Monitor database file size:</li>
+</ol>
+<p><code>bash
+   du -h data/duckdb/document_sets.db</code></p>
+<ol>
+<li>Optimize queries with proper indexing</li>
+<li>Use <code>retain_deleted_docs: false</code> to avoid storing deleted documents</li>
+</ol>
+<hr />
+<p><strong>Problem:</strong> REST API document set operations failing</p>
+<p><strong>Symptoms:</strong></p>
+<pre><code>HTTP 500: Internal server error when creating document set
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>Check API server logs for detailed errors</li>
+<li>Verify database path is accessible by API server</li>
+<li>Ensure proper permissions on database directory</li>
+<li>Check API authentication if enabled</li>
+<li>Verify request payload matches expected schema</li>
+</ol>
+<hr />
+<h2 id="error-code-reference">Error Code Reference</h2>
+<h3 id="flow-validation-and-execution-errors">Flow Validation and Execution Errors</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Error Code</th>
+<th>Description</th>
+<th>Common Causes</th>
+<th>Solutions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FLOW_VALIDATION_FAILED</code></td>
+<td>Flow configuration is invalid</td>
+<td>Missing operators, invalid connections, malformed JSON</td>
+<td>Check flow structure, validate JSON syntax, ensure all required operators present</td>
+</tr>
+<tr>
+<td><code>FLOW_EXECUTION_FAILED</code></td>
+<td>Pipeline execution failed</td>
+<td>Operator errors, service unavailable, invalid data</td>
+<td>Check logs, verify services running, validate input data</td>
+</tr>
+<tr>
+<td><code>PREFECT_FLOW_TASK_FAILED</code></td>
+<td>Prefect task execution failed</td>
+<td>Task timeout, resource exhaustion, operator error</td>
+<td>Check Prefect logs, increase resources, fix operator configuration</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="flow-crud-operation-errors">Flow CRUD Operation Errors</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Error Code</th>
+<th>Description</th>
+<th>Common Causes</th>
+<th>Solutions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>FLOW_NOT_FOUND</code></td>
+<td>Flow file not found</td>
+<td>Incorrect path, file deleted</td>
+<td>Verify file path, check file exists</td>
+</tr>
+<tr>
+<td><code>FLOW_ALREADY_EXISTS</code></td>
+<td>Flow with same name exists</td>
+<td>Duplicate flow name</td>
+<td>Use unique flow name or delete existing flow</td>
+</tr>
+<tr>
+<td><code>FLOW_INVALID_DATA</code></td>
+<td>Flow data is invalid</td>
+<td>Malformed JSON, missing fields</td>
+<td>Validate JSON, check required fields</td>
+</tr>
+<tr>
+<td><code>FLOW_STORAGE_ERROR</code></td>
+<td>File system error</td>
+<td>Permission denied, disk full</td>
+<td>Check permissions, free disk space</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="operator-errors">Operator Errors</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Error Code</th>
+<th>Description</th>
+<th>Common Causes</th>
+<th>Solutions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OPERATOR_CONFIGURATION_INVALID</code></td>
+<td>Operator config invalid</td>
+<td>Missing parameters, invalid values</td>
+<td>Check operator documentation, validate parameters</td>
+</tr>
+<tr>
+<td><code>OPERATOR_EXECUTION_FAILED</code></td>
+<td>Operator execution failed</td>
+<td>Runtime error, invalid input</td>
+<td>Check operator logs, validate input data</td>
+</tr>
+<tr>
+<td><code>SQL_FILTER_ERROR</code></td>
+<td>SQL filter error</td>
+<td>Invalid SQL syntax, column not found</td>
+<td>Validate SQL syntax, check column names</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="integration-errors">Integration Errors</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Error Code</th>
+<th>Description</th>
+<th>Common Causes</th>
+<th>Solutions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OLLAMA_CONNECTION_FAILED</code></td>
+<td>Cannot connect to Ollama</td>
+<td>Ollama not running, wrong port</td>
+<td>Start Ollama server, check port 11434</td>
+</tr>
+<tr>
+<td><code>OLLAMA_MODEL_NOT_FOUND</code></td>
+<td>Model not available</td>
+<td>Model not pulled</td>
+<td>Pull model: <code>ollama pull model-name</code></td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_CONNECTION_FAILED</code></td>
+<td>Cannot connect to OpenSearch</td>
+<td>OpenSearch not running, wrong credentials</td>
+<td>Start OpenSearch, verify credentials</td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_INDEX_ERROR</code></td>
+<td>Index operation failed</td>
+<td>Index exists, invalid settings</td>
+<td>Delete index or use different name</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="configuration-and-service-errors">Configuration and Service Errors</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Error Code</th>
+<th>Description</th>
+<th>Common Causes</th>
+<th>Solutions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>INVALID_CONFIGURATION</code></td>
+<td>Configuration error</td>
+<td>Missing settings, invalid values</td>
+<td>Check configuration file, validate settings</td>
+</tr>
+<tr>
+<td><code>EXTERNAL_SERVICE_ERROR</code></td>
+<td>External service error</td>
+<td>API error, network failure</td>
+<td>Check service status, verify connectivity</td>
+</tr>
+<tr>
+<td><code>HTTP_ERROR</code></td>
+<td>HTTP request failed</td>
+<td>Invalid URL, server error</td>
+<td>Check URL, verify server status</td>
+</tr>
+<tr>
+<td><code>CONNECTION_ERROR</code></td>
+<td>Network connection error</td>
+<td>Network down, firewall blocking</td>
+<td>Check network, verify firewall rules</td>
+</tr>
+<tr>
+<td><code>INVALID_RESPONSE</code></td>
+<td>Invalid response from service</td>
+<td>Malformed response, wrong format</td>
+<td>Check service logs, verify API version</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="debugging-guide">Debugging Guide</h2>
+<h3 id="enable-debug-logging">Enable Debug Logging</h3>
+<p><strong>Set log level to DEBUG:</strong></p>
+<pre><code class="language-bash">DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file my_flow.json
+</code></pre>
+<p>Or set as environment variable:</p>
+<pre><code class="language-bash">export DS_LOG_LEVEL=DEBUG
+docling-pipelines --flow-file my_flow.json
+</code></pre>
+<p><strong>Log levels:</strong></p>
+<ul>
+<li><code>DEBUG</code>: Detailed diagnostic information</li>
+<li><code>INFO</code>: General informational messages (default)</li>
+<li><code>WARNING</code>: Warning messages</li>
+<li><code>ERROR</code>: Error messages</li>
+<li><code>CRITICAL</code>: Critical errors</li>
+</ul>
+<hr />
+<h3 id="log-file-locations">Log File Locations</h3>
+<p><strong>Prefect logs:</strong></p>
+<pre><code class="language-bash"># Logs are output to terminal by default
+# To save to file:
+docling-pipelines --flow-file my_flow.json &gt; pipeline.log 2&gt;&amp;1
+</code></pre>
+<p><strong>Operator logs:</strong></p>
+<pre><code class="language-bash"># Each operator logs to the same output stream
+# Look for operator name in log messages:
+# [INFO] Operator: ingest_source_filesystem - Processing...
+</code></pre>
+<p><strong>Service logs:</strong></p>
+<p><strong>Ollama:</strong></p>
+<pre><code class="language-bash"># If running in background
+tail -f /tmp/ollama.log  # Or wherever you redirected output
+</code></pre>
+<p><strong>OpenSearch:</strong></p>
+<pre><code class="language-bash">podman-compose -f docker/docker-compose.opensearch.yml logs -f opensearch-node
+</code></pre>
+<hr />
+<h3 id="reading-log-output">Reading Log Output</h3>
+<p><strong>Typical log format:</strong></p>
+<pre><code>[2024-01-15 10:30:45] [INFO] [ingest_source_filesystem] Processing folder: sample_documents
+[2024-01-15 10:30:46] [INFO] [ingest_source_filesystem] Found 5 files
+[2024-01-15 10:30:47] [INFO] [extract_operator] Extracting content from file1.pdf
+[2024-01-15 10:30:50] [ERROR] [extract_operator] Failed to extract: Connection refused
+</code></pre>
+<p><strong>Key information:</strong></p>
+<ul>
+<li><strong>Timestamp</strong>: When the event occurred</li>
+<li><strong>Level</strong>: Severity (INFO, WARNING, ERROR)</li>
+<li><strong>Operator</strong>: Which operator generated the log</li>
+<li><strong>Message</strong>: What happened</li>
+</ul>
+<hr />
+<h3 id="common-log-patterns">Common Log Patterns</h3>
+<p><strong>Pattern 1: Connection Refused</strong></p>
+<pre><code>[ERROR] Failed to connect to http://localhost:11434
+</code></pre>
+<p><strong>Meaning:</strong> Service (Ollama/OpenSearch) not running<br />
+<strong>Action:</strong> Start the service</p>
+<hr />
+<p><strong>Pattern 2: File Not Found</strong></p>
+<pre><code>[ERROR] FileNotFoundError: [Errno 2] No such file or directory: 'sample_documents'
+</code></pre>
+<p><strong>Meaning:</strong> Input path doesn't exist<br />
+<strong>Action:</strong> Verify path, create directory if needed</p>
+<hr />
+<p><strong>Pattern 3: Model Not Found</strong></p>
+<pre><code>[ERROR] Model 'granite4' not found in Ollama
+</code></pre>
+<p><strong>Meaning:</strong> Ollama model not pulled<br />
+<strong>Action:</strong> Run <code>ollama pull granite4</code></p>
+<hr />
+<p><strong>Pattern 4: Import Error</strong></p>
+<pre><code>[ERROR] ModuleNotFoundError: No module named 'docpipe_app'
+</code></pre>
+<p><strong>Meaning:</strong> PYTHONPATH not set correctly<br />
+<strong>Action:</strong> Set PYTHONPATH from project root</p>
+<hr />
+<h3 id="using-python-debugger">Using Python Debugger</h3>
+<p><strong>Add breakpoints in code:</strong></p>
+<pre><code class="language-python">import pdb; pdb.set_trace()
+</code></pre>
+<p><strong>Run with debugger:</strong></p>
+<pre><code class="language-bash">python -m pdb -m docpipe.cli.docpipe_cli --flow-file my_flow.json
+</code></pre>
+<hr />
+<h3 id="verbose-operator-output">Verbose Operator Output</h3>
+<p><strong>Enable verbose output using environment variable:</strong></p>
+<pre><code class="language-bash"># Set debug level for detailed operator output
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file my_flow.json
+</code></pre>
+<p><strong>Note:</strong> Individual operator verbosity settings (if supported) are separate from the global log level.</p>
+<hr />
+<h2 id="service-specific-troubleshooting">Service-Specific Troubleshooting</h2>
+<h3 id="ollama-troubleshooting">Ollama Troubleshooting</h3>
+<h4>Check Ollama Status</h4>
+<pre><code class="language-bash"># Check if running
+curl http://localhost:11434/api/tags
+
+# Check process
+ps aux | grep ollama
+
+# Check port
+lsof -i :11434
+</code></pre>
+<h4>Ollama Performance Issues</h4>
+<p><strong>Slow inference:</strong></p>
+<pre><code class="language-bash"># Use smaller models
+ollama pull granite4:3b  # Instead of granite4:7b
+
+# Check system resources
+top  # Look for ollama process
+</code></pre>
+<p><strong>High memory usage:</strong></p>
+<pre><code class="language-bash"># Limit loaded models
+export OLLAMA_MAX_LOADED_MODELS=1
+ollama serve
+</code></pre>
+<h4>Ollama Model Issues</h4>
+<p><strong>List all models:</strong></p>
+<pre><code class="language-bash">ollama list
+</code></pre>
+<p><strong>Remove unused models:</strong></p>
+<pre><code class="language-bash">ollama rm model-name
+</code></pre>
+<p><strong>Update model:</strong></p>
+<pre><code class="language-bash">ollama pull model-name  # Re-pulls latest version
+</code></pre>
+<hr />
+<h3 id="opensearch-troubleshooting">OpenSearch Troubleshooting</h3>
+<h4>Check OpenSearch Status</h4>
+<pre><code class="language-bash"># Cluster health
+curl -u admin:MyStrongPass123! &quot;http://localhost:9200/_cluster/health?pretty&quot;
+
+# Node info
+curl -u admin:MyStrongPass123! &quot;http://localhost:9200/_nodes?pretty&quot;
+
+# Indices
+curl -u admin:MyStrongPass123! &quot;http://localhost:9200/_cat/indices?v&quot;
+</code></pre>
+<h4>OpenSearch Performance Issues</h4>
+<p><strong>Slow indexing:</strong></p>
+<pre><code class="language-bash"># Check cluster stats
+curl -u admin:MyStrongPass123! &quot;http://localhost:9200/_cluster/stats?pretty&quot;
+
+# Increase refresh interval
+curl -X PUT -u admin:MyStrongPass123! &quot;http://localhost:9200/my-index/_settings&quot; \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;index&quot;: {&quot;refresh_interval&quot;: &quot;30s&quot;}}'
+</code></pre>
+<p><strong>High memory usage:</strong></p>
+<pre><code class="language-bash"># Check heap usage
+curl -u admin:MyStrongPass123! &quot;http://localhost:9200/_cat/nodes?v&amp;h=heap.percent,heap.current,heap.max&quot;
+
+# Adjust heap size in docker/docker-compose.opensearch.yml
+# OPENSEARCH_JAVA_OPTS: &quot;-Xms512m -Xmx512m&quot;
+</code></pre>
+<h4>OpenSearch Index Issues</h4>
+<p><strong>Delete index:</strong></p>
+<pre><code class="language-bash">curl -X DELETE -u admin:MyStrongPass123! &quot;http://localhost:9200/my-index&quot;
+</code></pre>
+<p><strong>Reindex data:</strong></p>
+<pre><code class="language-bash">curl -X POST -u admin:MyStrongPass123! &quot;http://localhost:9200/_reindex&quot; \
+  -H 'Content-Type: application/json' \
+  -d '{
+    &quot;source&quot;: {&quot;index&quot;: &quot;old-index&quot;},
+    &quot;dest&quot;: {&quot;index&quot;: &quot;new-index&quot;}
+  }'
+</code></pre>
+<p><strong>Check index mapping:</strong></p>
+<pre><code class="language-bash">curl -u admin:MyStrongPass123! &quot;http://localhost:9200/my-index/_mapping?pretty&quot;
+</code></pre>
+<hr />
+<h3 id="milvus-troubleshooting">Milvus Troubleshooting</h3>
+<h4>Check Milvus Status</h4>
+<pre><code class="language-bash"># Check if running
+docker ps | grep milvus
+
+# Test connection
+python3 -c &quot;from pymilvus import connections; connections.connect(host='localhost', port=19530); print('Connected')&quot;
+
+# Check collections
+python3 -c &quot;from pymilvus import connections, utility; connections.connect(host='localhost', port=19530); print(utility.list_collections())&quot;
+</code></pre>
+<h4>Milvus Performance Issues</h4>
+<p><strong>Slow search:</strong></p>
+<pre><code class="language-bash"># Check collection stats
+python3 -c &quot;
+from pymilvus import connections, Collection
+connections.connect(host='localhost', port=19530)
+collection = Collection('your_collection')
+print(f'Entities: {collection.num_entities}')
+print(f'Index: {collection.index().params}')
+&quot;
+
+# Use faster index type
+# HNSW is generally faster than IVF_FLAT for most use cases
+</code></pre>
+<p><strong>High memory usage:</strong></p>
+<pre><code class="language-bash"># Check Milvus container stats
+docker stats milvus-standalone
+
+# Reduce index parameters in flow config:
+# &quot;M&quot;: 8,  # Lower value = less memory
+# &quot;efConstruction&quot;: 128  # Lower value = less memory
+</code></pre>
+<h4>Milvus Collection Issues</h4>
+<p><strong>List collections:</strong></p>
+<pre><code class="language-bash">python3 -c &quot;from pymilvus import connections, utility; connections.connect(host='localhost', port=19530); print(utility.list_collections())&quot;
+</code></pre>
+<p><strong>Drop collection:</strong></p>
+<pre><code class="language-bash">python3 -c &quot;from pymilvus import connections, utility; connections.connect(host='localhost', port=19530); utility.drop_collection('collection_name')&quot;
+</code></pre>
+<p><strong>Check collection schema:</strong></p>
+<pre><code class="language-bash">python3 -c &quot;
+from pymilvus import connections, Collection
+connections.connect(host='localhost', port=19530)
+collection = Collection('your_collection')
+print(collection.schema)
+&quot;
+</code></pre>
+<p><strong>Query collection:</strong></p>
+<pre><code class="language-bash">python3 -c &quot;
+from pymilvus import connections, Collection
+connections.connect(host='localhost', port=19530)
+collection = Collection('your_collection')
+collection.load()
+results = collection.query(expr='pk &gt;= \&quot;\&quot;', output_fields=['pk'], limit=5)
+print(results)
+&quot;
+</code></pre>
+<hr />
+<h3 id="docling-troubleshooting">Docling Troubleshooting</h3>
+<h4>Docling Extraction Failures</h4>
+<p><strong>Symptoms:</strong></p>
+<pre><code>[ERROR] Failed to extract content from document.pdf
+</code></pre>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li><strong>Check document format:</strong></li>
+</ol>
+<pre><code class="language-bash"># Supported formats: PDF, DOCX, PPTX, HTML
+file document.pdf  # Verify file type
+</code></pre>
+<ol>
+<li><strong>Check document size:</strong></li>
+</ol>
+<pre><code class="language-bash"># Large documents may timeout
+ls -lh document.pdf
+
+# Split large documents if needed
+</code></pre>
+<ol>
+<li><strong>Verify Docling dependencies:</strong></li>
+</ol>
+<pre><code class="language-bash"># From project root
+uv sync --extra dev
+</code></pre>
+<h4>Docling Timeout Issues</h4>
+<p><strong>Increase timeout in operator configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;extract_operator&quot;,
+  &quot;name&quot;: &quot;extract_with_timeout&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    },
+    &quot;timeout&quot;: 300  // Increase from default 60 seconds
+  }
+}
+</code></pre>
+<hr />
+<h3 id="watsonx-troubleshooting">Watsonx Troubleshooting</h3>
+<h4>Authentication Issues</h4>
+<p><strong>Symptoms:</strong><br />
+- <code>401 Unauthorized</code> errors<br />
+- "Failed to fetch IAM access token"<br />
+- Token refresh failures</p>
+<p><strong>Solutions:</strong></p>
+<ol>
+<li>
+<p><strong>Verify API key:</strong><br />
+<code>bash
+   echo $WATSONX_API_KEY</code></p>
+</li>
+<li>
+<p><strong>Check environment variables:</strong><br />
+<code>bash
+   echo $WATSONX_API_BASE
+   echo $WATSONX_CONTAINER_ID</code></p>
+</li>
+<li>
+<p><strong>Test connectivity:</strong><br />
+<code>bash
+   curl -X GET "${WATSONX_API_BASE}/ml/v1/foundation_model_specs?version=2023-05-29"</code></p>
+</li>
+<li>
+<p><strong>Enable debug logging:</strong><br />
+<code>python
+   import logging
+   logging.basicConfig(level=logging.DEBUG)</code></p>
+</li>
+</ol>
+<h4>Rate Limit Errors</h4>
+<p><strong>Symptoms:</strong><br />
+- <code>429 Too Many Requests</code> errors<br />
+- "Exceeded limit of calls to endpoint"</p>
+<p><strong>Solutions:</strong><br />
+- Reduce batch size in operator configuration<br />
+- Add delays between requests<br />
+- Request higher rate limits from IBM Cloud</p>
+<h4>Configuration Issues</h4>
+<p><strong>Common Mistakes:</strong><br />
+- Using <code>api_base</code> instead of <code>url</code><br />
+- Using <code>project_id</code> instead of <code>container_id</code><br />
+- Missing required parameters</p>
+<p><strong>Correct Configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;provider&quot;: &quot;watsonx&quot;,
+  &quot;model_name&quot;: &quot;ibm/slate-125m-english-rtrvr&quot;,
+  &quot;provider_config&quot;: {
+    &quot;api_key&quot;: &quot;${WATSONX_API_KEY}&quot;,
+    &quot;api_base&quot;: &quot;${WATSONX_API_BASE}&quot;,
+    &quot;container_id&quot;: &quot;${WATSONX_CONTAINER_ID}&quot;
+  }
+}
+</code></pre>
+<h2 id="environment-issues">Environment Issues</h2>
+<h3 id="python-version-problems">Python Version Problems</h3>
+<p><strong>Issue: Wrong Python version</strong></p>
+<pre><code class="language-bash"># Check version
+python --version  # Should be 3.12.x
+
+# If wrong version, use python3.12 explicitly
+python3.12 --version
+</code></pre>
+<p><strong>Solution: Use correct Python version</strong></p>
+<pre><code class="language-bash"># Recreate virtual environment with Python 3.12 (from project root)
+rm -rf .venv
+uv venv --python python3.12
+source .venv/bin/activate
+uv sync --extra dev
+</code></pre>
+<hr />
+<h3 id="virtual-environment-issues">Virtual Environment Issues</h3>
+<p><strong>Issue: Virtual environment not activated</strong></p>
+<pre><code class="language-bash"># Check if activated
+which python  # Should point to .venv/bin/python
+</code></pre>
+<p><strong>Solution: Activate virtual environment</strong></p>
+<pre><code class="language-bash"># From project root
+source .venv/bin/activate
+</code></pre>
+<p><strong>Issue: Virtual environment corrupted</strong></p>
+<pre><code class="language-bash"># Remove and recreate (from project root)
+rm -rf .venv
+uv venv --python python3.12
+source .venv/bin/activate
+uv sync --extra dev
+</code></pre>
+<hr />
+<h3 id="dependency-conflicts">Dependency Conflicts</h3>
+<p><strong>Issue: Package version conflicts</strong></p>
+<pre><code>ERROR: Cannot install package-a and package-b because these package versions have conflicting dependencies
+</code></pre>
+<p><strong>Solution: Update dependencies</strong></p>
+<pre><code class="language-bash"># From project root
+uv sync --extra dev --upgrade
+</code></pre>
+<p><strong>Issue: Missing dependencies</strong></p>
+<pre><code>ModuleNotFoundError: No module named 'package_name'
+</code></pre>
+<p><strong>Solution: Install dependencies</strong></p>
+<pre><code class="language-bash"># From project root
+uv sync --extra dev
+</code></pre>
+<hr />
+<h3 id="pythonpath-issues">PYTHONPATH Issues</h3>
+<p><strong>Issue: PYTHONPATH not set</strong></p>
+<pre><code>ModuleNotFoundError: No module named 'docpipe_app'
+</code></pre>
+<p><strong>Solution: Set PYTHONPATH</strong></p>
+<pre><code class="language-bash"># From project root
+export PYTHONPATH=&quot;$(pwd)/src:${PYTHONPATH}&quot;
+</code></pre>
+<p><strong>Verify PYTHONPATH is set correctly:</strong></p>
+<pre><code class="language-bash">echo $PYTHONPATH
+</code></pre>
+<p><strong>Expected output:</strong></p>
+<pre><code>/Users/username/codebase/docling-pipelines/src:...
+</code></pre>
+<p>The output should show your project's <code>src</code> directory as the first entry. The actual path will match your project location.</p>
+<p><strong>Make permanent:</strong></p>
+<pre><code class="language-bash"># Add to ~/.bashrc or ~/.zshrc
+echo 'export PYTHONPATH=&quot;/path/to/docling-pipelines/src:${PYTHONPATH}&quot;' &gt;&gt; ~/.bashrc
+source ~/.bashrc
+</code></pre>
+<hr />
+<h2 id="faq">FAQ</h2>
+<h3 id="general-questions">General Questions</h3>
+<p><strong>Q: What Python version is required?</strong><br />
+A: Python 3.12 is required. Earlier or later versions are not supported.</p>
+<p><strong>Q: Can I use Docker instead of Podman?</strong><br />
+A: Yes, Docker and Podman are interchangeable. Use <code>docker-compose</code> instead of <code>podman-compose</code>.</p>
+<p><strong>Q: Where are the log files stored?</strong><br />
+A: Logs are output to the terminal by default. Redirect to a file: <code>docling-pipelines --flow-file my_flow.json &gt; pipeline.log 2&gt;&amp;1</code></p>
+<p><strong>Q: How do I stop all services?</strong><br />
+A:</p>
+<pre><code class="language-bash"># Stop OpenSearch
+podman-compose -f docker/docker-compose.opensearch.yml down
+
+# Stop Ollama
+pkill -f &quot;ollama serve&quot;
+</code></pre>
+<p><strong>Q: Can I run multiple pipelines simultaneously?</strong><br />
+A: Yes, but be aware of resource constraints (CPU, memory, GPU if using Ollama).</p>
+<hr />
+<h3 id="installation-questions">Installation Questions</h3>
+<p><strong>Q: Do I need GPU for Ollama?</strong><br />
+A: No, Ollama works on CPU. GPU acceleration is optional and improves performance.</p>
+<p><strong>Q: How much disk space is needed?</strong><br />
+A: Minimum 5GB for models and data. Recommended 10GB+ for production use.</p>
+<p><strong>Q: Can I install on Windows?</strong><br />
+A: Yes, but use WSL2 (Windows Subsystem for Linux) for best compatibility.</p>
+<p><strong>Q: What if I don't have admin/sudo access?</strong><br />
+A: You can install in user space using <code>uv</code> and run services in containers without root.</p>
+<hr />
+<h3 id="configuration-questions">Configuration Questions</h3>
+<p><strong>Q: How do I change the OpenSearch password?</strong><br />
+A: Edit <code>docker/docker-compose.opensearch.yml</code> and change <code>OPENSEARCH_INITIAL_ADMIN_PASSWORD</code>, then restart.</p>
+<p><strong>Q: Can I use a different port for Ollama?</strong><br />
+A: Yes, set <code>OLLAMA_HOST</code> environment variable: <code>export OLLAMA_HOST=0.0.0.0:11435</code></p>
+<p><strong>Q: How do I use a remote OpenSearch cluster?</strong><br />
+A: Update the <code>opensearch_url</code> in your flow configuration to point to the remote cluster.</p>
+<p><strong>Q: Can I use different embedding models?</strong><br />
+A: Yes, any Ollama model that supports embeddings. Update <code>model_name</code> in EmbeddingsOperator configuration.</p>
+<hr />
+<h3 id="pipeline-questions">Pipeline Questions</h3>
+<p><strong>Q: How do I process multiple folders?</strong><br />
+A: Use <code>IngestSourceOperator</code> with multiple paths in <code>connection_params.paths</code> (e.g. <code>["./folder1", "./folder2"]</code>).</p>
+<p><strong>Q: Can I skip the chunking step?</strong><br />
+A: Yes, but embeddings will be generated for entire documents, which may not be optimal for large documents.</p>
+<p><strong>Q: How do I handle different document types?</strong><br />
+A: Use BranchingOperator to route different document types to different processing paths.</p>
+<p><strong>Q: What's the maximum document size?</strong><br />
+A: Depends on available memory. Large documents (&gt;100MB) should be split or processed with increased timeouts.</p>
+<hr />
+<h3 id="performance-questions">Performance Questions</h3>
+<p><strong>Q: Why is my pipeline slow?</strong><br />
+A: Common causes:</p>
+<ul>
+<li>Large documents</li>
+<li>Slow embedding generation (use smaller models)</li>
+<li>Network latency to OpenSearch</li>
+<li>Insufficient CPU/memory</li>
+</ul>
+<p><strong>Q: How can I speed up processing?</strong><br />
+A:</p>
+<ul>
+<li>Use smaller embedding models</li>
+<li>Increase batch sizes</li>
+<li>Use GPU for Ollama (if available)</li>
+<li>Optimize chunk sizes</li>
+</ul>
+<p><strong>Q: How many documents can I process?</strong><br />
+A: No hard limit, but performance depends on:</p>
+<ul>
+<li>Document size</li>
+<li>Available memory</li>
+<li>OpenSearch cluster capacity</li>
+</ul>
+<hr />
+<h3 id="error-questions">Error Questions</h3>
+<p><strong>Q: What does "Connection refused" mean?</strong><br />
+A: The service (Ollama or OpenSearch) is not running. Start the service and try again.</p>
+<p><strong>Q: What does "Model not found" mean?</strong><br />
+A: The Ollama model hasn't been pulled. Run <code>ollama pull model-name</code>.</p>
+<p><strong>Q: What does "Flow validation failed" mean?</strong><br />
+A: Your flow configuration has errors. Check the error message for specific issues.</p>
+<p><strong>Q: What does "PYTHONPATH not set" mean?</strong><br />
+A: The Python import path is not configured. Set PYTHONPATH from the project root.</p>
+<hr />
+<h2 id="getting-help">Getting Help</h2>
+<h3 id="before-reporting-issues">Before Reporting Issues</h3>
+<ol>
+<li><strong>Check this troubleshooting guide</strong></li>
+<li><strong>Review the documentation:</strong></li>
+<li><a href="README.html"><code>README.md</code></a> - Overview and operator reference</li>
+<li><a href="USER_GUIDE_PIPELINE_SETUP.html"><code>USER_GUIDE_PIPELINE_SETUP.md</code></a> - Complete setup guide</li>
+<li><a href="QUICKSTART.html"><code>QUICKSTART.md</code></a> - Quick start guide</li>
+<li>
+<p><a href="ARCHITECTURE.html"><code>ARCHITECTURE.md</code></a> - System architecture</p>
+</li>
+<li>
+<p><strong>Run diagnostics:</strong></p>
+</li>
+</ol>
+<pre><code class="language-bash"># Health check
+curl http://localhost:11434/api/tags
+curl -u admin:${OPENSEARCH_PASSWORD} http://localhost:9200
+
+# Check logs
+docling-pipelines --flow-file my_flow.json 2&gt;&amp;1 | tee debug.log
+</code></pre>
+<ol>
+<li><strong>Try with debug logging:</strong></li>
+</ol>
+<pre><code class="language-bash">export DS_LOG_LEVEL=DEBUG
+docling-pipelines --flow-file my_flow.json
+</code></pre>
+<hr />
+<h3 id="reporting-bugs">Reporting Bugs</h3>
+<p>When reporting issues, include:</p>
+<ol>
+<li><strong>Environment information:</strong></li>
+</ol>
+<pre><code class="language-bash"># Python version
+python3.12 --version
+
+# OS information
+uname -a
+
+# Package versions (from project root)
+uv pip list
+</code></pre>
+<ol>
+<li><strong>Error message:</strong></li>
+</ol>
+<pre><code class="language-bash"># Full error output
+docling-pipelines --flow-file my_flow.json 2&gt;&amp;1 | tee error.log
+</code></pre>
+<ol>
+<li><strong>Flow configuration:</strong></li>
+</ol>
+<pre><code class="language-bash"># Sanitized flow.json (remove sensitive data)
+cat my_flow.json
+</code></pre>
+<ol>
+<li>
+<p><strong>Steps to reproduce:</strong></p>
+</li>
+<li>
+<p>What you were trying to do</p>
+</li>
+<li>Commands you ran</li>
+<li>
+<p>Expected vs actual behavior</p>
+</li>
+<li>
+<p><strong>Service status:</strong></p>
+</li>
+</ol>
+<pre><code class="language-bash"># Ollama
+curl http://localhost:11434/api/tags
+
+# OpenSearch
+curl -u admin:MyStrongPass123! &quot;http://localhost:9200/_cluster/health?pretty&quot;
+</code></pre>
+<hr />
+<h3 id="community-resources">Community Resources</h3>
+<p><strong>GitHub Issues:</strong></p>
+<ul>
+<li>Search existing issues: https://github.com/your-org/docling-pipelines/issues</li>
+<li>Create new issue: https://github.com/your-org/docling-pipelines/issues/new</li>
+</ul>
+<p><strong>Documentation:</strong></p>
+<ul>
+<li>Main README: <a href="README.html"><code>README.md</code></a></li>
+<li>User Guide: <a href="USER_GUIDE_PIPELINE_SETUP.html"><code>USER_GUIDE_PIPELINE_SETUP.md</code></a></li>
+<li>Quick Start: <a href="QUICKSTART.html"><code>QUICKSTART.md</code></a></li>
+<li>Architecture: <a href="ARCHITECTURE.html"><code>ARCHITECTURE.md</code></a></li>
+</ul>
+<p><strong>Examples:</strong></p>
+<ul>
+<li>Sample flows: <a href="sample_flows/"><code>sample_flows/</code></a></li>
+<li>Test flows: <a href="sample_flows/"><code>sample_flows/</code></a></li>
+</ul>
+<hr />
+<h3 id="support-channels">Support Channels</h3>
+<p><strong>For bugs and feature requests:</strong></p>
+<ul>
+<li>GitHub Issues: https://github.com/your-org/docling-pipelines/issues</li>
+</ul>
+<p><strong>For questions and discussions:</strong></p>
+<ul>
+<li>GitHub Discussions: https://github.com/your-org/docling-pipelines/discussions</li>
+</ul>
+<p><strong>For security issues:</strong></p>
+<ul>
+<li>Email: security@your-org.com</li>
+<li>Do not post security issues publicly</li>
+</ul>
+<hr />
+<h2 id="additional-resources">Additional Resources</h2>
+<h3 id="useful-commands-reference">Useful Commands Reference</h3>
+<pre><code class="language-bash"># Environment setup (from project root)
+export PYTHONPATH=&quot;$(pwd)/src:${PYTHONPATH}&quot;
+source .venv/bin/activate
+
+# Service management
+ollama serve &amp;
+podman-compose -f docker/docker-compose.opensearch.yml up -d
+
+# Pipeline execution
+docling-pipelines --flow-file my_flow.json
+
+# Debugging
+export DS_LOG_LEVEL=DEBUG
+docling-pipelines --flow-file my_flow.json 2&gt;&amp;1 | tee debug.log
+
+# Service health checks
+curl http://localhost:11434/api/tags
+curl -u admin:${OPENSEARCH_PASSWORD} http://localhost:9200
+
+# Cleanup
+podman-compose -f docker/docker-compose.opensearch.yml down -v
+pkill -f &quot;ollama serve&quot;
+</code></pre>
+<hr />
+<h3 id="quick-links">Quick Links</h3>
+<ul>
+<li><strong>Installation Guide</strong>: <a href="USER_GUIDE_PIPELINE_SETUP.html#2-prerequisites-and-installation"><code>USER_GUIDE_PIPELINE_SETUP.md#2-prerequisites-and-installation</code></a></li>
+<li><strong>Ollama Setup</strong>: <a href="USER_GUIDE_PIPELINE_SETUP.html#3-ollama-setup"><code>USER_GUIDE_PIPELINE_SETUP.md#3-ollama-setup</code></a></li>
+<li><strong>OpenSearch Setup</strong>: <a href="USER_GUIDE_PIPELINE_SETUP.html#4-opensearch-setup-with-podman"><code>USER_GUIDE_PIPELINE_SETUP.md#4-opensearch-setup-with-podman</code></a></li>
+<li><strong>Flow Configuration</strong>: <a href="USER_GUIDE_PIPELINE_SETUP.html#5-understanding-flow-configuration"><code>USER_GUIDE_PIPELINE_SETUP.md#5-understanding-flow-configuration</code></a></li>
+<li><strong>Operator Reference</strong>: <a href="README.html#operators"><code>README.md#operators</code></a></li>
+</ul>
+<hr />
+<p><strong>Last Updated:</strong> 2024-01-15<br />
+<strong>Version:</strong> 1.0.0</p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#quick-diagnostics">Quick Diagnostics</a>
+      <a href="#common-issues-by-category">Common Issues by Category</a>
+      <a href="#error-code-reference">Error Code Reference</a>
+      <a href="#debugging-guide">Debugging Guide</a>
+      <a href="#service-specific-troubleshooting">Service-Specific Troubleshooting</a>
+      <a href="#environment-issues">Environment Issues</a>
+      <a href="#faq">FAQ</a>
+      <a href="#getting-help">Getting Help</a>
+      <a href="#additional-resources">Additional Resources</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="docs/index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

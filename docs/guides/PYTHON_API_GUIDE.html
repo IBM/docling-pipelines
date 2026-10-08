@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Docling Pipelines Python API Guide — Docling Pipelines</title>
+  <meta name="description" content="Docling Pipelines Python API Guide — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter active" href="PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Docling Pipelines Python API Guide</span>
+      </nav>
+      <h1>Docling Pipelines Python API Guide</h1>
+<p>This guide explains how to use Docling Pipelines programmatically through the Python API for integration with custom applications, Jupyter notebooks, and automated workflows.</p>
+
+<hr />
+<h2 id="introduction">Introduction</h2>
+<p>The <a href="../../src/docpipe/lib/docpipe_flow_manager.py"><code>DocpipeFlowManager</code></a> class provides a Python API for programmatic flow execution, offering greater flexibility than the CLI for integration scenarios.</p>
+<h3 id="when-to-use-the-programmatic-api">When to Use the Programmatic API</h3>
+<ul>
+<li><strong>Jupyter Notebooks</strong>: Interactive data exploration and pipeline development</li>
+<li><strong>Custom Workflows</strong>: Integration with existing Python applications</li>
+<li><strong>Dynamic Flow Generation</strong>: Creating flows programmatically based on runtime conditions</li>
+<li><strong>Automated Testing</strong>: Programmatic validation and execution in test suites</li>
+<li><strong>Multi-tenant Systems</strong>: Generating and executing flows per tenant or dataset</li>
+</ul>
+<h3 id="key-benefits">Key Benefits</h3>
+<ul>
+<li><strong>Flexibility</strong>: Define flows as Python dictionaries or load from JSON files</li>
+<li><strong>Error Handling</strong>: Programmatic access to validation results and execution logs</li>
+<li><strong>Metadata Access</strong>: Retrieve execution metadata, job IDs, and flow information</li>
+<li><strong>Integration</strong>: Seamlessly integrate with pandas, PyArrow, and ML pipelines</li>
+</ul>
+<hr />
+<h2 id="setup-requirements">Setup Requirements</h2>
+<p>Before using the programmatic API, ensure your environment is properly configured:</p>
+<h3 id="1-set-pythonpath">1. Set PYTHONPATH</h3>
+<p>The <code>PYTHONPATH</code> must include the docpipe directory as the source root:</p>
+<pre><code class="language-bash"># From repository root
+export PYTHONPATH=&quot;$(pwd)/src:${PYTHONPATH}&quot;
+</code></pre>
+<h3 id="2-activate-virtual-environment">2. Activate Virtual Environment</h3>
+<pre><code class="language-bash"># From project root
+source .venv/bin/activate
+</code></pre>
+<h3 id="3-verify-python-import">3. Verify Python Import</h3>
+<p>Test that the DocpipeFlowManager can be imported:</p>
+<pre><code class="language-bash">python -c &quot;from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager; print('Import successful')&quot;
+</code></pre>
+<p><strong>Note:</strong> This command may take a few seconds to complete as Python loads dependencies. If successful, you'll see: <code>Import successful</code></p>
+<h3 id="4-verify-prerequisites">4. Verify Prerequisites</h3>
+<p>Ensure Ollama and OpenSearch are running (see <a href="../../USER_GUIDE_PIPELINE_SETUP.html">User Guide: Pipeline Setup</a>).</p>
+<hr />
+<h2 id="basic-usage-execute-flow-from-file">Basic Usage: Execute Flow from File</h2>
+<p>The simplest way to use the programmatic API is to execute an existing flow JSON file.</p>
+<h3 id="example-basic-flow-execution">Example: Basic Flow Execution</h3>
+<pre><code class="language-python">from pathlib import Path
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+
+def execute_flow():
+    &quot;&quot;&quot;Execute a flow file with basic error handling.&quot;&quot;&quot;
+    flow_file = Path(&quot;sample_flows/quickstart/complete_pipeline_ollama.json&quot;)
+
+    try:
+        # Initialize the manager with a flow file
+        manager = DocpipeFlowManager(
+            flow_file=str(flow_file)
+        )
+
+        print(f&quot;Loaded flow file: {flow_file}&quot;)
+
+        # Execute the flow
+        result = manager.execute()
+
+        # Access execution metadata
+        metadata = manager.get_execution_metadata()
+        print(f&quot;Flow executed successfully&quot;)
+        print(f&quot;Job ID: {metadata.get('job_id')}&quot;)
+        print(f&quot;Flow Name: {metadata.get('flow_name')}&quot;)
+
+    except FileNotFoundError as exc:
+        print(f&quot;Flow file not found: {exc}&quot;)
+    except ValueError as exc:
+        print(f&quot;Invalid configuration: {exc}&quot;)
+    except Exception as exc:
+        print(f&quot;Execution failed: {exc}&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    execute_flow()
+</code></pre>
+<hr />
+<h2 id="execute-flow-from-dictionary">Execute Flow from Dictionary</h2>
+<p>For dynamic flow generation, define flows as Python dictionaries instead of JSON files.</p>
+<h3 id="example-inline-flow-definition">Example: Inline Flow Definition</h3>
+<pre><code class="language-python">from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+
+def build_flow_definition(input_folder: str, index_name: str) -&gt; dict:
+    &quot;&quot;&quot;Build a complete flow definition as a Python dictionary.&quot;&quot;&quot;
+    return {
+        &quot;flow_name&quot;: &quot;programmatic-inline-pipeline&quot;,
+        &quot;description&quot;: &quot;Inline flow for document processing&quot;,
+        &quot;global_config&quot;: {
+            &quot;doc_column&quot;: &quot;content&quot;,
+            &quot;disable_validation&quot;: False,
+            &quot;force_ingest&quot;: True,
+            &quot;storage&quot;: &quot;in-memory&quot;,
+            &quot;execute_type&quot;: &quot;local&quot;
+        },
+        &quot;flow&quot;: [
+            {
+                &quot;name&quot;: &quot;ingest_source_filesystem&quot;,
+                &quot;type&quot;: &quot;ingest_source&quot;,
+                &quot;config&quot;: {
+                    &quot;provider&quot;: &quot;filesystem&quot;,
+                    &quot;connection_params&quot;: {&quot;paths&quot;: [input_folder]},
+                    &quot;include_filter&quot;: &quot;pdf,txt,docx&quot;
+                }
+            },
+            {
+                &quot;name&quot;: &quot;extract_operator&quot;,
+                &quot;type&quot;: &quot;extract_operator&quot;,
+                &quot;depends_on&quot;: [&quot;ingest_source_filesystem&quot;],
+                &quot;config&quot;: {
+                    &quot;text_extraction&quot;: {
+                        &quot;provider&quot;: &quot;docling_library&quot;
+                    },
+                    &quot;entity_extraction&quot;: {
+                        &quot;provider&quot;: &quot;none&quot;
+                    }
+                }
+            },
+            {
+                &quot;name&quot;: &quot;chunk_documents&quot;,
+                &quot;type&quot;: &quot;chunker&quot;,
+                &quot;depends_on&quot;: [&quot;extract_operator&quot;],
+                &quot;config&quot;: {
+                    &quot;chunk_type&quot;: &quot;semantic&quot;,
+                    &quot;chunk_size&quot;: 512,
+                    &quot;chunk_overlap&quot;: 50
+                }
+            },
+            {
+                &quot;name&quot;: &quot;generate_embeddings&quot;,
+                &quot;type&quot;: &quot;embeddings&quot;,
+                &quot;depends_on&quot;: [&quot;chunk_documents&quot;],
+                &quot;config&quot;: {
+                    &quot;provider&quot;: &quot;litellm&quot;,
+                    &quot;provider_config&quot;: {
+                        &quot;model_id&quot;: &quot;openai/nomic-embed-text&quot;,
+                        &quot;api_base&quot;: &quot;http://localhost:11434&quot;
+                    },
+                    &quot;embeddings_column&quot;: &quot;content&quot;
+                }
+            },
+            {
+                &quot;name&quot;: &quot;store_vectors&quot;,
+                &quot;type&quot;: &quot;vectordb&quot;,
+                &quot;depends_on&quot;: [&quot;generate_embeddings&quot;],
+                &quot;config&quot;: {
+                    &quot;provider&quot;: &quot;opensearch&quot;,
+                    &quot;doc_id_column&quot;: &quot;doc_id_hash&quot;,
+                    &quot;embeddings_column&quot;: &quot;embeddings&quot;,
+                    &quot;vector_dimension&quot;: 768,
+                    &quot;create_index&quot;: True,
+                    &quot;provider_config&quot;: {
+                        &quot;index_name&quot;: index_name,
+                        &quot;host&quot;: &quot;localhost&quot;,
+                        &quot;port&quot;: 9200,
+                        &quot;username&quot;: &quot;admin&quot;,
+                        &quot;password&quot;: &quot;&lt;your-opensearch-password&gt;&quot;,
+                        &quot;use_ssl&quot;: False,
+                        &quot;verify_certs&quot;: False,
+                        &quot;engine&quot;: &quot;faiss&quot;,
+                        &quot;algorithm&quot;: &quot;hnsw&quot;,
+                        &quot;space_type&quot;: &quot;l2&quot;,
+                        &quot;batch_size&quot;: 100
+                    }
+                }
+            }
+        ]
+    }
+
+def execute_inline_flow():
+    &quot;&quot;&quot;Execute a flow defined as a Python dictionary.&quot;&quot;&quot;
+    flow_def = build_flow_definition(
+        input_folder=&quot;./sample_documents&quot;,
+        index_name=&quot;inline-documents-index&quot;
+    )
+
+    try:
+        manager = DocpipeFlowManager(
+            flow_def=flow_def
+        )
+
+        result = manager.execute()
+        print(&quot;Inline flow executed successfully&quot;)
+
+    except Exception as exc:
+        print(f&quot;Execution failed: {exc}&quot;)
+
+if __name__ == &quot;__main__&quot;:
+    execute_inline_flow()
+</code></pre>
+<h3 id="use-cases">Use Cases</h3>
+<ul>
+<li><strong>Dynamic Flow Generation</strong>: Create flows based on runtime parameters (tenant ID, dataset type, etc.)</li>
+<li><strong>Template-Based Flows</strong>: Build flow templates and customize per execution</li>
+<li><strong>Configuration Management</strong>: Generate flows from external configuration systems</li>
+</ul>
+<hr />
+<h2 id="jupyter-notebook-integration">Jupyter Notebook Integration</h2>
+<p>The programmatic API integrates seamlessly with Jupyter notebooks for interactive pipeline development.</p>
+<h4>Prerequisites: Installing Docling Pipelines in Your Notebook Environment</h4>
+<p>Before using <code>DocpipeFlowManager</code> in Jupyter notebooks, you must install the Docling Pipelines package as a wheel (WHL) file in your notebook environment.</p>
+<p><strong>Step 1: Build the WHL Package</strong></p>
+<p>From the project root directory, use <code>uv</code> to build the wheel package:</p>
+<pre><code class="language-bash"># From project root (docling-pipelines/)
+uv build --wheel
+</code></pre>
+<p>This command will:<br />
+- Create a <code>dist/</code> directory in your project root<br />
+- Generate two files:<br />
+  - <code>docpipe-&lt;version&gt;.tar.gz</code> (source distribution)<br />
+  - <code>docpipe-&lt;version&gt;-py3-none-any.whl</code> (wheel package)</p>
+<p><strong>Example output:</strong></p>
+<pre><code>Building docling-pipelines
+  - Building sdist
+  - Built docling-pipelines-1.0.0.tar.gz
+  - Building wheel
+  - Built docling_pipelines-1.0.0-py3-none-any.whl
+</code></pre>
+<p><strong>Step 2: Install the WHL Package in Your Notebook Environment</strong></p>
+<pre><code class="language-bash">uv pip install dist/docling_pipelines-&lt;version&gt;-py3-none-any.whl
+</code></pre>
+<p><strong>Step 3: Install Jupyter (if not already installed)</strong></p>
+<pre><code class="language-bash"># Install Jupyter using uv
+uv pip install jupyter
+</code></pre>
+<p><strong>Step 2: Start Jupyter Notebook Server</strong></p>
+<p>Note: Provide the full path instead of relative path here - https://github.com/IBM/docling-pipelines/blob/main/sample_flows/quickstart/complete_pipeline_ollama.json</p>
+<p>From the project root directory:</p>
+<pre><code class="language-bash"># Start Jupyter Notebook
+jupyter notebook examples/docpipe_flow_manager/sample_jupyter_notebook.ipynb
+</code></pre>
+<p>This will:<br />
+- Start the Jupyter server (typically on <code>http://localhost:8888</code>)<br />
+- Open your default web browser automatically<br />
+- Display the Jupyter file browser showing your project directory and run results at the bottom of the page</p>
+<pre><code>
+### Benefits in Notebooks
+
+- **Cell-by-Cell Execution**: Run validation, execution, and analysis in separate cells
+- **Interactive Debugging**: Inspect results, metadata, and logs interactively
+- **Visualization**: Combine with pandas/matplotlib for result visualization
+- **Documentation**: Embed explanations and results in notebook format
+
+---
+
+## Validation Before Execution
+
+Always validate flows before execution to catch configuration errors early.
+
+### Example: Validation Pattern
+
+```python
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+
+def validate_and_execute(flow_file: str):
+    &quot;&quot;&quot;Validate flow before execution.&quot;&quot;&quot;
+    manager = DocpipeFlowManager(
+        flow_file=flow_file
+    )
+
+    # Validate the flow
+    validation_result = manager.validate()
+
+    print(&quot;Validation Results:&quot;)
+    print(f&quot;  Valid: {validation_result['valid']}&quot;)
+    print(f&quot;  Errors: {validation_result['errors']}&quot;)
+    print(f&quot;  Warnings: {validation_result['warnings']}&quot;)
+
+    # Only execute if validation passes
+    if not validation_result[&quot;valid&quot;]:
+        print(&quot;Validation failed. Aborting execution.&quot;)
+        for error in validation_result[&quot;errors&quot;]:
+            print(f&quot;  ERROR: {error}&quot;)
+        return None
+
+    # Show warnings but continue
+    if validation_result[&quot;warnings&quot;]:
+        print(&quot;Warnings detected:&quot;)
+        for warning in validation_result[&quot;warnings&quot;]:
+            print(f&quot;  WARNING: {warning}&quot;)
+
+    # Execute after successful validation
+    print(&quot;Validation passed. Executing flow...&quot;)
+    result = manager.execute()
+    print(&quot;Execution completed successfully.&quot;)
+
+    return result
+</code></pre>
+<h3 id="validation-checks">Validation Checks</h3>
+<ul>
+<li><strong>Operator Configuration</strong>: Validates operator parameters and types</li>
+<li><strong>Edge Connectivity</strong>: Ensures proper connections between operators</li>
+<li><strong>Required Fields</strong>: Checks for missing required configuration fields</li>
+<li><strong>Data Flow</strong>: Validates data flow through the pipeline</li>
+</ul>
+<hr />
+<h2 id="advanced-features">Advanced Features</h2>
+<p>The programmatic API provides advanced features for production use cases.</p>
+<h3 id="custom-job-and-flow-ids">Custom Job and Flow IDs</h3>
+<pre><code class="language-python">import uuid
+
+manager = DocpipeFlowManager(
+    flow_file=&quot;my_flow.json&quot;,
+    job_id=str(uuid.uuid4()),
+    job_run_id=str(uuid.uuid4()),
+    flow_id=&quot;prod-document-pipeline-v2&quot;,
+)
+</code></pre>
+<p><strong>Note:</strong> <code>job_id</code> and <code>job_run_id</code> must be in UUID format (36 characters). If not provided, UUIDs are auto-generated.</p>
+<h3 id="accessing-execution-metadata">Accessing Execution Metadata</h3>
+<pre><code class="language-python"># Execute the flow
+result = manager.execute()
+
+# Retrieve detailed metadata
+metadata = manager.get_execution_metadata()
+
+print(f&quot;Job ID: {metadata.get('job_id')}&quot;)
+print(f&quot;Job Run ID: {metadata.get('job_run_id')}&quot;)
+print(f&quot;Flow ID: {metadata.get('flow_id')}&quot;)
+print(f&quot;Flow Name: {metadata.get('flow_name')}&quot;)
+print(f&quot;Description: {metadata.get('description')}&quot;)
+print(f&quot;Number of Operators: {metadata.get('num_operators')}&quot;)
+print(f&quot;Flow File: {metadata.get('flow_file')}&quot;)
+</code></pre>
+<h3 id="retrieving-execution-logs">Retrieving Execution Logs</h3>
+<pre><code class="language-python"># Get all captured logs
+logs = manager.get_execution_logs()
+
+print(f&quot;Total log lines: {len(logs)}&quot;)
+
+# Filter logs by level (if needed)
+error_logs = [log for log in logs if 'ERROR' in log]
+warning_logs = [log for log in logs if 'WARNING' in log]
+
+print(f&quot;Errors: {len(error_logs)}&quot;)
+print(f&quot;Warnings: {len(warning_logs)}&quot;)
+</code></pre>
+<h3 id="listing-available-operators">Listing Available Operators</h3>
+<pre><code class="language-python"># Get operator summary (table with Owner, Attributes, Features columns)
+# Sorted by category: Ingest, Extract, Quality, Functional, VectorDB, Storage
+operators_summary = DocpipeFlowManager.list_operators()
+print(operators_summary)
+
+# Get detailed operator information (full parameters and descriptions)
+operators_detailed = DocpipeFlowManager.list_operators(verbose=True)
+print(operators_detailed)
+</code></pre>
+<p><strong>Summary table format:</strong></p>
+<ul>
+<li><strong>Owner</strong>: Operator name</li>
+<li><strong>Attributes</strong>: Count of configurable parameters</li>
+<li><strong>Features</strong>: Count of special features/capabilities</li>
+</ul>
+<hr />
+<h2 id="error-handling-and-debugging">Error Handling and Debugging</h2>
+<p>Implement robust error handling for production deployments.</p>
+<h3 id="comprehensive-error-handling-pattern">Comprehensive Error Handling Pattern</h3>
+<pre><code class="language-python">import traceback
+from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+
+def execute_with_error_handling(flow_file: str):
+    &quot;&quot;&quot;Execute flow with comprehensive error handling.&quot;&quot;&quot;
+    try:
+        manager = DocpipeFlowManager(
+            flow_file=flow_file
+        )
+
+        # Validate first
+        validation_result = manager.validate()
+        if not validation_result[&quot;valid&quot;]:
+            print(&quot;Validation failed:&quot;)
+            for error in validation_result[&quot;errors&quot;]:
+                print(f&quot;  - {error}&quot;)
+            return None
+
+        # Execute the flow
+        result = manager.execute()
+
+        # Log success
+        metadata = manager.get_execution_metadata()
+        print(f&quot;Success: {metadata.get('flow_name')} completed&quot;)
+
+        return result
+
+    except FileNotFoundError as exc:
+        print(f&quot;Flow file not found: {exc}&quot;)
+        print(&quot;Check the file path and ensure it exists.&quot;)
+
+    except ValueError as exc:
+        print(f&quot;Invalid configuration value: {exc}&quot;)
+        print(&quot;Review operator parameters in the flow definition.&quot;)
+
+    except ConnectionError as exc:
+        print(f&quot;Connection error: {exc}&quot;)
+        print(&quot;Check Ollama (port 11434) and OpenSearch (port 9200) are running.&quot;)
+
+    except Exception as exc:
+        print(f&quot;Unexpected error: {exc}&quot;)
+        print(&quot;\nFull traceback:&quot;)
+        print(traceback.format_exc())
+
+        # Retrieve logs for debugging
+        try:
+            logs = manager.get_execution_logs()
+            print(f&quot;\nCaptured logs ({len(logs)} lines):&quot;)
+            for line in logs[-20:]:  # Last 20 lines
+                print(line)
+        except:
+            print(&quot;Could not retrieve execution logs.&quot;)
+
+    return None
+</code></pre>
+<h3 id="log-level-configuration">Log Level Configuration</h3>
+<pre><code class="language-python"># Control logging via DS_LOG_LEVEL environment variable
+import os
+
+# Development: Detailed debugging information
+os.environ[&quot;DS_LOG_LEVEL&quot;] = &quot;DEBUG&quot;
+manager = DocpipeFlowManager(flow_file=&quot;flow.json&quot;)
+
+# Production: Standard information logging
+os.environ[&quot;DS_LOG_LEVEL&quot;] = &quot;INFO&quot;
+manager = DocpipeFlowManager(flow_file=&quot;flow.json&quot;)
+
+# Quiet: Only warnings and errors
+os.environ[&quot;DS_LOG_LEVEL&quot;] = &quot;WARNING&quot;
+manager = DocpipeFlowManager(flow_file=&quot;flow.json&quot;)
+
+# Critical only: Only critical errors
+os.environ[&quot;DS_LOG_LEVEL&quot;] = &quot;ERROR&quot;
+manager = DocpipeFlowManager(flow_file=&quot;flow.json&quot;)
+</code></pre>
+<p><strong>Note:</strong> The <code>log_level</code> parameter has been removed from <code>DocpipeFlowManager</code>. Use the <code>DS_LOG_LEVEL</code> environment variable instead for consistent logging across all components.</p>
+<h3 id="embedded-usage-disabling-docling-pipelines-log-configuration">Embedded Usage: Disabling Docling Pipelines Log Configuration</h3>
+<p>When Docling Pipelines is used as a library inside an application that manages its own logging<br />
+infrastructure, pass <code>configure_logging=False</code> to prevent Docling Pipelines from installing its<br />
+own handlers. All Docling Pipelines log records will then propagate to the calling application's<br />
+root logger.</p>
+<pre><code class="language-python"># Application manages its own logging — Docling Pipelines defers entirely
+manager = DocpipeFlowManager(
+    flow_file=&quot;flow.json&quot;,
+    configure_logging=False,
+)
+</code></pre>
+<p>To rename the logger prefix in the output, attach a <code>Filter</code> to the handler that<br />
+receives Docling Pipelines records:</p>
+<pre><code class="language-python">import logging
+
+class RenamingFilter(logging.Filter):
+    def filter(self, record):
+        record.name = record.name.replace(&quot;docpipe&quot;, &quot;my_app&quot;)
+        return True
+
+# Attach filter to the handler on the &quot;docpipe&quot; root logger
+docpipe_logger = logging.getLogger(&quot;docpipe&quot;)
+for handler in docpipe_logger.handlers:
+    handler.addFilter(RenamingFilter())
+</code></pre>
+<h3 id="debugging-failed-executions">Debugging Failed Executions</h3>
+<pre><code class="language-python"># After a failed execution, inspect logs
+logs = manager.get_execution_logs()
+
+# Search for specific errors
+for i, line in enumerate(logs):
+    if 'ERROR' in line or 'Exception' in line:
+        # Print context around the error
+        start = max(0, i - 3)
+        end = min(len(logs), i + 4)
+        print(f&quot;\nError context (lines {start}-{end}):&quot;)
+        for j in range(start, end):
+            print(f&quot;  {logs[j]}&quot;)
+</code></pre>
+<hr />
+<h2 id="production-considerations">Production Considerations</h2>
+<h3 id="security">Security</h3>
+<ul>
+<li><strong>Enable SSL for OpenSearch</strong>: Set <code>use_ssl: true</code> and <code>verify_certs: true</code> in production</li>
+<li><strong>Use Strong Passwords</strong>: Never hardcode passwords; use environment variables</li>
+<li><strong>Secure Credentials</strong>: Store credentials in secure vaults (AWS Secrets Manager, HashiCorp Vault, etc.)</li>
+</ul>
+<h3 id="error-handling">Error Handling</h3>
+<ul>
+<li><strong>Implement Retry Logic</strong>: Add retry mechanisms for transient failures</li>
+<li><strong>Graceful Degradation</strong>: Handle service unavailability gracefully</li>
+<li><strong>Comprehensive Logging</strong>: Log all errors with context for debugging</li>
+</ul>
+<h3 id="monitoring-and-logging">Monitoring and Logging</h3>
+<ul>
+<li><strong>Centralized Logging</strong>: Send logs to centralized logging systems (ELK, Splunk, etc.)</li>
+<li><strong>Metrics Collection</strong>: Track execution times, success rates, and resource usage</li>
+<li><strong>Alerting</strong>: Set up alerts for failures and performance degradation</li>
+</ul>
+<h3 id="scaling">Scaling</h3>
+<ul>
+<li><strong>Distributed Execution</strong>: Use Prefect work pools for large-scale processing</li>
+<li><strong>Resource Management</strong>: Monitor memory and CPU usage</li>
+<li><strong>Batch Processing</strong>: Process documents in batches to manage resource consumption</li>
+</ul>
+<h3 id="testing">Testing</h3>
+<ul>
+<li><strong>Unit Tests</strong>: Test flow generation and validation logic</li>
+<li><strong>Integration Tests</strong>: Test end-to-end flow execution with test data</li>
+<li><strong>Performance Tests</strong>: Benchmark pipeline performance with representative data</li>
+</ul>
+<hr />
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><strong><a href="../../USER_GUIDE_PIPELINE_SETUP.html">User Guide: Pipeline Setup</a></strong> - Basic setup and first pipeline</li>
+<li><strong><a href="FLOW_CONFIGURATION_GUIDE.html">Flow Configuration Guide</a></strong> - Creating and configuring flows</li>
+<li><strong><a href="ADVANCED_CONFIGURATION.html">Advanced Configuration</a></strong> - Production deployment and scaling</li>
+<li><strong><a href="../reference/OPERATORS.html">Operator Reference</a></strong> - Complete operator specifications</li>
+<li><strong><a href="../../examples/docpipe_flow_manager/">Examples Directory</a></strong> - Code examples and patterns</li>
+</ul>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#introduction">Introduction</a>
+      <a href="#setup-requirements">Setup Requirements</a>
+      <a href="#basic-usage-execute-flow-from-file">Basic Usage: Execute Flow from File</a>
+      <a href="#execute-flow-from-dictionary">Execute Flow from Dictionary</a>
+      <a href="#jupyter-notebook-integration">Jupyter Notebook Integration</a>
+      <a href="#advanced-features">Advanced Features</a>
+      <a href="#error-handling-and-debugging">Error Handling and Debugging</a>
+      <a href="#production-considerations">Production Considerations</a>
+      <a href="#related-documentation">Related Documentation</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

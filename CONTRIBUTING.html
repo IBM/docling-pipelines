@@ -1,0 +1,1317 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Contributing to docling-pipelines — Docling Pipelines</title>
+  <meta name="description" content="Contributing to docling-pipelines — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="docs/assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="docs/index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="docs/index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="docs/guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="docs/guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="docs/guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="docs/guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="docs/guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="docs/guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="docs/guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="docs/guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="docs/guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="docs/guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="docs/guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="docs/guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="docs/guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="docs/guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="docs/guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="docs/guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="docs/guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="docs/guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="docs/operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="docs/operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="docs/operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="docs/operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="docs/operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="docs/operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="docs/operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="docs/operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="docs/operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="docs/operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="docs/operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="docs/operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="docs/operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="docs/operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="docs/operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="docs/operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="docs/operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="docs/operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="docs/operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="docs/operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="docs/operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="docs/operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="docs/operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="docs/operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="docs/reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="docs/reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="docs/api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="docs/api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="docs/integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="docs/integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="docs/integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="docs/integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="docs/integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="docs/integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="docs/internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link active" href="CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="docs/index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Contributing to docling-pipelines</span>
+      </nav>
+      <h1>Contributing to docling-pipelines</h1>
+<p>Thank you for your interest in contributing to docling-pipelines! This guide will help you get started with contributing to the project.</p>
+
+<h2 id="code-of-conduct">Code of Conduct</h2>
+<h3 id="expected-behavior">Expected Behavior</h3>
+<ul>
+<li>Be respectful and inclusive in all interactions</li>
+<li>Provide constructive feedback</li>
+<li>Focus on what is best for the community</li>
+<li>Show empathy towards other community members</li>
+</ul>
+<h3 id="unacceptable-behavior">Unacceptable Behavior</h3>
+<ul>
+<li>Harassment, discrimination, or offensive comments</li>
+<li>Trolling or insulting/derogatory comments</li>
+<li>Publishing others' private information without permission</li>
+<li>Other conduct which could reasonably be considered inappropriate</li>
+</ul>
+<h3 id="reporting-issues">Reporting Issues</h3>
+<p>If you experience or witness unacceptable behavior, please report it to the project maintainers. See <a href="COMMUNITY.html">COMMUNITY.md</a> for contact details and escalation process.</p>
+<h2 id="getting-started">Getting Started</h2>
+<h3 id="prerequisites">Prerequisites</h3>
+<ul>
+<li><strong>Python 3.12</strong> (required)</li>
+<li><strong>uv</strong> package manager (<a href="https://docs.astral.sh/uv/">installation guide</a>)</li>
+<li><strong>Git</strong> for version control</li>
+<li><strong>Ollama</strong> (optional, for LLM operators)</li>
+<li><strong>OpenSearch</strong> (optional, for vector database operators)</li>
+</ul>
+<h3 id="fork-and-clone">Fork and Clone</h3>
+<ol>
+<li>Fork the repository on GitHub</li>
+<li>Clone your fork locally:</li>
+</ol>
+<pre><code class="language-bash">git clone https://github.com/YOUR-USERNAME/docling-pipelines.git
+cd docling-pipelines
+</code></pre>
+<ol>
+<li>Add the upstream repository:</li>
+</ol>
+<pre><code class="language-bash">git remote add upstream https://github.com/ORIGINAL-OWNER/docling-pipelines.git
+</code></pre>
+<h2 id="development-setup">Development Setup</h2>
+<h3 id="quick-setup-automated">Quick Setup (Automated)</h3>
+<p>Use the automated setup script for a complete environment:</p>
+<pre><code class="language-bash">./scripts/setup_docling_pipelines_environment.sh
+</code></pre>
+<p>This installs Python 3.12, uv, Ollama, OpenSearch, and all dependencies.</p>
+<h3 id="manual-setup">Manual Setup</h3>
+<ol>
+<li><strong>Install uv</strong> (if not already installed):</li>
+</ol>
+<pre><code class="language-bash">curl -LsSf https://astral.sh/uv/install.sh | sh
+</code></pre>
+<ol>
+<li><strong>Install dependencies</strong>:</li>
+</ol>
+<pre><code class="language-bash"># From project root
+uv sync --extra dev
+</code></pre>
+<ol>
+<li><strong>Activate the virtual environment</strong>:</li>
+</ol>
+<pre><code class="language-bash"># From project root
+source .venv/bin/activate
+</code></pre>
+<ol>
+<li><strong>Install pre-commit hooks</strong>:</li>
+</ol>
+<pre><code class="language-bash"># From project root
+uv run pre-commit install
+</code></pre>
+<h3 id="verify-installation">Verify Installation</h3>
+<p>Run tests to verify your setup:</p>
+<pre><code class="language-bash"># From project root with activated venv
+pytest -v
+</code></pre>
+<h2 id="development-workflow">Development Workflow</h2>
+<h3 id="branch-naming-conventions">Branch Naming Conventions</h3>
+<p>Use descriptive branch names following these patterns:</p>
+<ul>
+<li><code>feature/description</code> - New features</li>
+<li><code>fix/description</code> - Bug fixes</li>
+<li><code>docs/description</code> - Documentation updates</li>
+<li><code>refactor/description</code> - Code refactoring</li>
+<li><code>test/description</code> - Test additions or modifications</li>
+</ul>
+<p>Examples:<br />
+- <code>feature/add-pdf-extractor</code><br />
+- <code>fix/opensearch-connection-timeout</code><br />
+- <code>docs/update-api-reference</code></p>
+<h3 id="creating-a-feature-branch">Creating a Feature Branch</h3>
+<ol>
+<li><strong>Sync with upstream</strong>:</li>
+</ol>
+<pre><code class="language-bash">git checkout main
+git pull upstream main
+</code></pre>
+<ol>
+<li><strong>Create your feature branch</strong>:</li>
+</ol>
+<pre><code class="language-bash">git checkout -b feature/your-feature-name
+</code></pre>
+<h3 id="making-changes">Making Changes</h3>
+<ol>
+<li>
+<p><strong>Make your changes</strong> following the <a href="#code-style-guidelines">Code Style Guidelines</a></p>
+</li>
+<li>
+<p><strong>Run code quality checks</strong>:</p>
+</li>
+</ol>
+<pre><code class="language-bash"># Run pre-commit hooks (from project root)
+uv run pre-commit run --all-files
+
+# Or run individual tools (from project root)
+uv run ruff check --fix .
+uv run ruff format .
+uv run mypy .
+</code></pre>
+<ol>
+<li><strong>Run tests</strong>:</li>
+</ol>
+<pre><code class="language-bash"># From project root with activated venv
+uv run pytest -v
+
+# Run with coverage
+uv run pytest -v --cov=src --cov-report=html
+</code></pre>
+<ol>
+<li><strong>Commit your changes</strong> following <a href="#commit-message-guidelines">Commit Message Guidelines</a></li>
+</ol>
+<h3 id="job-metadata-aggregation-reminder">Job Metadata Aggregation Reminder</h3>
+<p>If your change adds or modifies operator-emitted metadata used in job stats:<br />
+- review <a href="src/docpipe/core/job_management/application/aggregation/strategies.py"><code>DEFAULT_STRATEGIES</code></a> in <a href="src/docpipe/core/job_management/application/aggregation/strategies.py"><code>strategies.py</code></a><br />
+- add or update aggregation tests when the field should not use the default <code>LAST</code> behavior<br />
+- update <a href="docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><code>docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.md</code></a> when the change introduces a new aggregation pattern or maintainer rule</p>
+<h2 id="code-style-guidelines">Code Style Guidelines</h2>
+<h3 id="python-style-guide">Python Style Guide</h3>
+<p>We follow <strong>PEP 8</strong> with some project-specific conventions:</p>
+<h4>Line Length</h4>
+<ul>
+<li>Maximum line length: <strong>120 characters</strong></li>
+</ul>
+<h4>Import Organization</h4>
+<p>Imports should be organized in the following order:<br />
+1. Standard library imports<br />
+2. Third-party imports<br />
+3. Local application imports</p>
+<p>Add a blank line between each import group.</p>
+<p>Use <code>ruff</code> for automatic import sorting:</p>
+<pre><code class="language-bash">uv run ruff check --fix .
+</code></pre>
+<h4>Type Hints</h4>
+<ul>
+<li><strong>Always use type hints</strong> for function parameters and return values</li>
+<li>Use <code>typing</code> module for complex types</li>
+</ul>
+<pre><code class="language-python">from typing import List, Dict, Optional
+
+def process_documents(
+    file_paths: List[str],
+    config: Dict[str, any],
+    batch_size: Optional[int] = None
+) -&gt; List[Dict[str, any]]:
+    &quot;&quot;&quot;Process documents with given configuration.&quot;&quot;&quot;
+    pass
+</code></pre>
+<h4>Naming Conventions</h4>
+<ul>
+<li><strong>Classes</strong>: <code>PascalCase</code> (e.g., <code>DocumentProcessor</code>, <code>VectorDBOperator</code>)</li>
+<li><strong>Functions/Methods</strong>: <code>snake_case</code> (e.g., <code>process_document</code>, <code>get_embeddings</code>)</li>
+<li><strong>Constants</strong>: <code>UPPER_SNAKE_CASE</code> (e.g., <code>MAX_BATCH_SIZE</code>, <code>DEFAULT_TIMEOUT</code>)</li>
+<li><strong>Private methods</strong>: Prefix with <code>_</code> (e.g., <code>_validate_config</code>)</li>
+</ul>
+<h4>String Quotes</h4>
+<ul>
+<li>Use <strong>double quotes</strong> for strings: <code>"example"</code></li>
+<li>Configured automatically by <code>ruff format</code></li>
+</ul>
+<h4>Documentation Standards</h4>
+<ul>
+<li><strong>Docstrings</strong>: Use Google-style docstrings for all public functions and classes</li>
+<li><strong>Comments</strong>: Use inline comments sparingly, prefer self-documenting code</li>
+</ul>
+<pre><code class="language-python">def extract_text(file_path: str, use_ocr: bool = False) -&gt; str:
+    &quot;&quot;&quot;Extract text content from a document.
+
+    Args:
+        file_path: Path to the document file
+        use_ocr: Whether to use OCR for image-based documents
+
+    Returns:
+        Extracted text content
+
+    Raises:
+        FileNotFoundError: If the file does not exist
+        ValueError: If the file format is not supported
+    &quot;&quot;&quot;
+    pass
+</code></pre>
+<h3 id="operator-development-guidelines">Operator Development Guidelines</h3>
+<h4>For Operator Users: Accessing Operator Metadata</h4>
+<p>Use the <a href="src/docpipe/core/operators/operator_metadata.py"><code>OperatorMetadata</code></a> class to query metadata about available operators, their features, and requirements:</p>
+<pre><code class="language-python">from docpipe.core.operators.operator_metadata import OperatorMetadata
+
+# Initialize metadata manager
+metadata = OperatorMetadata()
+
+# Get metadata for all operators
+all_operators = metadata.get_operator_metadata(internal_features=False)
+
+# Access specific operator information
+extract_meta = all_operators['extract_operator']
+print(extract_meta['label'])           # &quot;Extract Operator&quot;
+print(extract_meta['category'])        # &quot;Extract&quot;
+print(extract_meta['required_features'])  # []
+
+# Get features from a specific operator
+features = metadata.get_features(short_name=&quot;extract_operator&quot;)
+
+# Get only filterable features
+filterable = metadata.get_features(
+    short_name=&quot;extract_operator&quot;,
+    purpose=OperatorConstants.Config.AVAILABLE_FOR_FILTER
+)
+
+# Get required input features for an operator
+required = metadata.required_feature_names(short_name=&quot;chunker&quot;)
+print(required)  # ['content']
+
+# Build feature-to-operator mapping
+feature_map = metadata.get_feature_operators_map()
+print(feature_map['content'])  # ['Extract Docling', 'Extract Entities (Ollama)']
+</code></pre>
+<p><strong>Key Methods:</strong></p>
+<ul>
+<li><code>get_operator_metadata()</code>: Returns metadata for all registered operators</li>
+<li><code>get_features()</code>: Gets features from a specific operator, optionally filtered by purpose</li>
+<li><a href="src/docpipe/core/operators/operator_metadata.py:255"><code>required_feature_names()</code></a>: Returns list of required input features for an operator</li>
+<li><a href="src/docpipe/core/operators/operator_metadata.py:278"><code>get_feature_operators_map()</code></a>: Builds reverse mapping from features to operators that produce them</li>
+</ul>
+<h4>For Operator Developers: Implementing Metadata Methods</h4>
+<p>When creating new operators, you <strong>must implement</strong> two static methods so <a href="src/docpipe/core/operators/operator_metadata.py"><code>OperatorMetadata</code></a> can discover and aggregate your operator's information:</p>
+<p><strong>Required Static Methods:</strong></p>
+<pre><code class="language-python">@staticmethod
+def get_metadata() -&gt; dict[str, Any]:
+    &quot;&quot;&quot;Return operator metadata for discovery by OperatorMetadata class.&quot;&quot;&quot;
+    return {
+        OperatorConstants.Misc.CATEGORY: MyOperator.category.value,
+        OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: MyOperator.is_available(),
+        OperatorConstants.Misc.LABEL: &quot;My Custom Operator&quot;,
+        OperatorConstants.Misc.DESCRIPTION: &quot;Description of what this operator does&quot;,
+        OperatorConstants.Config.FEATURES: {
+            &quot;output_feature&quot;: {
+                &quot;type&quot;: &quot;string&quot;,
+                &quot;description&quot;: &quot;Feature produced by this operator&quot;,
+                &quot;required&quot;: False,
+                &quot;available_for_filter&quot;: True,
+                &quot;available_for_vector_db&quot;: True,
+            }
+        }
+    }
+
+@staticmethod
+def get_required_features() -&gt; list[str]:
+    &quot;&quot;&quot;Return list of required input feature names.&quot;&quot;&quot;
+    return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+</code></pre>
+<p><strong>Implementation Requirements:</strong></p>
+<ul>
+<li><strong>Static Methods</strong>: Use <code>@staticmethod</code> decorator - these methods must not access instance state</li>
+<li><strong>Class-Level Attributes</strong>: Reference class attributes (e.g., <code>MyOperator.category</code>, <code>MyOperator.is_available()</code>)</li>
+<li><strong>No Instance Access</strong>: Do not use <code>self</code> - information must be determinable without instantiation</li>
+<li><strong>Type Hints</strong>: Always include return type annotations</li>
+<li><strong>Metadata Keys</strong>: Use constants from <code>OperatorConstants</code></li>
+</ul>
+<p><strong>Complete Example:</strong></p>
+<pre><code class="language-python">from typing import Any
+import pyarrow as pa
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+
+class MyCustomOperator(AbstractOperator):
+    &quot;&quot;&quot;Custom operator that processes documents.&quot;&quot;&quot;
+
+    short_name: str = OperatorConstants.Operators.MY_CUSTOM
+    category: OperatorCategory = OperatorCategory.Functional
+    owner: str = &quot;custom&quot;  # REQUIRED: Identifies this as a custom operator
+
+    def __init__(self, *, config: dict[str, Any]) -&gt; None:
+        &quot;&quot;&quot;Initialize with runtime configuration.&quot;&quot;&quot;
+        super().__init__(config=config)
+        # Instance-level configuration from flow JSON
+        self.param1 = config.get(&quot;param1&quot;)
+
+    @staticmethod
+    def get_metadata() -&gt; dict[str, Any]:
+        &quot;&quot;&quot;Provide metadata for OperatorMetadata discovery.
+
+        This static method is called by OperatorMetadata.get_operator_metadata()
+        to collect information about this operator without instantiation.
+        &quot;&quot;&quot;
+        return {
+            OperatorConstants.Misc.CATEGORY: OperatorCategory.Functional.value,
+            OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: MyCustomOperator.is_available(),
+            OperatorConstants.Misc.LABEL: &quot;My Custom Operator&quot;,
+            OperatorConstants.Misc.DESCRIPTION: &quot;Processes documents with custom logic&quot;,
+            OperatorConstants.Config.FEATURES: {
+                &quot;processed_content&quot;: {
+                    &quot;type&quot;: &quot;string&quot;,
+                    &quot;description&quot;: &quot;Processed document content&quot;,
+                    &quot;required&quot;: False,
+                    &quot;available_for_filter&quot;: True,
+                    &quot;available_for_vector_db&quot;: True,
+                }
+            }
+        }
+
+    @staticmethod
+    def get_required_features() -&gt; list[str]:
+        &quot;&quot;&quot;Specify required input features.
+
+        This static method is called by OperatorMetadata to determine
+        what features this operator needs from previous operators.
+        &quot;&quot;&quot;
+        return [OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+
+    def transform(self, table: pa.Table) -&gt; tuple[list[pa.Table], dict[str, Any]]:
+        &quot;&quot;&quot;Process PyArrow table using instance configuration.&quot;&quot;&quot;
+        # Implementation using self.param1 and other instance attributes
+        pass
+
+### Built-in Docling Pipelines Operator Requirements
+
+When creating built-in docpipe operators (operators that ship with the docpipe package), you **must**:
+
+1. **Set the owner attribute explicitly:**
+   ```python
+   from docpipe.core.constants.constants import DocpipeConstants
+
+   class MyDocpipeOperator(AbstractOperator):
+       short_name: str = &quot;my_docpipe_operator&quot;
+       category: OperatorCategory = OperatorCategory.Functional
+       owner: str = DocpipeConstants.OWNER_DOCPIPE  # REQUIRED for built-in operators
+   ```
+
+2. **Import DocpipeConstants:**
+   All built-in operators must import `DocpipeConstants` to access the `OWNER_DOCPIPE` constant:
+   ```python
+   from docpipe.core.constants.constants import DocpipeConstants
+   ```
+
+3. **Follow all other operator requirements** (implement `get_metadata()`, `get_required_features()`, etc.)
+
+4. **Register the operator in the operator registry:**
+
+   All built-in docpipe operators must be registered in the operator registry frozenset to be discoverable by the operator factory.
+
+   **Steps to register:**
+
+   a. Add the import in [`src/docpipe/core/operators/operator_registry.py`](src/docpipe/core/operators/operator_registry.py):
+   ```python
+   from docpipe.core.operators.quality.my_operator import MyOperator
+   ```
+
+   b. Add the operator class to the `DOCPIPE_OPERATORS` frozenset in the appropriate category section:
+   ```python
+   DOCPIPE_OPERATORS = frozenset(
+       {
+           # ... other operators ...
+           # Quality
+           MyOperator,  # Add your operator here
+           # ... other operators ...
+       }
+   )
+   ```
+
+   **Important:** Without registration in the frozenset, the operator will not be loaded by the operator factory and will fail with &quot;Failed to get operator&quot; errors when used in flows.
+
+   **Verification:** After registration, verify the operator appears in the list:
+   ```bash
+   docling-pipelines --list-operators
+   ```
+
+### Custom Operator Requirements
+
+When creating custom operators, you **must**:
+
+1. **Set the owner attribute as a class variable:**
+
+   The `owner` attribute must be declared at the class level, alongside `short_name` and `category`.
+
+   **To override an existing docpipe operator**, use the **same `short_name`** as the docpipe operator:
+
+   ```python
+   class CustomChunkerOperator(AbstractOperator):
+       &quot;&quot;&quot;Custom chunker that overrides docpipe's chunker.&quot;&quot;&quot;
+
+       short_name: str = OperatorConstants.Operators.CHUNKER  # Same as docpipe!
+       category: OperatorCategory = OperatorCategory.Functional
+       owner: str = &quot;custom&quot;  # REQUIRED: Gives priority 1 (overrides docpipe)
+
+       def __init__(self, *, config: dict[str, Any]) -&gt; None:
+           super().__init__(config=config)
+   ```
+
+   **To create a new custom operator**, use a unique `short_name`:
+
+   ```python
+   class MyNewOperator(AbstractOperator):
+       &quot;&quot;&quot;Completely new custom operator.&quot;&quot;&quot;
+
+       short_name: str = &quot;my_new_operator&quot;  # Unique name
+       category: OperatorCategory = OperatorCategory.Functional
+       owner: str = &quot;custom&quot;  # REQUIRED: Must be set to &quot;custom&quot;
+
+       def __init__(self, *, config: dict[str, Any]) -&gt; None:
+           super().__init__(config=config)
+   ```
+
+   **Why This Matters:**
+   - Custom operators with `owner=&quot;custom&quot;` receive **priority 100**
+   - Docling Pipelines operators with `owner=&quot;docpipe&quot;` receive **priority 200**
+   - When both have the same `short_name`, only the custom operator (priority 100) is loaded
+   - Without setting `owner=&quot;custom&quot;`, your operator inherits `owner=None` from `AbstractOperator`, which will be treated as a custom operator
+   - The `owner` attribute appears in operator metadata returned by `get_operator_metadata()`
+   - **All built-in docpipe operators must explicitly set** `owner = DocpipeConstants.OWNER_DOCPIPE`
+   - To register a tier with higher precedence than `OWNER_CUSTOM`, see [External Operator Integration — Registering a Custom Priority Tier](docs/guides/EXTERNAL_OPERATOR_INTEGRATION.md#registering-a-custom-priority-tier)
+
+2. **Use keyword-only arguments:**
+   All function parameters must use `*` to enforce keyword-only arguments:
+   ```python
+   def __init__(self, *, config: dict[str, Any]) -&gt; None:
+       super().__init__(config=config)
+   ```
+
+3. **Implement required static methods:**
+   - `get_metadata()` - Returns operator metadata
+   - `get_required_features()` - Returns required input features
+
+4. **Follow the operator contract:**
+   - Inherit from `AbstractOperator`
+   - Implement `transform()` method
+   - Return `tuple[list[pa.Table], dict[str, Any]]`
+
+### Environment Variables for Custom Operators
+
+**DOCPIPE_CUSTOM_OPERATORS:**
+
+Comma-separated list of Python package paths containing custom operators.
+
+```bash
+export DOCPIPE_CUSTOM_OPERATORS=&quot;my_company.operators,another_package.ops&quot;
+</code></pre>
+<p><strong>Requirements:</strong><br />
+- Must be a string value (non-string values are ignored with a warning)<br />
+- Package paths separated by commas<br />
+- Packages must be importable from PYTHONPATH</p>
+<p><strong>DOCPIPE_ENABLE_CUSTOM_OPERATORS:</strong></p>
+<p>Boolean flag to enable/disable custom operator loading (default: <code>true</code>).</p>
+<pre><code class="language-bash">export DOCPIPE_ENABLE_CUSTOM_OPERATORS=&quot;true&quot;  # or &quot;false&quot;
+</code></pre>
+<p><strong>Validation:</strong></p>
+<p>The operator factory validates the <code>DOCPIPE_CUSTOM_OPERATORS</code> environment variable to ensure it's a string. Non-string values will trigger a warning and be ignored to prevent factory initialization failures. See <a href="src/docpipe/core/orchestration/operator_factory.py:35"><code>OperatorFactory</code></a> for implementation.</p>
+<pre><code>
+**Why Static Methods?**
+
+The static method pattern enables [`OperatorMetadata`](src/docpipe/core/operators/operator_metadata.py) to:
+- Discover operator capabilities without instantiation
+- Validate flows before execution
+- Build feature dependency graphs
+- Provide metadata to UI and API consumers
+- Improve performance by avoiding unnecessary object creation
+
+**Distinction Between Class and Instance:**
+
+- **Class-level information** (static methods): Operator capabilities, features, and requirements - same for all instances
+- **Instance-level configuration** (`__init__`): Runtime parameters from flow JSON - specific to each operator instance in a pipeline
+
+### Code Quality Tools
+
+The project uses the following tools (configured in `pyproject.toml`):
+
+- **Ruff**: Linting and formatting (replaces black, isort, flake8)
+- **mypy**: Static type checking
+- **detect-secrets**: Prevent committing secrets
+
+All tools run automatically via pre-commit hooks.
+
+## Testing Requirements
+
+### Test Organization
+
+Tests are organized by type:
+
+- **Unit tests**: `tests/unit/` - Fast, isolated tests
+- **Integration tests**: `tests/integration/` - Tests with external dependencies
+
+### Writing Tests
+
+1. **Create test files** matching the pattern `test_*.py`
+2. **Use pytest fixtures** from `tests/conftest.py`
+3. **Mark tests appropriately**:
+
+```python
+import pytest
+
+@pytest.mark.unit
+def test_document_processor():
+    &quot;&quot;&quot;Test document processing logic.&quot;&quot;&quot;
+    pass
+
+@pytest.mark.integration
+def test_opensearch_integration():
+    &quot;&quot;&quot;Test OpenSearch integration.&quot;&quot;&quot;
+    pass
+</code></pre>
+<h3 id="running-tests">Running Tests</h3>
+<h4>Default Behavior (All Tests)</h4>
+<p>By default, <strong>all tests run locally</strong> without any filtering:</p>
+<pre><code class="language-bash"># Run all tests (including slow tests)
+pytest -v
+
+# Run all tests with coverage
+pytest -v --cov=src --cov-report=html
+</code></pre>
+<h4>Filtering Tests by Speed</h4>
+<p>The project uses pytest markers to categorize tests by execution speed. This allows you to run fast tests during development and slow tests before committing changes.</p>
+<p><strong>Run only fast tests (exclude slow tests):</strong></p>
+<pre><code class="language-bash"># Exclude slow tests - useful for rapid development iteration
+pytest -v -m &quot;not slow&quot;
+</code></pre>
+<p><strong>Run only slow tests:</strong></p>
+<pre><code class="language-bash"># Run only slow tests - useful before committing changes
+pytest -v -m slow
+</code></pre>
+<p><strong>Why filter by speed?</strong><br />
+- <strong>Fast tests</strong> (&lt; 1 second): Run frequently during development for quick feedback<br />
+- <strong>Slow tests</strong>: Run before committing to ensure comprehensive validation<br />
+- <strong>CI/CD</strong>: GitHub Actions CI excludes slow tests to keep build times reasonable</p>
+<h4>The @pytest.mark.slow Marker</h4>
+<p>Mark slow-running tests (&gt; 1 second) with the <code>@pytest.mark.slow</code> decorator:</p>
+<pre><code class="language-python">import pytest
+
+@pytest.mark.slow
+def test_extract_operator_with_large_document():
+    &quot;&quot;&quot;Test extraction on large documents (slow test).&quot;&quot;&quot;
+    # This test takes several seconds to complete
+    pass
+
+def test_extract_operator_basic():
+    &quot;&quot;&quot;Test basic extraction (fast test).&quot;&quot;&quot;
+    # This test completes in &lt; 1 second
+    pass
+</code></pre>
+<p><strong>When to use @pytest.mark.slow:</strong><br />
+- Tests that process large documents or datasets<br />
+- Tests with external service calls (even with mocking if slow)<br />
+- Tests that perform complex computations<br />
+- Tests that take &gt; 1 second to complete</p>
+<p><strong>Important for ExtractOperator developers:</strong><br />
+- Always run slow tests before committing changes to ExtractOperator<br />
+- Slow tests validate complex extraction scenarios and edge cases<br />
+- Use <code>pytest -v -m slow tests/unit/operators/extract/</code> to run ExtractOperator slow tests</p>
+<h4>Filtering by Test Type</h4>
+<pre><code class="language-bash"># Run only unit tests
+pytest -m unit -v
+
+# Run only integration tests
+pytest -m integration -v
+
+# Run fast unit tests only
+pytest -m &quot;unit and not slow&quot; -v
+
+# Run specific test file
+pytest tests/unit/operators/test_chunker.py -v
+</code></pre>
+<h4>Local vs CI Testing</h4>
+<p><strong>Local Development:</strong><br />
+- All tests run by default (no filtering unless you specify markers)<br />
+- Use <code>-m "not slow"</code> during rapid development for faster feedback<br />
+- Run slow tests before committing with <code>-m slow</code></p>
+<p><strong>GitHub Actions CI:</strong><br />
+- Automatically excludes slow tests to maintain reasonable build times<br />
+- Configured in the CI workflow with <code>-m "not slow"</code><br />
+- Ensures fast feedback on pull requests</p>
+<p><strong>Best Practice:</strong></p>
+<pre><code class="language-bash"># During development (fast feedback)
+pytest -v -m &quot;not slow&quot;
+
+# Before committing (comprehensive validation)
+pytest -v
+
+# Before committing ExtractOperator changes (critical validation)
+pytest -v -m slow tests/unit/operators/extract/
+</code></pre>
+<h3 id="test-coverage-expectations">Test Coverage Expectations</h3>
+<ul>
+<li><strong>New features</strong>: Minimum 80% coverage</li>
+<li><strong>Bug fixes</strong>: Add tests that reproduce the bug</li>
+<li><strong>Critical paths</strong>: Aim for 90%+ coverage</li>
+</ul>
+<p>View coverage report:</p>
+<pre><code class="language-bash">open htmlcov/index.html  # macOS
+xdg-open htmlcov/index.html  # Linux
+</code></pre>
+<h3 id="test-best-practices">Test Best Practices</h3>
+<ul>
+<li>Write clear, descriptive test names</li>
+<li>One assertion per test when possible</li>
+<li>Use fixtures for common setup</li>
+<li>Mock external dependencies in unit tests</li>
+<li>Clean up resources in teardown</li>
+</ul>
+<h2 id="pull-request-process">Pull Request Process</h2>
+<h3 id="before-submitting">Before Submitting</h3>
+<ol>
+<li><strong>Sync with upstream main</strong>:</li>
+</ol>
+<pre><code class="language-bash">git checkout main
+git pull upstream main
+git checkout your-feature-branch
+git rebase main
+</code></pre>
+<ol>
+<li><strong>Run all checks</strong>:</li>
+</ol>
+<pre><code class="language-bash"># Code quality (from project root)
+uv run pre-commit run --all-files
+
+# Tests (from project root)
+uv run pytest -v --cov=src
+</code></pre>
+<ol>
+<li><strong>Update documentation</strong> if needed (see <a href="#documentation-requirements">Documentation Requirements</a>)</li>
+</ol>
+<h3 id="pr-title-format">PR Title Format</h3>
+<p>Use clear, descriptive titles following this format:</p>
+<pre><code>&lt;type&gt;: &lt;short description&gt;
+</code></pre>
+<p>Types:<br />
+- <code>feat</code>: New feature<br />
+- <code>fix</code>: Bug fix<br />
+- <code>docs</code>: Documentation changes<br />
+- <code>refactor</code>: Code refactoring<br />
+- <code>test</code>: Test additions or modifications<br />
+- <code>chore</code>: Maintenance tasks</p>
+<p>Examples:<br />
+- <code>feat: Add semantic chunking operator</code><br />
+- <code>fix: Resolve OpenSearch connection timeout</code><br />
+- <code>docs: Update API reference for VectorDB operator</code></p>
+<h3 id="pr-description">PR Description</h3>
+<p>Include in your PR description:</p>
+<ol>
+<li><strong>Summary</strong>: Brief overview of changes</li>
+<li><strong>Motivation</strong>: Why this change is needed</li>
+<li><strong>Changes</strong>: Detailed list of modifications</li>
+<li><strong>Testing</strong>: How you tested the changes</li>
+<li><strong>Screenshots</strong>: If applicable (UI changes)</li>
+<li><strong>Breaking Changes</strong>: If any</li>
+<li><strong>Related Issues</strong>: Link to related issues</li>
+</ol>
+<p>Template:</p>
+<pre><code class="language-markdown">## Summary
+Brief description of the changes
+
+## Motivation
+Why this change is needed
+
+## Changes
+- Change 1
+- Change 2
+- Change 3
+
+## Testing
+- [ ] Unit tests added/updated
+- [ ] Integration tests added/updated
+- [ ] Manual testing performed
+
+## Breaking Changes
+None / List any breaking changes
+
+## Related Issues
+Closes #123
+</code></pre>
+<h3 id="required-checks">Required Checks</h3>
+<p>All PRs must pass:</p>
+<ul>
+<li>✅ Pre-commit hooks (ruff, mypy, detect-secrets)</li>
+<li>✅ Unit tests</li>
+<li>✅ Integration tests (if applicable)</li>
+<li>✅ Code coverage threshold</li>
+<li>✅ Documentation updates (if needed)</li>
+<li>✅ All commits carry a <code>Signed-off-by</code> trailer (DCO — see <a href="#dco-sign-off">DCO Sign-off</a> below)</li>
+<li>✅ All commits are GPG-verified (see <a href="#verified-commits">Verified Commits</a> below)</li>
+</ul>
+<h3 id="review-process">Review Process</h3>
+<ol>
+<li><strong>Automated checks</strong> run on PR submission</li>
+<li><strong>Maintainer review</strong> - typically within 2-3 business days</li>
+<li><strong>Address feedback</strong> - make requested changes</li>
+<li><strong>Approval</strong> - at least one maintainer approval required</li>
+<li><strong>Merge</strong> - maintainer will merge after approval</li>
+</ol>
+<h3 id="merge-requirements">Merge Requirements</h3>
+<ul>
+<li>All checks passing</li>
+<li>At least one maintainer approval</li>
+<li>No unresolved conversations</li>
+<li>Up-to-date with main branch</li>
+<li><strong>All commits must include a <code>Signed-off-by</code> trailer</strong> — the DCO bot blocks merging without it</li>
+<li><strong>All commits must be GPG-verified</strong> — PRs containing unverified commits will not be merged</li>
+</ul>
+<h3 id="dco-sign-off">DCO Sign-off</h3>
+<p>Every commit must carry a <code>Signed-off-by</code> trailer. This is enforced automatically by the<br />
+<a href="https://probot.github.io/apps/dco/">DCO bot</a> and is a hard blocker for merging.</p>
+<p>The sign-off is your declaration that you authored the change and have the right to submit it<br />
+under the project licence (see <a href="https://developercertificate.org/">Developer Certificate of Origin</a>).</p>
+<p><strong>How to add the sign-off:</strong></p>
+<pre><code class="language-bash"># Append -s to every commit command
+git commit -s -m &quot;feat: my change&quot;
+</code></pre>
+<p>To sign off automatically on every commit, add this to your global git config:</p>
+<pre><code class="language-bash">git config --global format.signoff true
+</code></pre>
+<p><strong>Fixing missing sign-offs before review:</strong></p>
+<pre><code class="language-bash"># Single commit
+git commit --amend --no-edit -s
+
+# Multiple commits — rebase and sign each
+git rebase -i HEAD~N   # replace N with the number of commits
+# Mark each as 'edit', then for each stop:
+git commit --amend --no-edit -s
+git rebase --continue
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> DCO sign-off is separate from GPG verification. Both are required.</p>
+</blockquote>
+<h3 id="verified-commits">Verified Commits</h3>
+<p>Every commit merged into <code>main</code> must be GPG-signed and show the <strong>Verified</strong> badge on GitHub.</p>
+<p><strong>Why verified commits?</strong></p>
+<p>Verified commits cryptographically prove that a commit was authored by the person whose name is on it,<br />
+protecting the repository from commit spoofing.</p>
+<p><strong>How to set up GPG signing:</strong></p>
+<p>For the full walkthrough, see the<br />
+<a href="https://docs.github.com/en/authentication/managing-commit-signature-verification">GitHub documentation on managing commit signature verification</a>.<br />
+Quick steps:</p>
+<ol>
+<li><strong>Generate a GPG key</strong> (skip if you already have one):</li>
+</ol>
+<pre><code class="language-bash">gpg --full-generate-key
+# Choose: RSA and RSA, 4096 bits, no expiry (or your preference)
+</code></pre>
+<ol>
+<li><strong>Export your public key and add it to GitHub:</strong></li>
+</ol>
+<pre><code class="language-bash">gpg --armor --export YOUR_KEY_ID
+# Copy the output and paste it at https://github.com/settings/keys → New GPG key
+</code></pre>
+<ol>
+<li><strong>Configure Git to sign all commits automatically:</strong></li>
+</ol>
+<pre><code class="language-bash">git config --global user.signingkey YOUR_KEY_ID
+git config --global commit.gpgsign true
+</code></pre>
+<ol>
+<li><strong>Verify a commit is signed:</strong></li>
+</ol>
+<pre><code class="language-bash">git log --show-signature -1
+# Output should include &quot;gpg: Good signature from ...&quot;
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> GPG verification is separate from DCO sign-off. Both are required.</p>
+</blockquote>
+<p><strong>Fixing unverified commits before review:</strong></p>
+<p>If your commits are not yet GPG-signed, amend and force-push before requesting a review:</p>
+<pre><code class="language-bash"># Single commit — add both sign-off and GPG signature in one step
+git commit --amend --no-edit -s -S
+
+# Multiple commits — interactive rebase, sign each
+git rebase -i HEAD~N   # replace N with the number of commits
+# Mark each as 'edit', then for each stop:
+git commit --amend --no-edit -s -S
+git rebase --continue
+</code></pre>
+<h2 id="commit-message-guidelines">Commit Message Guidelines</h2>
+<h3 id="format">Format</h3>
+<pre><code>&lt;type&gt;(&lt;scope&gt;): &lt;subject&gt;
+
+&lt;body&gt;
+
+&lt;footer&gt;
+</code></pre>
+<h3 id="type">Type</h3>
+<ul>
+<li><code>feat</code>: New feature</li>
+<li><code>fix</code>: Bug fix</li>
+<li><code>docs</code>: Documentation changes</li>
+<li><code>style</code>: Code style changes (formatting, no logic change)</li>
+<li><code>refactor</code>: Code refactoring</li>
+<li><code>test</code>: Test additions or modifications</li>
+<li><code>chore</code>: Maintenance tasks</li>
+</ul>
+<h3 id="scope">Scope</h3>
+<p>Optional, indicates the area of change:<br />
+- <code>operators</code>: Operator-related changes<br />
+- <code>orchestrator</code>: Orchestration logic<br />
+- <code>api</code>: API changes<br />
+- <code>cli</code>: CLI changes<br />
+- <code>tests</code>: Test-related changes</p>
+<h3 id="subject">Subject</h3>
+<ul>
+<li>Use imperative mood: "add" not "added" or "adds"</li>
+<li>Don't capitalize first letter</li>
+<li>No period at the end</li>
+<li>Maximum 50 characters</li>
+</ul>
+<h3 id="body">Body</h3>
+<ul>
+<li>Explain what and why, not how</li>
+<li>Wrap at 72 characters</li>
+<li>Separate from subject with blank line</li>
+</ul>
+<h3 id="footer">Footer</h3>
+<ul>
+<li>Reference issues: <code>Closes #123</code>, <code>Fixes #456</code></li>
+<li>Note breaking changes: <code>BREAKING CHANGE: description</code></li>
+<li><strong>DCO sign-off every commit</strong> — use <code>git commit -s</code> or set <code>format.signoff = true</code> globally</li>
+<li><strong>GPG sign every commit</strong> — use <code>git commit -S</code> or set <code>commit.gpgsign = true</code> globally</li>
+</ul>
+<h3 id="examples">Examples</h3>
+<p><strong>Good commits:</strong></p>
+<pre><code>feat(operators): add semantic chunking operator
+
+Implement semantic chunking using sentence transformers for
+context-aware document splitting. Includes configurable
+similarity threshold and minimum chunk size.
+
+Closes #234
+</code></pre>
+<pre><code>fix(opensearch): resolve connection timeout issue
+
+Increase default timeout from 30s to 60s and add retry logic
+for transient connection failures.
+
+Fixes #456
+</code></pre>
+<pre><code>docs: update API reference for VectorDB operator
+
+Add examples for OpenSearch configuration and clarify
+parameter descriptions.
+</code></pre>
+<p><strong>Bad commits:</strong></p>
+<pre><code>Fixed bug
+</code></pre>
+<pre><code>Updated files
+</code></pre>
+<pre><code>WIP
+</code></pre>
+<h2 id="documentation-requirements">Documentation Requirements</h2>
+<h3 id="when-to-update-documentation">When to Update Documentation</h3>
+<p>Update documentation when you:</p>
+<ul>
+<li>Add new operators or features</li>
+<li>Change existing APIs or behavior</li>
+<li>Add new configuration options</li>
+<li>Fix bugs that affect documented behavior</li>
+<li>Add new examples or use cases</li>
+</ul>
+<h3 id="documentation-files">Documentation Files</h3>
+<ul>
+<li><strong><a href="README.html"><code>README.md</code></a></strong>: Project overview, setup, and quick start</li>
+<li><strong><a href="ARCHITECTURE.html"><code>ARCHITECTURE.md</code></a></strong>: System design and architecture</li>
+<li><strong><a href="docs/reference/OPERATORS.html"><code>docs/reference/OPERATORS.md</code></a></strong>: Detailed operator and API documentation</li>
+<li><strong><a href="QUICKSTART.html"><code>QUICKSTART.md</code></a></strong>: Quick start guide</li>
+<li><strong><code>docs/operators/</code></strong>: Operator-specific documentation</li>
+<li><strong><code>examples/</code></strong>: Code examples and sample flows</li>
+<li><strong><a href="CHANGELOG.html"><code>CHANGELOG.md</code></a></strong>: All notable changes per release</li>
+<li><strong><a href="RELEASE_PROCESS.html"><code>RELEASE_PROCESS.md</code></a></strong>: How to cut a release (versioning, signing, announcements)</li>
+<li><strong><a href="docs/guides/DEPRECATION_POLICY.html"><code>docs/guides/DEPRECATION_POLICY.md</code></a></strong>: How deprecated features are handled</li>
+<li><strong><a href="docs/guides/MIGRATION_GUIDE_TEMPLATE.html"><code>docs/guides/MIGRATION_GUIDE_TEMPLATE.md</code></a></strong>: Template for writing migration guides</li>
+<li><strong><a href="docs/guides/DOCUMENTATION_STYLE_GUIDE.html"><code>docs/guides/DOCUMENTATION_STYLE_GUIDE.md</code></a></strong>: Formatting, Mermaid, and writing conventions for all contributors</li>
+</ul>
+<h3 id="documentation-style">Documentation Style</h3>
+<p>Follow the canonical <strong><a href="docs/guides/DOCUMENTATION_STYLE_GUIDE.html">Documentation Style Guide</a></strong> for all writing, formatting, and Mermaid diagram rules. The key rules that apply to every PR:</p>
+<p><strong>Markdown structure</strong></p>
+<ul>
+<li>Every file must begin with a single <code># Title</code> heading (H1).</li>
+<li>Use only <code>##</code> / <code>###</code> / <code>####</code> for section hierarchy — never skip levels.</li>
+<li>Wrap all prose lines at 120 characters or fewer.</li>
+<li>Use <code>-</code> for unordered lists and <code>1.</code> for ordered lists consistently throughout a file.</li>
+</ul>
+<p><strong>Code and diagram fences</strong></p>
+<ul>
+<li>Always use exactly <strong>three backticks</strong> <code>```</code> to open and close fenced blocks — never four or more.</li>
+<li>Always specify a language tag: <code>```python</code>, <code>```bash</code>, <code>```json</code>, <code>```mermaid</code>, etc.</li>
+<li>Mermaid diagrams must open with <code>```mermaid</code> and close with <code>```</code> on its own line.</li>
+<li>Never nest fenced blocks.</li>
+</ul>
+<p><strong>Mermaid diagrams</strong></p>
+<ul>
+<li>Prefer <code>graph TD</code> (top-down) for component hierarchies; <code>graph LR</code> (left-right) for data flows.</li>
+<li>Test every diagram in a Mermaid live editor before committing (<a href="https://mermaid.live">mermaid.live</a>).</li>
+<li>Do not use the <code>%%</code> comment syntax inside node labels — place it on its own line.</li>
+</ul>
+<p><strong>Links and references</strong></p>
+<ul>
+<li>Use relative links for all internal files (e.g., <code>[guide](docs/guides/FOO.md)</code>).</li>
+<li>Do not use bare URLs for internal files.</li>
+<li>Verify links resolve correctly before submitting a PR.</li>
+</ul>
+<p><strong>Tables</strong></p>
+<ul>
+<li>Always include a header separator row (<code>| --- | --- |</code>).</li>
+<li>Align column widths consistently within a table for readability.</li>
+</ul>
+<p><strong>Tone and language</strong></p>
+<ul>
+<li>Use present tense ("The operator returns…") not future tense ("The operator will return…").</li>
+<li>Avoid first-person ("I", "we") — write for the reader.</li>
+<li>Write for an intermediate developer audience; do not explain basic Python or git concepts.</li>
+</ul>
+<h3 id="code-comments">Code Comments</h3>
+<ul>
+<li>Use docstrings for all public functions and classes</li>
+<li>Keep inline comments minimal and meaningful</li>
+<li>Explain "why" not "what" in comments</li>
+<li>Update comments when changing code</li>
+</ul>
+<h2 id="getting-help">Getting Help</h2>
+<h3 id="resources">Resources</h3>
+<ul>
+<li><strong><a href="USER_GUIDE_PIPELINE_SETUP.html">Complete Pipeline Setup Guide</a></strong>: Comprehensive setup and usage</li>
+<li><strong><a href="ARCHITECTURE.html">Architecture Documentation</a></strong>: System design details</li>
+<li><strong><a href="docs/reference/OPERATORS.html">Operator Reference</a></strong>: Detailed operator and API documentation</li>
+<li><strong><a href="examples/">Examples</a></strong>: Sample flows and code examples</li>
+<li><strong><a href="RELEASE_PROCESS.html">Release Process</a></strong>: Versioning, release steps, and announcement plan</li>
+<li><strong><a href="docs/guides/DEPRECATION_POLICY.html">Deprecation Policy</a></strong>: How features are deprecated and removed</li>
+<li><strong><a href="docs/guides/MIGRATION_GUIDE_TEMPLATE.html">Migration Guide Template</a></strong>: Template for upgrade guides</li>
+</ul>
+<h3 id="communication">Communication</h3>
+<p>For full details on support channels, response time expectations, and maintainer responsibilities, see <strong><a href="COMMUNITY.html">COMMUNITY.md</a></strong>.</p>
+<p>Quick reference:</p>
+<ul>
+<li><strong><a href="https://github.com/IBM/docling-pipelines/issues">GitHub Issues</a></strong>: Bug reports and feature requests</li>
+<li><strong><a href="https://github.com/IBM/docling-pipelines/discussions">GitHub Discussions</a></strong>: General questions and ideas</li>
+<li><strong><a href="https://github.com/IBM/docling-pipelines/pulls">Pull Requests</a></strong>: Code contributions</li>
+<li><strong>Security issues</strong>: Follow <a href="SECURITY.html">SECURITY.md</a> — do not open a public issue</li>
+</ul>
+<h3 id="questions">Questions?</h3>
+<p>If you have questions:</p>
+<ol>
+<li>Check existing documentation</li>
+<li>Search <a href="https://github.com/IBM/docling-pipelines/discussions">GitHub Discussions</a></li>
+<li>Open a new Discussion in the Q&amp;A category</li>
+</ol>
+<hr />
+<p>Thank you for contributing to docling-pipelines! Your contributions help make this project better for everyone.</p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#code-of-conduct">Code of Conduct</a>
+      <a href="#getting-started">Getting Started</a>
+      <a href="#development-setup">Development Setup</a>
+      <a href="#development-workflow">Development Workflow</a>
+      <a href="#code-style-guidelines">Code Style Guidelines</a>
+      <a href="#pull-request-process">Pull Request Process</a>
+      <a href="#commit-message-guidelines">Commit Message Guidelines</a>
+      <a href="#documentation-requirements">Documentation Requirements</a>
+      <a href="#getting-help">Getting Help</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="docs/index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

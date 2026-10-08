@@ -1,0 +1,1046 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VectorDB Operator - Milvus Configuration — Docling Pipelines</title>
+  <meta name="description" content="VectorDB Operator - Milvus Configuration — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter active" href="milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">VectorDB Operator - Milvus Configuration</span>
+      </nav>
+      <h1>VectorDB Operator - Milvus Configuration</h1>
+<h2 id="overview">Overview</h2>
+<p>The VectorDB operator stores documents and embeddings in vector databases for similarity search. This document covers Milvus-specific configuration.</p>
+<p>When configured with <code>provider: "milvus"</code>, the operator supports multiple index types, hybrid search (dense + sparse vectors), multi-model embeddings, and incremental updates.</p>
+<h2 id="features">Features</h2>
+<h3 id="core-capabilities">Core Capabilities</h3>
+<ul>
+<li><strong>Multiple Index Types</strong>: HNSW, IVF_FLAT, IVF_SQ8, FLAT, AUTOINDEX</li>
+<li><strong>Vector Similarity Metrics</strong>: L2, IP (Inner Product), COSINE</li>
+<li><strong>Hybrid Search</strong>: Dense + sparse vector support with BM25</li>
+<li><strong>Multi-Model Embeddings</strong>: Multiple embedding models with different dimensions in same collection</li>
+<li><strong>Batch Processing</strong>: Configurable batch sizes for optimal performance</li>
+<li><strong>Incremental Updates</strong>: Query and delete capabilities</li>
+<li><strong>Error Handling</strong>: Detailed failure tracking and retry logic</li>
+<li><strong>Nullable Fields</strong>: Support for optional fields to handle varying data schemas</li>
+</ul>
+<h3 id="supported-index-types">Supported Index Types</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Index Type</th>
+<th>Speed</th>
+<th>Accuracy</th>
+<th>Memory</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HNSW</td>
+<td>Fast</td>
+<td>High</td>
+<td>Medium</td>
+<td>General purpose, recommended</td>
+</tr>
+<tr>
+<td>IVF_FLAT</td>
+<td>Very Fast</td>
+<td>Medium</td>
+<td>Low</td>
+<td>Large datasets, speed priority</td>
+</tr>
+<tr>
+<td>IVF_SQ8</td>
+<td>Very Fast</td>
+<td>Medium</td>
+<td>Very Low</td>
+<td>Memory-constrained environments</td>
+</tr>
+<tr>
+<td>FLAT</td>
+<td>Slow</td>
+<td>Perfect</td>
+<td>High</td>
+<td>Small datasets, exact search</td>
+</tr>
+<tr>
+<td>AUTOINDEX</td>
+<td>Varies</td>
+<td>High</td>
+<td>Varies</td>
+<td>Automatic optimization</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="similarity-metrics">Similarity Metrics</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Metric</th>
+<th>Description</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L2</td>
+<td>Euclidean distance</td>
+<td>General embeddings, default</td>
+</tr>
+<tr>
+<td>IP</td>
+<td>Inner product</td>
+<td>Pre-normalized vectors</td>
+</tr>
+<tr>
+<td>COSINE</td>
+<td>Cosine similarity</td>
+<td>Text embeddings, normalized similarity</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="configuration-parameters">Configuration Parameters</h2>
+<h3 id="operator-level-settings">Operator-Level Settings</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td>string</td>
+<td>No</td>
+<td>"milvus"</td>
+<td>Vector database type</td>
+</tr>
+<tr>
+<td><code>doc_id_column</code></td>
+<td>string</td>
+<td>No</td>
+<td>"doc_id_hash"</td>
+<td>Column containing document IDs</td>
+</tr>
+<tr>
+<td><code>create_index</code></td>
+<td>boolean</td>
+<td>No</td>
+<td>true</td>
+<td>Create collection if it doesn't exist</td>
+</tr>
+<tr>
+<td><code>batch_size</code></td>
+<td>integer</td>
+<td>No</td>
+<td>100</td>
+<td>Documents per batch</td>
+</tr>
+<tr>
+<td><code>provider_config</code></td>
+<td>object</td>
+<td><strong>Yes</strong></td>
+<td>-</td>
+<td>Provider-specific configuration including the collection name (see below)</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="provider-config-structure">provider_config Structure</h3>
+<p>Connection and index-specific parameters are configured inside the <code>provider_config</code> nested dictionary for architectural separation between generic and provider-specific settings.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>collection_name</code></td>
+<td>string</td>
+<td><strong>Yes</strong></td>
+<td>-</td>
+<td>Name of the Milvus collection</td>
+</tr>
+<tr>
+<td><code>auth_type</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"standalone"</code></td>
+<td>Authentication type: <code>lite</code> (Milvus Lite, embedded local — no Docker needed), <code>standalone</code>, <code>grpc</code>, <code>uri</code>, <code>token</code></td>
+</tr>
+<tr>
+<td><code>uri</code></td>
+<td>string</td>
+<td>Conditional</td>
+<td>-</td>
+<td>Local <code>.db</code> path for <code>lite</code>; full pre-constructed URI for <code>uri</code> auth_type</td>
+</tr>
+<tr>
+<td><code>host</code></td>
+<td>string</td>
+<td>Conditional</td>
+<td>-</td>
+<td>Milvus server host (required for <code>standalone</code>, <code>grpc</code>, <code>token</code>)</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td>integer</td>
+<td>No</td>
+<td>19530</td>
+<td>Milvus server port</td>
+</tr>
+<tr>
+<td><code>username</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"root"</code></td>
+<td>Username for authentication</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"Milvus"</code></td>
+<td>Password/API key for authentication</td>
+</tr>
+<tr>
+<td><code>database</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"default"</code></td>
+<td>Database name (not used for <code>lite</code>)</td>
+</tr>
+<tr>
+<td><code>secure</code></td>
+<td>boolean</td>
+<td>No</td>
+<td>false</td>
+<td>Enable TLS/SSL (not used for <code>lite</code>)</td>
+</tr>
+<tr>
+<td><code>index_type</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"HNSW"</code></td>
+<td>Index type (HNSW, IVF_FLAT, etc.; only <code>FLAT</code> is supported for <code>lite</code>)</td>
+</tr>
+<tr>
+<td><code>metric_type</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"L2"</code></td>
+<td>Similarity metric (L2, IP, COSINE)</td>
+</tr>
+<tr>
+<td><code>index_parameters</code></td>
+<td>object</td>
+<td>No</td>
+<td>{}</td>
+<td>Custom index-specific parameters</td>
+</tr>
+<tr>
+<td><code>add_sparse_vector</code></td>
+<td>boolean</td>
+<td>No</td>
+<td>false</td>
+<td>Enable hybrid search with BM25 sparse vectors (not supported for <code>lite</code>)</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="index-parameters">Index Parameters</h3>
+<h4>HNSW (Recommended)</h4>
+<pre><code class="language-json">{
+  &quot;M&quot;: 16,
+  &quot;efConstruction&quot;: 256
+}
+</code></pre>
+<h4>IVF_FLAT</h4>
+<pre><code class="language-json">{
+  &quot;nlist&quot;: 128
+}
+</code></pre>
+<h4>IVF_SQ8</h4>
+<pre><code class="language-json">{
+  &quot;nlist&quot;: 128
+}
+</code></pre>
+<h2 id="multi-model-embeddings">Multi-Model Embeddings</h2>
+<p>Milvus supports multiple embedding models with different dimensions in the same collection. This is useful when you want to:<br />
+- Compare different embedding models<br />
+- Use specialized embeddings for different content types<br />
+- Implement ensemble retrieval strategies</p>
+<h3 id="configuration">Configuration</h3>
+<p>Configure multiple vector columns in <code>available_features</code>:</p>
+<pre><code class="language-json">{
+  &quot;available_features&quot;: {
+    &quot;doc_id_hash&quot;: {
+      &quot;available_for_vector_db&quot;: true,
+      &quot;mandatory_for_vector_db&quot;: true,
+      &quot;type&quot;: &quot;string&quot;,
+      &quot;is_primary&quot;: true
+    },
+    &quot;embeddings&quot;: {
+      &quot;available_for_vector_db&quot;: true,
+      &quot;mandatory_for_vector_db&quot;: true,
+      &quot;type&quot;: &quot;vector&quot;
+    },
+    &quot;embeddings_alt&quot;: {
+      &quot;available_for_vector_db&quot;: true,
+      &quot;type&quot;: &quot;vector&quot;
+    }
+  },
+  &quot;feature_mappings&quot;: [
+    {&quot;feature_name&quot;: &quot;doc_id_hash&quot;, &quot;mapped_column_name&quot;: &quot;pk&quot;},
+    {&quot;feature_name&quot;: &quot;embeddings&quot;, &quot;mapped_column_name&quot;: &quot;vector_embeddings&quot;},
+    {&quot;feature_name&quot;: &quot;embeddings_alt&quot;, &quot;mapped_column_name&quot;: &quot;vector_embeddings_alt&quot;}
+  ]
+}
+</code></pre>
+<p>The operator automatically:<br />
+- Detects dimensions for each vector column<br />
+- Creates separate vector fields in the collection<br />
+- Creates indexes for all vector fields<br />
+- Handles insertion of documents with multiple embeddings</p>
+<h2 id="hybrid-search-dense-sparse">Hybrid Search (Dense + Sparse)</h2>
+<p>Enable hybrid search by setting <code>add_sparse_vector: true</code> in <code>provider_config</code>. This creates:<br />
+- Dense vector field(s) for semantic similarity (user-configured)<br />
+- Sparse vector field for keyword matching (BM25, hardcoded)<br />
+- Content field with text analyzer enabled</p>
+<h3 id="configuration">Configuration</h3>
+<pre><code class="language-json">{
+  &quot;provider_config&quot;: {
+    &quot;add_sparse_vector&quot;: true,
+    &quot;index_type&quot;: &quot;HNSW&quot;,
+    &quot;metric_type&quot;: &quot;L2&quot;
+  }
+}
+</code></pre>
+<p><strong>Note</strong>: In hybrid mode:<br />
+- Sparse vectors use SPARSE_INVERTED_INDEX with BM25 (hardcoded, not user-configurable)<br />
+- Dense vectors use user-specified index_type and metric_type<br />
+- Content field has <code>enable_analyzer: true</code> for BM25 text analysis</p>
+<h2 id="usage-examples">Usage Examples</h2>
+<h3 id="example-1-basic-milvus-configuration">Example 1: Basic Milvus Configuration</h3>
+<pre><code class="language-python">from docpipe.core.operators.vectordb import VectorDBOperator
+from docpipe.core.constants.operator_constants import OperatorConstants
+import pyarrow as pa
+import numpy as np
+
+config = {
+    &quot;provider&quot;: &quot;milvus&quot;,
+    OperatorConstants.Config.PROVIDER_CONFIG: {
+        &quot;collection_name&quot;: &quot;my_documents&quot;,
+        &quot;auth_type&quot;: &quot;standalone&quot;,
+        &quot;host&quot;: &quot;localhost&quot;,
+        &quot;port&quot;: 19530,
+        &quot;username&quot;: &quot;&lt;USERNAME&gt;&quot;,
+        &quot;password&quot;: &quot;&lt;PASSWORD&gt;&quot;,  # pragma: allowlist secret
+        &quot;database&quot;: &quot;default&quot;,
+        &quot;secure&quot;: False,
+        &quot;index_type&quot;: &quot;HNSW&quot;,
+        &quot;metric_type&quot;: &quot;L2&quot;,
+        &quot;batch_size&quot;: 100
+    },
+    &quot;available_features&quot;: {
+        &quot;doc_id_hash&quot;: {
+            &quot;available_for_vector_db&quot;: True,
+            &quot;mandatory_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;string&quot;,
+            &quot;is_primary&quot;: True
+        },
+        &quot;content&quot;: {
+            &quot;available_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;embeddings&quot;: {
+            &quot;available_for_vector_db&quot;: True,
+            &quot;mandatory_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;vector&quot;
+        }
+    },
+    &quot;feature_mappings&quot;: [
+        {&quot;feature_name&quot;: &quot;doc_id_hash&quot;, &quot;mapped_column_name&quot;: &quot;pk&quot;},
+        {&quot;feature_name&quot;: &quot;content&quot;, &quot;mapped_column_name&quot;: &quot;text&quot;},
+        {&quot;feature_name&quot;: &quot;embeddings&quot;, &quot;mapped_column_name&quot;: &quot;vector_embeddings&quot;}
+    ]
+}
+
+# Create sample data
+data = {
+    &quot;doc_id_hash&quot;: [&quot;doc1&quot;, &quot;doc2&quot;],
+    &quot;content&quot;: [&quot;First document&quot;, &quot;Second document&quot;],
+    &quot;embeddings&quot;: [np.random.rand(384).tolist(), np.random.rand(384).tolist()]
+}
+
+table = pa.table(data)
+
+# Index documents
+operator = VectorDBOperator(config)
+result_tables, metadata = operator.transform(table)
+
+print(f&quot;Indexed {metadata['processed_docs']} documents&quot;)
+</code></pre>
+<h3 id="example-1b-milvus-lite-container-free-local">Example 1b: Milvus Lite (Container-Free Local)</h3>
+<p>No Docker, Podman, or Kubernetes required. Data persists to a local <code>.db</code> file.</p>
+<pre><code class="language-python">config = {
+    &quot;provider&quot;: &quot;milvus&quot;,
+    OperatorConstants.Config.PROVIDER_CONFIG: {
+        &quot;collection_name&quot;: &quot;local_docs&quot;,
+        &quot;auth_type&quot;: &quot;lite&quot;,
+        &quot;uri&quot;: &quot;./data/milvus/local_docs.db&quot;,
+        &quot;index_type&quot;: &quot;FLAT&quot;,
+        &quot;metric_type&quot;: &quot;COSINE&quot;,
+        &quot;batch_size&quot;: 100
+    },
+    &quot;available_features&quot;: {
+        &quot;doc_id_hash&quot;: {
+            &quot;available_for_vector_db&quot;: True,
+            &quot;mandatory_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;string&quot;,
+            &quot;is_primary&quot;: True
+        },
+        &quot;content&quot;: {
+            &quot;available_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;embeddings&quot;: {
+            &quot;available_for_vector_db&quot;: True,
+            &quot;mandatory_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;vector&quot;
+        }
+    },
+    &quot;feature_mappings&quot;: [
+        {&quot;feature_name&quot;: &quot;doc_id_hash&quot;, &quot;mapped_column_name&quot;: &quot;pk&quot;},
+        {&quot;feature_name&quot;: &quot;content&quot;, &quot;mapped_column_name&quot;: &quot;text&quot;},
+        {&quot;feature_name&quot;: &quot;embeddings&quot;, &quot;mapped_column_name&quot;: &quot;vector&quot;}
+    ]
+}
+
+operator = VectorDBOperator(config)
+result_tables, metadata = operator.transform(table)
+print(f&quot;Indexed {metadata['processed_docs']} documents to local Milvus Lite store&quot;)
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> Set <code>enable_micro_batching: false</code> in <code>global_config</code> when using Milvus Lite in a flow — Lite holds a single-process file lock. Only <code>FLAT</code> index type is supported.</p>
+</blockquote>
+<h3 id="example-2-multi-model-embeddings">Example 2: Multi-Model Embeddings</h3>
+<pre><code class="language-python">config = {
+    &quot;provider&quot;: &quot;milvus&quot;,
+    OperatorConstants.Config.PROVIDER_CONFIG: {
+        &quot;collection_name&quot;: &quot;multi_model_collection&quot;,
+        &quot;host&quot;: &quot;localhost&quot;,
+        &quot;port&quot;: 19530,
+        &quot;index_type&quot;: &quot;HNSW&quot;,
+        &quot;metric_type&quot;: &quot;L2&quot;
+    },
+    &quot;available_features&quot;: {
+        &quot;doc_id_hash&quot;: {
+            &quot;available_for_vector_db&quot;: True,
+            &quot;mandatory_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;string&quot;,
+            &quot;is_primary&quot;: True
+        },
+        &quot;embeddings&quot;: {
+            &quot;name&quot;: &quot;Primary Embeddings&quot;,
+            &quot;available_for_vector_db&quot;: True,
+            &quot;mandatory_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;vector&quot;
+        },
+        &quot;embeddings_alt&quot;: {
+            &quot;name&quot;: &quot;Alternative Embeddings&quot;,
+            &quot;available_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;vector&quot;
+        }
+    },
+    &quot;feature_mappings&quot;: [
+        {&quot;feature_name&quot;: &quot;doc_id_hash&quot;, &quot;mapped_column_name&quot;: &quot;pk&quot;},
+        {&quot;feature_name&quot;: &quot;embeddings&quot;, &quot;mapped_column_name&quot;: &quot;vector_embeddings&quot;},
+        {&quot;feature_name&quot;: &quot;embeddings_alt&quot;, &quot;mapped_column_name&quot;: &quot;vector_embeddings_alt&quot;}
+    ]
+}
+
+# Data with two embedding models (different dimensions)
+data = {
+    &quot;doc_id_hash&quot;: [&quot;doc1&quot;, &quot;doc2&quot;],
+    &quot;embeddings&quot;: [np.random.rand(768).tolist(), np.random.rand(768).tolist()],
+    &quot;embeddings_alt&quot;: [np.random.rand(384).tolist(), np.random.rand(384).tolist()]
+}
+
+table = pa.table(data)
+operator = VectorDBOperator(config)
+result_tables, metadata = operator.transform(table)
+</code></pre>
+<h3 id="example-3-hybrid-search-with-bm25">Example 3: Hybrid Search with BM25</h3>
+<pre><code class="language-python">config = {
+    &quot;provider&quot;: &quot;milvus&quot;,
+    OperatorConstants.Config.PROVIDER_CONFIG: {
+        &quot;collection_name&quot;: &quot;hybrid_search_collection&quot;,
+        &quot;host&quot;: &quot;localhost&quot;,
+        &quot;port&quot;: 19530,
+        &quot;add_sparse_vector&quot;: True,  # Enable BM25 sparse vectors
+        &quot;index_type&quot;: &quot;HNSW&quot;,
+        &quot;metric_type&quot;: &quot;L2&quot;
+    },
+    &quot;available_features&quot;: {
+        &quot;doc_id_hash&quot;: {
+            &quot;available_for_vector_db&quot;: True,
+            &quot;mandatory_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;string&quot;,
+            &quot;is_primary&quot;: True
+        },
+        &quot;content&quot;: {
+            &quot;available_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;text&quot;
+        },
+        &quot;embeddings&quot;: {
+            &quot;available_for_vector_db&quot;: True,
+            &quot;mandatory_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;vector&quot;
+        }
+    },
+    &quot;feature_mappings&quot;: [
+        {&quot;feature_name&quot;: &quot;doc_id_hash&quot;, &quot;mapped_column_name&quot;: &quot;pk&quot;},
+        {&quot;feature_name&quot;: &quot;content&quot;, &quot;mapped_column_name&quot;: &quot;text&quot;},
+        {&quot;feature_name&quot;: &quot;embeddings&quot;, &quot;mapped_column_name&quot;: &quot;vector_embeddings&quot;}
+    ]
+}
+</code></pre>
+<h3 id="example-4-custom-index-parameters">Example 4: Custom Index Parameters</h3>
+<pre><code class="language-python">config = {
+    &quot;provider&quot;: &quot;milvus&quot;,
+    OperatorConstants.Config.PROVIDER_CONFIG: {
+        &quot;collection_name&quot;: &quot;custom_index&quot;,
+        &quot;host&quot;: &quot;localhost&quot;,
+        &quot;port&quot;: 19530,
+        &quot;index_type&quot;: &quot;HNSW&quot;,
+        &quot;metric_type&quot;: &quot;COSINE&quot;,
+        &quot;index_parameters&quot;: {
+            &quot;M&quot;: 32,
+            &quot;efConstruction&quot;: 512
+        }
+    }
+}
+</code></pre>
+<h2 id="flow-configuration">Flow Configuration</h2>
+<h3 id="complete-flow-example">Complete Flow Example</h3>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;milvus-node&quot;,
+  &quot;name&quot;: &quot;Store in Milvus&quot;,
+  &quot;operator&quot;: &quot;vectordb&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;milvus&quot;,
+    &quot;doc_id_column&quot;: &quot;doc_id_hash&quot;,
+    &quot;create_index&quot;: true,
+    &quot;provider_config&quot;: {
+      &quot;collection_name&quot;: &quot;docpipe_documents&quot;,
+      &quot;auth_type&quot;: &quot;standalone&quot;,
+      &quot;host&quot;: &quot;localhost&quot;,
+      &quot;port&quot;: 19530,
+      &quot;username&quot;: &quot;&lt;USERNAME&gt;&quot;,
+      &quot;password&quot;: &quot;&lt;PASSWORD&gt;&quot;,
+      &quot;database&quot;: &quot;default&quot;,
+      &quot;secure&quot;: false,
+      &quot;index_type&quot;: &quot;HNSW&quot;,
+      &quot;metric_type&quot;: &quot;L2&quot;,
+      &quot;batch_size&quot;: 100,
+      &quot;index_parameters&quot;: {
+        &quot;M&quot;: 16,
+        &quot;efConstruction&quot;: 256
+      }
+    },
+    &quot;available_features&quot;: {
+      &quot;doc_id_hash&quot;: {
+        &quot;name&quot;: &quot;Document ID&quot;,
+        &quot;available_for_vector_db&quot;: true,
+        &quot;mandatory_for_vector_db&quot;: true,
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;is_primary&quot;: true
+      },
+      &quot;content&quot;: {
+        &quot;name&quot;: &quot;Content&quot;,
+        &quot;available_for_vector_db&quot;: true,
+        &quot;type&quot;: &quot;string&quot;
+      },
+      &quot;embeddings&quot;: {
+        &quot;name&quot;: &quot;Embeddings&quot;,
+        &quot;available_for_vector_db&quot;: true,
+        &quot;mandatory_for_vector_db&quot;: true,
+        &quot;type&quot;: &quot;vector&quot;
+      }
+    },
+    &quot;feature_mappings&quot;: [
+      {&quot;feature_name&quot;: &quot;doc_id_hash&quot;, &quot;mapped_column_name&quot;: &quot;pk&quot;},
+      {&quot;feature_name&quot;: &quot;content&quot;, &quot;mapped_column_name&quot;: &quot;text&quot;},
+      {&quot;feature_name&quot;: &quot;embeddings&quot;, &quot;mapped_column_name&quot;: &quot;vector_embeddings&quot;}
+    ]
+  }
+}
+</code></pre>
+<h3 id="multi-model-flow-example">Multi-Model Flow Example</h3>
+<p>See <a href="../../../sample_flows/vectordb/milvus_integration.json"><code>sample_flows/vectordb/milvus_integration.json</code></a> for a complete Milvus pipeline example.</p>
+<h2 id="performance-tuning">Performance Tuning</h2>
+<h3 id="batch-size-optimization">Batch Size Optimization</h3>
+<pre><code class="language-python">config = {
+    &quot;batch_size&quot;: 500,  # Increase for better throughput
+    OperatorConstants.Config.PROVIDER_CONFIG: {
+        &quot;batch_size&quot;: 500  # Also set in provider_config
+    }
+}
+</code></pre>
+<h3 id="index-specific-tuning">Index-Specific Tuning</h3>
+<h4>HNSW (Balanced)</h4>
+<pre><code class="language-python">OperatorConstants.Config.PROVIDER_CONFIG: {
+    &quot;index_type&quot;: &quot;HNSW&quot;,
+    &quot;metric_type&quot;: &quot;L2&quot;,
+    &quot;index_parameters&quot;: {
+        &quot;M&quot;: 16,              # Higher = better accuracy, more memory
+        &quot;efConstruction&quot;: 256  # Higher = better accuracy, slower indexing
+    }
+}
+</code></pre>
+<h4>IVF_FLAT (Speed Priority)</h4>
+<pre><code class="language-python">OperatorConstants.Config.PROVIDER_CONFIG: {
+    &quot;index_type&quot;: &quot;IVF_FLAT&quot;,
+    &quot;metric_type&quot;: &quot;L2&quot;,
+    &quot;index_parameters&quot;: {
+        &quot;nlist&quot;: 128  # Number of clusters
+    }
+}
+</code></pre>
+<h2 id="error-handling">Error Handling</h2>
+<p>The operator provides detailed error tracking:</p>
+<pre><code class="language-python">result_tables, metadata = operator.transform(table)
+
+print(f&quot;Total documents: {metadata['total_docs']}&quot;)
+print(f&quot;Processed: {metadata['processed_docs']}&quot;)
+print(f&quot;Failed: {metadata['failed_docs_count']}&quot;)
+print(f&quot;Skipped: {metadata['skipped_docs_count']}&quot;)
+print(f&quot;Batches: {metadata['number_of_batches']}&quot;)
+
+# Check failed documents
+for failed_doc in metadata['failed_docs']:
+    print(f&quot;Failed: {failed_doc['name']} - {failed_doc['reason']}&quot;)
+</code></pre>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="1-index-selection">1. Index Selection</h3>
+<ul>
+<li><strong>HNSW</strong>: Recommended for most use cases (high accuracy, good speed)</li>
+<li><strong>IVF_FLAT</strong>: Use for very large datasets where speed is critical</li>
+<li><strong>AUTOINDEX</strong>: Let Milvus choose optimal index automatically</li>
+</ul>
+<h3 id="2-similarity-metrics">2. Similarity Metrics</h3>
+<ul>
+<li><strong>L2</strong>: Euclidean distance (default, works well for most embeddings)</li>
+<li><strong>COSINE</strong>: Normalized similarity (good for text embeddings)</li>
+<li><strong>IP</strong>: Inner product (for pre-normalized vectors)</li>
+</ul>
+<h3 id="3-multi-model-embeddings">3. Multi-Model Embeddings</h3>
+<ul>
+<li>Use when comparing different embedding models</li>
+<li>Ensure all vector columns are properly mapped in feature_mappings</li>
+<li>Dimensions are auto-detected from data</li>
+</ul>
+<h3 id="4-hybrid-search">4. Hybrid Search</h3>
+<ul>
+<li>Enable <code>add_sparse_vector: true</code> for keyword + semantic search</li>
+<li>Sparse vectors use BM25 (hardcoded, optimized for text)</li>
+<li>Dense vectors use your specified index_type and metric_type</li>
+</ul>
+<h3 id="5-nullable-fields">5. Nullable Fields</h3>
+<ul>
+<li>Non-mandatory fields are automatically made nullable</li>
+<li>Prevents insertion failures when optional fields are missing</li>
+<li>Content field is always required (not nullable)</li>
+</ul>
+<h3 id="6-batch-processing">6. Batch Processing</h3>
+<ul>
+<li>Default batch size (100) works well for most cases</li>
+<li>Increase for smaller documents, decrease for large documents</li>
+<li>Monitor memory usage with large batches</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="schema-mismatch">Schema Mismatch</h3>
+<pre><code class="language-python"># Ensure vector dimensions match your embedding model
+# Use auto-detection by not specifying vector_dimension
+# Check that all mandatory fields are present in data
+</code></pre>
+<h3 id="performance-issues">Performance Issues</h3>
+<pre><code class="language-python"># Increase batch_size for better throughput
+# Tune index parameters (M, efConstruction for HNSW)
+# Consider IVF_FLAT for very large datasets
+</code></pre>
+<h2 id="related-operators">Related Operators</h2>
+<ul>
+<li><strong>IngestSourceOperator</strong>: Ingest documents from local filesystem or remote sources</li>
+<li><strong>ExtractOperator</strong>: Extract content from documents</li>
+<li><strong>ChunkerOperator</strong>: Chunk documents for vector storage</li>
+<li><strong>EmbeddingsOperator</strong>: Generate embeddings from text</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://milvus.io/docs">Milvus Documentation</a></li>
+<li><a href="https://milvus.io/docs/install-pymilvus.html">Milvus Python SDK</a></li>
+<li><a href="https://milvus.io/docs/index.html">Index Types</a></li>
+<li><a href="https://milvus.io/docs/metric.html">Similarity Metrics</a></li>
+</ul>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#features">Features</a>
+      <a href="#configuration-parameters">Configuration Parameters</a>
+      <a href="#multi-model-embeddings">Multi-Model Embeddings</a>
+      <a href="#hybrid-search-dense-sparse">Hybrid Search (Dense + Sparse)</a>
+      <a href="#usage-examples">Usage Examples</a>
+      <a href="#flow-configuration">Flow Configuration</a>
+      <a href="#performance-tuning">Performance Tuning</a>
+      <a href="#error-handling">Error Handling</a>
+      <a href="#best-practices">Best Practices</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#related-operators">Related Operators</a>
+      <a href="#references">References</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

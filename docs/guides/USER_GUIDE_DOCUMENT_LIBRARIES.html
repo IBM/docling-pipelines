@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Document Libraries User Guide — Docling Pipelines</title>
+  <meta name="description" content="Document Libraries User Guide — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter active" href="USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Document Libraries User Guide</span>
+      </nav>
+      <h1>Document Libraries User Guide</h1>
+<h2 id="overview">Overview</h2>
+<p>Document Libraries provide a way to organize and manage collections of Document Sets in docpipe. A Document Library is a metadata container that groups related Document Sets together, enabling better organization, discovery, and management of your document collections.</p>
+<h2 id="key-concepts">Key Concepts</h2>
+<h3 id="document-library">Document Library</h3>
+<p>A Document Library is a named collection that contains references to multiple Document Sets. It stores:<br />
+- <strong>Metadata</strong>: Name, description, tags, timestamps<br />
+- <strong>Relationships</strong>: References to Document Set IDs (many-to-many)<br />
+- <strong>Aggregate Metrics</strong>: Computed statistics from associated Document Sets</p>
+<p><strong>Important</strong>: Document Libraries store only metadata and references, not the actual document content or data.</p>
+<h3 id="relationship-with-document-sets">Relationship with Document Sets</h3>
+<ul>
+<li><strong>One-to-Many</strong>: A Document Library can contain multiple Document Sets</li>
+<li><strong>Many-to-Many</strong>: A Document Set can belong to multiple Document Libraries</li>
+<li><strong>Reference-Based</strong>: Libraries store Document Set IDs, not copies of data</li>
+</ul>
+<h3 id="storage-architecture">Storage Architecture</h3>
+<p>Document Libraries follow a hybrid storage approach aligned with Document Sets pattern:</p>
+<ol>
+<li><strong>Library Metadata (JSON Storage)</strong>:</li>
+<li>Uses <code>KeyValueStorage</code> interface for library metadata</li>
+<li>Stored as JSON in <code>data</code> column (CAMS-compatible)</li>
+<li>Schema: <code>key, data (JSON), created_at, updated_at</code></li>
+<li>
+<p>Same pattern as Document Sets and Flows</p>
+</li>
+<li>
+<p><strong>Junction Table (Relational Storage)</strong>:</p>
+</li>
+<li>Uses direct SQL for many-to-many relationships</li>
+<li>Optimized for bulk operations</li>
+<li>Table: <code>library_documentset_junction</code></li>
+</ol>
+<p>This hybrid approach balances architectural consistency (JSON for assets) with performance (SQL for relationships).</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<h3 id="environment-setup">Environment Setup</h3>
+<pre><code class="language-bash"># 1. Navigate to project root directory
+cd /path/to/docling-pipelines
+
+# 2. Activate virtual environment
+source .venv/bin/activate
+
+# 3. Set PYTHONPATH
+export PYTHONPATH=&quot;$(pwd)/src:${PYTHONPATH}&quot;
+
+# 4. Ensure dependencies are installed
+uv sync
+</code></pre>
+<h3 id="api-server">API Server</h3>
+<p>Document Libraries are accessed via REST API endpoints. Start the API server:</p>
+<pre><code class="language-bash"># Recommended — uses the installed console entry point
+docling-pipelines-api
+
+# Alternative — invoke uvicorn directly (with PYTHONPATH set)
+uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8000
+</code></pre>
+<p>The API will be available at <code>http://localhost:8000</code> with interactive documentation at <code>http://localhost:8000/api/v1/docs</code>.</p>
+<p><strong>Note:</strong> The direct <code>uvicorn</code> command must be run from the project root with <code>PYTHONPATH</code> set to include the <code>src</code> directory.</p>
+<p><strong>Troubleshooting:</strong><br />
+- <strong>Error: "address already in use"</strong>: Port 8000 is already occupied. Either:<br />
+  - Stop the existing server: <code>pkill -f "uvicorn docpipe.api.main:app"</code><br />
+  - Use a different port: <code>uvicorn docpipe.api.main:app --port 8001</code><br />
+- <strong>Error: "Could not import module"</strong>: Ensure <code>PYTHONPATH</code> is set correctly and you're in the project root directory</p>
+<h2 id="api-endpoints">API Endpoints</h2>
+<h3 id="base-url">Base URL</h3>
+<p>All Document Library endpoints are under: <code>/api/v1/document-libraries</code></p>
+<h3 id="available-operations">Available Operations</h3>
+<h4>1. Create a Document Library</h4>
+<p><strong>Endpoint</strong>: <code>POST /api/v1/document-libraries</code></p>
+<p><strong>Request Body</strong>:</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;Financial Documents Q1 2024&quot;,
+  &quot;description&quot;: &quot;Collection of financial documents for Q1 2024 analysis&quot;,
+  &quot;tags&quot;: [&quot;finance&quot;, &quot;q1-2024&quot;, &quot;reports&quot;]
+}
+</code></pre>
+<p><strong>Validation Rules</strong>:<br />
+- <code>name</code>: Required, 3-128 characters, must start with a letter, alphanumeric with spaces/underscores only (NO hyphens)<br />
+- <code>description</code>: Optional, max 2000 characters<br />
+- <code>tags</code>: Optional, no limit on count or individual tag length</p>
+<p><strong>Response</strong> (201 Created):</p>
+<pre><code class="language-json">{
+  &quot;library_id&quot;: &quot;550e8400-e29b-41d4-a716-446655440000&quot;,
+  &quot;name&quot;: &quot;Financial Documents Q1 2024&quot;,
+  &quot;description&quot;: &quot;Collection of financial documents for Q1 2024 analysis&quot;,
+  &quot;tags&quot;: [&quot;finance&quot;, &quot;q1-2024&quot;, &quot;reports&quot;],
+  &quot;document_set_ids&quot;: [],
+  &quot;aggregate_metrics&quot;: {
+    &quot;total_document_sets&quot;: 0,
+    &quot;total_documents&quot;: 0,
+    &quot;total_size_bytes&quot;: 0
+  },
+  &quot;created_at&quot;: &quot;2024-01-15T10:30:00Z&quot;,
+  &quot;updated_at&quot;: &quot;2024-01-15T10:30:00Z&quot;
+}
+</code></pre>
+<p><strong>Example using curl</strong>:</p>
+<pre><code class="language-bash">curl -X POST &quot;http://localhost:8000/api/v1/document-libraries&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;name&quot;: &quot;Financial Documents Q1 20241&quot;,
+    &quot;description&quot;: &quot;Collection of financial documents for Q1 2024 analysis&quot;,
+    &quot;tags&quot;: [&quot;finance&quot;, &quot;q1-2024&quot;, &quot;reports&quot;]
+  }'
+</code></pre>
+<h4>2. Get a Document Library</h4>
+<p><strong>Endpoint</strong>: <code>GET /api/v1/document-libraries/{library_id}</code></p>
+<p><strong>Response</strong> (200 OK):</p>
+<pre><code class="language-json">{
+  &quot;library_id&quot;: &quot;81cea322-ae1b-4142-8f27-e06ff39e211a&quot;,
+  &quot;name&quot;: &quot;Financial Documents Q1 20241&quot;,
+  &quot;description&quot;: &quot;Collection of financial documents for Q1 2024 analysis&quot;,
+  &quot;purpose&quot;: null,
+  &quot;original_size&quot;: null,
+  &quot;final_size&quot;: null,
+  &quot;tags&quot;: [
+    &quot;finance&quot;,
+    &quot;q1-2024&quot;,
+    &quot;reports&quot;
+  ],
+  &quot;created_by&quot;: null,
+  &quot;href&quot;: null
+}
+</code></pre>
+<p><strong>Example using curl</strong>:</p>
+<pre><code class="language-bash">curl -X GET &quot;http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000&quot;
+</code></pre>
+<h4>3. Update a Document Library</h4>
+<p><strong>Endpoint</strong>: <code>PATCH /api/v1/document-libraries/{library_id}</code></p>
+<p><strong>Request Body</strong>:<br />
+- <code>name</code> (required): Library name (3-128 characters, must start with letter, can only contain letters/digits/spaces/underscores)<br />
+- <code>description</code> (optional): Updated description<br />
+- <code>purpose</code> (optional): Updated purpose<br />
+- <code>original_size</code> (optional): Updated original size<br />
+- <code>final_size</code> (optional): Updated final size<br />
+- <code>tags</code> (optional): Updated tags list</p>
+<p><strong>Note:</strong> Name field is currently required even for PATCH operations. Name cannot contain hyphens or special characters.</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;Financial Documents Q1 2024 Updated&quot;,
+  &quot;description&quot;: &quot;Updated collection description&quot;,
+  &quot;tags&quot;: [&quot;finance&quot;, &quot;q1_2024&quot;, &quot;reports&quot;, &quot;audited&quot;]
+}
+</code></pre>
+<p><strong>Response</strong> (200 OK): Returns updated library object</p>
+<p><strong>Example using curl</strong>:</p>
+<pre><code class="language-bash">curl -X PATCH &quot;http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;name&quot;: &quot;Financial Documents Q1 2024 Updated&quot;,
+    &quot;description&quot;: &quot;Updated collection description&quot;,
+    &quot;tags&quot;: [&quot;finance&quot;, &quot;q1_2024&quot;, &quot;reports&quot;, &quot;audited&quot;]
+  }'
+</code></pre>
+<h4>4. Delete a Document Library</h4>
+<p><strong>Endpoint</strong>: <code>DELETE /api/v1/document-libraries/{library_id}</code></p>
+<p><strong>Response</strong> (204 No Content)</p>
+<p><strong>Note</strong>: Deleting a library does not delete the associated Document Sets, only the library metadata and relationships.</p>
+<p><strong>Example using curl</strong>:</p>
+<pre><code class="language-bash">curl -X DELETE &quot;http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000&quot;
+</code></pre>
+<h4>5. Add Document Sets to Library (Bulk)</h4>
+<p><strong>Endpoint</strong>: <code>PUT /api/v1/document-libraries/{library_id}/document-sets</code></p>
+<p><strong>Query Parameters</strong>:<br />
+- <code>document_sets_ids</code> (required): Comma-separated list of document set UUIDs</p>
+<p><strong>Response</strong> (204 No Content): Document sets added successfully</p>
+<p><strong>Example using curl</strong>:</p>
+<pre><code class="language-bash">curl -X PUT &quot;http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000/document-sets?document_sets_ids=abc123,def456,ghi789&quot;
+</code></pre>
+<h4>6. Remove Document Sets from Library (Bulk)</h4>
+<p><strong>Endpoint</strong>: <code>DELETE /api/v1/document-libraries/{library_id}/document-sets</code></p>
+<p><strong>Query Parameters</strong>:<br />
+- <code>document_sets_ids</code> (required): Comma-separated list of document set UUIDs</p>
+<p><strong>Response</strong> (204 No Content): Document sets removed successfully</p>
+<p><strong>Note</strong>: This removes the associations but does NOT delete the document sets themselves.</p>
+<p><strong>Example using curl</strong>:</p>
+<pre><code class="language-bash">curl -X DELETE &quot;http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000/document-sets?document_sets_ids=abc123,def456&quot;
+</code></pre>
+<h4>7. List All Document Libraries</h4>
+<p><strong>Endpoint</strong>: <code>GET /api/v1/document-libraries</code></p>
+<p><strong>Query Parameters</strong>:<br />
+- <code>offset</code>: Number of records to skip (default: 0)<br />
+- <code>limit</code>: Maximum number of records to return (default: 100)</p>
+<p><strong>Response</strong> (200 OK):</p>
+<pre><code class="language-json">[
+  {
+    &quot;library_id&quot;: &quot;e8b2cf35-4d2a-4997-b1e2-2470cd05fd73&quot;,
+    &quot;name&quot;: &quot;Financial Documents Q1 2024&quot;,
+    &quot;description&quot;: &quot;Collection of financial documents for Q1 2024 analysis&quot;,
+    &quot;purpose&quot;: null,
+    &quot;original_size&quot;: null,
+    &quot;final_size&quot;: null,
+    &quot;tags&quot;: [
+      &quot;finance&quot;,
+      &quot;q1-2024&quot;,
+      &quot;reports&quot;
+    ],
+    &quot;created_by&quot;: null,
+    &quot;href&quot;: null
+  },
+  {
+    &quot;library_id&quot;: &quot;81cea322-ae1b-4142-8f27-e06ff39e211a&quot;,
+    &quot;name&quot;: &quot;Financial Documents Q1 20241&quot;,
+    &quot;description&quot;: &quot;Collection of financial documents for Q1 2024 analysis&quot;,
+    &quot;purpose&quot;: null,
+    &quot;original_size&quot;: null,
+    &quot;final_size&quot;: null,
+    &quot;tags&quot;: [
+      &quot;finance&quot;,
+      &quot;q1-2024&quot;,
+      &quot;reports&quot;
+    ],
+    &quot;created_by&quot;: null,
+    &quot;href&quot;: null
+  }
+]
+</code></pre>
+<p><strong>Example using curl</strong>:</p>
+<pre><code class="language-bash">curl -X GET &quot;http://localhost:8000/api/v1/document-libraries?offset=0&amp;limit=10&quot;
+</code></pre>
+<h4>8. List Document Sets in a Library</h4>
+<p><strong>Endpoint</strong>: <code>GET /api/v1/document-libraries/{library_id}/document-sets</code></p>
+<p><strong>Path Parameters</strong>:<br />
+- <code>library_id</code> (required): UUID of the library</p>
+<p><strong>Response</strong> (200 OK):</p>
+<pre><code class="language-json">{
+  &quot;document_sets&quot;: [
+    {
+      &quot;id&quot;: &quot;f824b653-45af-45a6-9336-341c6aeb2d8a&quot;,
+      &quot;name&quot;: &quot;Research Documents1&quot;,
+      &quot;container_id&quot;: null,
+      &quot;container_type&quot;: null,
+      &quot;description&quot;: &quot;Collection of research papers and reports.&quot;,
+      &quot;documents&quot;: null,
+      &quot;tags&quot;: [],
+      &quot;propagate_source_acls&quot;: null,
+      &quot;is_derivative_available&quot;: null
+    },
+    {
+      &quot;id&quot;: &quot;85d7a47f-9d81-4ffe-a112-a93b88cd9c70&quot;,
+      &quot;name&quot;: &quot;Research Documents&quot;,
+      &quot;container_id&quot;: null,
+      &quot;container_type&quot;: null,
+      &quot;description&quot;: &quot;Collection of research papers and reports.&quot;,
+      &quot;documents&quot;: null,
+      &quot;tags&quot;: [],
+      &quot;propagate_source_acls&quot;: null,
+      &quot;is_derivative_available&quot;: null
+    }
+  ]
+}
+</code></pre>
+<p><strong>Example using curl</strong>:</p>
+<pre><code class="language-bash">curl -X GET &quot;http://localhost:8000/api/v1/document-libraries/550e8400-e29b-41d4-a716-446655440000/document-sets&quot;
+</code></pre>
+<h2 id="python-client-example">Python Client Example</h2>
+<pre><code class="language-python">import requests
+import json
+
+class DocumentLibraryClient:
+    def __init__(self, base_url: str = &quot;http://localhost:8000&quot;):
+        self.base_url = base_url
+        self.api_path = &quot;/api/v1/document-libraries&quot;
+
+    def create_library(self, name: str, description: str = None, tags: list = None):
+        &quot;&quot;&quot;Create a new document library&quot;&quot;&quot;
+        url = f&quot;{self.base_url}{self.api_path}&quot;
+        payload = {&quot;name&quot;: name}
+        if description:
+            payload[&quot;description&quot;] = description
+        if tags:
+            payload[&quot;tags&quot;] = tags
+
+        response = requests.post(url, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def get_library(self, library_id: str):
+        &quot;&quot;&quot;Get a document library by ID&quot;&quot;&quot;
+        url = f&quot;{self.base_url}{self.api_path}/{library_id}&quot;
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
+
+    def update_library(self, library_id: str, name: str = None,
+                      description: str = None, tags: list = None):
+        &quot;&quot;&quot;Update a document library&quot;&quot;&quot;
+        url = f&quot;{self.base_url}{self.api_path}/{library_id}&quot;
+        payload = {}
+        if name:
+            payload[&quot;name&quot;] = name
+        if description:
+            payload[&quot;description&quot;] = description
+        if tags:
+            payload[&quot;tags&quot;] = tags
+
+        response = requests.patch(url, json=payload)
+        response.raise_for_status()
+        return response.json()
+
+    def delete_library(self, library_id: str):
+        &quot;&quot;&quot;Delete a document library&quot;&quot;&quot;
+        url = f&quot;{self.base_url}{self.api_path}/{library_id}&quot;
+        response = requests.delete(url)
+        response.raise_for_status()
+
+    def add_document_sets(self, library_id: str, document_set_ids: list[str]):
+        &quot;&quot;&quot;Add document sets to a library (bulk operation)&quot;&quot;&quot;
+        url = f&quot;{self.base_url}{self.api_path}/{library_id}/document-sets&quot;
+        params = {&quot;document_sets_ids&quot;: &quot;,&quot;.join(document_set_ids)}
+        response = requests.put(url, params=params)
+        response.raise_for_status()
+
+    def remove_document_sets(self, library_id: str, document_set_ids: list[str]):
+        &quot;&quot;&quot;Remove document sets from a library (bulk operation)&quot;&quot;&quot;
+        url = f&quot;{self.base_url}{self.api_path}/{library_id}/document-sets&quot;
+        params = {&quot;document_sets_ids&quot;: &quot;,&quot;.join(document_set_ids)}
+        response = requests.delete(url, params=params)
+        response.raise_for_status()
+
+    def list_document_sets(self, library_id: str):
+        &quot;&quot;&quot;List document sets in a library&quot;&quot;&quot;
+        url = f&quot;{self.base_url}{self.api_path}/{library_id}/document-sets&quot;
+        response = requests.get(url)
+        response.raise_for_status()
+        return response.json()
+
+# Usage example
+if __name__ == &quot;__main__&quot;:
+    client = DocumentLibraryClient()
+
+    # Create a library
+    library = client.create_library(
+        name=&quot;Invoice Processing Library&quot;,
+        description=&quot;Collection of invoice document sets&quot;,
+        tags=[&quot;invoices&quot;, &quot;accounting&quot;, &quot;q1-2024&quot;]
+    )
+    print(f&quot;Created library: {library['library_id']}&quot;)
+
+    # Add document sets (bulk operation)
+    client.add_document_sets(library['library_id'], [&quot;docset-001&quot;, &quot;docset-002&quot;])
+
+    # List document sets in library
+    doc_sets = client.list_document_sets(library['library_id'])
+    print(f&quot;Library has {len(doc_sets['document_sets'])} document sets&quot;)
+</code></pre>
+<h2 id="error-handling">Error Handling</h2>
+<h3 id="common-error-responses">Common Error Responses</h3>
+<h4>404 Not Found</h4>
+<pre><code class="language-json">{
+  &quot;detail&quot;: &quot;Document library not found: 550e8400-e29b-41d4-a716-446655440000&quot;
+}
+</code></pre>
+<h4>409 Conflict</h4>
+<pre><code class="language-json">{
+  &quot;detail&quot;: &quot;Document library with name 'Financial Documents Q1 2024' already exists&quot;
+}
+</code></pre>
+<h4>422 Validation Error</h4>
+<pre><code class="language-json">{
+  &quot;detail&quot;: [
+    {
+      &quot;loc&quot;: [&quot;body&quot;, &quot;name&quot;],
+      &quot;msg&quot;: &quot;ensure this value has at least 3 characters&quot;,
+      &quot;type&quot;: &quot;value_error.any_str.min_length&quot;
+    }
+  ]
+}
+</code></pre>
+<h3 id="error-handling-in-python">Error Handling in Python</h3>
+<pre><code class="language-python">import requests
+
+try:
+    response = requests.post(
+        &quot;http://localhost:8000/api/v1/document-libraries&quot;,
+        json={&quot;name&quot;: &quot;My Library&quot;}
+    )
+    response.raise_for_status()
+    library = response.json()
+except requests.exceptions.HTTPError as e:
+    if e.response.status_code == 404:
+        print(&quot;Library not found&quot;)
+    elif e.response.status_code == 409:
+        print(&quot;Library already exists&quot;)
+    elif e.response.status_code == 422:
+        print(f&quot;Validation error: {e.response.json()}&quot;)
+    else:
+        print(f&quot;HTTP error: {e}&quot;)
+except requests.exceptions.RequestException as e:
+    print(f&quot;Request failed: {e}&quot;)
+</code></pre>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="1-naming-conventions">1. Naming Conventions</h3>
+<ul>
+<li>Use descriptive, meaningful names</li>
+<li>Include time periods or versions when relevant</li>
+<li>Names must start with a letter and contain only letters, digits, spaces, and underscores</li>
+<li>Example: "Financial Reports Q1 2024", "Legal Contracts 2024_v2"</li>
+</ul>
+<h3 id="2-tagging-strategy">2. Tagging Strategy</h3>
+<ul>
+<li>Use consistent tag naming (lowercase, hyphenated)</li>
+<li>Create a tag taxonomy for your organization</li>
+<li>Examples: "finance", "q1-2024", "high-priority", "audited"</li>
+</ul>
+<h3 id="3-organization-patterns">3. Organization Patterns</h3>
+<ul>
+<li><strong>By Time Period</strong>: "Q1 2024 Documents", "2024 Annual Reports"</li>
+<li><strong>By Department</strong>: "HR Documents", "Legal Contracts", "Finance Reports"</li>
+<li><strong>By Project</strong>: "Project Alpha Documents", "Customer Onboarding"</li>
+<li><strong>By Status</strong>: "Draft Documents", "Approved Documents", "Archived"</li>
+</ul>
+<h3 id="4-aggregate-metrics">4. Aggregate Metrics</h3>
+<ul>
+<li>Metrics are automatically computed when document sets are added/removed</li>
+<li>Use metrics for monitoring and reporting</li>
+<li>Metrics include: total_document_sets, total_documents, total_size_bytes</li>
+</ul>
+<h3 id="5-performance-considerations">5. Performance Considerations</h3>
+<ul>
+<li>Use pagination (skip/limit) for large result sets</li>
+<li>Use search/filter endpoints instead of fetching all libraries</li>
+<li>Cache frequently accessed library metadata</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="issue-library-not-found">Issue: Library Not Found</h3>
+<p><strong>Symptom</strong>: 404 error when accessing a library</p>
+<p><strong>Solutions</strong>:<br />
+1. Verify the library_id is correct<br />
+2. Check if the library was deleted<br />
+3. Use the list endpoint to see all available libraries</p>
+<h3 id="issue-duplicate-library-name">Issue: Duplicate Library Name</h3>
+<p><strong>Symptom</strong>: 409 conflict error when creating a library</p>
+<p><strong>Solutions</strong>:<br />
+1. Choose a different name<br />
+2. Update the existing library instead<br />
+3. Delete the old library if no longer needed</p>
+<h3 id="issue-validation-errors">Issue: Validation Errors</h3>
+<p><strong>Symptom</strong>: 422 validation error</p>
+<p><strong>Solutions</strong>:<br />
+1. Check name length (3-128 characters minimum)<br />
+2. Ensure name starts with a letter (a-z, A-Z)<br />
+3. Verify description length (max 2000 characters)<br />
+4. Use only alphanumeric characters, spaces, and underscores in names (no hyphens or special characters)<br />
+5. Name pattern: <code>^[a-zA-Z][a-zA-Z0-9_ ]*$</code> (example: "My Library Name" or "Test_Library_123")</p>
+<h3 id="issue-api-server-not-running">Issue: API Server Not Running</h3>
+<p><strong>Symptom</strong>: Connection refused errors</p>
+<p><strong>Solutions</strong>:<br />
+1. Start the API server: <code>uvicorn app.main:app --reload</code><br />
+2. Verify the server is running on the correct port (default: 8000)<br />
+3. Check firewall settings</p>
+<h2 id="advanced-topics">Advanced Topics</h2>
+<h3 id="database-schema">Database Schema</h3>
+<p>The Document Library feature uses a hybrid storage approach:</p>
+<p><strong>1. Library Metadata (KeyValueStorage - JSON)</strong>:</p>
+<pre><code class="language-sql">CREATE TABLE document_libraries (
+    key VARCHAR PRIMARY KEY,           -- library id
+    data JSON NOT NULL,                -- Full library metadata as JSON
+    created_at TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP NOT NULL
+);
+</code></pre>
+<p><strong>JSON Structure in <code>data</code> column</strong>:</p>
+<pre><code class="language-json">{
+  &quot;library_id&quot;: &quot;uuid&quot;,
+  &quot;name&quot;: &quot;Library Name&quot;,
+  &quot;description&quot;: &quot;Description&quot;,
+  &quot;purpose&quot;: &quot;Purpose&quot;,
+  &quot;tags&quot;: [&quot;tag1&quot;, &quot;tag2&quot;],
+  &quot;created_by&quot;: &quot;user@example.com&quot;,
+  &quot;href&quot;: &quot;https://...&quot;
+}
+</code></pre>
+<p><strong>2. Junction Table (Relational Storage)</strong>:</p>
+<pre><code class="language-sql">CREATE TABLE library_documentset_junction (
+    library_id VARCHAR NOT NULL,
+    document_set_id VARCHAR NOT NULL,
+    added_at TIMESTAMP NOT NULL,
+    PRIMARY KEY (library_id, document_set_id)
+);
+</code></pre>
+<p><strong>Architecture Notes</strong>:<br />
+- Library metadata uses <code>KeyValueStorage</code> interface (same as Document Sets)<br />
+- JSON storage enables flexible schema and CAMS compatibility<br />
+- Junction table uses relational storage for performance<br />
+- Follows Document Sets pattern: JSON for assets, SQL for relationships</p>
+<h3 id="hexagonal-architecture">Hexagonal Architecture</h3>
+<p>The Document Library implementation follows hexagonal architecture (ports &amp; adapters):</p>
+<ul>
+<li><strong>Domain Layer</strong>: Pure Python business logic (DocumentLibrary model)</li>
+<li><strong>Ports</strong>: Repository interface (DocumentLibraryRepositoryPort)</li>
+<li><strong>Adapters</strong>: DuckDB implementation (DuckDBDocumentLibraryRepository)</li>
+<li><strong>Application Layer</strong>: Service orchestration (DocumentLibraryService)</li>
+<li><strong>API Layer</strong>: FastAPI routes and DTOs</li>
+</ul>
+<p>This architecture allows for:<br />
+- Easy testing with mocked repositories<br />
+- Swapping storage backends (e.g., PostgreSQL, MongoDB)<br />
+- Clear separation of concerns</p>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="../../ARCHITECTURE.html">ARCHITECTURE.md</a> - System architecture overview</li>
+<li><a href="../reference/OPERATORS.html">OPERATOR_REFERENCE.md</a> - Operator documentation</li>
+<li><a href="../../USER_GUIDE_PIPELINE_SETUP.html">USER_GUIDE_PIPELINE_SETUP.md</a> - Pipeline setup guide</li>
+</ul>
+<h2 id="support">Support</h2>
+<p>For issues or questions:<br />
+1. Check the troubleshooting section above<br />
+2. Review the API documentation at <code>http://localhost:8000/docs</code><br />
+3. Consult the ARCHITECTURE.md for technical details<br />
+4. Open an issue on the project repository</p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#key-concepts">Key Concepts</a>
+      <a href="#prerequisites">Prerequisites</a>
+      <a href="#api-endpoints">API Endpoints</a>
+      <a href="#python-client-example">Python Client Example</a>
+      <a href="#error-handling">Error Handling</a>
+      <a href="#best-practices">Best Practices</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#advanced-topics">Advanced Topics</a>
+      <a href="#related-documentation">Related Documentation</a>
+      <a href="#support">Support</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

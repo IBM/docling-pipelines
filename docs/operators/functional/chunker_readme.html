@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ChunkerOperator — Docling Pipelines</title>
+  <meta name="description" content="ChunkerOperator — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter active" href="chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">ChunkerOperator</span>
+      </nav>
+      <h1>ChunkerOperator</h1>
+<p>Splits document text into overlapping chunks for embedding generation and vector storage.</p>
+<ul>
+<li><strong>Short Name:</strong> <code>chunker</code></li>
+<li><strong>Category:</strong> Functional</li>
+</ul>
+<hr />
+<h2 id="overview">Overview</h2>
+<p><code>ChunkerOperator</code> breaks extracted document text into smaller, contextually coherent pieces<br />
+(chunks) that fit within embedding model token limits. It supports three strategies — simple<br />
+fixed-size, semantic content-aware, and hybrid Docling-based — and can optionally summarise<br />
+each chunk using an LLM.</p>
+<p>Chunking can run locally (default) or be offloaded to a remote <code>docling-serve</code> instance for<br />
+distributed workloads.</p>
+<hr />
+<h2 id="key-features">Key Features</h2>
+<ul>
+<li>Three chunking strategies: <code>simple</code>, <code>semantic</code>, <code>hybrid</code></li>
+<li>Optional LLM-based chunk summarisation (LiteLLM or WatsonX)</li>
+<li>Remote chunking via <code>docling-serve</code> API</li>
+<li>Configurable chunk size and overlap</li>
+<li>Optionally retains the original content column alongside chunks</li>
+<li>Outputs <code>chunk_sequence_number</code> and <code>start_index</code> for precise retrieval</li>
+</ul>
+<hr />
+<h2 id="operator-configuration">Operator Configuration</h2>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;chunker&quot;,
+  &quot;name&quot;: &quot;chunk_documents&quot;,
+  &quot;config&quot;: {
+    &quot;chunk_type&quot;: &quot;hybrid&quot;,
+    &quot;chunk_size&quot;: 512,
+    &quot;chunk_overlap&quot;: 128,
+    &quot;provider&quot;: &quot;docling_library&quot;,
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;retain_original_content&quot;: false
+  },
+  &quot;depends_on&quot;: [&quot;extract_documents&quot;]
+}
+</code></pre>
+<hr />
+<h2 id="parameters">Parameters</h2>
+<h3 id="common-parameters">Common parameters</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>chunk_type</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"simple"</code></td>
+<td>Chunking strategy: <code>simple</code>, <code>semantic</code>, or <code>hybrid</code></td>
+</tr>
+<tr>
+<td><code>chunk_size</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>2048</code></td>
+<td>Max chunk size — characters for <code>simple</code>, tokens for <code>hybrid</code>; ignored by <code>semantic</code></td>
+</tr>
+<tr>
+<td><code>chunk_overlap</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>200</code></td>
+<td>Overlap between consecutive chunks (characters or tokens). Max <code>512</code>.</td>
+</tr>
+<tr>
+<td><code>chunk_overlap_percentage</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>20</code></td>
+<td>Overlap expressed as a percentage of <code>chunk_size</code> (0–40). Validated for <code>simple</code> and <code>hybrid</code> only. Values above 20 produce a warning.</td>
+</tr>
+<tr>
+<td><code>doc_column</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"content"</code></td>
+<td>Input column containing text to chunk</td>
+</tr>
+<tr>
+<td><code>retain_original_content</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Keep the original content column in the output table</td>
+</tr>
+<tr>
+<td><code>docling_tokenizer</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"sentence-transformers/all-MiniLM-L6-v2"</code></td>
+<td>HuggingFace tokenizer for <code>hybrid</code> chunking only</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="semantic-chunking-parameters">Semantic chunking parameters</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>semantic_embeddings_model</code></td>
+<td>string</td>
+<td>Yes (semantic)</td>
+<td>—</td>
+<td>Ollama model for semantic boundary detection (e.g. <code>nomic-embed-text</code>)</td>
+</tr>
+<tr>
+<td><code>breakpoint_threshold_type</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"percentile"</code></td>
+<td>Split heuristic: <code>percentile</code>, <code>standard_deviation</code>, <code>interquartile</code>, <code>gradient</code></td>
+</tr>
+<tr>
+<td><code>breakpoint_threshold_amount</code></td>
+<td>float</td>
+<td>No</td>
+<td>null</td>
+<td>Threshold value for the chosen heuristic (e.g. <code>95.0</code> for percentile)</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="remote-docling-serve-chunking-parameters">Remote (docling-serve) chunking parameters</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td>string</td>
+<td>No</td>
+<td>null</td>
+<td><code>"docling_library"</code> (local) or <code>"docling_serve"</code> (remote)</td>
+</tr>
+<tr>
+<td><code>provider_config.api_base</code></td>
+<td>string</td>
+<td>Yes (remote)</td>
+<td>—</td>
+<td>Base URL of docling-serve instance</td>
+</tr>
+<tr>
+<td><code>provider_config.api_key</code></td>
+<td>string</td>
+<td>No</td>
+<td>—</td>
+<td>API key for docling-serve</td>
+</tr>
+<tr>
+<td><code>provider_config.timeout</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>300</code></td>
+<td>Request timeout in seconds</td>
+</tr>
+<tr>
+<td><code>provider_config.poll_interval</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>2</code></td>
+<td>Polling interval for async requests</td>
+</tr>
+<tr>
+<td><code>provider_config.max_retries</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>3</code></td>
+<td>Maximum retry attempts</td>
+</tr>
+<tr>
+<td><code>provider_config.verify_ssl</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>true</code></td>
+<td>Set <code>false</code> for self-signed certificates</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="summarisation-parameters-summarization-object">Summarisation parameters (<code>summarization</code> object)</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>summarization.provider</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"litellm"</code></td>
+<td>LLM provider: <code>litellm</code> or <code>watsonx</code></td>
+</tr>
+<tr>
+<td><code>summarization.provider_config</code></td>
+<td>object</td>
+<td>Yes (if summarization)</td>
+<td>—</td>
+<td>Provider-specific config including <code>model_id</code></td>
+</tr>
+<tr>
+<td><code>summarization.summary_sentences</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>2</code></td>
+<td>Target sentences per summary (1–5)</td>
+</tr>
+<tr>
+<td><code>summarization.summary_max_words</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>20</code></td>
+<td>Max words per summary (10–100)</td>
+</tr>
+<tr>
+<td><code>summarization.max_input_tokens</code></td>
+<td>integer</td>
+<td>No</td>
+<td><code>8000</code></td>
+<td>Max tokens per LLM request (1000–32000)</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="output-columns">Output Columns</h2>
+<p>All original columns (except <code>content</code> when <code>retain_original_content: false</code>) are preserved.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Column</th>
+<th>PyArrow Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>chunked_content</code></td>
+<td><code>list&lt;struct&lt;chunk: string, start_index: int64, summary: string?&gt;&gt;</code></td>
+<td>Array of chunk objects</td>
+</tr>
+<tr>
+<td><code>chunk_sequence_number</code></td>
+<td><code>int64</code></td>
+<td>Sequential chunk index within the source document</td>
+</tr>
+<tr>
+<td><code>start_index</code></td>
+<td><code>int64</code></td>
+<td>Token/character position of the chunk in the source document</td>
+</tr>
+</tbody>
+</table></div>
+<p>Each item in <code>chunked_content</code>:<br />
+- <code>chunk</code> — text content of the chunk<br />
+- <code>start_index</code> — position in the original text<br />
+- <code>summary</code> — present only when summarisation is enabled</p>
+<hr />
+<h2 id="examples">Examples</h2>
+<h3 id="example-1-simple-chunking">Example 1 — Simple chunking</h3>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;chunker&quot;,
+  &quot;name&quot;: &quot;simple_chunker&quot;,
+  &quot;config&quot;: {
+    &quot;chunk_type&quot;: &quot;simple&quot;,
+    &quot;chunk_size&quot;: 1000,
+    &quot;chunk_overlap&quot;: 200,
+    &quot;doc_column&quot;: &quot;content&quot;
+  },
+  &quot;depends_on&quot;: [&quot;extract&quot;]
+}
+</code></pre>
+<h3 id="example-2-semantic-chunking">Example 2 — Semantic chunking</h3>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;chunker&quot;,
+  &quot;name&quot;: &quot;semantic_chunker&quot;,
+  &quot;config&quot;: {
+    &quot;chunk_type&quot;: &quot;semantic&quot;,
+    &quot;semantic_embeddings_model&quot;: &quot;nomic-embed-text&quot;,
+    &quot;breakpoint_threshold_type&quot;: &quot;percentile&quot;,
+    &quot;breakpoint_threshold_amount&quot;: 95.0,
+    &quot;doc_column&quot;: &quot;content&quot;
+  },
+  &quot;depends_on&quot;: [&quot;extract&quot;]
+}
+</code></pre>
+<h3 id="example-3-hybrid-chunking-with-summarisation">Example 3 — Hybrid chunking with summarisation</h3>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;chunker&quot;,
+  &quot;name&quot;: &quot;hybrid_chunker&quot;,
+  &quot;config&quot;: {
+    &quot;chunk_type&quot;: &quot;hybrid&quot;,
+    &quot;provider&quot;: &quot;docling_library&quot;,
+    &quot;chunk_size&quot;: 512,
+    &quot;chunk_overlap&quot;: 50,
+    &quot;docling_tokenizer&quot;: &quot;sentence-transformers/all-MiniLM-L6-v2&quot;,
+    &quot;summarization&quot;: {
+      &quot;provider&quot;: &quot;litellm&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;llama3.2&quot;,
+        &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+        &quot;api_key&quot;: &quot;&lt;ollama&gt;&quot;
+      },
+      &quot;summary_sentences&quot;: 2,
+      &quot;summary_max_words&quot;: 30
+    }
+  },
+  &quot;depends_on&quot;: [&quot;extract&quot;]
+}
+</code></pre>
+<h3 id="example-4-remote-chunking-via-docling-serve">Example 4 — Remote chunking via docling-serve</h3>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;chunker&quot;,
+  &quot;name&quot;: &quot;remote_chunker&quot;,
+  &quot;config&quot;: {
+    &quot;chunk_type&quot;: &quot;hybrid&quot;,
+    &quot;chunk_size&quot;: 512,
+    &quot;chunk_overlap&quot;: 128,
+    &quot;provider&quot;: &quot;docling_serve&quot;,
+    &quot;provider_config&quot;: {
+      &quot;api_base&quot;: &quot;https://docling-serve.example.com&quot;,
+      &quot;timeout&quot;: 120,
+      &quot;max_retries&quot;: 3
+    }
+  },
+  &quot;depends_on&quot;: [&quot;extract&quot;]
+}
+</code></pre>
+<hr />
+<h2 id="troubleshooting">Troubleshooting</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Connection to docling-serve timed out</code></td>
+<td>Remote service unreachable</td>
+<td>Verify <code>api_base</code> is correct and the service is running; increase <code>timeout</code></td>
+</tr>
+<tr>
+<td><code>Docling-serve returned no chunks</code></td>
+<td>Empty or non-markdown input</td>
+<td>Verify the <code>doc_column</code> column contains non-empty markdown text</td>
+</tr>
+<tr>
+<td>SSL verification errors</td>
+<td>Self-signed certificate on docling-serve</td>
+<td>Set <code>provider_config.verify_ssl: false</code> for testing; use a valid cert in production</td>
+</tr>
+<tr>
+<td>Semantic chunking hangs</td>
+<td>Ollama not running</td>
+<td>Start Ollama: <code>ollama serve &amp;&amp; ollama pull &lt;model&gt;</code></td>
+</tr>
+<tr>
+<td>Very large number of tiny chunks</td>
+<td><code>chunk_size</code> is too small</td>
+<td>Increase <code>chunk_size</code>; recommend 512–1024 tokens for hybrid</td>
+</tr>
+<tr>
+<td>Downstream embeddings fail</td>
+<td>Input column name mismatch</td>
+<td>Ensure the <code>doc_column</code> matches what <code>ExtractOperator</code> writes (default: <code>content</code>)</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="architecture">Architecture</h2>
+<h3 id="strategy-selection-guide">Strategy selection guide</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Best for</th>
+<th>Dependencies</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>simple</code></td>
+<td>Quick prototyping, plain text</td>
+<td>None</td>
+</tr>
+<tr>
+<td><code>semantic</code></td>
+<td>Narrative text where sentence boundaries matter</td>
+<td>Ollama</td>
+</tr>
+<tr>
+<td><code>hybrid</code></td>
+<td>Structured documents (PDFs with sections, tables)</td>
+<td>Docling library or docling-serve</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="chunk-size-guidance">Chunk size guidance</h3>
+<ul>
+<li><strong>512–1024 tokens</strong>: Better for precise retrieval</li>
+<li><strong>1024–2048 tokens</strong>: Better for preserving context</li>
+<li><strong>Overlap</strong>: Recommend 10–25% of chunk size (e.g. 128 for 512)</li>
+</ul>
+<h3 id="typical-pipeline-position">Typical pipeline position</h3>
+<pre><code>Ingest → Extract → Chunker → Embeddings → VectorDB
+</code></pre>
+<h3 id="sample-flow">Sample flow</h3>
+<p>See <a href="../../../sample_flows/use_cases/invoice_processing.json"><code>sample_flows/use_cases/invoice_processing.json</code></a>.</p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#key-features">Key Features</a>
+      <a href="#operator-configuration">Operator Configuration</a>
+      <a href="#parameters">Parameters</a>
+      <a href="#output-columns">Output Columns</a>
+      <a href="#examples">Examples</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#architecture">Architecture</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1206 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>StorageOutputOperator — Docling Pipelines</title>
+  <meta name="description" content="StorageOutputOperator — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter active" href="storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">StorageOutputOperator</span>
+      </nav>
+      <h1>StorageOutputOperator</h1>
+<p>Writes pipeline documents to a pluggable storage destination. Short name: <code>storage_output</code> · Category: Storage</p>
+<h2 id="overview">Overview</h2>
+<p><code>StorageOutputOperator</code> accepts the standard Docling Pipelines PyArrow table and writes document content to a<br />
+configured destination using one of three modes: writing extracted content, copying original<br />
+binaries, or producing a full per-document export bundle. It is designed to be placed at the end<br />
+of a pipeline or at any checkpoint where durable output is needed. Unlike <code>DocumentSetOperator</code><br />
+(which persists to DuckDB), this operator writes files to external destinations such as a local<br />
+filesystem, and is the right choice when you need portable, human-readable output.</p>
+<h2 id="key-features">Key Features</h2>
+<ul>
+<li>Three write modes covering the most common output use cases</li>
+<li>Pluggable destination backend via <code>DestinationAdapterFactory</code> — supports <code>filesystem</code>, <code>s3</code>, <code>ibm_cos</code>, <code>sharepoint</code>, <code>onedrive</code>, <code>box</code>, and <code>google_drive</code></li>
+<li>Path templating with per-document variables (<code>{doc_id}</code>, <code>{name}</code>, <code>{year}</code>, <code>{month}</code>, <code>{day}</code>, <code>{relative_dir}</code>)</li>
+<li>Hierarchical output that mirrors the source directory tree; when multiple source paths are configured each root is namespaced by its folder name</li>
+<li>Overwrite control — skip existing files and record <code>skipped</code> status per document</li>
+<li>Automatic subdirectory creation (<code>create_dirs</code>)</li>
+<li>Per-document write outcome tracked in output columns (<code>write_status</code>, <code>write_error</code>, etc.)</li>
+<li>All input columns are passed through unchanged</li>
+</ul>
+<h2 id="operator-configuration">Operator Configuration</h2>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;storage_output&quot;,
+  &quot;name&quot;: &quot;write_output&quot;,
+  &quot;config&quot;: {
+    &quot;mode&quot;: &quot;processed_content&quot;,
+    &quot;destination_config&quot;: {
+      &quot;provider&quot;: &quot;filesystem&quot;,
+      &quot;provider_config&quot;: {
+        &quot;root_path&quot;: &quot;/output/docs&quot;,
+        &quot;create_dirs&quot;: true
+      },
+      &quot;credentials&quot;: {}
+    },
+    &quot;output_format&quot;: {
+      &quot;content_format&quot;: &quot;md&quot;,
+      &quot;include_metadata_sidecar&quot;: false
+    },
+    &quot;output_structure&quot;: {
+      &quot;type&quot;: &quot;flat&quot;,
+      &quot;path_template&quot;: &quot;{year}/{month}/{doc_id}.{ext}&quot;,
+      &quot;overwrite_existing&quot;: true
+    }
+  },
+  &quot;depends_on&quot;: [&quot;extract&quot;]
+}
+</code></pre>
+<h2 id="parameters">Parameters</h2>
+<h3 id="top-level">Top-level</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>mode</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>—</td>
+<td>Write mode: <code>processed_content</code>, <code>refetch_original</code>, or <code>comprehensive_export</code></td>
+</tr>
+<tr>
+<td><code>destination_config</code></td>
+<td>object</td>
+<td>Yes</td>
+<td>—</td>
+<td>Destination connection configuration</td>
+</tr>
+<tr>
+<td><code>output_format</code></td>
+<td>object</td>
+<td>No</td>
+<td><code>{}</code></td>
+<td>Controls content format and metadata sidecar output</td>
+</tr>
+<tr>
+<td><code>output_structure</code></td>
+<td>object</td>
+<td>No</td>
+<td><code>{}</code></td>
+<td>Controls output directory structure and file naming</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="destination-config"><code>destination_config</code></h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>—</td>
+<td>Destination adapter name: <code>filesystem</code>, <code>s3</code>, <code>ibm_cos</code>, <code>sharepoint</code>, <code>onedrive</code>, <code>box</code>, or <code>google_drive</code></td>
+</tr>
+<tr>
+<td><code>provider_config</code></td>
+<td>object</td>
+<td>Yes</td>
+<td>—</td>
+<td>Provider-specific connection parameters (see below)</td>
+</tr>
+<tr>
+<td><code>credentials</code></td>
+<td>object</td>
+<td>No</td>
+<td><code>{}</code></td>
+<td>Provider-specific credentials</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="provider-filesystem">Provider: <code>filesystem</code></h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>root_path</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>—</td>
+<td>Base directory to write files into. <code>~</code> is expanded automatically.</td>
+</tr>
+<tr>
+<td><code>create_dirs</code></td>
+<td>bool</td>
+<td>No</td>
+<td><code>true</code></td>
+<td>Auto-create missing subdirectories</td>
+</tr>
+</tbody>
+</table></div>
+<p>No credentials required — set <code>"credentials": {}</code>.</p>
+<h3 id="provider-s3">Provider: <code>s3</code></h3>
+<p><strong><code>provider_config</code></strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bucket</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>—</td>
+<td>Target S3 bucket name</td>
+</tr>
+<tr>
+<td><code>prefix</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>—</td>
+<td>Key prefix prepended to every object written (writing to bucket root is not permitted)</td>
+</tr>
+<tr>
+<td><code>region</code></td>
+<td>string</td>
+<td>No</td>
+<td>—</td>
+<td>AWS region, e.g. <code>us-east-1</code></td>
+</tr>
+<tr>
+<td><code>endpoint_url</code></td>
+<td>string</td>
+<td>No</td>
+<td>—</td>
+<td>Custom endpoint for S3-compatible storage (IBM COS, MinIO). Must start with <code>http://</code> or <code>https://</code></td>
+</tr>
+<tr>
+<td><code>create_dirs</code></td>
+<td>bool</td>
+<td>No</td>
+<td><code>true</code></td>
+<td>When <code>false</code>, the prefix must already contain at least one object; otherwise the write is refused</td>
+</tr>
+<tr>
+<td><code>verify_expected_bucket_owner</code></td>
+<td>bool</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>When <code>true</code>, verifies the bucket owner matches the caller's AWS account via STS</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong><code>credentials</code></strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>access_key</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>AWS access key ID. Use <code>"${ENV_VAR}"</code> to read from an environment variable</td>
+</tr>
+<tr>
+<td><code>secret_key</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>AWS secret access key. Use <code>"${ENV_VAR}"</code> to read from an environment variable</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="provider-ibm-cos">Provider: <code>ibm_cos</code></h3>
+<p><code>ibm_cos</code> is an alias for <code>s3</code> — it uses the same <code>S3DestinationAdapter</code> with a custom<br />
+<code>endpoint_url</code> pointing to IBM Cloud Object Storage. No separate adapter or credentials type is<br />
+needed.</p>
+<p><strong><code>provider_config</code></strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>bucket</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>—</td>
+<td>Target IBM COS bucket name</td>
+</tr>
+<tr>
+<td><code>prefix</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>—</td>
+<td>Key prefix prepended to every object written</td>
+</tr>
+<tr>
+<td><code>endpoint_url</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>—</td>
+<td>IBM COS regional endpoint, e.g. <code>https://s3.us-south.cloud-object-storage.appdomain.cloud</code></td>
+</tr>
+<tr>
+<td><code>create_dirs</code></td>
+<td>bool</td>
+<td>No</td>
+<td><code>true</code></td>
+<td>When <code>false</code>, prefix must already contain at least one object</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong><code>credentials</code></strong> — same as <code>s3</code> (HMAC access key and secret key).</p>
+<h3 id="provider-sharepoint">Provider: <code>sharepoint</code></h3>
+<p>Writes to a SharePoint document library via the Microsoft Graph API (client credentials flow).<br />
+Requires the <code>msal</code> and <code>requests</code> packages.</p>
+<p><strong><code>provider_config</code></strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>drive_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>—</td>
+<td>Microsoft Graph drive ID of the SharePoint document library</td>
+</tr>
+<tr>
+<td><code>folder_path</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>""</code></td>
+<td>Destination folder within the drive, e.g. <code>/Processed Documents</code>. Leave empty to write to the drive root.</td>
+</tr>
+<tr>
+<td><code>create_dirs</code></td>
+<td>bool</td>
+<td>No</td>
+<td><code>true</code></td>
+<td>When <code>false</code>, validate_destination checks the folder already exists</td>
+</tr>
+<tr>
+<td><code>graph_api_version</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>v1.0</code></td>
+<td>Microsoft Graph API version: <code>v1.0</code> or <code>beta</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong><code>credentials</code></strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>client_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Azure AD application (client) ID. Supports <code>"${ENV_VAR}"</code> resolution</td>
+</tr>
+<tr>
+<td><code>client_secret</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Azure AD client secret. Supports <code>"${ENV_VAR}"</code> resolution</td>
+</tr>
+<tr>
+<td><code>tenant_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Azure AD tenant (directory) ID. Supports <code>"${ENV_VAR}"</code> resolution</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="provider-box">Provider: <code>box</code></h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>credentials_path</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>—</td>
+<td>Path to Box JWT/App config JSON file. Supports <code>${ENV_VAR}</code> and <code>~/</code> expansion</td>
+</tr>
+<tr>
+<td><code>folder_id</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"0"</code></td>
+<td>ID of the target Box folder. <code>"0"</code> = authenticated user's root folder</td>
+</tr>
+<tr>
+<td><code>create_dirs</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>true</code></td>
+<td>Automatically create intermediate sub-folders on upload</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="provider-google-drive">Provider: <code>google_drive</code></h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>folder_id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>—</td>
+<td>Google Drive folder ID to write files into</td>
+</tr>
+<tr>
+<td><code>drive_id</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>null</code></td>
+<td>Shared Drive ID (leave null for My Drive)</td>
+</tr>
+<tr>
+<td><code>create_dirs</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>true</code></td>
+<td>Automatically create intermediate sub-folders</td>
+</tr>
+<tr>
+<td><code>service_account_json_path</code></td>
+<td>string</td>
+<td>No*</td>
+<td><code>null</code></td>
+<td>Path to Service Account JSON key file (alternative to OAuth2)</td>
+</tr>
+<tr>
+<td><code>credentials_path</code></td>
+<td>string</td>
+<td>No*</td>
+<td><code>null</code></td>
+<td>Path to OAuth2 client secrets JSON file</td>
+</tr>
+<tr>
+<td><code>token_path</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>null</code></td>
+<td>Path to cache the OAuth2 token. Defaults to the credentials directory</td>
+</tr>
+<tr>
+<td><code>scopes</code></td>
+<td>list[string]</td>
+<td>No</td>
+<td>Drive read/write scope</td>
+<td>OAuth2 scopes</td>
+</tr>
+</tbody>
+</table></div>
+<p>*One of <code>service_account_json_path</code> or <code>credentials_path</code> is required.</p>
+<h3 id="output-format"><code>output_format</code></h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>content_format</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>md</code></td>
+<td>Extension for the content file: <code>md</code>, <code>txt</code>, or <code>json</code></td>
+</tr>
+<tr>
+<td><code>include_metadata_sidecar</code></td>
+<td>bool</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Write a <code>.meta.json</code> sidecar per document — <code>comprehensive_export</code> mode only</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="output-structure"><code>output_structure</code></h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>type</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>flat</code></td>
+<td><code>flat</code> (all files in one directory) or <code>hierarchical</code> (mirrors source tree via <code>relative_path</code> metadata)</td>
+</tr>
+<tr>
+<td><code>path_template</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>{name}.{ext}</code></td>
+<td>Template string for the output file path relative to <code>root_path</code></td>
+</tr>
+<tr>
+<td><code>overwrite_existing</code></td>
+<td>bool</td>
+<td>No</td>
+<td><code>true</code></td>
+<td>When <code>false</code>, existing files are skipped and recorded with <code>write_status = skipped</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="path-template-variables">Path template variables</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Resolves to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>{doc_id}</code></td>
+<td>Document <code>id</code> column value</td>
+</tr>
+<tr>
+<td><code>{name}</code></td>
+<td>Document name stem (without extension)</td>
+</tr>
+<tr>
+<td><code>{ext}</code></td>
+<td>Output file extension (<code>content_format</code> for <code>processed_content</code>; original format for <code>refetch_original</code> and <code>comprehensive_export</code>)</td>
+</tr>
+<tr>
+<td><code>{year}</code></td>
+<td>UTC year at write time, e.g. <code>2026</code></td>
+</tr>
+<tr>
+<td><code>{month}</code></td>
+<td>UTC month, zero-padded, e.g. <code>06</code></td>
+</tr>
+<tr>
+<td><code>{day}</code></td>
+<td>UTC day, zero-padded, e.g. <code>14</code></td>
+</tr>
+<tr>
+<td><code>{relative_dir}</code></td>
+<td>Directory portion of the source relative path (e.g. <code>sub01</code> for a file ingested as <code>sub01/report.pdf</code>). Empty string when the file is at the source root.</td>
+</tr>
+</tbody>
+</table></div>
+<p>When no <code>path_template</code> is provided and <code>type</code> is <code>flat</code>, files are written as <code>{name}.{ext}</code>.<br />
+When <code>type</code> is <code>hierarchical</code> and no template is given, the full source relative path is used to<br />
+mirror the source directory structure. Relative paths are resolved from <code>metadata["relative_path"]</code><br />
+(filesystem ingest), <code>metadata["key"]</code> minus the source prefix (S3 ingest), or the absolute <code>path</code><br />
+column minus the common ingest root (local ingest).</p>
+<h2 id="output-columns">Output Columns</h2>
+<p>All input columns are passed through unchanged. The following columns are appended:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>write_status</code></td>
+<td>string</td>
+<td><code>success</code>, <code>failed</code>, or <code>skipped</code></td>
+</tr>
+<tr>
+<td><code>destination_path</code></td>
+<td>string</td>
+<td>Full path of the written file; <code>null</code> on failure</td>
+</tr>
+<tr>
+<td><code>bytes_written</code></td>
+<td>int64</td>
+<td>Number of bytes written; <code>0</code> on failure</td>
+</tr>
+<tr>
+<td><code>write_error</code></td>
+<td>string</td>
+<td>Error message when <code>write_status</code> is <code>failed</code> or <code>skipped</code>; <code>null</code> on success</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="examples">Examples</h2>
+<h3 id="example-1-write-extracted-content-as-markdown-filesystem">Example 1: Write extracted content as markdown (filesystem)</h3>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;storage_output&quot;,
+  &quot;name&quot;: &quot;write_markdown&quot;,
+  &quot;config&quot;: {
+    &quot;mode&quot;: &quot;processed_content&quot;,
+    &quot;destination_config&quot;: {
+      &quot;provider&quot;: &quot;filesystem&quot;,
+      &quot;provider_config&quot;: { &quot;root_path&quot;: &quot;/output/markdown&quot; },
+      &quot;credentials&quot;: {}
+    },
+    &quot;output_format&quot;: { &quot;content_format&quot;: &quot;md&quot; },
+    &quot;output_structure&quot;: { &quot;path_template&quot;: &quot;{year}/{month}/{name}.{ext}&quot; }
+  },
+  &quot;depends_on&quot;: [&quot;extract&quot;]
+}
+</code></pre>
+<h3 id="example-2-write-extracted-content-to-s3">Example 2: Write extracted content to S3</h3>
+<p>Credentials are read from environment variables at runtime.</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;storage_output&quot;,
+  &quot;name&quot;: &quot;write_to_s3&quot;,
+  &quot;config&quot;: {
+    &quot;mode&quot;: &quot;processed_content&quot;,
+    &quot;destination_config&quot;: {
+      &quot;provider&quot;: &quot;s3&quot;,
+      &quot;provider_config&quot;: {
+        &quot;bucket&quot;: &quot;my-export-bucket&quot;,
+        &quot;prefix&quot;: &quot;exports/markdown/&quot;,
+        &quot;region&quot;: &quot;us-east-1&quot;,
+        &quot;create_dirs&quot;: true
+      },
+      &quot;credentials&quot;: {
+        &quot;access_key&quot;: &quot;${S3_DEST_ACCESS_KEY}&quot;,
+        &quot;secret_key&quot;: &quot;${S3_DEST_SECRET_KEY}&quot;
+      }
+    },
+    &quot;output_format&quot;: { &quot;content_format&quot;: &quot;md&quot; },
+    &quot;output_structure&quot;: {
+      &quot;type&quot;: &quot;hierarchical&quot;,
+      &quot;path_template&quot;: &quot;{year}/{month}/{name}.{ext}&quot;,
+      &quot;overwrite_existing&quot;: true
+    }
+  },
+  &quot;depends_on&quot;: [&quot;extract&quot;]
+}
+</code></pre>
+<h3 id="example-3-archive-original-files-to-s3-skipping-existing">Example 3: Archive original files to S3, skipping existing</h3>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;storage_output&quot;,
+  &quot;name&quot;: &quot;archive_originals_s3&quot;,
+  &quot;config&quot;: {
+    &quot;mode&quot;: &quot;refetch_original&quot;,
+    &quot;destination_config&quot;: {
+      &quot;provider&quot;: &quot;s3&quot;,
+      &quot;provider_config&quot;: {
+        &quot;bucket&quot;: &quot;my-archive-bucket&quot;,
+        &quot;prefix&quot;: &quot;originals/&quot;,
+        &quot;region&quot;: &quot;us-east-1&quot;,
+        &quot;create_dirs&quot;: true
+      },
+      &quot;credentials&quot;: {
+        &quot;access_key&quot;: &quot;${S3_DEST_ACCESS_KEY}&quot;,
+        &quot;secret_key&quot;: &quot;${S3_DEST_SECRET_KEY}&quot;
+      }
+    },
+    &quot;output_structure&quot;: {
+      &quot;type&quot;: &quot;hierarchical&quot;,
+      &quot;overwrite_existing&quot;: false
+    }
+  },
+  &quot;depends_on&quot;: [&quot;ingest&quot;]
+}
+</code></pre>
+<h3 id="example-4-write-extracted-content-to-ibm-cos">Example 4: Write extracted content to IBM COS</h3>
+<p><code>ibm_cos</code> behaves identically to <code>s3</code> — supply the IBM COS HMAC credentials and the regional<br />
+endpoint URL.</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;storage_output&quot;,
+  &quot;name&quot;: &quot;write_to_ibm_cos&quot;,
+  &quot;config&quot;: {
+    &quot;mode&quot;: &quot;processed_content&quot;,
+    &quot;destination_config&quot;: {
+      &quot;provider&quot;: &quot;ibm_cos&quot;,
+      &quot;provider_config&quot;: {
+        &quot;bucket&quot;: &quot;my-cos-bucket&quot;,
+        &quot;prefix&quot;: &quot;exports/markdown/&quot;,
+        &quot;endpoint_url&quot;: &quot;https://s3.us-south.cloud-object-storage.appdomain.cloud&quot;,
+        &quot;create_dirs&quot;: true
+      },
+      &quot;credentials&quot;: {
+        &quot;access_key&quot;: &quot;${COS_DEST_ACCESS_KEY}&quot;,
+        &quot;secret_key&quot;: &quot;${COS_DEST_SECRET_KEY}&quot;
+      }
+    },
+    &quot;output_format&quot;: { &quot;content_format&quot;: &quot;md&quot; },
+    &quot;output_structure&quot;: {
+      &quot;type&quot;: &quot;hierarchical&quot;,
+      &quot;overwrite_existing&quot;: true
+    }
+  },
+  &quot;depends_on&quot;: [&quot;extract&quot;]
+}
+</code></pre>
+<h3 id="example-5-write-extracted-content-to-sharepoint">Example 5: Write extracted content to SharePoint</h3>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;storage_output&quot;,
+  &quot;name&quot;: &quot;write_to_sharepoint&quot;,
+  &quot;config&quot;: {
+    &quot;mode&quot;: &quot;processed_content&quot;,
+    &quot;destination_config&quot;: {
+      &quot;provider&quot;: &quot;sharepoint&quot;,
+      &quot;provider_config&quot;: {
+        &quot;drive_id&quot;: &quot;${SHAREPOINT_DRIVE_ID}&quot;,
+        &quot;folder_path&quot;: &quot;/Processed Documents&quot;,
+        &quot;create_dirs&quot;: true
+      },
+      &quot;credentials&quot;: {
+        &quot;client_id&quot;: &quot;${SHAREPOINT_CLIENT_ID}&quot;,
+        &quot;client_secret&quot;: &quot;${SHAREPOINT_CLIENT_SECRET}&quot;,
+        &quot;tenant_id&quot;: &quot;${SHAREPOINT_TENANT_ID}&quot;
+      }
+    },
+    &quot;output_format&quot;: { &quot;content_format&quot;: &quot;md&quot; },
+    &quot;output_structure&quot;: {
+      &quot;type&quot;: &quot;hierarchical&quot;,
+      &quot;overwrite_existing&quot;: true
+    }
+  },
+  &quot;depends_on&quot;: [&quot;extract&quot;]
+}
+</code></pre>
+<h3 id="example-6-full-compliance-export-with-metadata-sidecar-filesystem">Example 6: Full compliance export with metadata sidecar (filesystem)</h3>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;storage_output&quot;,
+  &quot;name&quot;: &quot;compliance_export&quot;,
+  &quot;config&quot;: {
+    &quot;mode&quot;: &quot;comprehensive_export&quot;,
+    &quot;destination_config&quot;: {
+      &quot;provider&quot;: &quot;filesystem&quot;,
+      &quot;provider_config&quot;: { &quot;root_path&quot;: &quot;/export/contracts&quot;, &quot;create_dirs&quot;: true },
+      &quot;credentials&quot;: {}
+    },
+    &quot;output_format&quot;: { &quot;content_format&quot;: &quot;md&quot;, &quot;include_metadata_sidecar&quot;: true },
+    &quot;output_structure&quot;: {
+      &quot;path_template&quot;: &quot;{year}/{month}/{doc_id}/{name}.{ext}&quot;,
+      &quot;overwrite_existing&quot;: true
+    }
+  },
+  &quot;depends_on&quot;: [&quot;extract&quot;]
+}
+</code></pre>
+<p>Output layout per document:</p>
+<pre><code class="language-text">/export/contracts/2026/06/abc123/
+├── report.pdf            ← original binary
+├── report.content.md     ← extracted content
+└── report.meta.json      ← metadata sidecar
+</code></pre>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p><strong><code>ValueError: 'mode' is required</code></strong> — The <code>mode</code> field is missing from the operator config. Add one<br />
+of <code>processed_content</code>, <code>refetch_original</code>, or <code>comprehensive_export</code>.</p>
+<p><strong><code>ValueError: Unknown destination adapter: 'xyz'</code></strong> — The <code>provider</code> field in <code>destination_config</code><br />
+does not match any registered adapter. Use <code>filesystem</code>, <code>s3</code>, <code>ibm_cos</code>, <code>sharepoint</code>, <code>onedrive</code>, <code>box</code>, or <code>google_drive</code>.</p>
+<p><strong><code>write_status = failed</code> with <code>destination directory does not exist and create_dirs is disabled</code></strong> —<br />
+The output directory (filesystem), prefix (S3/IBM COS), or folder path (SharePoint) does not exist<br />
+and <code>create_dirs</code> is <code>false</code>. Set <code>create_dirs: true</code> or create the path manually before running the<br />
+flow.</p>
+<p><strong><code>write_status = failed</code> with <code>S3 destination bucket '...' is not accessible</code></strong> — The S3 bucket is<br />
+not reachable. Check that the bucket name, region, credentials, and network access are correct. For<br />
+S3-compatible storage, verify <code>endpoint_url</code>.</p>
+<p><strong><code>write_status = failed</code> with <code>boto3 is not installed</code></strong> — The <code>s3</code> provider requires the <code>boto3</code><br />
+package. Install it with <code>uv pip install boto3</code>.</p>
+<p><strong><code>ValueError: Missing required S3 credential: 'access_key'</code></strong> — The <code>access_key</code> field is absent<br />
+from <code>credentials</code>. If using environment variables, ensure <code>${S3_DEST_ACCESS_KEY}</code> is set in the<br />
+shell before running the flow.</p>
+<p><strong><code>ValueError: Missing required S3 destination path: set 'prefix'</code></strong> — The <code>prefix</code> field is absent<br />
+from <code>provider_config</code>. Writing to the S3 bucket root is not permitted; set a non-empty prefix.</p>
+<p><strong><code>write_status = failed</code> with <code>SharePoint document library '...' is not accessible</code></strong> — The Graph<br />
+API could not reach the drive. Verify <code>drive_id</code>, the Azure AD app credentials, and that the app<br />
+has <code>Files.ReadWrite.All</code> or <code>Sites.ReadWrite.All</code> permission granted in the tenant.</p>
+<p><strong><code>write_status = failed</code> with <code>destination folder path does not exist and create_dirs is disabled</code></strong><br />
+— The <code>folder_path</code> does not exist in the drive and <code>create_dirs</code> is <code>false</code>. Set <code>create_dirs:
+true</code> or create the folder in SharePoint before running the flow.</p>
+<p><strong><code>write_status = failed</code> with <code>Microsoft Graph dependencies are not installed</code></strong> — The <code>sharepoint</code><br />
+provider requires <code>msal</code> and <code>requests</code>. Install with <code>uv pip install msal requests</code>.</p>
+<p><strong><code>ValueError: Missing required SharePoint credential: 'client_id'</code></strong> — A required Azure AD<br />
+credential field is absent. Ensure all three fields (<code>client_id</code>, <code>client_secret</code>, <code>tenant_id</code>) are<br />
+present in <code>credentials</code> and that any <code>${ENV_VAR}</code> references are set in the shell.</p>
+<p><strong><code>ValueError: Missing required SharePoint connection parameter: 'drive_id'</code></strong> — The <code>drive_id</code><br />
+field is missing from <code>provider_config</code>. Obtain it from the SharePoint site's document library<br />
+settings or via the Microsoft Graph <code>GET /sites/{site-id}/drives</code> endpoint.</p>
+<p><strong><code>write_status = failed</code> with <code>Could not fetch binary content for 'name' from source</code></strong> — Modes<br />
+<code>refetch_original</code> and <code>comprehensive_export</code> re-fetch binaries via the upstream ingest source.<br />
+Ensure the <code>ingest_source</code> global config is populated and the source is accessible.</p>
+<p><strong><code>write_status = skipped</code></strong> — A file already exists at the destination path and<br />
+<code>overwrite_existing</code> is <code>false</code>. This is expected behaviour; inspect the <code>write_error</code> column for<br />
+the exact path.</p>
+<h2 id="architecture">Architecture</h2>
+<p><code>StorageOutputOperator</code> follows the hexagonal architecture pattern established by the ingest side<br />
+of the framework. The operator itself is the application layer; it delegates I/O to a<br />
+<a href="../../../src/docpipe/core/operators/storage/ports/outbound/destination_adapter.py"><code>DestinationAdapterPort</code></a><br />
+implementation selected by <a href="../../../src/docpipe/core/operators/storage/adapters/outbound/destinations/factories/destination_factory.py"><code>DestinationAdapterFactory</code></a>.</p>
+<pre><code class="language-mermaid">graph LR
+    SOO[StorageOutputOperator] --&gt; FAC[DestinationAdapterFactory]
+    FAC --&gt; FSA[FilesystemDestinationAdapter]
+    FAC --&gt; SPA[SharePointDestinationAdapter]
+    FSA --&gt; FS[Local Filesystem]
+    S3A --&gt; S3[Amazon S3 / IBM COS]
+    SPA --&gt; SP[SharePoint / OneDrive via Graph API]
+
+    style SOO fill:#e1f5ff
+    style FAC fill:#fff4e1
+    style FSA fill:#f3e6ff
+    style S3A fill:#f3e6ff
+    style SPA fill:#f3e6ff
+    style FS fill:#e8f5e9
+    style S3 fill:#e8f5e9
+    style SP fill:#e8f5e9
+</code></pre>
+<p>New destination adapters self-register via the <code>@register_destination_adapter</code> decorator and<br />
+require no changes to the operator itself. Each adapter implements <code>validate_destination()</code> for<br />
+pre-flight reachability checks and <code>resolve_destination_path()</code> to convert a relative template<br />
+path into a provider-specific absolute path (filesystem path or S3 object key).</p>
+<p><strong>Operating modes and required input columns:</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Required columns</th>
+<th>Source connection needed</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>processed_content</code></td>
+<td><code>id</code>, <code>name</code>, <code>content</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>refetch_original</code></td>
+<td><code>id</code>, <code>name</code>, <code>path</code>, <code>document_format</code></td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>comprehensive_export</code></td>
+<td><code>id</code>, <code>name</code>, <code>path</code>, <code>content</code>, <code>metadata</code>, <code>document_format</code></td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table></div>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#key-features">Key Features</a>
+      <a href="#operator-configuration">Operator Configuration</a>
+      <a href="#parameters">Parameters</a>
+      <a href="#output-columns">Output Columns</a>
+      <a href="#examples">Examples</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#architecture">Architecture</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VectorDB Operator - OpenSearch Configuration — Docling Pipelines</title>
+  <meta name="description" content="VectorDB Operator - OpenSearch Configuration — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter active" href="opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">VectorDB Operator - OpenSearch Configuration</span>
+      </nav>
+      <h1>VectorDB Operator - OpenSearch Configuration</h1>
+<h2 id="overview">Overview</h2>
+<p>The VectorDB operator stores documents and embeddings in vector databases for similarity search. This document covers OpenSearch-specific configuration.</p>
+<p>When configured with <code>provider: "opensearch"</code>, the operator supports multiple KNN engines, algorithms, incremental updates, and query capabilities.</p>
+<h2 id="features">Features</h2>
+<h3 id="core-capabilities">Core Capabilities</h3>
+<ul>
+<li><strong>Multiple KNN Engines</strong>: FAISS, Lucene, nmslib, jVector</li>
+<li><strong>Multiple Algorithms</strong>: HNSW, IVF</li>
+<li><strong>Vector Similarity Metrics</strong>: L2, Cosine, Inner Product</li>
+<li><strong>Batch Processing</strong>: Size-aware batching with configurable limits</li>
+<li><strong>Incremental Updates</strong>: Query and delete capabilities</li>
+<li><strong>Error Handling</strong>: Detailed failure tracking and retry logic</li>
+<li><strong>Version Compatibility</strong>: Automatic version detection and validation</li>
+</ul>
+<h3 id="supported-engines">Supported Engines</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Engine</th>
+<th>Algorithms</th>
+<th>Best For</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FAISS</td>
+<td>HNSW, IVF</td>
+<td>Large-scale similarity search</td>
+<td>Recommended for production</td>
+</tr>
+<tr>
+<td>Lucene</td>
+<td>HNSW</td>
+<td>Native OpenSearch integration</td>
+<td>Good balance of speed and accuracy</td>
+</tr>
+<tr>
+<td>nmslib</td>
+<td>HNSW</td>
+<td>Legacy support</td>
+<td>Deprecated in OpenSearch 2.13+</td>
+</tr>
+<tr>
+<td>jVector</td>
+<td>HNSW</td>
+<td>Java-based implementation</td>
+<td>Requires k-NN plugin</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="algorithm-comparison">Algorithm Comparison</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Algorithm</th>
+<th>Speed</th>
+<th>Accuracy</th>
+<th>Memory</th>
+<th>Use Case</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HNSW</td>
+<td>Fast</td>
+<td>High</td>
+<td>Medium</td>
+<td>General purpose, recommended</td>
+</tr>
+<tr>
+<td>IVF</td>
+<td>Very Fast</td>
+<td>Medium</td>
+<td>Low</td>
+<td>Large datasets, speed priority</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="configuration-parameters">Configuration Parameters</h2>
+<h3 id="operator-level-settings">Operator-Level Settings</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td>string</td>
+<td>No</td>
+<td>"opensearch"</td>
+<td>Vector database type</td>
+</tr>
+<tr>
+<td><code>index_name</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>-</td>
+<td>Name of the OpenSearch index</td>
+</tr>
+<tr>
+<td><code>doc_id_column</code></td>
+<td>string</td>
+<td>No</td>
+<td>"doc_id_hash"</td>
+<td>Column containing document IDs</td>
+</tr>
+<tr>
+<td><code>embeddings_column</code></td>
+<td>string</td>
+<td>No</td>
+<td>"embeddings"</td>
+<td>Column containing embeddings</td>
+</tr>
+<tr>
+<td><code>vector_dimension</code></td>
+<td>integer</td>
+<td>No</td>
+<td>384</td>
+<td>Dimension of vector embeddings</td>
+</tr>
+<tr>
+<td><code>create_index</code></td>
+<td>boolean</td>
+<td>No</td>
+<td>true</td>
+<td>Create index if it doesn't exist</td>
+</tr>
+<tr>
+<td><code>batch_size</code></td>
+<td>integer</td>
+<td>No</td>
+<td>100</td>
+<td>Documents per batch</td>
+</tr>
+<tr>
+<td><code>provider_config</code></td>
+<td>object</td>
+<td>Yes</td>
+<td>-</td>
+<td>Provider-specific configuration (see below)</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="provider-config-structure">provider_config Structure</h3>
+<p>Connection and engine-specific parameters are configured inside the <code>provider_config</code> nested dictionary for architectural separation between generic and provider-specific settings.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>host</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>-</td>
+<td>OpenSearch server host</td>
+</tr>
+<tr>
+<td><code>port</code></td>
+<td>integer</td>
+<td>No</td>
+<td>9200</td>
+<td>OpenSearch server port</td>
+</tr>
+<tr>
+<td><code>username</code></td>
+<td>string</td>
+<td>No</td>
+<td>-</td>
+<td>Username for basic authentication</td>
+</tr>
+<tr>
+<td><code>password</code></td>
+<td>string</td>
+<td>No</td>
+<td>-</td>
+<td>Password for basic authentication</td>
+</tr>
+<tr>
+<td><code>use_ssl</code></td>
+<td>boolean</td>
+<td>No</td>
+<td>false</td>
+<td>Use SSL connection</td>
+</tr>
+<tr>
+<td><code>verify_certs</code></td>
+<td>boolean</td>
+<td>No</td>
+<td>false</td>
+<td>Verify SSL certificates</td>
+</tr>
+<tr>
+<td><code>aws_auth</code></td>
+<td>boolean</td>
+<td>No</td>
+<td>false</td>
+<td>Use AWS IAM authentication</td>
+</tr>
+<tr>
+<td><code>aws_region</code></td>
+<td>string</td>
+<td>No</td>
+<td>-</td>
+<td>AWS region for authentication</td>
+</tr>
+<tr>
+<td><code>jwt_token</code></td>
+<td>string</td>
+<td>No</td>
+<td>-</td>
+<td>JWT token for Bearer authentication</td>
+</tr>
+<tr>
+<td><code>engine</code></td>
+<td>string</td>
+<td>No</td>
+<td>"faiss"</td>
+<td>KNN engine (faiss, lucene, nmslib, jvector)</td>
+</tr>
+<tr>
+<td><code>algorithm</code></td>
+<td>string</td>
+<td>No</td>
+<td>"hnsw"</td>
+<td>KNN algorithm (hnsw, ivf)</td>
+</tr>
+<tr>
+<td><code>space_type</code></td>
+<td>string</td>
+<td>No</td>
+<td>"l2"</td>
+<td>Similarity metric (l2, cosine, inner_product)</td>
+</tr>
+<tr>
+<td><code>engine_parameters</code></td>
+<td>object</td>
+<td>No</td>
+<td>{}</td>
+<td>Custom engine-specific parameters</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Note</strong>: Only one authentication method can be used at a time: basic auth (username/password), AWS IAM (aws_auth), or JWT token (jwt_token).</p>
+<h3 id="engine-parameters">Engine Parameters</h3>
+<h4>FAISS + HNSW</h4>
+<pre><code class="language-json">{
+  &quot;ef_construction&quot;: 128,
+  &quot;m&quot;: 24
+}
+</code></pre>
+<h4>FAISS + IVF</h4>
+<pre><code class="language-json">{
+  &quot;nlist&quot;: 128,
+  &quot;nprobe&quot;: 8
+}
+</code></pre>
+<h4>Lucene + HNSW</h4>
+<pre><code class="language-json">{
+  &quot;ef_construction&quot;: 128,
+  &quot;m&quot;: 16
+}
+</code></pre>
+<h2 id="usage-examples">Usage Examples</h2>
+<h3 id="example-1-basic-usage-with-faiss">Example 1: Basic Usage with FAISS</h3>
+<pre><code class="language-python">from docpipe.core.operators.vectordb import VectorDBOperator
+from docpipe.common.constants.operator_constants import OperatorConstants
+import pyarrow as pa
+import numpy as np
+
+config = {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;index_name&quot;: &quot;my_documents&quot;,
+    &quot;vector_dimension&quot;: 384,
+    OperatorConstants.Config.PROVIDER_CONFIG: {
+        &quot;host&quot;: &quot;localhost&quot;,
+        &quot;port&quot;: 9200,
+        &quot;username&quot;: &quot;admin&quot;,
+        &quot;password&quot;: &quot;&lt;your-opensearch-password&gt;&quot;,
+        &quot;use_ssl&quot;: False,
+        OperatorConstants.VectorDB.ENGINE: &quot;faiss&quot;,
+        OperatorConstants.VectorDB.ALGORITHM: &quot;hnsw&quot;,
+        OperatorConstants.VectorDB.SPACE_TYPE: &quot;l2&quot;
+    },
+    &quot;available_features&quot;: {
+        &quot;doc_id_hash&quot;: {
+            &quot;available_for_vector_db&quot;: True,
+            &quot;mandatory_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;string&quot;,
+            &quot;is_primary&quot;: True
+        },
+        &quot;content&quot;: {
+            &quot;available_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;string&quot;
+        },
+        &quot;embeddings&quot;: {
+            &quot;available_for_vector_db&quot;: True,
+            &quot;mandatory_for_vector_db&quot;: True,
+            &quot;type&quot;: &quot;vector&quot;
+        }
+    },
+    &quot;feature_mappings&quot;: {
+        &quot;doc_id_hash&quot;: &quot;id&quot;,
+        &quot;content&quot;: &quot;text&quot;,
+        &quot;embeddings&quot;: &quot;vector&quot;
+    }
+}
+
+# Create sample data
+data = {
+    &quot;doc_id_hash&quot;: [&quot;doc1&quot;, &quot;doc2&quot;],
+    &quot;content&quot;: [&quot;First document&quot;, &quot;Second document&quot;],
+    &quot;embeddings&quot;: [np.random.rand(384).tolist(), np.random.rand(384).tolist()]
+}
+
+table = pa.table(data)
+
+# Index documents
+operator = VectorDBOperator(config)
+result_tables, metadata = operator.transform(table)
+
+print(f&quot;Indexed {metadata['processed_docs']} documents&quot;)
+</code></pre>
+<h3 id="example-2-lucene-engine-with-cosine-similarity">Example 2: Lucene Engine with Cosine Similarity</h3>
+<pre><code class="language-python">from docpipe.common.constants.operator_constants import OperatorConstants
+
+config = {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;index_name&quot;: &quot;semantic_search&quot;,
+    &quot;vector_dimension&quot;: 768,
+    OperatorConstants.Config.PROVIDER_CONFIG: {
+        &quot;host&quot;: &quot;localhost&quot;,
+        &quot;port&quot;: 9200,
+        OperatorConstants.VectorDB.ENGINE: &quot;lucene&quot;,
+        OperatorConstants.VectorDB.ALGORITHM: &quot;hnsw&quot;,
+        OperatorConstants.VectorDB.SPACE_TYPE: &quot;cosine&quot;,
+        OperatorConstants.VectorDB.ENGINE_PARAMETERS: {
+            &quot;ef_construction&quot;: 256,
+            &quot;m&quot;: 32
+        }
+    }
+}
+</code></pre>
+<h3 id="example-3-aws-opensearch-with-iam-authentication">Example 3: AWS OpenSearch with IAM Authentication</h3>
+<pre><code class="language-python">from docpipe.common.constants.operator_constants import OperatorConstants
+
+config = {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;index_name&quot;: &quot;production_docs&quot;,
+    OperatorConstants.Config.PROVIDER_CONFIG: {
+        &quot;host&quot;: &quot;search-mydomain.us-east-1.es.amazonaws.com&quot;,
+        &quot;port&quot;: 443,
+        &quot;use_ssl&quot;: True,
+        OperatorConstants.VectorDB.ENGINE: &quot;faiss&quot;,
+        OperatorConstants.VectorDB.ALGORITHM: &quot;hnsw&quot;,
+        OperatorConstants.VectorDB.AWS_AUTH: True,
+        OperatorConstants.VectorDB.AWS_REGION: &quot;us-east-1&quot;
+    }
+}
+
+### Example 4: JWT Token Authentication
+
+For AWS OpenSearch or custom deployments with JWT authentication:
+
+```python
+from docpipe.common.constants.operator_constants import OperatorConstants
+import os
+
+config = {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;index_name&quot;: &quot;jwt_secured_docs&quot;,
+    &quot;vector_dimension&quot;: 384,
+    OperatorConstants.Config.PROVIDER_CONFIG: {
+        &quot;host&quot;: &quot;search-mydomain.us-east-1.es.amazonaws.com&quot;,
+        &quot;port&quot;: 443,
+        &quot;use_ssl&quot;: True,
+        &quot;verify_certs&quot;: True,
+        OperatorConstants.VectorDB.ENGINE: &quot;faiss&quot;,
+        OperatorConstants.VectorDB.ALGORITHM: &quot;hnsw&quot;,
+        OperatorConstants.VectorDB.JWT_TOKEN: os.getenv(&quot;OPENSEARCH_JWT_TOKEN&quot;)
+    }
+}
+</code></pre>
+<p><strong>Important</strong>: Only one authentication method can be used at a time (basic auth, AWS IAM, or JWT token).</p>
+<p><strong>Environment Variable Setup</strong>:</p>
+<pre><code class="language-bash"># pragma: allowlist secret
+export OPENSEARCH_JWT_TOKEN=&quot;your-jwt-token-here&quot;
+</code></pre>
+<p><strong>Security Best Practices</strong>:<br />
+- Store JWT tokens in environment variables, never in code<br />
+- Use short-lived tokens (&lt; 1 hour recommended)<br />
+- Rotate tokens regularly<br />
+- Use HTTPS/SSL for all connections</p>
+<pre><code>
+### Example 4: Query Documents
+
+```python
+# Query documents by name
+docs = operator.query_by_doc_names([&quot;doc1&quot;, &quot;doc2&quot;], fields=[&quot;content&quot;, &quot;embeddings&quot;])
+print(f&quot;Found {len(docs)} documents&quot;)
+
+# Get document count
+count = operator.get_document_count()
+print(f&quot;Total documents: {count}&quot;)
+
+# Delete documents
+success, failed = operator.delete_documents_by_ids([&quot;doc1&quot;, &quot;doc2&quot;])
+print(f&quot;Deleted {success} documents, {failed} failed&quot;)
+</code></pre>
+<h2 id="flow-configuration">Flow Configuration</h2>
+<h3 id="complete-flow-example">Complete Flow Example</h3>
+<pre><code class="language-json">{
+  &quot;flow_name&quot;: &quot;complete-document-pipeline&quot;,
+  &quot;description&quot;: &quot;Complete document processing pipeline: Ingest -&gt; Extract -&gt; Chunk -&gt; Embed -&gt; Store in OpenSearch&quot;,
+  &quot;global_config&quot;: {
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;disable_validation&quot;: true,
+    &quot;force_ingest&quot;: true,
+    &quot;storage&quot;: &quot;in-memory&quot;,
+    &quot;execute_type&quot;: &quot;local&quot;
+  },
+  &quot;flow&quot;: [
+    {
+      &quot;type&quot;: &quot;ingest_source&quot;,
+      &quot;name&quot;: &quot;ingest_source_filesystem&quot;,
+      &quot;config&quot;: {
+        &quot;provider&quot;: &quot;filesystem&quot;,
+        &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./sample_documents&quot;]},
+        &quot;include_filter&quot;: &quot;pdf,txt,docx&quot;
+      }
+    },
+    {
+      &quot;type&quot;: &quot;extract_operator&quot;,
+      &quot;name&quot;: &quot;extract_with_docling&quot;,
+      &quot;config&quot;: {
+        &quot;text_extraction&quot;: {
+          &quot;provider&quot;: &quot;docling_library&quot;,
+          &quot;doc_column&quot;: &quot;content&quot;
+        },
+        &quot;entity_extraction&quot;: {
+          &quot;provider&quot;: &quot;none&quot;
+        }
+      },
+      &quot;depends_on&quot;: [
+        &quot;ingest_source_filesystem&quot;
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;chunker&quot;,
+      &quot;name&quot;: &quot;simple_chunker&quot;,
+      &quot;config&quot;: {
+        &quot;chunk_type&quot;: &quot;simple&quot;,
+        &quot;chunk_size&quot;: 512,
+        &quot;chunk_overlap&quot;: 50,
+        &quot;retain_original_content&quot;: false
+      },
+      &quot;depends_on&quot;: [
+        &quot;extract_with_docling&quot;
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;embeddings&quot;,
+      &quot;name&quot;: &quot;ollama_embeddings&quot;,
+      &quot;config&quot;: {
+        &quot;provider&quot;: &quot;litellm&quot;,
+        &quot;provider_config&quot;: {
+          &quot;model_id&quot;: &quot;openai/nomic-embed-text&quot;,
+          &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+          &quot;api_key&quot;: &quot;&lt;ollama-api-key&gt;&quot;
+        },
+        &quot;embeddings_column&quot;: &quot;embeddings&quot;,
+        &quot;overlap_ratio&quot;: 0.1
+      },
+      &quot;depends_on&quot;: [
+        &quot;simple_chunker&quot;
+      ]
+    },
+    {
+      &quot;type&quot;: &quot;vectordb&quot;,
+      &quot;name&quot;: &quot;opensearch_vector_store&quot;,
+      &quot;config&quot;: {
+        &quot;provider&quot;: &quot;opensearch&quot;,
+        &quot;index_name&quot;: &quot;sample-documents-index&quot;,
+        &quot;doc_id_column&quot;: &quot;doc_id_hash&quot;,
+        &quot;embeddings_column&quot;: &quot;embeddings&quot;,
+        &quot;vector_dimension&quot;: 768,
+        &quot;create_index&quot;: true,
+        &quot;provider_config&quot;: {
+          &quot;host&quot;: &quot;localhost&quot;,
+          &quot;port&quot;: 9200,
+          &quot;username&quot;: &quot;${OPENSEARCH_USERNAME}&quot;,
+          &quot;password&quot;: &quot;${OPENSEARCH_PASSWORD}&quot;,
+          &quot;use_ssl&quot;: false,
+          &quot;verify_certs&quot;: false,
+          &quot;batch_size&quot;: 100,
+          &quot;engine&quot;: &quot;faiss&quot;,
+          &quot;algorithm&quot;: &quot;hnsw&quot;,
+          &quot;space_type&quot;: &quot;l2&quot;
+        },
+        &quot;available_features&quot;: {
+          &quot;doc_id_hash&quot;: {
+            &quot;name&quot;: &quot;Document ID&quot;,
+            &quot;available_for_vector_db&quot;: true,
+            &quot;mandatory_for_vector_db&quot;: true,
+            &quot;type&quot;: &quot;string&quot;,
+            &quot;is_primary&quot;: true
+          },
+          &quot;content&quot;: {
+            &quot;name&quot;: &quot;Content&quot;,
+            &quot;available_for_vector_db&quot;: true,
+            &quot;type&quot;: &quot;string&quot;
+          },
+          &quot;doc_name&quot;: {
+            &quot;name&quot;: &quot;Document Name&quot;,
+            &quot;available_for_vector_db&quot;: true,
+            &quot;type&quot;: &quot;string&quot;
+          },
+          &quot;file_path&quot;: {
+            &quot;name&quot;: &quot;File Path&quot;,
+            &quot;available_for_vector_db&quot;: true,
+            &quot;type&quot;: &quot;string&quot;
+          },
+          &quot;embeddings&quot;: {
+            &quot;name&quot;: &quot;Embeddings&quot;,
+            &quot;available_for_vector_db&quot;: true,
+            &quot;mandatory_for_vector_db&quot;: true,
+            &quot;type&quot;: &quot;vector&quot;
+          },
+          &quot;chunk_id&quot;: {
+            &quot;name&quot;: &quot;Chunk ID&quot;,
+            &quot;available_for_vector_db&quot;: true,
+            &quot;type&quot;: &quot;string&quot;
+          },
+          &quot;chunk_index&quot;: {
+            &quot;name&quot;: &quot;Chunk Index&quot;,
+            &quot;available_for_vector_db&quot;: true,
+            &quot;type&quot;: &quot;integer&quot;
+          }
+        },
+        &quot;feature_mappings&quot;: {
+          &quot;doc_id_hash&quot;: &quot;pk&quot;,
+          &quot;content&quot;: &quot;text&quot;,
+          &quot;name&quot;: &quot;doc_name&quot;,
+          &quot;path&quot;: &quot;file_path&quot;,
+          &quot;embeddings&quot;: &quot;vector_embeddings&quot;,
+          &quot;chunk_id&quot;: &quot;chunk_id&quot;,
+          &quot;chunk_index&quot;: &quot;chunk_index&quot;
+        }
+      },
+      &quot;depends_on&quot;: [
+        &quot;ollama_embeddings&quot;
+      ]
+    }
+  ]
+}
+</code></pre>
+<h2 id="performance-tuning">Performance Tuning</h2>
+<h3 id="batch-size-optimization">Batch Size Optimization</h3>
+<p>The operator uses size-aware batching with a default limit of 3MB per batch:</p>
+<pre><code class="language-python">config = {
+    &quot;batch_size&quot;: 500,  # Maximum documents per batch
+    # Actual batch size may be smaller if 3MB limit is reached
+}
+</code></pre>
+<h3 id="engine-specific-tuning">Engine-Specific Tuning</h3>
+<h4>FAISS + HNSW (Balanced)</h4>
+<pre><code class="language-python">from docpipe.common.constants.operator_constants import OperatorConstants
+
+OperatorConstants.Config.PROVIDER_CONFIG: {
+    OperatorConstants.VectorDB.ENGINE: &quot;faiss&quot;,
+    OperatorConstants.VectorDB.ALGORITHM: &quot;hnsw&quot;,
+    OperatorConstants.VectorDB.ENGINE_PARAMETERS: {
+        &quot;ef_construction&quot;: 128,  # Higher = better accuracy, slower indexing
+        &quot;m&quot;: 24                  # Higher = better accuracy, more memory
+    }
+}
+</code></pre>
+<h4>FAISS + IVF (Speed Priority)</h4>
+<pre><code class="language-python">OperatorConstants.Config.PROVIDER_CONFIG: {
+    OperatorConstants.VectorDB.ENGINE: &quot;faiss&quot;,
+    OperatorConstants.VectorDB.ALGORITHM: &quot;ivf&quot;,
+    OperatorConstants.VectorDB.ENGINE_PARAMETERS: {
+        &quot;nlist&quot;: 128,  # Number of clusters
+        &quot;nprobe&quot;: 8    # Clusters to search (higher = more accurate, slower)
+    }
+}
+</code></pre>
+<h4>Lucene + HNSW (Native)</h4>
+<pre><code class="language-python">OperatorConstants.Config.PROVIDER_CONFIG: {
+    OperatorConstants.VectorDB.ENGINE: &quot;lucene&quot;,
+    OperatorConstants.VectorDB.ALGORITHM: &quot;hnsw&quot;,
+    OperatorConstants.VectorDB.ENGINE_PARAMETERS: {
+        &quot;ef_construction&quot;: 128,
+        &quot;m&quot;: 16  # Lucene typically uses lower m values
+    }
+}
+</code></pre>
+<h2 id="error-handling">Error Handling</h2>
+<p>The operator provides detailed error tracking:</p>
+<pre><code class="language-python">result_tables, metadata = operator.transform(table)
+
+print(f&quot;Total documents: {metadata['total_docs']}&quot;)
+print(f&quot;Processed: {metadata['processed_docs']}&quot;)
+print(f&quot;Failed: {metadata['failed_docs_count']}&quot;)
+print(f&quot;Skipped: {metadata['skipped_docs_count']}&quot;)
+print(f&quot;Batches: {metadata['number_of_batches']}&quot;)
+
+# Check failed documents
+for failed_doc in metadata['failed_docs']:
+    print(f&quot;Failed: {failed_doc['name']} - {failed_doc['reason']}&quot;)
+</code></pre>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="1-engine-selection">1. Engine Selection</h3>
+<ul>
+<li><strong>FAISS</strong>: Best for production, supports both HNSW and IVF</li>
+<li><strong>Lucene</strong>: Good for native OpenSearch integration</li>
+<li><strong>Avoid nmslib</strong>: Deprecated in OpenSearch 2.13+</li>
+</ul>
+<h3 id="2-algorithm-selection">2. Algorithm Selection</h3>
+<ul>
+<li><strong>HNSW</strong>: Recommended for most use cases (high accuracy)</li>
+<li><strong>IVF</strong>: Use for very large datasets where speed is critical</li>
+</ul>
+<h3 id="3-similarity-metrics">3. Similarity Metrics</h3>
+<ul>
+<li><strong>L2</strong>: Euclidean distance (default, works well for most embeddings)</li>
+<li><strong>Cosine</strong>: Normalized similarity (good for text embeddings)</li>
+<li><strong>Inner Product</strong>: For pre-normalized vectors</li>
+</ul>
+<h3 id="4-index-management">4. Index Management</h3>
+<ul>
+<li>Always set <code>create_index: true</code> for first run</li>
+<li>Validate existing index configuration matches your settings</li>
+<li>Use consistent engine/algorithm across index lifecycle</li>
+</ul>
+<h3 id="5-batch-processing">5. Batch Processing</h3>
+<ul>
+<li>Default batch size (100) works well for most cases</li>
+<li>Increase for smaller documents, decrease for large documents</li>
+<li>Monitor memory usage with large batches</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p>See <a href="../../integrations/opensearch/"><code>docs/integrations/opensearch/</code></a> for troubleshooting and setup guides.</p>
+<h2 id="related-operators">Related Operators</h2>
+<ul>
+<li><strong>IngestSourceOperator</strong>: Ingest documents from local filesystem or remote sources</li>
+<li><strong>ExtractOperator</strong>: Extract content from documents</li>
+<li><strong>DoclingChunkerOperator</strong>: Chunk documents for vector storage</li>
+<li><strong>EmbeddingsOperator</strong>: Generate embeddings from text</li>
+</ul>
+<h2 id="references">References</h2>
+<ul>
+<li><a href="https://opensearch.org/docs/latest/search-plugins/knn/index/">OpenSearch k-NN Plugin Documentation</a></li>
+<li><a href="https://github.com/facebookresearch/faiss">FAISS Documentation</a></li>
+<li><a href="https://opensearch.org/docs/latest/clients/python/">OpenSearch Python Client</a></li>
+</ul>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#features">Features</a>
+      <a href="#configuration-parameters">Configuration Parameters</a>
+      <a href="#usage-examples">Usage Examples</a>
+      <a href="#flow-configuration">Flow Configuration</a>
+      <a href="#performance-tuning">Performance Tuning</a>
+      <a href="#error-handling">Error Handling</a>
+      <a href="#best-practices">Best Practices</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#related-operators">Related Operators</a>
+      <a href="#references">References</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

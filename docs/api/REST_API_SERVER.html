@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FastAPI REST API Server — Docling Pipelines</title>
+  <meta name="description" content="FastAPI REST API Server — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link active" href="REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">FastAPI REST API Server</span>
+      </nav>
+      <h1>FastAPI REST API Server</h1>
+<p>Docling Pipelines ships a FastAPI-based REST API server that exposes pipeline management over HTTP.<br />
+It is suitable for programmatic access, UI integrations, and multi-tenant deployments.</p>
+<blockquote>
+<p><strong>Status:</strong> Under active development. The interactive docs at <code>/api/v1/docs</code> are the<br />
+authoritative source for request/response schemas while the server matures.</p>
+</blockquote>
+<h2 id="starting-the-server">Starting the Server</h2>
+<pre><code class="language-bash"># Recommended — uses the installed console entry point
+source .venv/bin/activate
+docling-pipelines-api
+
+# Alternative — invoke uvicorn directly
+source .venv/bin/activate
+uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8080
+
+# Or via uv without activating the virtual environment
+uv run uvicorn docpipe.api.main:app --reload --host 0.0.0.0 --port 8080
+</code></pre>
+<p>Once running, the following URLs are available:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>URL</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>http://localhost:8080</code></td>
+<td>Root endpoint</td>
+</tr>
+<tr>
+<td><code>http://localhost:8080/health</code></td>
+<td>Health check</td>
+</tr>
+<tr>
+<td><code>http://localhost:8080/api/v1/docs</code></td>
+<td>Swagger UI (interactive API docs)</td>
+</tr>
+<tr>
+<td><code>http://localhost:8080/api/v1/redoc</code></td>
+<td>ReDoc documentation</td>
+</tr>
+<tr>
+<td><code>http://localhost:8080/api/v1/openapi.json</code></td>
+<td>Raw OpenAPI schema</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="authentication">Authentication</h2>
+<p>Two authentication paths are supported. Both produce a short-lived JWT that must be<br />
+included as <code>Authorization: Bearer &lt;token&gt;</code> on every protected endpoint.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Mechanism</th>
+<th>Relevant config</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LDAP</td>
+<td><code>POST /auth/login</code> with <code>username</code>/<code>password</code></td>
+<td><code>LDAPConfig</code> via environment variables</td>
+</tr>
+<tr>
+<td>OAuth2 / OIDC</td>
+<td>Authorization Code flow with PKCE</td>
+<td>See <a href="OAUTH2_AUTHENTICATION.html">OAuth2 Authentication</a></td>
+</tr>
+</tbody>
+</table></div>
+<pre><code class="language-bash"># Obtain a JWT via LDAP login
+curl -X POST http://localhost:8080/auth/login \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{&quot;username&quot;: &quot;alice&quot;, &quot;password&quot;: &quot;&lt;your-password&gt;&quot;}'
+
+# Use the token
+curl http://localhost:8080/api/v1/flows \
+  -H &quot;Authorization: Bearer &lt;token&gt;&quot;
+</code></pre>
+<p>See <a href="OAUTH2_AUTHENTICATION.html">OAuth2 Authentication</a> for full OAuth2/OIDC setup.</p>
+<h2 id="api-endpoints">API Endpoints</h2>
+<p>All data endpoints are prefixed with <code>/api/v1</code>.</p>
+<h3 id="projects-apiv1projects">Projects — <code>/api/v1/projects</code></h3>
+<p>Manage projects that group and organise flows. Deleting a project cascade-deletes all flows linked to it.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/projects</code></td>
+<td>Create a new project</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/projects</code></td>
+<td>List projects (paginated, filterable by name/tags)</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/projects/{project_id}</code></td>
+<td>Get a project by ID</td>
+</tr>
+<tr>
+<td><code>PUT</code></td>
+<td><code>/api/v1/projects/{project_id}</code></td>
+<td>Fully replace a project</td>
+</tr>
+<tr>
+<td><code>PATCH</code></td>
+<td><code>/api/v1/projects/{project_id}</code></td>
+<td>Partially update a project</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/api/v1/projects/{project_id}</code></td>
+<td>Delete a project (cascade-deletes linked flows)</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/projects/{project_id}/flows</code></td>
+<td>List flows belonging to a project, each enriched with aggregated job run status</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="flows-apiv1flows">Flows — <code>/api/v1/flows</code></h3>
+<p>Manage flow definitions (pipeline configurations).</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/flows</code></td>
+<td>Create a new flow</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/flows</code></td>
+<td>List flows (paginated)</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/flows/{flow_id}</code></td>
+<td>Get a flow by ID</td>
+</tr>
+<tr>
+<td><code>PUT</code></td>
+<td><code>/api/v1/flows/{flow_id}</code></td>
+<td>Replace a flow</td>
+</tr>
+<tr>
+<td><code>PATCH</code></td>
+<td><code>/api/v1/flows/{flow_id}</code></td>
+<td>Partially update a flow</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/api/v1/flows/{flow_id}</code></td>
+<td>Delete a flow</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/api/v1/flows</code></td>
+<td>Bulk delete flows</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="job-runs-apiv1job-runs">Job Runs — <code>/api/v1/job_runs</code></h3>
+<p>Create and monitor pipeline executions.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/job_runs</code></td>
+<td>Create and start a job run</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/job_runs</code></td>
+<td>List job runs</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/job_runs/{job_run_id}</code></td>
+<td>Get job run status</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/job_runs/{job_run_id}/cancel</code></td>
+<td>Cancel a running job</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/api/v1/job_runs/{job_run_id}</code></td>
+<td>Delete a job run</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/job_runs/{job_run_id}/flow_definition</code></td>
+<td>Get the flow definition snapshot for a job run</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="operators-apiv1operators">Operators — <code>/api/v1/operators</code></h3>
+<p>Discover available operators and their configuration schemas.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/operators/metadata</code></td>
+<td>List all operators with metadata</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="providers-apiv1providers">Providers — <code>/api/v1/providers</code></h3>
+<p>Query LLM/embedding provider capabilities.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/providers/{provider}/models</code></td>
+<td>List available models for a provider (<code>ollama</code>, <code>watsonx</code>)</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="document-classes-apiv1document-classes">Document Classes — <code>/api/v1/document_classes</code></h3>
+<p>Enumerate all document class definitions bundled with the repository.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/document_classes</code></td>
+<td>List all available document classes</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="validation-apiv1validation">Validation — <code>/api/v1/validation</code></h3>
+<p>Validate a flow definition before submitting it.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/validation/validate_flow</code></td>
+<td>Validate a flow definition</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="document-libraries-apiv1document-libraries">Document Libraries — <code>/api/v1/document-libraries</code></h3>
+<p>Manage collections of documents with ACL-based access control.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/document-libraries</code></td>
+<td>Create a document library</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/document-libraries</code></td>
+<td>List document libraries</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/document-libraries/{library_id}</code></td>
+<td>Get a document library</td>
+</tr>
+<tr>
+<td><code>PATCH</code></td>
+<td><code>/api/v1/document-libraries/{library_id}</code></td>
+<td>Update a document library</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/api/v1/document-libraries/{library_id}</code></td>
+<td>Delete a document library</td>
+</tr>
+<tr>
+<td><code>PUT</code></td>
+<td><code>/api/v1/document-libraries/{library_id}/document-sets</code></td>
+<td>Add a document set to a library</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/api/v1/document-libraries/{library_id}/document-sets</code></td>
+<td>Remove a document set from a library</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/document-libraries/{library_id}/document-sets</code></td>
+<td>List document sets in a library</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="document-sets-apiv1document-sets">Document Sets — <code>/api/v1/document-sets</code></h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/document-sets</code></td>
+<td>Create a document set</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/document-sets</code></td>
+<td>List document sets</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/document-sets/{set_id}</code></td>
+<td>Get a document set</td>
+</tr>
+<tr>
+<td><code>PATCH</code></td>
+<td><code>/api/v1/document-sets/{set_id}</code></td>
+<td>Update a document set</td>
+</tr>
+<tr>
+<td><code>DELETE</code></td>
+<td><code>/api/v1/document-sets/{set_id}</code></td>
+<td>Delete a document set</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/document-sets/{set_id}/preview</code></td>
+<td>Preview document set data</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="documents-apiv1documents">Documents — <code>/api/v1/documents</code></h3>
+<p>ACL-filtered document retrieval backed by OpenSearch.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/v1/documents/{document_id}</code></td>
+<td>Retrieve a single document by ID (ACL-filtered)</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/v1/documents/search</code></td>
+<td>Search documents (ACL-filtered)</td>
+</tr>
+</tbody>
+</table></div>
+<p>See <a href="ACL_DOCUMENT_RETRIEVAL.html">ACL Document Retrieval</a> for full details on ACL enforcement and query options.</p>
+<h2 id="environment-variables">Environment Variables</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DS_LOG_LEVEL</code></td>
+<td><code>INFO</code></td>
+<td>Log level (<code>DEBUG</code>, <code>INFO</code>, <code>WARNING</code>, <code>ERROR</code>)</td>
+</tr>
+<tr>
+<td><code>CORS_ORIGINS</code></td>
+<td><code>http://localhost:3000</code></td>
+<td>Comma-separated allowed CORS origins</td>
+</tr>
+<tr>
+<td><code>PROJECT_REPOSITORY_BASE_DIR</code></td>
+<td>—</td>
+<td>Override project storage directory (takes precedence over <code>docling-pipelines-config.yaml</code>)</td>
+</tr>
+<tr>
+<td><code>DOCPIPE_POSTGRES_*</code></td>
+<td>—</td>
+<td>PostgreSQL backend for job stats (see <a href="../../USER_GUIDE_PIPELINE_SETUP.html">Environment Variables</a>)</td>
+</tr>
+<tr>
+<td><code>OLLAMA_HOST</code></td>
+<td><code>http://localhost:11434</code></td>
+<td>Ollama host used by <code>GET /providers/ollama/models</code></td>
+</tr>
+<tr>
+<td><code>WATSONX_API_BASE_URL</code></td>
+<td>—</td>
+<td>WatsonX base URL used by <code>GET /providers/watsonx/models</code> (required — no default)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Authentication-specific variables are documented in <a href="OAUTH2_AUTHENTICATION.html">OAuth2 Authentication</a>.</p>
+<h2 id="security">Security</h2>
+<p>The server applies several hardening measures out of the box:</p>
+<ul>
+<li><strong>Security headers</strong> — <code>X-Content-Type-Options</code>, <code>X-Frame-Options</code>, <code>Content-Security-Policy</code>,<br />
+  and <code>Referrer-Policy</code> are added to every response.</li>
+<li><strong>Payload size limit</strong> — <code>POST</code>/<code>PUT</code>/<code>PATCH</code> requests exceeding 5 MB are rejected (HTTP 413).</li>
+<li><strong>ACL enforcement</strong> — Document endpoints automatically filter results to the authenticated user's<br />
+  allowed documents (returns 404 for unauthorized resources, not 403, to prevent information leakage).</li>
+<li><strong>JWT tokens</strong> — Short-lived, validated on every protected request.</li>
+</ul>
+<p>See <a href="../guides/SECURITY_BEST_PRACTICES.html">Security Best Practices</a> for production hardening<br />
+(TLS termination, reverse proxy, etc.).</p>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="OAUTH2_AUTHENTICATION.html">OAuth2 Authentication</a> — OAuth2 / OIDC provider setup</li>
+<li><a href="ACL_DOCUMENT_RETRIEVAL.html">ACL Document Retrieval</a> — ACL-based document access</li>
+<li><a href="../guides/SECURITY_BEST_PRACTICES.html">Security Best Practices</a> — Production security</li>
+<li><a href="../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html">Document Libraries Guide</a> — Managing document collections</li>
+<li><a href="../../ARCHITECTURE.html#1-rest-api-authentication">Architecture Overview</a> — Security model and authentication flows</li>
+</ul>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#starting-the-server">Starting the Server</a>
+      <a href="#authentication">Authentication</a>
+      <a href="#api-endpoints">API Endpoints</a>
+      <a href="#environment-variables">Environment Variables</a>
+      <a href="#security">Security</a>
+      <a href="#related-documentation">Related Documentation</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

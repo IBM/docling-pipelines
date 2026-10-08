@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>EntityCurationOperator — Docling Pipelines</title>
+  <meta name="description" content="EntityCurationOperator — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter active" href="entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">EntityCurationOperator</span>
+      </nav>
+      <h1>EntityCurationOperator</h1>
+<p>Transforms extracted entities into curated, type-normalised data using document class schemas.</p>
+<ul>
+<li><strong>Short Name:</strong> <code>entity_curation</code></li>
+<li><strong>Category:</strong> Functional</li>
+</ul>
+<hr />
+<h2 id="overview">Overview</h2>
+<p><code>EntityCurationOperator</code> takes the raw key-value pairs produced by the Extract operator and<br />
+applies schema-driven field filtering and type transformations — currency conversion, date<br />
+normalisation, number parsing, and weight conversion — to produce a clean, structured<br />
+<code>transformed_entities</code> column ready for downstream storage or search indexing.</p>
+<p>Documents whose type has no registered schema pass through with an empty <code>{}</code> in<br />
+<code>transformed_entities</code>; the operator never discards a row.</p>
+<hr />
+<h2 id="key-features">Key Features</h2>
+<ul>
+<li>Schema-based field filtering — only schema-defined fields are retained</li>
+<li>4 built-in type transformations: <code>currency_to_numeric</code>, <code>make_date_uniform</code>, <code>to_number</code>, <code>weight_to_numeric</code></li>
+<li>Locale-aware parsing via Babel (currency, weight)</li>
+<li>Multi-language number parsing (English, Chinese, Japanese, Korean, Spanish, French, German, Portuguese, Italian, Russian)</li>
+<li>Date normalisation to ISO 8601 (<code>YYYY-MM-DD</code>) with <code>datefinder</code> fallback</li>
+<li>Graceful degradation — transformation failures log a warning and preserve the original value</li>
+<li>40+ pre-defined document class schemas bundled with the operator</li>
+</ul>
+<hr />
+<h2 id="operator-configuration">Operator Configuration</h2>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;entity_curation&quot;,
+  &quot;name&quot;: &quot;curate_entities&quot;,
+  &quot;config&quot;: {
+    &quot;entities_column&quot;: &quot;entities&quot;,
+    &quot;document_type_column&quot;: &quot;document_type&quot;
+  },
+  &quot;depends_on&quot;: [&quot;extract_documents&quot;]
+}
+</code></pre>
+<hr />
+<h2 id="parameters">Parameters</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>entities_column</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"entities"</code></td>
+<td>Column containing extracted entities (dict or JSON string)</td>
+</tr>
+<tr>
+<td><code>document_type_column</code></td>
+<td>string</td>
+<td>No</td>
+<td><code>"document_type"</code></td>
+<td>Column containing the document type identifier for schema lookup</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="output-columns">Output Columns</h2>
+<p>The operator appends one column to the input table; all original columns are preserved.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Column</th>
+<th>PyArrow Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>transformed_entities</code></td>
+<td><code>string</code></td>
+<td>JSON string containing curated entities structured per the document class schema, or <code>"{}"</code> when no schema exists for the document type</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="examples">Examples</h2>
+<h3 id="example-1-invoice-with-full-schema">Example 1 — Invoice with full schema</h3>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;entity_curation&quot;,
+  &quot;name&quot;: &quot;curate_invoice_entities&quot;,
+  &quot;config&quot;: {
+    &quot;entities_column&quot;: &quot;entities&quot;,
+    &quot;document_type_column&quot;: &quot;document_type&quot;
+  },
+  &quot;depends_on&quot;: [&quot;extract_invoice&quot;]
+}
+</code></pre>
+<p>Input <code>entities</code> value:</p>
+<pre><code class="language-json">{
+  &quot;invoice_number&quot;: &quot;INV-001&quot;,
+  &quot;invoice_date&quot;: &quot;March 15, 2024&quot;,
+  &quot;total_amount&quot;: &quot;$1,234.56&quot;,
+  &quot;vendor_name&quot;: &quot;Acme Corp&quot;
+}
+</code></pre>
+<p>Output <code>transformed_entities</code> value:</p>
+<pre><code class="language-json">{
+  &quot;invoice_header&quot;: {
+    &quot;invoice_number&quot;: &quot;INV-001&quot;,
+    &quot;invoice_date&quot;: &quot;2024-03-15&quot;,
+    &quot;total_amount&quot;: 1234.56,
+    &quot;currency&quot;: &quot;USD&quot;,
+    &quot;vendor_name&quot;: &quot;Acme Corp&quot;
+  }
+}
+</code></pre>
+<h3 id="example-2-unknown-document-type-no-schema">Example 2 — Unknown document type (no schema)</h3>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;entity_curation&quot;,
+  &quot;name&quot;: &quot;curate_entities&quot;,
+  &quot;config&quot;: {},
+  &quot;depends_on&quot;: [&quot;extract_custom&quot;]
+}
+</code></pre>
+<p>When <code>document_type</code> has no matching schema, <code>transformed_entities</code> is <code>"{}"</code>.<br />
+No error is raised; a warning is logged.</p>
+<h3 id="example-3-custom-column-names">Example 3 — Custom column names</h3>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;entity_curation&quot;,
+  &quot;name&quot;: &quot;curate_entities&quot;,
+  &quot;config&quot;: {
+    &quot;entities_column&quot;: &quot;raw_kvp&quot;,
+    &quot;document_type_column&quot;: &quot;doc_class&quot;
+  },
+  &quot;depends_on&quot;: [&quot;extract_step&quot;]
+}
+</code></pre>
+<hr />
+<h2 id="troubleshooting">Troubleshooting</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ValidationError: Required column 'entities' not found</code></td>
+<td>Input table is missing the entities column</td>
+<td>Set <code>entities_column</code> to the correct column name, or ensure the Extract operator runs first</td>
+</tr>
+<tr>
+<td><code>transformed_entities</code> is always <code>"{}"</code></td>
+<td><code>document_type</code> does not match any bundled schema</td>
+<td>Check the value in <code>document_type_column</code> against the list of supported document classes below</td>
+</tr>
+<tr>
+<td><code>Error: Failed to apply transformation … to field …</code></td>
+<td>Input value is in an unexpected format (e.g. currency string in a date field)</td>
+<td>Review the schema mapping; the error is non-fatal and the original value is preserved</td>
+</tr>
+<tr>
+<td>Dates not normalised to <code>YYYY-MM-DD</code></td>
+<td>Date string is in an unusual locale or format that <code>datefinder</code> cannot parse</td>
+<td>Pre-process dates with a dedicated normalisation step before this operator</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="supported-document-classes-40">Supported document classes (40+)</h3>
+<p><strong>Financial:</strong> <code>invoice</code>, <code>purchase_order</code>, <code>receipt</code>, <code>bank_statements</code>, <code>credit_card_statements</code>, <code>financial_statement</code>, <code>expense_reports</code>, <code>remittance_payment_advice</code></p>
+<p><strong>Insurance:</strong> <code>acord_insurance_form</code>, <code>insurance_claim</code>, <code>claimant_s_statement</code>, <code>life_insurance_authorization_form</code></p>
+<p><strong>Identity:</strong> <code>driver_license</code>, <code>passport</code>, <code>national_id_card</code></p>
+<p><strong>Business:</strong> <code>bill_of_lading</code>, <code>customs_form</code>, <code>delivery_receipt</code>, <code>sales_agreements</code>, <code>business_licenses_permits</code></p>
+<p><strong>HR:</strong> <code>i_9_form</code>, <code>w_4_form</code>, <code>tax_forms_w_9_1099_941_1120</code></p>
+<p><strong>Education:</strong> <code>diploma_certification</code>, <code>transcripts</code>, <code>schooladmissonform</code></p>
+<p><strong>Healthcare:</strong> <code>patient_intake_form</code></p>
+<p><strong>Legal:</strong> <code>federal_law_cs</code>, <code>management_quarterly_cs</code></p>
+<p><strong>Other:</strong> <code>order_request_form</code>, <code>mortgage_lending_document</code>, <code>utility_bill</code>, <code>client_success_case_study</code>, <code>customer_data_table</code>, <code>customerinfo</code></p>
+<hr />
+<h2 id="architecture">Architecture</h2>
+<h3 id="transformation-functions">Transformation functions</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Function</th>
+<th>Purpose</th>
+<th>Example input → output</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>currency_to_numeric</code></td>
+<td>Locale-aware currency parsing via Babel</td>
+<td><code>"$1,234.56"</code> → <code>1234.56</code></td>
+</tr>
+<tr>
+<td><code>make_date_uniform</code></td>
+<td>Normalise dates to <code>YYYY-MM-DD</code>; <code>datefinder</code> used as fallback</td>
+<td><code>"March 15, 2024"</code> → <code>"2024-03-15"</code></td>
+</tr>
+<tr>
+<td><code>to_number</code></td>
+<td>Multi-language number word parsing</td>
+<td><code>"一千二百三十四"</code> → <code>1234</code></td>
+</tr>
+<tr>
+<td><code>weight_to_numeric</code></td>
+<td>Locale-aware weight conversion</td>
+<td><code>"5斤"</code> (zh_CN) → <code>2.5</code> (kg)</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="schema-structure">Schema structure</h3>
+<p>Document class schemas are JSON files that map entity fields to target table columns:</p>
+<pre><code class="language-json">{
+  &quot;document_class&quot;: &quot;invoice&quot;,
+  &quot;target_tables&quot;: [
+    {
+      &quot;table_name&quot;: &quot;invoice_header&quot;,
+      &quot;columns&quot;: [
+        {
+          &quot;column_name&quot;: &quot;invoice_date&quot;,
+          &quot;source&quot;: &quot;entities&quot;,
+          &quot;field&quot;: &quot;invoice_date&quot;,
+          &quot;transform&quot;: &quot;make_date_uniform&quot;
+        },
+        {
+          &quot;column_name&quot;: &quot;total_amount&quot;,
+          &quot;source&quot;: &quot;entities&quot;,
+          &quot;field&quot;: &quot;total_amount&quot;,
+          &quot;transform&quot;: &quot;currency_to_numeric&quot;
+        }
+      ]
+    }
+  ]
+}
+</code></pre>
+<h3 id="typical-pipeline-position">Typical pipeline position</h3>
+<pre><code>Ingest → Extract (entity_extraction enabled) → EntityCuration → Embeddings → VectorDB
+</code></pre>
+<h3 id="sample-flow">Sample flow</h3>
+<p>See <a href="../../../sample_flows/operators/entity_curation_ollama.json"><code>sample_flows/operators/entity_curation_ollama.json</code></a>.</p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#key-features">Key Features</a>
+      <a href="#operator-configuration">Operator Configuration</a>
+      <a href="#parameters">Parameters</a>
+      <a href="#output-columns">Output Columns</a>
+      <a href="#examples">Examples</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#architecture">Architecture</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

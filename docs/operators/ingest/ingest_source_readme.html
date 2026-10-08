@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>IngestSourceOperator — Docling Pipelines</title>
+  <meta name="description" content="IngestSourceOperator — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter active" href="ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">IngestSourceOperator</span>
+      </nav>
+      <h1>IngestSourceOperator</h1>
+<p>Ingests document metadata from cloud storage and collaboration platforms (S3, SharePoint, OneDrive, Google Drive, Box, Dropbox).</p>
+<ul>
+<li><strong>Short Name:</strong> <code>ingest_source</code></li>
+<li><strong>Category:</strong> Ingest</li>
+</ul>
+<hr />
+<h2 id="overview">Overview</h2>
+<p><code>IngestSourceOperator</code> provides a unified interface for multiple document sources. It is a <strong>metadata-only</strong> operator — it discovers files and emits path/metadata rows; text content is extracted by a downstream <code>ExtractOperator</code>.</p>
+<hr />
+<h2 id="key-features">Key Features</h2>
+<ul>
+<li><strong>Multi-Provider Support</strong>: Single operator for multiple data sources</li>
+<li><strong>Automatic File Filtering</strong>: Skips directories, hidden files, and empty objects by extension using <a href="../../../src/docpipe/core/constants/operator_constants.py"><code>OperatorConstants.FileExtensions.BASE_EXTENSIONS</code></a></li>
+<li><strong>Extension Validation</strong>: Validates file extensions against supported formats, defaulting to all supported extensions if not specified</li>
+<li><strong>Incremental Updates</strong>: Skip previously processed documents (configurable)</li>
+<li><strong>Metadata Tracking</strong>: Comprehensive tracking of processed, failed, and skipped documents</li>
+<li><strong>PyArrow Output</strong>: Returns structured data in PyArrow table format</li>
+<li><strong>Error Handling</strong>: Graceful error handling with detailed logging and metadata</li>
+<li><strong>Custom Loader Support</strong>: Extensible architecture for custom implementations</li>
+<li><strong>AbstractOperator Pattern</strong>: Consistent interface with other ingest operators</li>
+</ul>
+<h2 id="supported-providers">Supported Providers</h2>
+<h3 id="1-local-filesystem">1. Local Filesystem</h3>
+<p>Ingest documents from one or more local directories or individual files. No credentials are required.</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-python">node_config = {
+    'provider': 'filesystem',
+    'connection_params': {
+        'paths': ['/data/invoices', '/data/contracts'],
+        'recursive': True,
+        'exclude_patterns': ['*.tmp', '__pycache__/*'],
+        'max_file_size_mb': 100,
+        'follow_symlinks': False
+    }
+}
+</code></pre>
+<p><strong>Parameters:</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>paths</code></td>
+<td><code>list[str]</code></td>
+<td>Yes</td>
+<td>—</td>
+<td>One or more absolute or relative paths to files or directories</td>
+</tr>
+<tr>
+<td><code>recursive</code></td>
+<td>bool</td>
+<td>No</td>
+<td><code>True</code></td>
+<td>Recursively traverse subdirectories</td>
+</tr>
+<tr>
+<td><code>exclude_patterns</code></td>
+<td>list[str]</td>
+<td>No</td>
+<td><code>[]</code></td>
+<td>Glob patterns to skip (e.g. <code>["*.tmp", "__pycache__/*"]</code>)</td>
+</tr>
+<tr>
+<td><code>max_file_size_mb</code></td>
+<td>int</td>
+<td>No</td>
+<td><code>None</code></td>
+<td>Skip files larger than this size (MB). <code>None</code> means no limit</td>
+</tr>
+<tr>
+<td><code>follow_symlinks</code></td>
+<td>bool</td>
+<td>No</td>
+<td><code>False</code></td>
+<td>Follow symbolic links during directory traversal</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>File filtering</strong> is also controlled by the top-level <code>include_filter</code> / <code>exclude_filter</code> operator parameters (comma-separated extension list, e.g. <code>"pdf,docx,txt"</code>).</p>
+<h3 id="2-amazon-s3-and-s3-compatible-storage">2. Amazon S3 and S3-Compatible Storage</h3>
+<p>Ingest documents from Amazon S3 buckets and S3-compatible storage services (IBM Cloud Object Storage, MinIO, etc.).</p>
+<p><strong>Configuration (AWS S3):</strong></p>
+<pre><code class="language-python">node_config = {
+    'provider': 's3',
+    'connection_params': {
+        'bucket': 'your-bucket-name',
+        'prefix': 'optional/path/prefix/',  # Optional
+        'region': 'us-east-1'  # Optional
+    },
+    'credentials': {
+        'access_key': 'YOUR_AWS_ACCESS_KEY',
+        'secret_key': 'YOUR_AWS_SECRET_KEY'  # pragma: allowlist secret
+    }
+}
+</code></pre>
+<p><strong>Configuration (IBM Cloud Object Storage):</strong></p>
+<pre><code class="language-python">node_config = {
+    'provider': 's3',
+    'connection_params': {
+        'bucket': 'your-bucket-name',
+        'prefix': 'optional/path/prefix/',  # Optional
+        'endpoint_url': 'https://s3.us-south.cloud-object-storage.appdomain.cloud'
+    },
+    'credentials': {
+        'access_key': 'YOUR_IBM_ACCESS_KEY',
+        'secret_key': 'YOUR_IBM_SECRET_KEY'  # pragma: allowlist secret
+    }
+}
+</code></pre>
+<p><strong>Parameters:</strong><br />
+- <code>bucket</code> (required): S3 bucket name<br />
+- <code>prefix</code> (optional): S3 key prefix to filter objects. Supports both directory-level and single file ingestion:<br />
+  - <strong>Directory ingestion</strong>: <code>'documents/reports/'</code> - ingests all files in the directory<br />
+  - <strong>Single file ingestion</strong>: <code>'documents/report.pdf'</code> - ingests only the specified file<br />
+  - <strong>Entire bucket</strong>: <code>''</code> (empty string) - ingests all files in the bucket<br />
+- <code>endpoint_url</code> (optional): Custom S3 endpoint URL for S3-compatible storage (e.g., IBM COS, MinIO). Leave empty for AWS S3.<br />
+- <code>region</code> (optional): AWS region (e.g., 'us-east-1'). Optional for S3-compatible storage.<br />
+- <code>access_key</code> (required): AWS access key ID or S3-compatible access key<br />
+- <code>secret_key</code> (required): AWS secret access key or S3-compatible secret key<br />
+- <code>recursive</code> (optional): Whether to recursively traverse subdirectories (default: True)<br />
+- <code>exclude_patterns</code> (optional): List of glob patterns to exclude (e.g., ['*.tmp', '.DS_Store'])<br />
+- <code>max_file_size_mb</code> (optional): Maximum file size in MB to process<br />
+- <code>skip_hidden_files</code> (optional): Whether to skip hidden files (default: True)<br />
+- <code>skip_empty_files</code> (optional): Whether to skip files with zero size (default: True)<br />
+- <code>verify_expected_bucket_owner</code> (optional): When <code>True</code>, verifies that the S3 bucket is owned by the caller's AWS account via STS <code>GetCallerIdentity</code>. If the bucket owner does not match, AWS rejects the request. Default <code>False</code>. Has no effect for S3-compatible storage (IBM COS, MinIO).</p>
+<p><strong>Note:</strong> File extension filtering is configured at the operator level using <code>include_filter</code> and <code>exclude_filter</code> parameters (see <a href="#file-filtering">File Filtering</a> section below).</p>
+<h3 id="3-microsoft-sharepoint">3. Microsoft SharePoint</h3>
+<p>Ingest documents from SharePoint document libraries.</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-python">node_config = {
+    'provider': 'sharepoint',
+    'connection_params': {
+        'document_library_id': 'your-library-id'
+    },
+    'credentials': {
+        'client_id': 'YOUR_CLIENT_ID',
+        'client_secret': 'YOUR_CLIENT_SECRET',  # pragma: allowlist secret
+        'tenant_id': 'YOUR_TENANT_ID'
+    }
+}
+</code></pre>
+<p><strong>Prerequisites:</strong><br />
+- O365 package installed: <code>pip install O365</code><br />
+- Azure AD app registration with SharePoint permissions</p>
+<p><strong>Parameters:</strong><br />
+- <code>document_library_id</code> (required): SharePoint document library ID<br />
+- <code>client_id</code> (required): Azure AD application client ID<br />
+- <code>client_secret</code> (required): Azure AD application client secret<br />
+- <code>tenant_id</code> (required): Azure AD tenant ID</p>
+<h3 id="4-microsoft-onedrive">4. Microsoft OneDrive</h3>
+<p>Ingest documents from OneDrive folders.</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-python">node_config = {
+    'provider': 'onedrive',
+    'connection_params': {
+        'drive_id': 'your-drive-id',
+        'folder_path': '/Documents/MyFolder'  # Optional
+    },
+    'credentials': {
+        'client_id': 'YOUR_CLIENT_ID',
+        'client_secret': 'YOUR_CLIENT_SECRET', # pragma: allowlist secret
+        'tenant_id': 'YOUR_TENANT_ID'
+    }
+}
+</code></pre>
+<p><strong>Prerequisites:</strong><br />
+- O365 package installed: <code>pip install O365</code><br />
+- Azure AD app registration with OneDrive permissions</p>
+<p><strong>Parameters:</strong><br />
+- <code>drive_id</code> (required): OneDrive drive ID<br />
+- <code>folder_path</code> (optional): Path to specific folder<br />
+- <code>client_id</code> (required): Azure AD application client ID<br />
+- <code>client_secret</code> (required): Azure AD application client secret<br />
+- <code>tenant_id</code> (required): Azure AD tenant ID</p>
+<h3 id="5-google-drive">5. Google Drive</h3>
+<p>Ingest documents from Google Drive folders using OAuth 2.0 authentication.</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-python">node_config = {
+    'provider': 'google_drive',
+    'connection_params': {
+        'folder_id': 'your-folder-id',
+        'recursive': False  # Optional: include subfolders
+    },
+    'credentials': {
+        'credentials_json_path': '/path/to/client_secret.json',
+        'token_path': '/path/to/token.json',  # Optional
+        'scopes': ['https://www.googleapis.com/auth/drive.readonly']  # Optional
+    }
+}
+</code></pre>
+<p><strong>Prerequisites:</strong><br />
+- Google Cloud Project with Drive API enabled<br />
+- OAuth 2.0 credentials (client secret JSON)<br />
+- Dependencies: <code>pip install google-auth-oauthlib google-auth-httplib2 google-api-python-client</code></p>
+<p><strong>Parameters:</strong><br />
+- <code>folder_id</code> (required): Google Drive folder ID<br />
+- <code>recursive</code> (optional): Boolean, include subfolders (default: False)<br />
+- <code>credentials_json_path</code> (required): Path to OAuth client secret JSON<br />
+- <code>token_path</code> (optional): Path to store OAuth tokens (default: <code>~/.credentials/token.json</code>)<br />
+- <code>scopes</code> (optional): List of OAuth scopes (default: <code>['https://www.googleapis.com/auth/drive.readonly']</code>)</p>
+<p><strong>OAuth Scopes:</strong><br />
+The operator uses read-only access by default for security. Available scopes:<br />
+- <code>https://www.googleapis.com/auth/drive.readonly</code> - Read-only access (recommended)<br />
+- <code>https://www.googleapis.com/auth/drive</code> - Full access to all files<br />
+- <code>https://www.googleapis.com/auth/drive.file</code> - Per-file access</p>
+<p><strong>Important:</strong> If you change scopes, you must delete the existing token file to re-authenticate with the new permissions.</p>
+<h3 id="6-box">6. Box</h3>
+<p>Ingest documents from Box folders using JWT authentication.</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-python">node_config = {
+    'provider': 'box_driver',
+    'connection_params': {
+        'folder_id': '0',  # Optional: Box folder ID to start from (default: '0' for root)
+        'recursive': True,  # Optional: include subfolders
+        'max_file_size_mb': 50,  # Optional: max file size in MB
+        'exclude_patterns': ['*.tmp', 'Trash/*']  # Optional: patterns to exclude
+    },
+    'credentials': {
+        'credentials_json_path': '/path/to/box_jwt_config.json'
+    },
+    'include_filter': 'pdf,docx,txt,pptx,xlsx',  # Optional: file extensions to include
+    'max_files': 100  # Optional
+}
+</code></pre>
+<p><strong>Prerequisites:</strong><br />
+- Box Enterprise account or Box Developer account<br />
+- Box JWT application configured with appropriate permissions<br />
+- JWT configuration file (JSON) downloaded from Box Developer Console<br />
+- Dependencies: <code>pip install box-sdk-gen</code></p>
+<p><strong>Parameters:</strong><br />
+- <code>folder_id</code> (optional): Box folder ID to start ingestion from (default: '0' for root folder)<br />
+- <code>recursive</code> (optional): Boolean, include subfolders (default: False)<br />
+- <code>max_file_size_mb</code> (optional): Maximum file size in MB to process<br />
+- <code>exclude_patterns</code> (optional): List of glob patterns to exclude (e.g., <code>['*.tmp', 'Trash/*']</code>)<br />
+- <code>credentials_json_path</code> (required): Path to Box JWT configuration JSON file</p>
+<p><strong>Box JWT Setup:</strong><br />
+1. Create a Box application in the <a href="https://app.box.com/developers/console">Box Developer Console</a><br />
+2. Choose "Server Authentication (with JWT)" as authentication method<br />
+3. Configure application permissions:<br />
+   - Read all files and folders stored in Box<br />
+   - Manage enterprise properties<br />
+4. Generate a public/private keypair<br />
+5. Download the JWT configuration JSON file<br />
+6. Submit application for admin approval (if required)<br />
+7. Admin must authorize the application in Box Admin Console</p>
+<p><strong>Authentication Flow:</strong><br />
+The adapter uses JWT (JSON Web Token) authentication which provides:<br />
+- Service account access without user interaction<br />
+- Secure authentication using public/private key cryptography<br />
+- Enterprise-level access control<br />
+- No OAuth redirect flow required</p>
+<p><strong>Security Notes:</strong><br />
+- Store JWT configuration file securely with restricted permissions<br />
+- Never commit JWT configuration to version control<br />
+- Rotate keys periodically as per security policy<br />
+- Use environment variables for file paths in production</p>
+<h3 id="7-dropbox">7. Dropbox</h3>
+<p>Ingest documents from a Dropbox account using the Dropbox SDK.</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-python">node_config = {
+    'provider': 'dropbox',
+    'connection_params': {
+        'folder_path': '/Reports',  # Optional: folder to ingest from ('' or '/' for account root)
+        'recursive': True,  # Optional: include subfolders (default: True)
+        'max_file_size_mb': 50,  # Optional: max file size in MB
+        'exclude_patterns': ['*.tmp', '*/Archive/*']  # Optional: patterns to exclude
+    },
+    'credentials': {
+        'access_token': '${DROPBOX_ACCESS_TOKEN}'
+    },
+    'include_filter': 'pdf,docx,txt',  # Optional: file extensions to include
+    'max_files': 100  # Optional
+}
+</code></pre>
+<p><strong>Prerequisites:</strong><br />
+- Dropbox account and a Dropbox app created in the <a href="https://www.dropbox.com/developers/apps">App Console</a><br />
+- App scopes: <code>account_info.read</code>, <code>files.metadata.read</code>, <code>files.content.read</code><br />
+- An access token, or a refresh token with the app key and secret<br />
+- Dependencies: <code>pip install dropbox</code></p>
+<p><strong>Parameters:</strong><br />
+- <code>folder_path</code> (optional): Dropbox folder to ingest from; empty string or <code>/</code> means the account root<br />
+- <code>file_path</code> (optional): Ingest a single file by path (<code>/Reports/q1.pdf</code>) or file id (<code>id:abc123</code>); ignores folder settings and filters<br />
+- <code>recursive</code> (optional): Boolean, include subfolders (default: <code>True</code>)<br />
+- <code>max_file_size_mb</code> (optional): Maximum file size in MB to process<br />
+- <code>exclude_patterns</code> (optional): List of glob patterns to exclude (e.g., <code>['*.tmp', '*/Archive/*']</code>)<br />
+- <code>access_token</code> (credentials): Dropbox OAuth2 access token<br />
+- <code>refresh_token</code>, <code>app_key</code>, <code>app_secret</code> (credentials): Long-lived alternative to <code>access_token</code></p>
+<p><strong>Dropbox App Setup:</strong><br />
+1. Create a scoped app in the <a href="https://www.dropbox.com/developers/apps">Dropbox App Console</a><br />
+2. Choose <strong>App folder</strong> access to limit the app to a single folder, or <strong>Full Dropbox</strong><br />
+3. On the <strong>Permissions</strong> tab enable <code>account_info.read</code>, <code>files.metadata.read</code> and <code>files.content.read</code>, then submit<br />
+4. Generate an access token on the <strong>Settings</strong> tab, or run the OAuth2 flow with <code>token_access_type=offline</code> to obtain a refresh token<br />
+5. Export the token as an environment variable and reference it as <code>${DROPBOX_ACCESS_TOKEN}</code> in the flow</p>
+<p><strong>Authentication Notes:</strong><br />
+- Generated access tokens are short-lived (four hours); use the refresh-token flow for scheduled pipelines<br />
+- Tokens issued before new scopes were saved do not carry those scopes; re-issue the token after changing permissions<br />
+- Apps with <strong>App folder</strong> access see paths relative to their own app folder, not the account root</p>
+<p><strong>Security Notes:</strong><br />
+- Never commit Dropbox tokens to version control; reference them through environment variables<br />
+- Grant only the scopes listed above; the adapter never writes to Dropbox<br />
+- Rotate tokens periodically and revoke unused app authorizations</p>
+<h3 id="8-custom-loaders">8. Custom Loaders</h3>
+<p>Extend functionality with custom LangChain-compatible loaders.</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-python">node_config = {
+    'provider': 'custom',
+    'connection_params': {
+        'loader_class_path': 'my_package.loaders.CustomLoader',
+        # Additional parameters specific to your loader
+        'param1': 'value1',
+        'param2': 'value2'
+    },
+    'credentials': {
+        # Credentials specific to your loader
+        'api_key': 'YOUR_API_KEY'  # pragma: allowlist secret
+    }
+}
+</code></pre>
+<p><strong>Parameters:</strong><br />
+- <code>loader_class_path</code> (required): Python import path to loader class (e.g., <code>my_package.loaders.FileNetLoader</code>)<br />
+- Additional parameters are passed to the loader's <code>__init__</code> method</p>
+<p><strong>Requirements:</strong><br />
+- Loader class must be importable<br />
+- Loader must implement LangChain's document loader interface with a <code>load()</code> method<br />
+- <code>load()</code> method must return <code>List[Document]</code></p>
+<h2 id="usage">Usage</h2>
+<h3 id="basic-example">Basic Example</h3>
+<pre><code class="language-python">from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+import pyarrow as pa
+
+# Configure the operator
+node_config = {
+    'provider': 's3',
+    'connection_params': {
+        'bucket': 'my-bucket',
+        'prefix': 'documents/'
+    },
+    'credentials': {
+        'access_key': 'YOUR_ACCESS_KEY',
+        'secret_key': 'YOUR_SECRET_KEY'  # pragma: allowlist secret
+    },
+    'job_id': 'my-job-123',
+    'job_run_id': 'run-456',
+    'max_files': 100,  # Optional: limit number of files
+    'include_filter': 'pdf,txt,docx',  # Optional: file extensions to include
+    'exclude_filter': 'tmp,log',  # Optional: file extensions to exclude
+    'force_ingest': False  # Optional: re-ingest previously processed docs
+}
+
+# Create operator instance
+ingest_node = IngestSourceOperator(node_config)
+
+# Execute ingestion (input_table is used as trigger)
+input_table = pa.Table.from_arrays([])
+output_tables, metadata = ingest_node.transform(input_table)
+
+# Access results
+result_table = output_tables[0]
+print(f&quot;Status: {metadata['node_status']}&quot;)
+print(f&quot;Documents processed: {metadata['processed_docs']}&quot;)
+print(f&quot;Total documents: {metadata['total_docs_count']}&quot;)
+print(f&quot;Failed: {metadata['failed_docs_count']}&quot;)
+print(f&quot;Skipped: {metadata['skipped_docs_count']}&quot;)
+print(f&quot;Schema: {result_table.schema}&quot;)
+</code></pre>
+<h3 id="output-schema">Output Schema</h3>
+<p>See <a href="#output-columns">Output Columns</a> below for the full column reference.</p>
+<hr />
+<h2 id="parameters">Parameters</h2>
+<p>See the <a href="#usage">Usage</a> section above and per-provider configuration in <a href="#supported-providers">Supported Providers</a>.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Required</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>provider</code></td>
+<td>string</td>
+<td><strong>Yes</strong></td>
+<td>—</td>
+<td>Source provider: <code>filesystem</code>, <code>s3</code>, <code>ibm_cos</code>, <code>sharepoint</code>, <code>onedrive</code>, <code>google_drive</code>, <code>box_driver</code>, <code>dropbox</code>, <code>web</code></td>
+</tr>
+<tr>
+<td><code>connection_params</code></td>
+<td>object</td>
+<td><strong>Yes</strong></td>
+<td>—</td>
+<td>Provider-specific connection settings</td>
+</tr>
+<tr>
+<td><code>credentials</code></td>
+<td>object</td>
+<td><strong>Yes</strong></td>
+<td>—</td>
+<td>Provider-specific authentication credentials</td>
+</tr>
+<tr>
+<td><code>include_filter</code></td>
+<td>string</td>
+<td>No</td>
+<td>all types</td>
+<td>Comma-separated file extensions to include (no dot)</td>
+</tr>
+<tr>
+<td><code>max_files</code></td>
+<td>integer</td>
+<td>No</td>
+<td>unlimited</td>
+<td>Maximum files to ingest</td>
+</tr>
+<tr>
+<td><code>force_ingest</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Re-ingest previously processed files</td>
+</tr>
+<tr>
+<td><code>retain_deleted_docs</code></td>
+<td>boolean</td>
+<td>No</td>
+<td><code>false</code></td>
+<td>Keep records of deleted files</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="output-columns">Output Columns</h2>
+<p>This operator produces a new table; it does not receive an input table.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Column</th>
+<th>PyArrow Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td><code>string</code></td>
+<td>Document ID (MD5 hash of source path)</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td>Source path/identifier</td>
+</tr>
+<tr>
+<td><code>document_format</code></td>
+<td><code>string</code></td>
+<td>File extension (e.g. <code>.pdf</code>, <code>.docx</code>)</td>
+</tr>
+<tr>
+<td><code>metadata</code></td>
+<td><code>string</code></td>
+<td>JSON-serialised metadata from the source</td>
+</tr>
+<tr>
+<td><code>source_id</code></td>
+<td><code>string</code></td>
+<td>Source identifier (from <code>metadata.source</code>)</td>
+</tr>
+<tr>
+<td><code>path</code></td>
+<td><code>string</code></td>
+<td>Source path/URL used for on-demand binary loading by <code>ExtractOperator</code></td>
+</tr>
+<tr>
+<td><code>modified_time</code></td>
+<td><code>int64</code></td>
+<td>Document modification timestamp (Unix epoch)</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="operator-configuration">Operator Configuration</h2>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;ingest_source&quot;,
+  &quot;name&quot;: &quot;ingest_s3_documents&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;s3&quot;,
+    &quot;connection_params&quot;: {
+      &quot;bucket&quot;: &quot;my-bucket&quot;,
+      &quot;prefix&quot;: &quot;documents/&quot;
+    },
+    &quot;credentials&quot;: {
+      &quot;aws_access_key_id&quot;: &quot;${AWS_ACCESS_KEY_ID}&quot;,
+      &quot;aws_secret_access_key&quot;: &quot;${AWS_SECRET_ACCESS_KEY}&quot;
+    },
+    &quot;include_filter&quot;: &quot;pdf,docx&quot;,
+    &quot;max_files&quot;: 500
+  }
+}
+</code></pre>
+<h3 id="accessing-results">Accessing Results</h3>
+<pre><code class="language-python"># Convert to pandas for analysis
+df = result_table.to_pandas()
+
+# Access individual documents
+for i in range(result_table.num_rows):
+    text = result_table['text'][i].as_py()
+    metadata = json.loads(result_table['metadata'][i].as_py())
+    source = result_table['source_id'][i].as_py()
+
+    print(f&quot;Document {i+1}:&quot;)
+    print(f&quot;  Source: {source}&quot;)
+    print(f&quot;  Text length: {len(text)}&quot;)
+    print(f&quot;  Metadata: {metadata}&quot;)
+</code></pre>
+<h3 id="parameter-naming-clarification">Parameter Naming Clarification</h3>
+<p><strong>User Configuration (Flow JSON):</strong><br />
+- Use <code>include_filter</code> and <code>exclude_filter</code> parameters (comma-separated strings)<br />
+- Example: <code>"include_filter": "pdf,docx,txt"</code></p>
+<p><strong>Internal Implementation (For Connector Developers):</strong><br />
+- Internally converted to <code>included_extensions</code> (list) → <code>file_extensions</code> (config model field)<br />
+- Users should never use <code>included_extensions</code> or <code>file_extensions</code> in their flow configurations</p>
+<h2 id="file-filtering">File Filtering</h2>
+<h3 id="extension-based-filtering">Extension-Based Filtering</h3>
+<p>The operator validates and filters files by extension using centralized constants from <a href="../../../src/docpipe/core/constants/operator_constants.py"><code>OperatorConstants.FileExtensions</code></a>:</p>
+<p><strong>Supported Extensions:</strong><br />
+- <strong>Documents</strong>: PDF, DOCX, PPTX, XLSX<br />
+- <strong>Text</strong>: Markdown, Plain Text, HTML<br />
+- <strong>Images</strong>: PNG, JPEG, JPG, TIFF, TIF, BMP, WebP, GIF, JFIF<br />
+- <strong>Audio</strong> (with ASR): WAV, MP3, M4A, AAC, OGG, FLAC<br />
+- <strong>Video</strong> (with ASR): MP4, AVI, MOV</p>
+<p><strong>Filter Parameters:</strong><br />
+- <strong>include_filter</strong>: Comma-separated list of extensions to include (e.g., "pdf,txt,docx")<br />
+  - If not specified, defaults to all supported extensions<br />
+  - Must be a subset of supported extensions (validation enforced)<br />
+- <strong>exclude_filter</strong>: Comma-separated list of extensions to exclude (e.g., "tmp,log")<br />
+  - Must be a subset of supported extensions (validation enforced)</p>
+<p><strong>Validation Behavior:</strong><br />
+- Extensions are validated at operator initialization<br />
+- Unsupported extensions in <code>include_filter</code> or <code>exclude_filter</code> raise <code>ValueError</code><br />
+- Error messages list the unsupported extensions and all supported extensions<br />
+- This ensures only valid file types are processed downstream</p>
+<h3 id="s3-filtering">S3 Filtering</h3>
+<p>The operator automatically filters out:<br />
+- <strong>Directory markers</strong>: Objects with keys ending in <code>/</code><br />
+- <strong>Hidden files</strong>: Files or directories starting with <code>.</code> (except <code>.</code> and <code>..</code>)<br />
+- <strong>Empty objects</strong>: Objects with size 0 bytes</p>
+<h3 id="max-files-limit">Max Files Limit</h3>
+<p>Use the <code>max_files</code> parameter to limit the number of documents processed (default: 100).</p>
+<p>This ensures only actual file content is processed, improving efficiency and data quality.</p>
+<h2 id="incremental-updates">Incremental Updates</h2>
+<p>The operator supports incremental processing to avoid re-ingesting unchanged documents:</p>
+<pre><code class="language-python">node_config = {
+    'provider': 's3',
+    'connection_params': {...},
+    'credentials': {...},
+    'job_id': 'my-job-123',
+    'force_ingest': False  # Set to True to re-ingest all documents
+}
+</code></pre>
+<p>Documents are tracked by their ID and modification time. Previously processed documents are automatically skipped unless <code>force_ingest</code> is set to <code>True</code>.</p>
+<h2 id="error-handling">Error Handling</h2>
+<h3 id="graceful-degradation">Graceful Degradation</h3>
+<p>The operator handles errors gracefully following the AbstractOperator pattern:<br />
+- Individual file load failures are tracked in metadata<br />
+- Processing continues for remaining files<br />
+- Comprehensive error tracking with document-level details</p>
+<h3 id="metadata-response">Metadata Response</h3>
+<pre><code class="language-python"># Metadata structure (follows AbstractOperator pattern):
+metadata = {
+    &quot;node_status&quot;: &quot;completed&quot; | &quot;completed_with_errors&quot; | &quot;completed_with_warnings&quot;,
+    &quot;total_docs_count&quot;: 100,
+    &quot;processed_docs&quot;: 95,
+    &quot;failed_docs_count&quot;: 3,
+    &quot;failed_docs&quot;: [
+        {&quot;id&quot;: &quot;doc1&quot;, &quot;name&quot;: &quot;file1.pdf&quot;, &quot;reason&quot;: &quot;Error description&quot;, &quot;document_url&quot;: &quot;&quot;}
+    ],
+    &quot;skipped_docs_count&quot;: 2,
+    &quot;skipped_docs&quot;: [
+        {&quot;id&quot;: &quot;doc2&quot;, &quot;name&quot;: &quot;file2.pdf&quot;, &quot;reason&quot;: &quot;Already processed&quot;, &quot;document_url&quot;: &quot;&quot;}
+    ]
+}
+</code></pre>
+<h3 id="common-errors">Common Errors</h3>
+<p><strong>Authentication Errors:</strong></p>
+<pre><code>Error: Invalid credentials
+</code></pre>
+<p><strong>Solution:</strong> Verify credentials are correct and have necessary permissions.</p>
+<p><strong>Google Drive Scope Errors:</strong></p>
+<pre><code>Error: ('invalid_scope: Bad Request', {'error': 'invalid_scope', 'error_description': 'Bad Request'})
+</code></pre>
+<p><strong>Solution:</strong> This error occurs when OAuth scopes are missing or incorrect. To fix:<br />
+1. Ensure the <code>scopes</code> parameter is included in credentials configuration<br />
+2. Delete the existing token file (default: <code>~/.credentials/token.json</code>)<br />
+3. Re-run the ingestion to trigger re-authentication with correct scopes<br />
+4. Use the default scope <code>['https://www.googleapis.com/auth/drive.readonly']</code> for read-only access</p>
+<p><strong>Connection Errors:</strong></p>
+<pre><code>Error: Could not connect to endpoint
+</code></pre>
+<p><strong>Solution:</strong> Check network connectivity and endpoint URLs (especially for S3-compatible storage like IBM COS).</p>
+<p><strong>Permission Errors:</strong></p>
+<pre><code>Error: Access denied
+</code></pre>
+<p><strong>Solution:</strong> Ensure credentials have read permissions for the specified resources.</p>
+<h2 id="performance-considerations">Performance Considerations</h2>
+<h3 id="large-datasets">Large Datasets</h3>
+<ul>
+<li>S3/COS: Uses pagination to handle large buckets efficiently</li>
+<li>Google Drive: Set <code>recursive=False</code> for large folder structures</li>
+<li>Consider using <code>prefix</code> parameter to limit scope</li>
+</ul>
+<h3 id="memory-usage">Memory Usage</h3>
+<ul>
+<li>Documents are loaded into memory before conversion to PyArrow</li>
+<li>For very large files, consider chunking strategies</li>
+<li>Monitor memory usage with large document sets</li>
+</ul>
+<h3 id="optimization-tips">Optimization Tips</h3>
+<ol>
+<li>Use specific prefixes/folder IDs to limit scope</li>
+<li>Filter file types at the source when possible</li>
+<li>Process in batches for very large datasets</li>
+<li>Use appropriate loader configurations for your use case</li>
+</ol>
+<h2 id="integration-with-downstream-operators">Integration with Downstream Operators</h2>
+<p>The output format is designed for seamless integration with:<br />
+- <strong>Embedding operators</strong>: Text column ready for vectorization<br />
+- <strong>Transform operators</strong>: Metadata available for filtering/routing<br />
+- <strong>Storage operators</strong>: PyArrow format for efficient storage</p>
+<h3 id="example-pipeline">Example Pipeline</h3>
+<pre><code class="language-python"># 1. Ingest documents
+ingest_node = IngestSourceOperator(ingest_config)
+tables, metadata = ingest_node.transform(input_table)
+
+# 2. Process with downstream operators
+# embedding_node = EmbeddingOperator(embedding_config)
+# embedded_tables, _ = embedding_node.transform(tables[0])
+
+# 3. Store results
+# storage_node = StorageOperator(storage_config)
+# storage_node.transform(embedded_tables[0])
+</code></pre>
+<h2 id="security-best-practices">Security Best Practices</h2>
+<ol>
+<li><strong>Credential Management:</strong></li>
+<li>Never hardcode credentials in source code</li>
+<li>Use environment variables or secret management systems</li>
+<li>
+<p>Rotate credentials regularly</p>
+</li>
+<li>
+<p><strong>Access Control:</strong></p>
+</li>
+<li>Use least-privilege principle for service accounts</li>
+<li>Limit bucket/folder access to necessary resources</li>
+<li>
+<p>Monitor access logs for suspicious activity</p>
+</li>
+<li>
+<p><strong>Data Protection:</strong></p>
+</li>
+<li>Use encrypted connections (HTTPS/TLS)</li>
+<li>Consider encrypting sensitive data at rest</li>
+<li>
+<p>Implement data retention policies</p>
+</li>
+<li>
+<p><strong>OAuth Tokens (Google Drive, SharePoint, OneDrive):</strong></p>
+</li>
+<li>Store tokens securely with restricted file permissions</li>
+<li>Never commit token files to version control</li>
+<li>Implement token refresh mechanisms</li>
+</ol>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="debug-mode">Debug Mode</h3>
+<p>Enable detailed logging by examining the operator output:</p>
+<pre><code class="language-python">output_tables, metadata = ingest_node.transform(input_table)
+print(f&quot;Metadata: {metadata}&quot;)
+if metadata['status'] == 'error':
+    print(f&quot;Error: {metadata['message']}&quot;)
+</code></pre>
+<h3 id="testing-connectivity">Testing Connectivity</h3>
+<p>Test each provider independently:</p>
+<pre><code class="language-python"># Test S3 connectivity
+import boto3
+s3_client = boto3.client('s3',
+    aws_access_key_id='YOUR_KEY',
+    aws_secret_access_key='YOUR_SECRET')  # pragma: allowlist secret
+response = s3_client.list_objects_v2(Bucket='your-bucket', MaxKeys=1)
+print(f&quot;Connection successful: {response['ResponseMetadata']['HTTPStatusCode'] == 200}&quot;)
+</code></pre>
+<h3 id="common-issues">Common Issues</h3>
+<p><strong>Issue: No documents loaded</strong><br />
+- Verify folder/bucket contains files<br />
+- Check prefix/path parameters<br />
+- Ensure files are not filtered (hidden, empty, directories)</p>
+<p><strong>Issue: Metadata parsing errors</strong><br />
+- Some loaders may return non-JSON-serializable metadata<br />
+- Check metadata structure in debug output<br />
+- Consider custom metadata handling</p>
+<p><strong>Issue: Slow performance</strong><br />
+- Reduce scope with prefix/folder parameters<br />
+- Check network latency to storage provider<br />
+- Consider parallel processing for large datasets</p>
+<h2 id="dependencies">Dependencies</h2>
+<h3 id="core-dependencies">Core Dependencies</h3>
+<pre><code>langchain==1.2.10
+langchain-core==1.2.14
+pyarrow==24.0.0
+pandas==2.3.3
+botocore==1.42.55
+</code></pre>
+<h3 id="provider-specific-dependencies">Provider-Specific Dependencies</h3>
+<ul>
+<li><strong>AWS/S3:</strong> <code>boto3==1.42.55</code>, <code>langchain-community==0.4.1</code></li>
+<li><strong>Google Drive:</strong> <code>google-auth-oauthlib==1.2.4</code>, <code>google-auth-httplib2==0.3.0</code>, <code>google-api-python-client==2.190.0</code>, <code>langchain-google-community==3.0.5</code></li>
+<li><strong>SharePoint/OneDrive:</strong> <code>O365==2.1.9</code>, <code>langchain-community==0.4.1</code></li>
+<li><strong>Box:</strong> <code>box-sdk-gen==1.17.0</code>, <code>langchain-community==0.4.1</code></li>
+<li><strong>Dropbox:</strong> <code>dropbox==12.2.1</code></li>
+<li><strong>PDF Processing:</strong> <code>pypdf2==3.0.1</code>, <code>unstructured[pdf]&gt;=0.10.0</code></li>
+<li><strong>GCP:</strong> <code>google-cloud-storage==3.9.0</code></li>
+<li><strong>Azure:</strong> <code>azure-storage-blob==12.28.0</code></li>
+</ul>
+<h3 id="installation">Installation</h3>
+<p>Using uv (recommended):</p>
+<pre><code class="language-bash"># From project root directory
+# Core installation (includes langchain and langchain-core)
+uv sync
+
+# AWS/S3 support
+uv sync --extra aws
+
+# Google Drive support
+uv sync --extra google-drive
+
+# Microsoft (SharePoint/OneDrive) support
+uv sync --extra microsoft
+
+# Box support
+uv sync --extra box
+
+# All cloud providers
+uv sync --extra all-cloud
+
+# Development dependencies
+uv sync --extra dev
+</code></pre>
+<p>Using pip:</p>
+<pre><code class="language-bash"># Core installation
+pip install langchain==1.2.10 langchain-core==1.2.14 pyarrow==24.0.0 pandas==2.3.3
+
+# AWS/S3 support
+pip install boto3==1.42.55 langchain-community==0.4.1
+
+# Google Drive support
+pip install google-auth-oauthlib==1.2.4 google-auth-httplib2==0.3.0 google-api-python-client==2.190.0 langchain-google-community==3.0.5 pypdf2==3.0.1 &quot;unstructured[pdf]&gt;=0.10.0&quot;
+
+# Microsoft support
+pip install O365==2.1.9 langchain-community==0.4.1
+
+# Box support
+pip install box-sdk-gen==1.17.0 langchain-community==0.4.1
+</code></pre>
+<h2 id="api-reference">API Reference</h2>
+<h3 id="class-ingestsourceoperator">Class: IngestSourceOperator</h3>
+<p>Inherits from: <a href="../../../src/docpipe/core/operators/abstract_operator.py"><code>AbstractOperator</code></a></p>
+<h4><code>__init__(node_config: dict)</code></h4>
+<p>Initialize the operator with configuration.</p>
+<p><strong>Parameters:</strong><br />
+- <code>node_config</code> (dict): Configuration dictionary containing:<br />
+  - <code>provider</code> (str): Provider identifier (s3, google_drive, sharepoint, onedrive, box_driver, dropbox, filesystem, web, custom)<br />
+  - <code>connection_params</code> (dict): Provider-specific connection parameters<br />
+  - <code>credentials</code> (dict): Authentication credentials<br />
+  - <code>job_id</code> (str, optional): Job identifier for tracking<br />
+  - <code>job_run_id</code> (str, optional): Job run identifier<br />
+  - <code>max_files</code> (int, optional): Maximum number of files to process (default: 100)<br />
+  - <code>include_filter</code> (str, optional): Comma-separated file extensions to include (defaults to all supported extensions if not specified; must be subset of supported extensions)<br />
+  - <code>exclude_filter</code> (str, optional): Comma-separated file extensions to exclude (must be subset of supported extensions)<br />
+  - <code>force_ingest</code> (bool, optional): Force re-ingestion of previously processed documents (default: False)</p>
+<p><strong>Raises:</strong><br />
+- <code>ValueError</code>: If <code>include_filter</code> or <code>exclude_filter</code> contain unsupported file extensions</p>
+<h4><code>transform(input_table: pa.Table) -&gt; tuple[list[pa.Table], dict]</code></h4>
+<p>Execute document ingestion.</p>
+<p><strong>Parameters:</strong><br />
+- <code>input_table</code> (pa.Table): Input PyArrow table (can be None for initial ingestion)</p>
+<p><strong>Returns:</strong><br />
+- <code>tuple[list[pa.Table], dict]</code>:<br />
+  - List containing single output PyArrow table with schema (id, name, text, metadata, source_id)<br />
+  - Metadata dictionary following AbstractOperator pattern with comprehensive tracking</p>
+<p><strong>Raises:</strong><br />
+- Returns error metadata instead of raising exceptions for graceful degradation</p>
+<h4><code>get_metadata() -&gt; dict</code></h4>
+<p>Get operator metadata including features and attributes.</p>
+<p><strong>Returns:</strong><br />
+- <code>dict</code>: Operator metadata with features, attributes, and availability information</p>
+<h2 id="examples">Examples</h2>
+<h3 id="example-1-filesystem-single-directory-python">Example 1: Filesystem — Single Directory (Python)</h3>
+<pre><code class="language-python">node_config = {
+    'provider': 'filesystem',
+    'connection_params': {
+        'paths': ['/data/customer_support_docs'],
+        'recursive': True,
+        'exclude_patterns': ['*.tmp', '__pycache__/*'],
+        'max_file_size_mb': 100,
+        'follow_symlinks': False
+    },
+    'include_filter': 'pdf,docx,txt',
+    'max_files': 500
+}
+</code></pre>
+<h3 id="example-2-filesystem-multiple-directories-python">Example 2: Filesystem — Multiple Directories (Python)</h3>
+<pre><code class="language-python">node_config = {
+    'provider': 'filesystem',
+    'connection_params': {
+        'paths': [
+            '/data/invoices',
+            '/data/contracts',
+            '/data/reports'
+        ],
+        'recursive': True,
+        'exclude_patterns': ['*.tmp'],
+        'max_file_size_mb': 50,
+        'follow_symlinks': False
+    },
+    'include_filter': 'pdf,docx',
+    'force_ingest': False
+}
+</code></pre>
+<h3 id="example-3-filesystem-flow-json-multiple-directories">Example 3: Filesystem — Flow JSON (Multiple Directories)</h3>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;ingest&quot;,
+  &quot;type&quot;: &quot;ingest_source&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;filesystem&quot;,
+    &quot;connection_params&quot;: {
+      &quot;paths&quot;: [
+        &quot;./data/invoices&quot;,
+        &quot;./data/contracts&quot;
+      ],
+      &quot;recursive&quot;: true,
+      &quot;exclude_patterns&quot;: [&quot;*.tmp&quot;, &quot;__pycache__/*&quot;],
+      &quot;max_file_size_mb&quot;: 100,
+      &quot;follow_symlinks&quot;: false
+    },
+    &quot;include_filter&quot;: &quot;pdf,docx,txt&quot;,
+    &quot;max_files&quot;: 1000,
+    &quot;force_ingest&quot;: false
+  }
+}
+</code></pre>
+<h3 id="example-4-s3-with-folder-prefix-filtering">Example 4: S3 with Folder Prefix Filtering</h3>
+<pre><code class="language-python">node_config = {
+    'provider': 's3',
+    'connection_params': {
+        'bucket': 'company-documents',
+        'prefix': '2024/invoices/'  # Ingests all files in this folder
+    },
+    'credentials': {
+        'access_key': os.getenv('AWS_ACCESS_KEY'),
+        'secret_key': os.getenv('AWS_SECRET_KEY')
+    }
+}
+</code></pre>
+<h3 id="example-5-s3-with-file-level-ingestion">Example 5: S3 with File-Level Ingestion</h3>
+<pre><code class="language-python">node_config = {
+    'provider': 's3',
+    'connection_params': {
+        'bucket': 'company-documents',
+        'prefix': '2024/invoices/report.pdf'  # Ingests only this specific file
+    },
+    'credentials': {
+        'access_key': os.getenv('AWS_ACCESS_KEY'),
+        'secret_key': os.getenv('AWS_SECRET_KEY')
+    }
+}
+</code></pre>
+<h3 id="example-6-s3-compatible-storage-ibm-cos">Example 6: S3-Compatible Storage (IBM COS)</h3>
+<pre><code class="language-python">node_config = {
+    'provider': 's3',
+    'connection_params': {
+        'bucket': 'enterprise-data',
+        'prefix': 'contracts/',
+        'endpoint_url': 'https://s3.eu-gb.cloud-object-storage.appdomain.cloud'
+    },
+    'credentials': {
+        'access_key': os.getenv('IBM_COS_ACCESS_KEY'),
+        'secret_key': os.getenv('IBM_COS_SECRET_KEY')
+    }
+}
+</code></pre>
+<h3 id="example-7-google-drive-recursive">Example 7: Google Drive Recursive</h3>
+<pre><code class="language-python">node_config = {
+    'provider': 'google_drive',
+    'connection_params': {
+        'folder_id': '1DKN_mxnoW1Uaacghz8vyEeqw-j4IOSFK',
+        'recursive': True
+    },
+    'credentials': {
+        'credentials_json_path': os.getenv('GOOGLE_CREDENTIALS_PATH'),
+        'token_path': os.path.expanduser('~/.credentials/gdrive_token.json'),
+        'scopes': ['https://www.googleapis.com/auth/drive.readonly']
+    }
+}
+</code></pre>
+<h3 id="example-8-box-with-jwt-authentication">Example 8: Box with JWT Authentication</h3>
+<pre><code class="language-python">node_config = {
+    'provider': 'box_driver',
+    'connection_params': {
+        'folder_id': '123456789',  # Specific Box folder ID (use '0' for root)
+        'recursive': True,
+        'max_file_size_mb': 50,
+        'exclude_patterns': ['*.tmp', 'Trash/*']
+    },
+    'credentials': {
+        'credentials_json_path': os.getenv('BOX_JWT_CONFIG_FILE')
+    },
+    'include_filter': 'pdf,docx,txt,pptx,xlsx',  # File extensions to include
+    'max_files': 100
+}
+</code></pre>
+<h3 id="example-9-dropbox-folder-with-extension-filtering">Example 9: Dropbox Folder with Extension Filtering</h3>
+<pre><code class="language-python">node_config = {
+    'provider': 'dropbox',
+    'connection_params': {
+        'folder_path': '/Reports/2026',
+        'recursive': True,
+        'max_file_size_mb': 50,
+        'exclude_patterns': ['*.tmp', '*/Archive/*']
+    },
+    'credentials': {
+        'access_token': os.getenv('DROPBOX_ACCESS_TOKEN')
+    },
+    'include_filter': 'pdf,docx,txt',
+    'max_files': 100
+}
+</code></pre>
+<h2 id="contributing">Contributing</h2>
+<p>To add support for a new provider:</p>
+<ol>
+<li>Add the provider to the <code>_get_loader()</code> method</li>
+<li>Import the corresponding LangChain loader</li>
+<li>Map configuration parameters to loader initialization</li>
+<li>Update this documentation with provider details</li>
+<li>Add example configuration and usage</li>
+</ol>
+<h2 id="sample-flow">Sample Flow</h2>
+<p>See <a href="../../../sample_flows/use_cases/s3_to_opensearch.json"><code>sample_flows/use_cases/s3_to_opensearch.json</code></a> for a complete example ingesting from S3 through to OpenSearch.</p>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="../../../README.html">Operators Overview</a></li>
+</ul>
+<h2 id="license">License</h2>
+<p>See project LICENSE file for details.</p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#key-features">Key Features</a>
+      <a href="#supported-providers">Supported Providers</a>
+      <a href="#usage">Usage</a>
+      <a href="#parameters">Parameters</a>
+      <a href="#output-columns">Output Columns</a>
+      <a href="#operator-configuration">Operator Configuration</a>
+      <a href="#file-filtering">File Filtering</a>
+      <a href="#incremental-updates">Incremental Updates</a>
+      <a href="#error-handling">Error Handling</a>
+      <a href="#performance-considerations">Performance Considerations</a>
+      <a href="#integration-with-downstream-operators">Integration with Downstream Operators</a>
+      <a href="#security-best-practices">Security Best Practices</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#dependencies">Dependencies</a>
+      <a href="#api-reference">API Reference</a>
+      <a href="#examples">Examples</a>
+      <a href="#contributing">Contributing</a>
+      <a href="#sample-flow">Sample Flow</a>
+      <a href="#related-documentation">Related Documentation</a>
+      <a href="#license">License</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

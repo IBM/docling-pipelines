@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Docling Pipelines OpenShift Deployment Guide — Docling Pipelines</title>
+  <meta name="description" content="Docling Pipelines OpenShift Deployment Guide — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link active" href="OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Docling Pipelines OpenShift Deployment Guide</span>
+      </nav>
+      <h1>Docling Pipelines OpenShift Deployment Guide</h1>
+<p>Complete guide for deploying the Docling Pipelines project on OpenShift using the automated deployment script.</p>
+<h2 id="overview">Overview</h2>
+<p>This guide covers deploying Docling Pipelines on OpenShift by:<br />
+1. Creating a project namespace<br />
+2. Building the application from Git repository<br />
+3. Creating an ImageStream for the container image<br />
+4. Deploying the application with proper configuration<br />
+5. Exposing the service via OpenShift Route</p>
+<h2 id="prerequisites">Prerequisites</h2>
+<h3 id="required-tools">Required Tools</h3>
+<ul>
+<li><strong>OpenShift CLI (<code>oc</code>)</strong>: Version 4.10 or higher</li>
+<li><strong>Git</strong>: For repository access</li>
+<li><strong>OpenShift Cluster</strong>: Access to an OpenShift cluster with appropriate permissions</li>
+</ul>
+<h3 id="required-permissions">Required Permissions</h3>
+<ul>
+<li>Create projects/namespaces</li>
+<li>Create builds, deployments, services, and routes</li>
+<li>Create imagestreams</li>
+</ul>
+<h3 id="verify-prerequisites">Verify Prerequisites</h3>
+<pre><code class="language-bash"># Check oc CLI installation
+oc version
+
+# Login to OpenShift cluster
+oc login https://api.your-cluster.com:6443
+
+# Verify login
+oc whoami
+</code></pre>
+<h2 id="quick-start">Quick Start</h2>
+<h3 id="1-clone-the-repository">1. Clone the Repository</h3>
+<pre><code class="language-bash">git clone https://github.com/IBM/docling-pipelines.git
+cd docling-pipelines
+</code></pre>
+<h3 id="2-configure-git-credentials-for-private-repositories">2. Configure Git Credentials for Private Repositories</h3>
+<p>If the repository is private, export the Git username and personal access token before starting the deployment script. The script uses these values to create the OpenShift secret <a href="../../README.html"><code>docpipe-git-auth</code></a> and attach it to the build source.</p>
+<pre><code class="language-bash">export GIT_USERNAME=&quot;your-git-username&quot;
+export GIT_TOKEN=&quot;your-personal-access-token&quot;
+
+# Optional: override the secret name created by the script
+export GIT_SECRET_NAME=&quot;docpipe-git-auth&quot;  # pragma: allowlist secret
+</code></pre>
+<p>Notes:<br />
+- Use an HTTPS repository URL, not SSH<br />
+- The personal access token must have permission to read the repository<br />
+- Avoid putting the token directly on the command line or committing it to shell history files</p>
+<h3 id="3-run-deployment-script">3. Run Deployment Script</h3>
+<pre><code class="language-bash"># Deploy with default settings (project name: docpipe)
+./scripts/deploy-openshift.sh
+
+# Or specify custom project name and Git repository
+./scripts/deploy-openshift.sh my-docpipe-project https://github.com/IBM/docling-pipelines.git main
+</code></pre>
+<h3 id="4-monitor-deployment">4. Monitor Deployment</h3>
+<pre><code class="language-bash"># Watch build progress
+oc logs -f bc/docpipe-app
+
+# Watch pod status
+oc get pods -w
+
+# Check deployment status
+oc get deployment docpipe-backend
+</code></pre>
+<h3 id="5-access-the-application">5. Access the Application</h3>
+<pre><code class="language-bash"># Get the route URL
+oc get route docpipe-route -o jsonpath='{.spec.host}'
+
+# Test the application
+DOCPIPE_URL=$(oc get route docpipe-route -o jsonpath='{.spec.host}')
+curl -k https://$DOCPIPE_URL/health
+</code></pre>
+<h2 id="deployment-script-details">Deployment Script Details</h2>
+<h3 id="script-parameters">Script Parameters</h3>
+<pre><code class="language-bash">./scripts/deploy-openshift.sh [project-name] [git-repo-url] [git-branch]
+</code></pre>
+<p><strong>Parameters:</strong><br />
+- <code>project-name</code> (optional): OpenShift project name (default: <code>docpipe</code>)<br />
+- <code>git-repo-url</code> (optional): Git repository URL (default: <code>https://github.com/IBM/docling-pipelines.git</code>)<br />
+- <code>git-branch</code> (optional): Git branch to deploy (default: <code>main</code>)</p>
+<h3 id="what-the-script-does">What the Script Does</h3>
+<ol>
+<li><strong>Prerequisites Check</strong></li>
+<li>Verifies <code>oc</code> CLI is installed</li>
+<li>Confirms user is logged into OpenShift</li>
+<li>
+<p>Displays current user and cluster information</p>
+</li>
+<li>
+<p><strong>Project Creation</strong></p>
+</li>
+<li>Creates new OpenShift project with specified name</li>
+<li>Checks for existing project and prompts for confirmation</li>
+<li>
+<p>Sets project as current context</p>
+</li>
+<li>
+<p><strong>Git Credentials Secret Creation</strong></p>
+</li>
+<li>Reads <code>GIT_USERNAME</code> and <code>GIT_TOKEN</code> from the environment</li>
+<li>Creates or updates an OpenShift basic-auth secret for Git access</li>
+<li>
+<p>Attaches that secret to the build source for private repository checkout</p>
+</li>
+<li>
+<p><strong>Application BuildConfig Creation</strong></p>
+</li>
+<li>Creates a Docker build from the Git repository</li>
+<li>Uses <a href="../../docker/Dockerfile"><code>docker/Dockerfile</code></a> for the image build</li>
+<li>
+<p>Starts the build explicitly</p>
+</li>
+<li>
+<p><strong>ImageStream Creation</strong></p>
+</li>
+<li>Creates an internal ImageStream for storing built container images</li>
+<li>
+<p>Configures local lookup policy</p>
+</li>
+<li>
+<p><strong>Deployment Creation</strong></p>
+</li>
+<li>Creates an OpenShift <code>DeploymentConfig</code> with 2 replicas</li>
+<li>Triggers rollout from the built ImageStream tag</li>
+<li>
+<p>Configures resource limits and health checks</p>
+</li>
+<li>
+<p><strong>Service Creation</strong></p>
+</li>
+<li>
+<p>Creates ClusterIP Service for backend pods</p>
+</li>
+<li>
+<p><strong>Route Creation</strong></p>
+</li>
+<li>Creates edge-terminated TLS route</li>
+<li>Enables automatic HTTP to HTTPS redirect</li>
+<li>
+<p>Exposes service externally</p>
+</li>
+<li>
+<p><strong>Verification</strong></p>
+</li>
+<li>Monitors build completion</li>
+<li>Verifies pod, service, and route creation</li>
+<li>Displays deployment summary</li>
+</ol>
+<h2 id="manual-deployment-steps">Manual Deployment Steps</h2>
+<p>If you prefer manual deployment or need to customize the process:</p>
+<h3 id="1-create-project">1. Create Project</h3>
+<pre><code class="language-bash">oc new-project docpipe --display-name=&quot;Docling Pipelines&quot; \
+  --description=&quot;Docling Pipelines - Modular document processing framework&quot;
+</code></pre>
+<h3 id="2-create-application-from-git">2. Create Application from Git</h3>
+<pre><code class="language-bash">oc new-app python:3.12~https://github.com/IBM/docling-pipelines.git \
+  --name=docpipe-app \
+  --strategy=source \
+  --context-dir=. \
+  --env PYTHONPATH=/opt/app-root/src/src \
+  --env PYTHONUNBUFFERED=1
+</code></pre>
+<h3 id="3-create-imagestream">3. Create ImageStream</h3>
+<pre><code class="language-bash">cat &lt;&lt;EOF | oc apply -f -
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: docpipe-image
+spec:
+  lookupPolicy:
+    local: true
+EOF
+</code></pre>
+<h3 id="4-create-buildconfig">4. Create BuildConfig</h3>
+<pre><code class="language-bash">cat &lt;&lt;EOF | oc apply -f -
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: docpipe-build
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: docpipe-image:latest
+  source:
+    type: Git
+    git:
+      uri: https://github.com/IBM/docling-pipelines.git
+      ref: main
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        namespace: openshift
+        name: python:3.12
+EOF
+</code></pre>
+<h3 id="5-create-deployment">5. Create Deployment</h3>
+<pre><code class="language-bash">cat &lt;&lt;EOF | oc apply -f -
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docpipe-backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: docpipe-app
+  template:
+    metadata:
+      labels:
+        app: docpipe-app
+    spec:
+      containers:
+      - name: docpipe
+        image: docpipe-image:latest
+        ports:
+        - containerPort: 8000
+        resources:
+          requests:
+            memory: &quot;2Gi&quot;
+            cpu: &quot;1000m&quot;
+          limits:
+            memory: &quot;4Gi&quot;
+            cpu: &quot;2000m&quot;
+EOF
+</code></pre>
+<h3 id="6-create-service">6. Create Service</h3>
+<pre><code class="language-bash">oc expose deployment docpipe-backend --port=8000 --name=docpipe-service
+</code></pre>
+<h3 id="7-create-route">7. Create Route</h3>
+<pre><code class="language-bash">oc create route edge docpipe-route --service=docpipe-service --insecure-policy=Redirect
+</code></pre>
+<h2 id="configuration">Configuration</h2>
+<h3 id="environment-variables">Environment Variables</h3>
+<p>The deployment configures the following environment variables:</p>
+<ul>
+<li><code>PYTHONPATH=/opt/app-root/src/src</code>: Ensures Python can find docpipe modules</li>
+<li><code>PYTHONUNBUFFERED=1</code>: Enables real-time log output</li>
+</ul>
+<h3 id="resource-limits">Resource Limits</h3>
+<p>Default resource configuration per pod:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Resource</th>
+<th>Request</th>
+<th>Limit</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Memory</td>
+<td>2Gi</td>
+<td>4Gi</td>
+</tr>
+<tr>
+<td>CPU</td>
+<td>1 core</td>
+<td>2 cores</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="health-checks">Health Checks</h3>
+<p><strong>Liveness Probe:</strong><br />
+- Endpoint: <code>/health</code><br />
+- Initial Delay: 30 seconds<br />
+- Period: 10 seconds</p>
+<p><strong>Readiness Probe:</strong><br />
+- Endpoint: <code>/health</code><br />
+- Initial Delay: 10 seconds<br />
+- Period: 5 seconds</p>
+<h2 id="operations">Operations</h2>
+<h3 id="scaling">Scaling</h3>
+<pre><code class="language-bash"># Scale to 3 replicas
+oc scale deployment/docpipe-backend --replicas=3
+
+# Check scaling status
+oc get deployment docpipe-backend
+</code></pre>
+<h3 id="viewing-logs">Viewing Logs</h3>
+<pre><code class="language-bash"># View application logs
+oc logs -f deployment/docpipe-backend
+
+# View specific pod logs
+oc logs -f &lt;pod-name&gt;
+
+# View build logs
+oc logs -f bc/docpipe-app
+</code></pre>
+<h3 id="rebuilding">Rebuilding</h3>
+<pre><code class="language-bash"># Trigger new build from Git
+oc start-build docpipe-app
+
+# Follow build logs
+oc logs -f bc/docpipe-app
+
+# Check build status
+oc get builds
+</code></pre>
+<h3 id="updating-configuration">Updating Configuration</h3>
+<pre><code class="language-bash"># Update environment variable
+oc set env deployment/docpipe-backend NEW_VAR=value
+
+# Update resource limits
+oc set resources deployment/docpipe-backend \
+  --requests=cpu=1500m,memory=3Gi \
+  --limits=cpu=2500m,memory=5Gi
+
+# Rollout restart
+oc rollout restart deployment/docpipe-backend
+</code></pre>
+<h3 id="rolling-updates">Rolling Updates</h3>
+<pre><code class="language-bash"># Update image
+oc set image deployment/docpipe-backend docpipe=docpipe-image:v2.0
+
+# Check rollout status
+oc rollout status deployment/docpipe-backend
+
+# View rollout history
+oc rollout history deployment/docpipe-backend
+
+# Rollback to previous version
+oc rollout undo deployment/docpipe-backend
+</code></pre>
+<h2 id="monitoring">Monitoring</h2>
+<h3 id="pod-status">Pod Status</h3>
+<pre><code class="language-bash"># List all pods
+oc get pods
+
+# Watch pod status
+oc get pods -w
+
+# Describe pod for events
+oc describe pod &lt;pod-name&gt;
+</code></pre>
+<h3 id="resource-usage">Resource Usage</h3>
+<pre><code class="language-bash"># View resource usage
+oc adm top pods
+
+# View node resource usage
+oc adm top nodes
+</code></pre>
+<h3 id="events">Events</h3>
+<pre><code class="language-bash"># View recent events
+oc get events --sort-by='.lastTimestamp'
+
+# Watch events
+oc get events -w
+</code></pre>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="build-failures">Build Failures</h3>
+<pre><code class="language-bash"># Check build logs
+oc logs -f bc/docpipe-app
+
+# Describe build for errors
+oc describe build &lt;build-name&gt;
+
+# Check build config
+oc describe bc/docpipe-app
+</code></pre>
+<h3 id="pod-not-starting">Pod Not Starting</h3>
+<pre><code class="language-bash"># Check pod status
+oc get pods
+
+# Describe pod for events
+oc describe pod &lt;pod-name&gt;
+
+# Check pod logs
+oc logs &lt;pod-name&gt;
+
+# Check previous container logs (if crashed)
+oc logs &lt;pod-name&gt; --previous
+</code></pre>
+<h3 id="image-pull-errors">Image Pull Errors</h3>
+<pre><code class="language-bash"># Check imagestream
+oc get imagestream docpipe-image
+
+# Describe imagestream
+oc describe imagestream docpipe-image
+
+# Check image tags
+oc get imagestreamtag
+</code></pre>
+<h3 id="route-not-accessible">Route Not Accessible</h3>
+<pre><code class="language-bash"># Check route configuration
+oc get route docpipe-route
+
+# Describe route
+oc describe route docpipe-route
+
+# Check service endpoints
+oc get endpoints docpipe-service
+
+# Test from inside cluster
+oc run test-pod --image=curlimages/curl -it --rm -- \
+  curl http://docpipe-service:8000/health
+</code></pre>
+<h3 id="network-issues">Network Issues</h3>
+<pre><code class="language-bash"># Check service
+oc get svc docpipe-service
+
+# Check endpoints
+oc get endpoints docpipe-service
+
+# Test connectivity from debug pod
+oc debug deployment/docpipe-backend
+</code></pre>
+<h2 id="cleanup">Cleanup</h2>
+<h3 id="remove-all-resources">Remove All Resources</h3>
+<pre><code class="language-bash"># Delete all resources in project
+oc delete all -l app=docpipe-app
+
+# Or delete entire project
+oc delete project docpipe
+</code></pre>
+<h3 id="selective-cleanup">Selective Cleanup</h3>
+<pre><code class="language-bash"># Delete deployment only
+oc delete deployment docpipe-backend
+
+# Delete service
+oc delete svc docpipe-service
+
+# Delete route
+oc delete route docpipe-route
+
+# Delete buildconfig
+oc delete bc docpipe-build
+
+# Delete imagestream
+oc delete imagestream docpipe-image
+</code></pre>
+<h2 id="advanced-configuration">Advanced Configuration</h2>
+<h3 id="custom-dockerfile-build">Custom Dockerfile Build</h3>
+<p>If you need to use a custom Dockerfile instead of S2I:</p>
+<pre><code class="language-bash"># Create BuildConfig with Docker strategy
+cat &lt;&lt;EOF | oc apply -f -
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: docpipe-docker-build
+spec:
+  output:
+    to:
+      kind: ImageStreamTag
+      name: docpipe-image:latest
+  source:
+    type: Git
+    git:
+      uri: https://github.com/IBM/docling-pipelines.git
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: Dockerfile
+EOF
+</code></pre>
+<h3 id="persistent-storage">Persistent Storage</h3>
+<p>Add persistent volume for data storage:</p>
+<pre><code class="language-bash"># Create PVC
+cat &lt;&lt;EOF | oc apply -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: docpipe-data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+EOF
+
+# Mount in deployment
+oc set volume deployment/docpipe-backend \
+  --add --name=data-volume \
+  --type=persistentVolumeClaim \
+  --claim-name=docpipe-data \
+  --mount-path=/data
+</code></pre>
+<h3 id="configmaps-and-secrets">ConfigMaps and Secrets</h3>
+<pre><code class="language-bash"># Create ConfigMap
+oc create configmap docpipe-config \
+  --from-file=config.yaml
+
+# Create Secret
+oc create secret generic docpipe-secrets \
+  --from-literal=api-key=your-secret-key
+
+# Mount in deployment
+oc set volume deployment/docpipe-backend \
+  --add --name=config \
+  --type=configmap \
+  --configmap-name=docpipe-config \
+  --mount-path=/config
+
+oc set env deployment/docpipe-backend \
+  --from=secret/docpipe-secrets
+</code></pre>
+<h2 id="integration-with-cicd">Integration with CI/CD</h2>
+<h3 id="webhook-triggers">Webhook Triggers</h3>
+<p>The BuildConfig includes webhook triggers for automated builds:</p>
+<pre><code class="language-bash"># Get webhook URL
+oc describe bc/docpipe-build | grep -A 1 &quot;Webhook GitHub&quot;
+
+# Configure in GitHub repository settings:
+# Settings &gt; Webhooks &gt; Add webhook
+# Payload URL: &lt;webhook-url&gt;
+# Content type: application/json
+</code></pre>
+<h3 id="jenkins-integration">Jenkins Integration</h3>
+<pre><code class="language-bash"># Create Jenkins pipeline
+cat &lt;&lt;EOF | oc apply -f -
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: docpipe-pipeline
+spec:
+  strategy:
+    type: JenkinsPipeline
+    jenkinsPipelineStrategy:
+      jenkinsfile: |
+        pipeline {
+          agent any
+          stages {
+            stage('Build') {
+              steps {
+                script {
+                  openshift.withCluster() {
+                    openshift.withProject('docpipe') {
+                      openshift.startBuild('docpipe-build').logs('-f')
+                    }
+                  }
+                }
+              }
+            }
+            stage('Deploy') {
+              steps {
+                script {
+                  openshift.withCluster() {
+                    openshift.withProject('docpipe') {
+                      openshift.selector('deployment', 'docpipe-backend').rollout().latest()
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+EOF
+</code></pre>
+<h2 id="best-practices">Best Practices</h2>
+<ol>
+<li><strong>Use Specific Image Tags</strong>: Avoid using <code>latest</code> tag in production</li>
+<li><strong>Set Resource Limits</strong>: Always define resource requests and limits</li>
+<li><strong>Enable Health Checks</strong>: Configure liveness and readiness probes</li>
+<li><strong>Use Secrets</strong>: Store sensitive data in OpenShift Secrets</li>
+<li><strong>Enable Monitoring</strong>: Configure Prometheus metrics and alerts</li>
+<li><strong>Implement Logging</strong>: Use centralized logging (EFK stack)</li>
+<li><strong>Regular Backups</strong>: Backup persistent data and configurations</li>
+<li><strong>Security Scanning</strong>: Scan images for vulnerabilities</li>
+<li><strong>Network Policies</strong>: Implement network policies for security</li>
+<li><strong>Documentation</strong>: Keep deployment documentation up to date</li>
+</ol>
+<h2 id="support">Support</h2>
+<p>For issues or questions:<br />
+- Check pod logs: <code>oc logs &lt;pod-name&gt;</code><br />
+- Review events: <code>oc get events --sort-by='.lastTimestamp'</code><br />
+- Consult main documentation: <a href="../README.html">README.md</a><br />
+- Review architecture: <a href="../../ARCHITECTURE.html">ARCHITECTURE.md</a></p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#prerequisites">Prerequisites</a>
+      <a href="#quick-start">Quick Start</a>
+      <a href="#deployment-script-details">Deployment Script Details</a>
+      <a href="#manual-deployment-steps">Manual Deployment Steps</a>
+      <a href="#configuration">Configuration</a>
+      <a href="#operations">Operations</a>
+      <a href="#monitoring">Monitoring</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#cleanup">Cleanup</a>
+      <a href="#advanced-configuration">Advanced Configuration</a>
+      <a href="#integration-with-cicd">Integration with CI/CD</a>
+      <a href="#best-practices">Best Practices</a>
+      <a href="#support">Support</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

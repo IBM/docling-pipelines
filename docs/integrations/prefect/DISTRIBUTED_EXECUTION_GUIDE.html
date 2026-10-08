@@ -1,0 +1,1987 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Prefect Distributed Execution Guide — Docling Pipelines</title>
+  <meta name="description" content="Prefect Distributed Execution Guide — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter active" href="DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Prefect Distributed Execution Guide</span>
+      </nav>
+      <h1>Prefect Distributed Execution Guide</h1>
+<p>Complete guide for running Docling Pipelines pipelines with distributed execution using Prefect work pools and workers.</p>
+
+<hr />
+<h2 id="1-introduction-and-overview">1. Introduction and Overview</h2>
+<h3 id="what-is-distributed-execution-in-docling-pipelines">What is Distributed Execution in Docling Pipelines?</h3>
+<p>Distributed execution allows Docling Pipelines pipelines to process data across multiple machines or containers, enabling horizontal scaling and improved throughput. Instead of processing all batches on a single machine, work is distributed to multiple workers that execute batches in parallel.</p>
+<h3 id="when-to-use-distributed-execution">When to Use Distributed Execution</h3>
+<p><strong>Use distributed execution when:</strong><br />
+- Processing large datasets (&gt;1000 documents)<br />
+- Requiring horizontal scalability<br />
+- Needing fault tolerance and retry mechanisms<br />
+- Running production workloads<br />
+- Deploying on Docker</p>
+<p><strong>Use default local execution when:</strong><br />
+- Developing and testing<br />
+- Processing small datasets (&lt;1000 documents)<br />
+- Running quick prototypes<br />
+- Learning Docling Pipelines</p>
+<h3 id="architecture-overview">Architecture Overview</h3>
+<pre><code>┌─────────────────┐
+│ Your Machine    │
+│ (Submitter)     │──┐
+└─────────────────┘  │
+        │            │  Submit Flow
+        │            ↓
+        │     ┌──────────────────────────────────────┐
+        │     │         Prefect Server               │
+        │     │      (Central Coordinator)           │
+        │     └──────────────────────────────────────┘
+        │                  │
+        │     ┌────────────┼────────────┐
+        │     ↓            ↓            ↓
+        │  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+        │  │  Worker 1   │ │  Worker 2   │ │  Worker 3   │
+        │  └─────────────┘ └─────────────┘ └─────────────┘
+        │         ▲            ▲            ▲
+        │         │            │            │
+        │         └────────────┼────────────┘
+        │                      │
+        │              ┌─────────────┐
+        └─────────────▶│   Storage   │
+                       │ (Local)     │
+                       └─────────────┘
+</code></pre>
+<p><strong>Components:</strong></p>
+<ol>
+<li><strong>Prefect Server</strong>: Central coordinator that queues flow runs and manages work pools</li>
+<li><strong>Work Pool</strong>: Named queue where flow runs wait for execution</li>
+<li><strong>Workers</strong>: Processes that poll the work pool and execute batches</li>
+<li><strong>Submitter</strong>: Your machine that submits flow runs to the work pool</li>
+<li><strong>Batch Storage</strong>: Shared local filesystem storage for transferring data between submitter and workers</li>
+<li><strong>Job Stats Store</strong>: Persistent storage for job and node execution statistics</li>
+</ol>
+<h3 id="prerequisites">Prerequisites</h3>
+<ul>
+<li>Docling Pipelines installed and configured</li>
+<li>Python 3.12+ with virtual environment activated</li>
+<li>PYTHONPATH set correctly (see <a href="../../../USER_GUIDE_PIPELINE_SETUP.html"><code>USER_GUIDE_PIPELINE_SETUP.md</code></a>)</li>
+<li>Ollama and OpenSearch running (for operators that require them)</li>
+</ul>
+<hr />
+<h2 id="2-quick-start-guides">2. Quick Start Guides</h2>
+<h3 id="21-default-execution-zero-setup">2.1 Default Execution (Zero Setup)</h3>
+<p>By default, Docling Pipelines runs in <strong>ephemeral mode</strong> with zero infrastructure setup.</p>
+<p><strong>When to use:</strong><br />
+- Development and testing<br />
+- Small workloads (&lt;1000 documents)<br />
+- Quick prototyping</p>
+<p><strong>How to run:</strong></p>
+<pre><code class="language-bash"># Just run - no setup needed
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
+</code></pre>
+<p><strong>Under the hood:</strong><br />
+- Uses Prefect ephemeral mode (temporary in-memory server)<br />
+- Thread pool for parallel execution<br />
+- All data stays in memory or local filesystem<br />
+- No external dependencies</p>
+<p><strong>Environment variables:</strong><br />
+- <code>PREFECT_MODE</code>: Defaults to <code>ephemeral</code> (no need to set)<br />
+- No <code>PREFECT_API_URL</code> required</p>
+<h3 id="22-local-poc-setup-single-machine-distributed">2.2 Local POC Setup (Single-Machine Distributed)</h3>
+<p>Run distributed execution on a single machine to understand work pools before moving to Docker.</p>
+<p><strong>When to use:</strong><br />
+- Testing distributed execution locally<br />
+- Understanding work pools and workers (see <a href="https://docs.prefect.io/latest/concepts/work-pools/">Work Pools</a> and <a href="https://docs.prefect.io/latest/concepts/workers/">Workers</a>)<br />
+- Validating flow configurations (see <a href="https://docs.prefect.io/latest/concepts/deployments/">Deployments</a>)</p>
+<h4>Step 1: Start Prefect Server</h4>
+<pre><code class="language-bash"># Terminal 1: Start Prefect server
+prefect server start
+</code></pre>
+<p>Server starts at <code>http://localhost:4200</code>. Open in browser to access Prefect UI.</p>
+<h4>Step 2: Create Work Pool</h4>
+<pre><code class="language-bash"># Terminal 2: Create a process work pool
+prefect work-pool create docpipe-pool --type process
+</code></pre>
+<p>Verify:</p>
+<pre><code class="language-bash">prefect work-pool ls
+</code></pre>
+<h4>Step 3: Start Worker</h4>
+<pre><code class="language-bash"># Terminal 2: Start worker
+prefect worker start --pool docpipe-pool
+</code></pre>
+<h4>Step 4: Configure Environment</h4>
+<pre><code class="language-bash"># Terminal 3: Set environment variables
+export PREFECT_MODE=server
+export PREFECT_API_URL=http://localhost:4200/api
+</code></pre>
+<p><strong>Critical</strong>: Without <code>PREFECT_MODE=server</code>, Docling Pipelines uses ephemeral mode and ignores work pool configuration.</p>
+<p><strong>Job stats store guidance for this setup:</strong><br />
+- <code>DOCPIPE_STORAGE_BACKEND</code>, <code>DOCPIPE_FRAMEWORK_TYPE</code>, and <code>DOCPIPE_JOB_STATS_BASE_DIR</code> can be set explicitly in work-pool env, but if they are omitted the worker inherits the submitter's effective job-management configuration resolved from env<br />
+- <a href="../../../src/docpipe/core/job_management/adapters/stores/json/json_job_stats_store.py"><code>JsonJobStatsStore</code></a> can work for <code>work-pool-process</code> only when the submitter and worker share the same filesystem semantics<br />
+- Requirement: the submitter and worker must share the same filesystem and the same absolute path namespace for the job stats directory<br />
+- Relative filesystem <code>base_dir</code> paths depend on where the submitter and worker processes are started<br />
+- If filesystem storage is effective for the submitter, <code>DOCPIPE_JOB_STATS_BASE_DIR</code> is propagated to workers as a resolved absolute path so workers do not reinterpret relative <code>base_dir</code> values differently<br />
+- For reliable distributed execution across different containers or machines, use <a href="../../../src/docpipe/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py"><code>PostgresJobStatsStore</code></a><br />
+- If PostgreSQL storage is effective for the submitter, the worker inherits <code>DOCPIPE_POSTGRES_HOST</code>, <code>DOCPIPE_POSTGRES_PORT</code>, <code>DOCPIPE_POSTGRES_DB</code>, <code>DOCPIPE_POSTGRES_USER</code>, and <code>DOCPIPE_POSTGRES_PASSWORD</code> unless explicitly overridden in work-pool env</p>
+<h4>Step 5: Configure Flow</h4>
+<p>Add work pool configuration to your flow JSON:</p>
+<pre><code class="language-json">{
+  &quot;flow_name&quot;: &quot;distributed-local-pipeline&quot;,
+  &quot;description&quot;: &quot;Distributed execution using Prefect work pools&quot;,
+  &quot;global_config&quot;: {
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;storage&quot;: &quot;in-memory&quot;,
+    &quot;execute_type&quot;: &quot;local&quot;,
+    &quot;prefect&quot;: {
+      &quot;batch_execution&quot;: {
+        &quot;strategy&quot;: &quot;work-pool-process&quot;,
+        &quot;work_pool_name&quot;: &quot;docpipe-pool&quot;,
+        &quot;batch_storage&quot;: {
+          &quot;type&quot;: &quot;local&quot;,
+          &quot;path&quot;: &quot;/tmp/docpipe-batches&quot;
+        }
+      }
+    }
+  },
+  &quot;flow&quot;: [...]
+}
+</code></pre>
+<h4>Step 6: Run Flow</h4>
+<pre><code class="language-bash"># Terminal 3: Run the flow
+docling-pipelines --flow-file your-flow.json
+</code></pre>
+<h4>Step 7: Verify Execution</h4>
+<ol>
+<li>Check Prefect UI at <code>http://localhost:4200</code></li>
+<li>Navigate to "Flow Runs" to see execution</li>
+<li>Check "Work Pools" → "docpipe-pool" for worker activity</li>
+<li>Monitor worker logs in Terminal 2</li>
+</ol>
+<hr />
+<h2 id="3-work-pool-configuration">3. Work Pool Configuration</h2>
+<h3 id="31-configuration-location">3.1 Configuration Location</h3>
+<p>Work pool configuration is added to your flow JSON under <code>global_config.prefect.batch_execution</code>:</p>
+<pre><code class="language-json">{
+  &quot;global_config&quot;: {
+    &quot;prefect&quot;: {
+      &quot;batch_execution&quot;: {
+        &quot;strategy&quot;: &quot;work-pool-docker&quot;,
+        &quot;work_pool_name&quot;: &quot;docpipe-pool&quot;,
+        &quot;batch_storage&quot;: {
+          &quot;type&quot;: &quot;s3&quot;,
+          &quot;bucket&quot;: &quot;my-docpipe-batches&quot;
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="32-work-pool-types">3.2 Work Pool Types</h3>
+<h4>Process Work Pool (<code>work-pool-process</code>)</h4>
+<p><strong>Description</strong>: Executes batches as local processes without containerization.</p>
+<p><strong>Use cases:</strong><br />
+- Docker Compose deployments with shared filesystem<br />
+- Single-machine distributed execution<br />
+- Development and testing</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;prefect&quot;: {
+    &quot;batch_execution&quot;: {
+      &quot;strategy&quot;: &quot;work-pool-process&quot;,
+      &quot;work_pool_name&quot;: &quot;docpipe-pool&quot;,
+      &quot;batch_storage&quot;: {
+        &quot;type&quot;: &quot;local&quot;,
+        &quot;path&quot;: &quot;/data/batches&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Requirements:</strong><br />
+- Prefect Server accessible from submitter and workers<br />
+- Shared filesystem between submitter and workers<br />
+- Same Python environment on all machines</p>
+<p><strong>Work Pool Path Resolution:</strong></p>
+<p>The <code>deployment_path</code> configuration controls where Prefect workers look for your code. This is critical because the submitter (where you run <code>docling-pipelines</code>) and the worker (where batches execute) may have different filesystem layouts.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Submitter</th>
+<th>Worker</th>
+<th>Paths Same?</th>
+<th><code>os.getcwd()</code> Works?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Local dev</strong> (Steps 1-4 above)</td>
+<td>Your machine</td>
+<td>Same machine (subprocess)</td>
+<td>✅ Yes</td>
+<td>✅ Yes</td>
+</tr>
+<tr>
+<td><strong>Docker</strong> (docker-compose)</td>
+<td>Your machine</td>
+<td>Docker container</td>
+<td>❌ No</td>
+<td>❌ No</td>
+</tr>
+</tbody>
+</table></div>
+<p><em>Local Development Flow</em> (<code>os.getcwd()</code> works):<br />
+- Submitter creates deployment with <code>path = os.getcwd()</code> (e.g., <code>/Users/.../docling-pipelines</code>)<br />
+- Worker runs on same machine as subprocess<br />
+- Worker sets working directory to <code>/Users/.../docling-pipelines</code><br />
+- ✅ Path exists! Flow executes successfully</p>
+<p><em>Docker Flow</em> (<code>os.getcwd()</code> breaks):<br />
+- Submitter creates deployment with <code>path = os.getcwd()</code> (e.g., <code>/Users/.../docling-pipelines</code>)<br />
+- Worker runs in Docker container<br />
+- Worker tries to set working directory to <code>/Users/.../docling-pipelines</code><br />
+- ❌ Path doesn't exist! Code is at <code>/app/src/docpipe</code></p>
+<p><strong>Solution:</strong></p>
+<p>The <code>deployment_path</code> parameter is <strong>optional</strong>:<br />
+- <code>None</code> (default) → falls back to <code>os.getcwd()</code> → <strong>local dev works</strong><br />
+- Explicitly set → uses that path → <strong>Docker works</strong></p>
+<p><em>Local Development</em> (no change needed):</p>
+<pre><code class="language-json">{
+  &quot;prefect&quot;: {
+    &quot;batch_execution&quot;: {
+      &quot;strategy&quot;: &quot;work-pool-process&quot;,
+      &quot;work_pool_name&quot;: &quot;docpipe-pool&quot;
+    }
+  }
+}
+</code></pre>
+<p><em>Docker Compose</em> (set <code>deployment_path</code> explicitly):</p>
+<pre><code class="language-json">{
+  &quot;prefect&quot;: {
+    &quot;batch_execution&quot;: {
+      &quot;strategy&quot;: &quot;work-pool-process&quot;,
+      &quot;work_pool_name&quot;: &quot;docpipe-pool&quot;,
+      &quot;deployment_path&quot;: &quot;/app/src/docpipe&quot;
+    }
+  }
+}
+</code></pre>
+<p>This matches:<br />
+- <strong>Dockerfile</strong> line 43: <code>ENV PYTHONPATH=/app/src</code><br />
+- <strong>docker-compose</strong> line 67: <code>PYTHONPATH: /app/src</code></p>
+<p><strong>Job stats store guidance:</strong><br />
+- The worker job environment can explicitly define <code>DOCPIPE_STORAGE_BACKEND</code>, <code>DOCPIPE_FRAMEWORK_TYPE</code>, and backend-specific settings, but if omitted the worker inherits the submitter's effective job-management configuration<br />
+- Filesystem job stats storage is acceptable only when submitter and worker processes read/write the same filesystem path namespace<br />
+- Requirement: submitter and workers must share the same filesystem and must see the same absolute job stats path<br />
+- If using <a href="../../../src/docpipe/core/job_management/adapters/stores/json/json_job_stats_store.py"><code>JsonJobStatsStore</code></a>, <code>DOCPIPE_JOB_STATS_BASE_DIR</code> should resolve to the same absolute shared path for submitter and workers instead of relying on cwd-relative resolution<br />
+- Example shared path choices:<br />
+  - local machine process pool: <code>DOCPIPE_JOB_STATS_BASE_DIR=/absolute/path/to/data/job_stats</code><br />
+  - Docker shared volume/process pool: <code>DOCPIPE_JOB_STATS_BASE_DIR=/app/data/job_stats</code><br />
+- If workers run on different machines or in isolated runtimes, use <a href="../../../src/docpipe/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py"><code>PostgresJobStatsStore</code></a><br />
+- For PostgreSQL-backed job stats, workers must resolve the same database connection, typically via inherited or explicit <code>DOCPIPE_POSTGRES_HOST</code>, <code>DOCPIPE_POSTGRES_PORT</code>, <code>DOCPIPE_POSTGRES_DB</code>, <code>DOCPIPE_POSTGRES_USER</code>, and <code>DOCPIPE_POSTGRES_PASSWORD</code> environment variables</p>
+<h4>Docker Work Pool (<code>work-pool-docker</code>)</h4>
+<p><strong>Description</strong>: Executes batches in Docker containers.</p>
+<p><strong>Use cases:</strong><br />
+- Docker Compose deployments<br />
+- Environments requiring dependency isolation<br />
+- Reproducible execution environments</p>
+<h5>Understanding Container Images</h5>
+<p><strong>Worker Image vs Batch Execution Image:</strong><br />
+- <strong>Worker image</strong>: Runs the Prefect worker process (infrastructure concern, configured in docker-compose.yml or worker startup)<br />
+- <strong>Batch execution image</strong>: Executes individual batch subflows (application concern, configured in flow JSON <code>image</code> field)<br />
+- These can be the same image but serve different purposes<br />
+- Worker image is pulled when starting worker infrastructure; batch image is pulled per job execution</p>
+<p><strong>Configuration options:</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>image</code></td>
+<td>string</td>
+<td><code>"docling-pipelines:latest"</code></td>
+<td>Docker image for batch execution (can include registry)</td>
+</tr>
+<tr>
+<td><code>image_pull_policy</code></td>
+<td>string</td>
+<td><code>"Never"</code></td>
+<td>When to pull: <code>"Never"</code> (POC), <code>"IfNotPresent"</code> (prod), <code>"Always"</code> (latest)</td>
+</tr>
+<tr>
+<td><code>networks</code></td>
+<td>list[string]</td>
+<td><code>[]</code></td>
+<td>Docker networks to connect to</td>
+</tr>
+<tr>
+<td><code>env</code></td>
+<td>dict</td>
+<td><code>{}</code></td>
+<td>Environment variables for container</td>
+</tr>
+</tbody>
+</table></div>
+<h5>Using Container Registries</h5>
+<p><strong>Public Registries:</strong></p>
+<p>Public registries work by embedding the registry URL in the image name. No authentication required.</p>
+<p><strong>Image name format examples (replace with your actual registry and image):</strong><br />
+- Docker Hub: <code>docker.io/your-username/your-image:tag</code> or <code>your-username/your-image:tag</code><br />
+- GitHub Container Registry: <code>ghcr.io/your-org/your-image:tag</code><br />
+- Harbor: <code>your-harbor.example.com/project/your-image:tag</code><br />
+- Any public registry: <code>your-registry.example.com/path/your-image:tag</code></p>
+<p><strong>Example with Docker Hub:</strong></p>
+<pre><code class="language-json">{
+  &quot;prefect&quot;: {
+    &quot;batch_execution&quot;: {
+      &quot;strategy&quot;: &quot;work-pool-docker&quot;,
+      &quot;work_pool_name&quot;: &quot;docpipe-docker-pool&quot;,
+      &quot;image&quot;: &quot;myusername/docling-pipelines:v1.0.0&quot;,
+      &quot;image_pull_policy&quot;: &quot;IfNotPresent&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Example with GHCR:</strong></p>
+<pre><code class="language-json">{
+  &quot;prefect&quot;: {
+    &quot;batch_execution&quot;: {
+      &quot;strategy&quot;: &quot;work-pool-docker&quot;,
+      &quot;image&quot;: &quot;ghcr.io/myorg/docling-pipelines:v1.0.0&quot;,
+      &quot;image_pull_policy&quot;: &quot;Always&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Private Docker Registries:</strong></p>
+<p>Private registries require authentication configured on the worker host machine.</p>
+<p><strong>Setup steps:</strong><br />
+1. Authenticate Docker on worker host:<br />
+<code>bash
+   docker login registry.example.com
+   # Enter username and password</code></p>
+<ol>
+<li>
+<p>Configure flow with fully-qualified image name:<br />
+<code>json
+   {
+     "prefect": {
+       "batch_execution": {
+         "image": "registry.example.com/docpipe/runtime:v1.0.0",
+         "image_pull_policy": "IfNotPresent"
+       }
+     }
+   }</code></p>
+</li>
+<li>
+<p>Credentials are stored in <code>~/.docker/config.json</code> on worker host</p>
+</li>
+</ol>
+<p><strong>Important notes:</strong><br />
+- Authentication is NOT configured in Docling Pipelines flow JSON<br />
+- Each worker host must authenticate separately<br />
+- Use <code>image_pull_policy: "IfNotPresent"</code> to reduce registry load<br />
+- POC setups use <code>"Never"</code> with locally built images</p>
+<p><strong>Image Pull Policy Guidance:</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Policy</th>
+<th>Use Case</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"Never"</code></td>
+<td>POC/local development</td>
+<td>Never pulls, uses local image only. Fails if image not present.</td>
+</tr>
+<tr>
+<td><code>"IfNotPresent"</code></td>
+<td>Production (recommended)</td>
+<td>Pulls only if image not cached locally. Efficient for stable versions.</td>
+</tr>
+<tr>
+<td><code>"Always"</code></td>
+<td>Latest/development</td>
+<td>Always pulls from registry. Use for <code>:latest</code> tag or rapid iteration.</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Example with local storage:</strong></p>
+<pre><code class="language-json">{
+  &quot;prefect&quot;: {
+    &quot;batch_execution&quot;: {
+      &quot;strategy&quot;: &quot;work-pool-docker&quot;,
+      &quot;work_pool_name&quot;: &quot;docpipe-docker-pool&quot;,
+      &quot;image&quot;: &quot;docling-pipelines:v1.0.0&quot;,
+      &quot;image_pull_policy&quot;: &quot;IfNotPresent&quot;,
+      &quot;networks&quot;: [&quot;docpipe-network&quot;],
+      &quot;env&quot;: {
+        &quot;PYTHONPATH&quot;: &quot;/app/src&quot;,
+        &quot;LOG_LEVEL&quot;: &quot;INFO&quot;,
+        &quot;OLLAMA_HOST&quot;: &quot;http://ollama:11434&quot;,
+        &quot;OPENSEARCH_HOST&quot;: &quot;opensearch&quot;,
+        &quot;OPENSEARCH_PORT&quot;: &quot;9200&quot;,
+        &quot;OPENSEARCH_USERNAME&quot;: &quot;admin&quot;,
+        &quot;OPENSEARCH_PASSWORD&quot;: &quot;&lt;your-opensearch-password&gt;&quot;,
+        &quot;OPENSEARCH_USE_SSL&quot;: &quot;false&quot;,
+        &quot;OPENSEARCH_VERIFY_CERTS&quot;: &quot;false&quot;,
+        &quot;PREFECT_API_URL&quot;: &quot;http://prefect-server:4200/api&quot;,
+        &quot;PREFECT_MODE&quot;: &quot;server&quot;
+      },
+      &quot;batch_storage&quot;: {
+        &quot;type&quot;: &quot;local&quot;,
+        &quot;path&quot;: &quot;/data/batches&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Requirements:</strong><br />
+- Docker daemon accessible from workers<br />
+- Docker image built and available (locally or in registry)<br />
+- Shared volume for batch storage (if using <code>local</code> type)<br />
+- Private registry authentication configured on worker host (if applicable)</p>
+<p><strong>Job stats store guidance:</strong><br />
+- Do not rely on <a href="../../../src/docpipe/core/job_management/adapters/stores/json/json_job_stats_store.py"><code>JsonJobStatsStore</code></a> for Docker work pools unless submitter and all worker containers share the same mounted filesystem path for job stats<br />
+- Requirement: submitter and worker containers must share the same filesystem mount and must use the same in-container absolute path for job stats<br />
+- If you switch Docker worker infrastructure to Prefect <code>process</code> execution on a shared volume, set <code>DOCPIPE_JOB_STATS_BASE_DIR</code> to the mounted absolute path seen inside that runtime, for example <code>/app/data/job_stats</code><br />
+- For actual distributed Docker execution, use <a href="../../../src/docpipe/core/job_management/adapters/stores/postgres/postgres_job_stats_store.py"><code>PostgresJobStatsStore</code></a></p>
+<h3 id="33-batch-storage-configuration">3.3 Batch Storage Configuration</h3>
+<p>Batch storage determines how PyArrow table data is transferred between submitter and workers.</p>
+<h4>Storage Type Comparison</h4>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Type</th>
+<th>Use Case</th>
+<th>Size Limit</th>
+<th>Network Required</th>
+<th>Shared Storage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>inline</code></td>
+<td>Small batches, testing</td>
+<td>~512KB</td>
+<td>No</td>
+<td>No</td>
+</tr>
+<tr>
+<td><code>local</code></td>
+<td>Docker Compose, same machine, shared volumes</td>
+<td>Unlimited</td>
+<td>No</td>
+<td>Yes (filesystem)</td>
+</tr>
+</tbody>
+</table></div>
+<h4>Inline Storage</h4>
+<p><strong>Description</strong>: Serializes batch data as JSON in Prefect parameters.</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;batch_storage&quot;: {
+    &quot;type&quot;: &quot;inline&quot;
+  }
+}
+</code></pre>
+<p><strong>Limitations:</strong><br />
+- Maximum batch size: ~512KB (controlled by <code>PREFECT_SERVER_API_MAX_PARAMETER_SIZE</code>)<br />
+- Warning threshold: 400KB<br />
+- Not suitable for production</p>
+<p><strong>Overriding size limits:</strong></p>
+<p>Set on Prefect Server (not workers or submitter):</p>
+<pre><code class="language-bash"># Increase to 2MB
+export PREFECT_SERVER_API_MAX_PARAMETER_SIZE=2097152
+
+# Restart Prefect Server
+</code></pre>
+<p><strong>Use cases:</strong><br />
+- Development and testing<br />
+- Very small datasets<br />
+- Quick prototyping</p>
+<h4>Local Filesystem Storage</h4>
+<p><strong>Description</strong>: Writes batch data to shared filesystem.</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;batch_storage&quot;: {
+    &quot;type&quot;: &quot;local&quot;,
+    &quot;path&quot;: &quot;/data/batches&quot;
+  }
+}
+</code></pre>
+<p><strong>Requirements:</strong><br />
+- Shared filesystem mounted at same path on all machines<br />
+- Read/write permissions<br />
+- Sufficient disk space</p>
+<p><strong>Use cases:</strong><br />
+- Docker Compose with shared volumes<br />
+- Single-machine deployments<br />
+- Development environments</p>
+<p><strong>Example Docker Compose volume:</strong></p>
+<pre><code class="language-yaml">services:
+  docpipe-submitter:
+    volumes:
+      - batch-data:/data/batches
+
+  docpipe-worker:
+    volumes:
+      - batch-data:/data/batches
+
+volumes:
+  batch-data:
+</code></pre>
+<pre><code>"bucket": "docpipe-batches",
+"prefix": "tmp/batches/",
+"access_key": "minioadmin",
+"secret_key": "minioadmin",  &lt;!-- pragma: allowlist secret --&gt;
+"endpoint_url": "http://minio:9000"
+</code></pre>
+<p>}<br />
+}</p>
+<pre><code>
+### 3.4 Complete Flow Examples
+
+#### Example 1: Docker Work Pool with Local Storage
+
+```json
+{
+  &quot;name&quot;: &quot;docker-compose-pipeline&quot;,
+  &quot;flow_id&quot;: &quot;docker-example-001&quot;,
+  &quot;description&quot;: &quot;Pipeline using Docker work pool with local storage&quot;,
+  &quot;storage&quot;: &quot;in-memory&quot;,
+  &quot;execute_type&quot;: &quot;local&quot;,
+  &quot;global_config&quot;: {
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;prefect&quot;: {
+      &quot;batch_execution&quot;: {
+        &quot;strategy&quot;: &quot;work-pool-docker&quot;,
+        &quot;work_pool_name&quot;: &quot;docpipe-docker-pool&quot;,
+        &quot;image&quot;: &quot;docling-pipelines:latest&quot;,
+        &quot;image_pull_policy&quot;: &quot;Never&quot;,
+        &quot;networks&quot;: [&quot;docpipe-network&quot;],
+        &quot;env&quot;: {
+          &quot;PYTHONPATH&quot;: &quot;/app/src&quot;,
+          &quot;LOG_LEVEL&quot;: &quot;INFO&quot;,
+          &quot;OLLAMA_HOST&quot;: &quot;http://ollama:11434&quot;,
+          &quot;OPENSEARCH_HOST&quot;: &quot;opensearch&quot;,
+          &quot;OPENSEARCH_PORT&quot;: &quot;9200&quot;,
+          &quot;OPENSEARCH_USERNAME&quot;: &quot;admin&quot;,
+          &quot;OPENSEARCH_PASSWORD&quot;: &quot;&lt;your-opensearch-password&gt;&quot;,
+          &quot;OPENSEARCH_USE_SSL&quot;: &quot;false&quot;,
+          &quot;OPENSEARCH_VERIFY_CERTS&quot;: &quot;false&quot;,
+          &quot;PREFECT_API_URL&quot;: &quot;http://prefect-server:4200/api&quot;,
+          &quot;PREFECT_MODE&quot;: &quot;server&quot;
+        },
+        &quot;batch_storage&quot;: {
+          &quot;type&quot;: &quot;local&quot;,
+          &quot;path&quot;: &quot;/data/batches&quot;
+        }
+      }
+    }
+  },
+  &quot;flow&quot;: [
+    {
+      &quot;name&quot;: &quot;ingest_documents&quot;,
+      &quot;type&quot;: &quot;ingest_source&quot;,
+      &quot;config&quot;: {
+        &quot;provider&quot;: &quot;filesystem&quot;,
+        &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;/data/input&quot;]},
+        &quot;include_filter&quot;: &quot;pdf,txt,docx&quot;
+      }
+    },
+    {
+      &quot;name&quot;: &quot;extract_content&quot;,
+      &quot;type&quot;: &quot;extract_operator&quot;,
+      &quot;depends_on&quot;: [&quot;ingest_documents&quot;],
+      &quot;config&quot;: {
+        &quot;text_extraction&quot;: {
+          &quot;provider&quot;: &quot;docling_serve&quot;,
+          &quot;provider_config&quot;: {
+            &quot;base_url&quot;: &quot;http://docling:5000&quot;
+          }
+        },
+        &quot;entity_extraction&quot;: {&quot;provider&quot;: &quot;none&quot;}
+      }
+    }
+  ]
+}
+</code></pre>
+<hr />
+<h2 id="4-deployment-scenarios">4. Deployment Scenarios</h2>
+<h3 id="41-docker-deployment">4.1 Docker Deployment</h3>
+<h4>Overview</h4>
+<p>Docker-based distributed execution uses <code>docker/docker-compose.distributed.yml</code> to run:</p>
+<p><strong>Core Services (Required):</strong><br />
+- Prefect server (central coordinator)<br />
+- Prefect workers (4 replicas for distributed batch processing)</p>
+<p><strong>Optional Services:</strong><br />
+- Ollama (LLM operations) - <em>Optional: Skip if you provide <code>OLLAMA_HOST</code> pointing to existing instance</em><br />
+- Docling Serve (document processing) - <em>Optional: Skip if you provide <code>DOCLING_SERVE_URL</code> pointing to existing instance</em><br />
+- OpenSearch (vector storage) - <em>Optional: Skip if you provide <code>OPENSEARCH_HOST</code> pointing to existing instance</em></p>
+<p><strong>Note:</strong> The optional services are included for convenience in local/POC setups. In production:<br />
+- Use existing Ollama, Docling, and OpenSearch deployments by configuring environment variables<br />
+- Use local storage (shared filesystem/PVC) for batch data exchange between submitter and workers</p>
+<h4>Architecture</h4>
+<pre><code>┌─────────────────┐
+│ Your Machine    │
+│ (Submitter)     │──┐
+└─────────────────┘  │
+                     │  Submit Flow
+                     ↓
+┌──────────────────────────────────────┐
+│         Prefect Server               │
+│      (Central Coordinator)           │
+└──────────────────────────────────────┘
+                     │
+        ┌────────────┼────────────┐
+        ↓            ↓            ↓
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│  Worker 1   │ │  Worker 2   │ │  Worker 3   │
+│  (Docker)   │ │  (Docker)   │ │  (Docker)   │
+└─────────────┘ └─────────────┘ └─────────────┘
+        │            │            │
+        └────────────┼────────────┘
+                     ↓
+              ┌─────────────┐
+              │   MinIO     │
+              │ (S3 Storage)│
+              └─────────────┘
+</code></pre>
+<h4>Prerequisites</h4>
+<ol>
+<li>Docker or Podman installed</li>
+<li>Docker Compose or podman-compose installed</li>
+<li>Docling Pipelines repository cloned</li>
+</ol>
+<h4>Step-by-Step Setup</h4>
+<p><strong>1. Build the Docling Pipelines Image</strong></p>
+<pre><code class="language-bash"># From project root
+docker build -t docling-pipelines:latest .
+</code></pre>
+<p>Or with Podman:</p>
+<pre><code class="language-bash">podman build -t docling-pipelines:latest .
+</code></pre>
+<p><strong>2. Start the Distributed Stack</strong></p>
+<pre><code class="language-bash"># Start all services
+docker-compose -f docker/docker-compose.distributed.yml up -d
+</code></pre>
+<p>Or with Podman:</p>
+<pre><code class="language-bash">podman-compose -f docker/docker-compose.distributed.yml up -d
+</code></pre>
+<p>This starts:<br />
+- <code>prefect-postgres</code>: Database for Prefect server<br />
+- <code>prefect-server</code>: Prefect orchestration server<br />
+- <code>prefect-worker</code>: 4 worker replicas<br />
+- <code>minio</code>: S3-compatible storage<br />
+- <code>ollama</code>: LLM service with models<br />
+- <code>docling-serve</code>: Document processing<br />
+- <code>opensearch</code>: Vector database<br />
+- <code>opensearch-dashboards</code>: OpenSearch UI</p>
+<p><strong>3. Verify Services</strong></p>
+<pre><code class="language-bash"># Check containers
+docker-compose -f docker/docker-compose.distributed.yml ps
+
+# Check Prefect server
+curl http://localhost:4200/api/health
+
+# Check MinIO
+curl http://localhost:9000/minio/health/live
+
+# Check Ollama
+curl http://localhost:11434/api/tags
+</code></pre>
+<p><strong>4. Create Work Pool</strong></p>
+<p>Workers automatically create the work pool on startup. Verify:</p>
+<pre><code class="language-bash">export PREFECT_API_URL=http://localhost:4200/api
+prefect work-pool ls
+</code></pre>
+<p><strong>5. Set Environment Variables</strong></p>
+<pre><code class="language-bash">export PREFECT_MODE=server
+export PREFECT_API_URL=http://localhost:4200/api
+</code></pre>
+<p><strong>Critical</strong>: Without <code>PREFECT_MODE=server</code>, Docling Pipelines uses ephemeral mode and ignores work pool configuration.</p>
+<p><strong>6. Configure Flow</strong></p>
+<p>See <a href="#example-1-docker-work-pool-with-local-storage">Example 1: Docker Work Pool with Local Storage</a> above.</p>
+<p><strong>7. Run Flow</strong></p>
+<pre><code class="language-bash"># Place documents in data/input
+mkdir -p data/input
+cp your-documents/* data/input/
+
+# Run flow
+docling-pipelines --flow-file your-flow.json
+</code></pre>
+<p><strong>8. Monitor Execution</strong></p>
+<ul>
+<li><strong>Prefect UI</strong>: http://localhost:4200</li>
+<li><strong>MinIO Console</strong>: http://localhost:9001 (minioadmin/minioadmin)</li>
+<li><strong>OpenSearch Dashboards</strong>: http://localhost:5601 (admin/&lt;your-opensearch-password&gt;)</li>
+</ul>
+<h4>Key Configuration Points</h4>
+<p><strong>Shared Storage:</strong></p>
+<p>Batch data must be accessible to both the submitter and all workers. The compose file uses shared volumes for:<br />
+1. Batch tables<br />
+2. Input/output data</p>
+<pre><code class="language-yaml">volumes:
+  - ./data:/app/data  # Shared data directory
+  - ./logs:/app/logs  # Shared logs directory
+</code></pre>
+<p><strong>Docker Network:</strong></p>
+<p>All services must be on the same network (<code>docpipe-net</code>).</p>
+<p><strong>Scaling Workers:</strong></p>
+<pre><code class="language-bash"># Scale to 8 workers
+docker-compose -f docker/docker-compose.distributed.yml up -d --scale prefect-worker=8
+</code></pre>
+<h4>Stopping the Stack</h4>
+<pre><code class="language-bash"># Stop services
+docker-compose -f docker/docker-compose.distributed.yml down
+
+# Stop and remove volumes (WARNING: deletes data)
+docker-compose -f docker/docker-compose.distributed.yml down -v
+</code></pre>
+<hr />
+<h2 id="5-troubleshooting">5. Troubleshooting</h2>
+<h3 id="51-common-pitfalls">5.1 Common Pitfalls</h3>
+<h4>PREFECT_MODE Not Set</h4>
+<p><strong>Symptom</strong>: Work pool configuration ignored, jobs run locally</p>
+<p><strong>Cause</strong>: <code>PREFECT_MODE</code> not set to <code>server</code></p>
+<p><strong>Solution</strong>:</p>
+<pre><code class="language-bash">export PREFECT_MODE=server
+export PREFECT_API_URL=http://your-prefect-server:4200/api
+</code></pre>
+<p><strong>Verification</strong>:</p>
+<pre><code class="language-bash">echo $PREFECT_MODE  # Should output: server
+echo $PREFECT_API_URL
+</code></pre>
+<h4>Worker Not Picking Up Jobs</h4>
+<p><strong>Symptom</strong>: Flow runs stay in "Scheduled" state</p>
+<p><strong>Solutions</strong>:</p>
+<pre><code class="language-bash"># Verify work pool exists
+prefect work-pool ls
+
+# Check worker is connected
+prefect worker ls
+
+# Verify work pool name matches flow JSON
+</code></pre>
+<h4>Batch Storage Errors</h4>
+<p><strong>For local storage:</strong></p>
+<pre><code class="language-bash"># Ensure path exists and is writable
+mkdir -p /data/batches
+chmod 777 /data/batches
+</code></pre>
+<h4>Cannot Connect to External Services</h4>
+<p><strong>Docker:</strong></p>
+<pre><code class="language-bash"># Verify services on same network
+docker network inspect docpipe-net
+
+# Test connectivity
+docker-compose exec prefect-worker ping -c 1 ollama
+</code></pre>
+<h3 id="52-configuration-errors">5.2 Configuration Errors</h3>
+<h4>Missing Work Pool Name</h4>
+<p><strong>Error:</strong></p>
+<pre><code>ValueError: work_pool_name is required for WorkPool strategy
+</code></pre>
+<p><strong>Solution</strong>: Add <code>work_pool_name</code> to configuration:</p>
+<pre><code class="language-json">{
+  &quot;prefect&quot;: {
+    &quot;batch_execution&quot;: {
+      &quot;work_pool_name&quot;: &quot;docpipe-pool&quot;
+    }
+  }
+}
+</code></pre>
+<h4>Work Pool Does Not Exist</h4>
+<p><strong>Error:</strong></p>
+<pre><code>WorkPoolNotFound: Work pool 'docpipe-pool' not found
+</code></pre>
+<p><strong>Solution</strong>: Create the work pool:</p>
+<pre><code class="language-bash"># For process work pool
+prefect work-pool create docpipe-pool --type process
+
+# For Docker work pool
+prefect work-pool create docpipe-pool --type docker
+</code></pre>
+<h4>Missing Batch Storage Configuration</h4>
+<p><strong>Error:</strong></p>
+<pre><code>ValueError: batch_storage.path is required when batch_storage.type is 'local'
+</code></pre>
+<p><strong>Solution</strong>: Add required configuration:</p>
+<pre><code class="language-json">{
+  &quot;batch_storage&quot;: {
+    &quot;type&quot;: &quot;local&quot;,
+    &quot;path&quot;: &quot;/data/batches&quot;
+  }
+}
+</code></pre>
+<h4>S3 Credentials Missing</h4>
+<p><strong>Error:</strong></p>
+<pre><code>ValueError: S3 credentials are required when batch_storage.type is 's3'
+</code></pre>
+<p><strong>Solution</strong>: Provide credentials:</p>
+<pre><code class="language-json">{
+  &quot;batch_storage&quot;: {
+    &quot;type&quot;: &quot;s3&quot;,
+    &quot;bucket&quot;: &quot;my-bucket&quot;,
+    &quot;access_key&quot;: &quot;your-access-key-id&quot;,
+    &quot;secret_key&quot;: &quot;&lt;your-secret-access-key&gt;&quot;  &lt;!-- pragma: allowlist secret --&gt;
+  }
+}
+</code></pre>
+<h4>Prefect Server Not Accessible</h4>
+<p><strong>Error:</strong></p>
+<pre><code>Could not connect to Prefect Server at http://localhost:4200
+</code></pre>
+<p><strong>Solution</strong>: Ensure Prefect Server is running:</p>
+<pre><code class="language-bash"># Check server health
+curl http://localhost:4200/api/health
+
+# Start server (Docker Compose)
+docker-compose up -d prefect-server
+
+# Or start locally
+prefect server start
+</code></pre>
+<h3 id="53-verification-steps">5.3 Verification Steps</h3>
+<h4>Check Work Pool Exists</h4>
+<pre><code class="language-bash">prefect work-pool ls
+</code></pre>
+<h4>Check Deployment Creation</h4>
+<pre><code class="language-bash">prefect deployment ls
+</code></pre>
+<p>Look for <code>docpipe-batch-subflow/&lt;your-deployment-name&gt;</code>.</p>
+<h4>Test Worker Connection</h4>
+<pre><code class="language-bash"># Start worker (separate terminal)
+prefect worker start --pool docpipe-pool
+</code></pre>
+<p>Worker should show "Worker started" message.</p>
+<h4>Verify Batch Storage Access</h4>
+<p><strong>For local:</strong></p>
+<pre><code class="language-bash">ls -la /data/batches
+</code></pre>
+<h3 id="54-performance-troubleshooting">5.4 Performance Troubleshooting</h3>
+<h4>Slow Batch Execution</h4>
+<p><strong>Symptoms</strong>: Batches take longer than expected</p>
+<p><strong>Possible causes:</strong><br />
+1. Insufficient worker resources (CPU/memory)<br />
+2. Network latency between submitter and workers<br />
+3. Slow shared storage I/O<br />
+4. Too many batches for available workers</p>
+<p><strong>Solutions:</strong><br />
+- Increase worker resources (Docker: adjust container resources)<br />
+- Add more workers to work pool<br />
+- Use local storage for same-machine deployments<br />
+- Optimize batch size</p>
+<h4>Workers Not Picking Up Jobs</h4>
+<p><strong>Symptoms</strong>: Flow runs stay in "Scheduled" state</p>
+<p><strong>Possible causes:</strong><br />
+1. No workers running for work pool<br />
+2. Workers can't connect to Prefect Server<br />
+3. Work pool name mismatch</p>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Check workers running
+prefect worker ls
+
+# Start worker
+prefect worker start --pool docpipe-pool
+
+# Check work pool configuration
+prefect work-pool inspect docpipe-pool
+</code></pre>
+<h3 id="55-debug-mode">5.5 Debug Mode</h3>
+<p>Enable debug logging for detailed troubleshooting:</p>
+<pre><code class="language-bash">DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file your-flow.json
+</code></pre>
+<hr />
+<h2 id="6-migration-path">6. Migration Path</h2>
+<h3 id="61-configuration-evolution">6.1 Configuration Evolution</h3>
+<h4>Ephemeral (Default)</h4>
+<p><strong>Flow JSON:</strong></p>
+<pre><code class="language-json">{
+  &quot;global_config&quot;: {
+    &quot;doc_column&quot;: &quot;content&quot;
+  }
+}
+</code></pre>
+<p><strong>Environment:</strong></p>
+<pre><code class="language-bash"># PREFECT_MODE=ephemeral (or not set - this is default)
+</code></pre>
+<p><strong>When to use:</strong><br />
+- Development and testing<br />
+- Small workloads<br />
+- Quick prototyping</p>
+<hr />
+<h4>Local Distributed</h4>
+<p><strong>Flow JSON:</strong></p>
+<pre><code class="language-json">{
+  &quot;global_config&quot;: {
+    &quot;prefect&quot;: {
+      &quot;batch_execution&quot;: {
+        &quot;strategy&quot;: &quot;work-pool-process&quot;,
+        &quot;work_pool_name&quot;: &quot;docpipe-pool&quot;,
+        &quot;batch_storage&quot;: {
+          &quot;type&quot;: &quot;local&quot;,
+          &quot;path&quot;: &quot;/tmp/docpipe-batches&quot;
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Environment:</strong></p>
+<pre><code class="language-bash">export PREFECT_MODE=server
+export PREFECT_API_URL=http://localhost:4200/api
+</code></pre>
+<p><strong>When to use:</strong><br />
+- Testing distributed execution locally<br />
+- Understanding work pools<br />
+- Validating configurations</p>
+<hr />
+<h4>Docker</h4>
+<p><strong>Flow JSON:</strong></p>
+<pre><code class="language-json">{
+  &quot;global_config&quot;: {
+    &quot;prefect&quot;: {
+      &quot;batch_execution&quot;: {
+        &quot;strategy&quot;: &quot;work-pool-docker&quot;,
+        &quot;work_pool_name&quot;: &quot;docpipe-pool&quot;,
+        &quot;image&quot;: &quot;docling-pipelines:latest&quot;,
+        &quot;env&quot;: {
+          &quot;PREFECT_MODE&quot;: &quot;server&quot;,
+          &quot;PREFECT_API_URL&quot;: &quot;http://prefect-server:4200/api&quot;
+        },
+        &quot;batch_storage&quot;: {
+          &quot;type&quot;: &quot;s3&quot;,
+          &quot;bucket&quot;: &quot;docpipe-batches&quot;,
+          &quot;endpoint_url&quot;: &quot;http://minio:9000&quot;
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Environment (submitter):</strong></p>
+<pre><code class="language-bash">export PREFECT_MODE=server
+export PREFECT_API_URL=http://localhost:4200/api
+</code></pre>
+<p><strong>When to use:</strong><br />
+- Docker Compose deployments<br />
+- Multi-container environments<br />
+- Dependency isolation</p>
+<hr />
+<h3 id="62-side-by-side-comparison">6.2 Side-by-Side Comparison</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Ephemeral</th>
+<th>Local Distributed</th>
+<th>Docker</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Setup Complexity</td>
+<td>⭐ Simple</td>
+<td>⭐⭐ Medium</td>
+<td>⭐⭐⭐ Complex</td>
+</tr>
+<tr>
+<td>Scalability</td>
+<td>❌ Single machine</td>
+<td>✅ Single machine</td>
+<td>✅✅ Multi-container</td>
+</tr>
+<tr>
+<td>Isolation</td>
+<td>❌ None</td>
+<td>❌ Process-level</td>
+<td>✅ Container</td>
+</tr>
+<tr>
+<td>Resource Limits</td>
+<td>❌ No</td>
+<td>❌ No</td>
+<td>✅ Yes</td>
+</tr>
+<tr>
+<td>Production Ready</td>
+<td>❌ No</td>
+<td>❌ No</td>
+<td>✅ Yes</td>
+</tr>
+<tr>
+<td>Fault Tolerance</td>
+<td>❌ No</td>
+<td>✅ Basic</td>
+<td>✅✅ Good</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="63-upgrade-guidance">6.3 Upgrade Guidance</h3>
+<p><strong>From Ephemeral to Local Distributed:</strong><br />
+1. Start Prefect server<br />
+2. Create work pool<br />
+3. Start worker<br />
+4. Add work pool configuration to flow JSON<br />
+5. Set <code>PREFECT_MODE=server</code></p>
+<p><strong>From Local Distributed to Docker:</strong><br />
+1. Build Docker image<br />
+2. Start docker-compose stack<br />
+3. Update flow JSON with Docker configuration<br />
+4. Configure shared local filesystem storage</p>
+<hr />
+<h2 id="7-reference">7. Reference</h2>
+<h3 id="71-environment-variables">7.1 Environment Variables</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Required</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PREFECT_MODE</code></td>
+<td>Yes (for distributed)</td>
+<td>Execution mode</td>
+<td><code>server</code> or <code>ephemeral</code></td>
+</tr>
+<tr>
+<td><code>PREFECT_API_URL</code></td>
+<td>Yes (for distributed)</td>
+<td>Prefect server URL</td>
+<td><code>http://localhost:4200/api</code></td>
+</tr>
+<tr>
+<td><code>DOCPIPE_STORAGE_BACKEND</code></td>
+<td>Optional</td>
+<td>Effective job stats storage backend for worker runtime; inherited from submitter if omitted</td>
+<td><code>filesystem</code>, <code>postgresql</code>, <code>inmemory</code></td>
+</tr>
+<tr>
+<td><code>DOCPIPE_FRAMEWORK_TYPE</code></td>
+<td>Optional</td>
+<td>Effective job framework type for worker runtime; inherited from submitter if omitted</td>
+<td><code>default</code></td>
+</tr>
+<tr>
+<td><code>DOCPIPE_JOB_STATS_BASE_DIR</code></td>
+<td>Optional for filesystem store</td>
+<td>Absolute shared job stats path for filesystem-backed job stats; inherited from submitter if omitted</td>
+<td><code>/app/data/job_stats</code></td>
+</tr>
+<tr>
+<td><code>DOCPIPE_POSTGRES_HOST</code></td>
+<td>Optional for PostgreSQL store</td>
+<td>PostgreSQL host for job stats store; inherited from submitter if omitted</td>
+<td><code>postgres</code></td>
+</tr>
+<tr>
+<td><code>DOCPIPE_POSTGRES_PORT</code></td>
+<td>Optional for PostgreSQL store</td>
+<td>PostgreSQL port for job stats store; inherited from submitter if omitted</td>
+<td><code>5432</code></td>
+</tr>
+<tr>
+<td><code>DOCPIPE_POSTGRES_DB</code></td>
+<td>Optional for PostgreSQL store</td>
+<td>PostgreSQL database name for job stats store; inherited from submitter if omitted</td>
+<td><code>docpipe</code></td>
+</tr>
+<tr>
+<td><code>DOCPIPE_POSTGRES_USER</code></td>
+<td>Optional for PostgreSQL store</td>
+<td>PostgreSQL user for job stats store; inherited from submitter if omitted</td>
+<td><code>docpipe_user</code></td>
+</tr>
+<tr>
+<td><code>DOCPIPE_POSTGRES_PASSWORD</code></td>
+<td>Required for PostgreSQL store unless supplied in config</td>
+<td>PostgreSQL password for job stats store</td>
+<td><code>secret</code></td>
+</tr>
+<tr>
+<td><code>OLLAMA_HOST</code></td>
+<td>For Ollama operators</td>
+<td>Ollama server URL</td>
+<td><code>http://ollama:11434</code></td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_HOST</code></td>
+<td>For OpenSearch</td>
+<td>OpenSearch host</td>
+<td><code>localhost</code></td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_PORT</code></td>
+<td>For OpenSearch</td>
+<td>OpenSearch port</td>
+<td><code>9200</code></td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_USERNAME</code></td>
+<td>For OpenSearch</td>
+<td>Username</td>
+<td><code>admin</code></td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_PASSWORD</code></td>
+<td>For OpenSearch</td>
+<td>Password</td>
+<td><code>&lt;your-opensearch-password&gt;</code></td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_USE_SSL</code></td>
+<td>For OpenSearch</td>
+<td>Use SSL</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_VERIFY_CERTS</code></td>
+<td>For OpenSearch</td>
+<td>Verify certificates</td>
+<td><code>false</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Notes</strong>:<br />
+- Batch storage for distributed execution is configured in the flow JSON <code>batch_storage</code> section.<br />
+- Job-management env values are applied with precedence: explicit work-pool env, then submitter process env, then code defaults.</p>
+<h3 id="72-configuration-schema">7.2 Configuration Schema</h3>
+<p><strong>Note</strong>: The <code>deployment_name</code> field is optional and defaults to <code>"docpipe-batch-subflow"</code>. You only need to specify it if you want to create multiple deployments of the same flow in the same work pool (advanced use case).</p>
+<p><strong>Minimal configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;global_config&quot;: {
+    &quot;prefect&quot;: {
+      &quot;batch_execution&quot;: {
+        &quot;strategy&quot;: &quot;work-pool-process&quot;,
+        &quot;work_pool_name&quot;: &quot;docpipe-pool&quot;,
+        &quot;batch_storage&quot;: {
+          &quot;type&quot;: &quot;local&quot;,
+          &quot;path&quot;: &quot;/tmp/batches&quot;
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Inline storage (for small batches):</strong></p>
+<pre><code class="language-json">{
+  &quot;global_config&quot;: {
+    &quot;prefect&quot;: {
+      &quot;batch_execution&quot;: {
+        &quot;strategy&quot;: &quot;work-pool-docker&quot;,
+        &quot;work_pool_name&quot;: &quot;docpipe-docker-pool&quot;,
+        &quot;batch_storage&quot;: {
+          &quot;type&quot;: &quot;inline&quot;
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<blockquote>
+<p><strong>Note</strong>: Inline storage passes batch data directly through Prefect's API. Only suitable for small batches due to <code>PREFECT_SERVER_API_MAX_PARAMETER_SIZE</code> limitations. For production workloads with larger batches, use <code>local</code> or <code>s3</code> storage.</p>
+</blockquote>
+<h3 id="73-links-to-examples">7.3 Links to Examples</h3>
+<ul>
+<li><strong>Sample Flow</strong>: <a href="../../../sample_flows/quickstart/complete_pipeline_ollama.json"><code>sample_flows/quickstart/complete_pipeline_ollama.json</code></a></li>
+<li><strong>Docker Compose</strong>: <a href="../../../docker/docker-compose.distributed.yml"><code>docker/docker-compose.distributed.yml</code></a></li>
+</ul>
+<h3 id="74-related-documentation">7.4 Related Documentation</h3>
+<ul>
+<li><strong>User Guide</strong>: <a href="../../../USER_GUIDE_PIPELINE_SETUP.html"><code>USER_GUIDE_PIPELINE_SETUP.md</code></a></li>
+<li><strong>Architecture</strong>: <a href="../../../ARCHITECTURE.html">ARCHITECTURE.md</a></li>
+<li><strong>Prefect Documentation</strong>: https://docs.prefect.io/concepts/work-pools/</li>
+<li><strong>Docker Documentation</strong>: https://docs.docker.com/</li>
+</ul>
+<hr />
+<h2 id="8-future-enhancements">8. Future Enhancements</h2>
+<p>The following features are planned for future releases to enhance distributed execution capabilities:</p>
+<h3 id="81-pluggable-job-stats-store">8.1 Pluggable Job Stats Store</h3>
+<p><strong>Current State</strong>: Job statistics are stored locally using pickle files, which limits visibility in distributed environments where multiple workers operate independently.</p>
+<p><strong>Planned Enhancement</strong>: Add pluggable storage backends for job statistics, enabling distributed workers to share job metrics in a common database.</p>
+<p><strong>Supported Backends</strong> (planned):<br />
+- PostgreSQL<br />
+- MySQL<br />
+- Redis<br />
+- Other relational/NoSQL databases</p>
+<p><strong>Benefits</strong>:<br />
+- Centralized job statistics across all workers<br />
+- Real-time visibility into pipeline execution metrics<br />
+- Better monitoring and debugging in distributed deployments<br />
+- Historical analysis of job performance</p>
+<h3 id="82-pluggable-incremental-metadata-storage">8.2 Pluggable Incremental Metadata Storage</h3>
+<p><strong>Current State</strong>: Incremental metadata tables (tracking processed files, checksums, etc.) are stored locally, preventing workers from sharing state about which data has been processed.</p>
+<p><strong>Planned Enhancement</strong>: Add external storage support for incremental metadata, allowing all workers to access and update shared incremental processing state.</p>
+<p><strong>Supported Backends</strong> (planned):<br />
+- PostgreSQL<br />
+- MySQL<br />
+- Shared filesystem-backed storage<br />
+- Other persistent storage solutions</p>
+<p><strong>Benefits</strong>:<br />
+- Consistent incremental processing across distributed workers<br />
+- Prevents duplicate processing when multiple workers handle the same data sources<br />
+- Enables true stateful distributed pipelines<br />
+- Supports failover and worker replacement without losing processing state</p>
+<p><strong>Use Cases</strong>:<br />
+- Multi-worker ingestion from shared data sources<br />
+- Distributed incremental updates to vector databases<br />
+- Coordinated processing of large datasets across worker pools</p>
+<hr />
+<h3 id="75-best-practices">7.5 Best Practices</h3>
+<h4>Work Pool Naming</h4>
+<p>Use descriptive names indicating environment and type:<br />
+- <code>docpipe-dev-docker</code> - Development Docker pool<br />
+- <code>docpipe-prod-process</code> - Production process pool<br />
+- <code>docpipe-staging-process</code> - Staging process pool</p>
+<h4>Resource Allocation</h4>
+<p><strong>Docker:</strong><br />
+- Use <code>--cpus</code> and <code>--memory</code> flags when starting workers<br />
+- Monitor with <code>docker stats</code></p>
+<h4>Missing Batch Storage Configuration</h4>
+<p><strong>Error:</strong></p>
+<pre><code>ValueError: batch_storage.path is required when batch_storage.type is 'local'
+</code></pre>
+<p><strong>Solution</strong>: Add required configuration:</p>
+<pre><code class="language-json">{
+  &quot;batch_storage&quot;: {
+    &quot;type&quot;: &quot;local&quot;,
+    &quot;path&quot;: &quot;/data/batches&quot;
+  }
+}
+</code></pre>
+<pre><code>"bucket": "my-bucket",
+"access_key": "your-access-key-id",
+"secret_key": "&lt;your-secret-access-key&gt;"
+</code></pre>
+<p>}<br />
+}</p>
+<pre><code>
+#### Prefect Server Not Accessible
+
+**Error:**
+</code></pre>
+<p>Could not connect to Prefect Server at http://localhost:4200</p>
+<pre><code>
+**Solution**: Ensure Prefect Server is running:
+```bash
+# Check server health
+curl http://localhost:4200/api/health
+
+# Start server (Docker Compose)
+docker-compose up -d prefect-server
+
+# Or start locally
+prefect server start
+</code></pre>
+<h3 id="53-verification-steps">5.3 Verification Steps</h3>
+<h4>Check Work Pool Exists</h4>
+<pre><code class="language-bash">prefect work-pool ls
+</code></pre>
+<h4>Check Deployment Creation</h4>
+<pre><code class="language-bash">prefect deployment ls
+</code></pre>
+<p>Look for <code>docpipe-batch-subflow/&lt;your-deployment-name&gt;</code>.</p>
+<h4>Test Worker Connection</h4>
+<pre><code class="language-bash"># Start worker (separate terminal)
+prefect worker start --pool docpipe-pool
+</code></pre>
+<p>Worker should show "Worker started" message.</p>
+<h4>Verify Batch Storage Access</h4>
+<pre><code class="language-bash">ls -la /data/batches
+</code></pre>
+<h3 id="54-performance-troubleshooting">5.4 Performance Troubleshooting</h3>
+<h4>Slow Batch Execution</h4>
+<p><strong>Symptoms</strong>: Batches take longer than expected</p>
+<p><strong>Possible causes:</strong><br />
+1. Insufficient worker resources (CPU/memory)<br />
+2. Network latency between submitter and workers<br />
+3. Slow shared storage I/O<br />
+4. Too many batches for available workers</p>
+<p><strong>Solutions:</strong><br />
+- Increase worker resources (Docker: adjust container resources)<br />
+- Add more workers to work pool<br />
+- Use local storage for same-machine deployments<br />
+- Optimize batch size</p>
+<h4>Workers Not Picking Up Jobs</h4>
+<p><strong>Symptoms</strong>: Flow runs stay in "Scheduled" state</p>
+<p><strong>Possible causes:</strong><br />
+1. No workers running for work pool<br />
+2. Workers can't connect to Prefect Server<br />
+3. Work pool name mismatch</p>
+<p><strong>Solutions:</strong></p>
+<pre><code class="language-bash"># Check workers running
+prefect worker ls
+
+# Start worker
+prefect worker start --pool docpipe-pool
+
+# Check work pool configuration
+prefect work-pool inspect docpipe-pool
+</code></pre>
+<h3 id="55-debug-mode">5.5 Debug Mode</h3>
+<p>Enable debug logging for detailed troubleshooting:</p>
+<pre><code class="language-bash">DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file your-flow.json
+</code></pre>
+<hr />
+<h2 id="6-migration-path">6. Migration Path</h2>
+<h3 id="61-configuration-evolution">6.1 Configuration Evolution</h3>
+<h4>Ephemeral (Default)</h4>
+<p><strong>Flow JSON:</strong></p>
+<pre><code class="language-json">{
+  &quot;global_config&quot;: {
+    &quot;doc_column&quot;: &quot;content&quot;
+  }
+}
+</code></pre>
+<p><strong>Environment:</strong></p>
+<pre><code class="language-bash"># PREFECT_MODE=ephemeral (or not set - this is default)
+</code></pre>
+<p><strong>When to use:</strong><br />
+- Development and testing<br />
+- Small workloads<br />
+- Quick prototyping</p>
+<hr />
+<h4>Local Distributed</h4>
+<p><strong>Flow JSON:</strong></p>
+<pre><code class="language-json">{
+  &quot;global_config&quot;: {
+    &quot;prefect&quot;: {
+      &quot;batch_execution&quot;: {
+        &quot;strategy&quot;: &quot;work-pool-process&quot;,
+        &quot;work_pool_name&quot;: &quot;docpipe-pool&quot;,
+        &quot;batch_storage&quot;: {
+          &quot;type&quot;: &quot;local&quot;,
+          &quot;path&quot;: &quot;/tmp/docpipe-batches&quot;
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Environment:</strong></p>
+<pre><code class="language-bash">export PREFECT_MODE=server
+export PREFECT_API_URL=http://localhost:4200/api
+</code></pre>
+<p><strong>When to use:</strong><br />
+- Testing distributed execution locally<br />
+- Understanding work pools<br />
+- Validating configurations</p>
+<hr />
+<h4>Docker</h4>
+<p><strong>Flow JSON:</strong></p>
+<pre><code class="language-json">{
+  &quot;global_config&quot;: {
+    &quot;prefect&quot;: {
+      &quot;batch_execution&quot;: {
+        &quot;strategy&quot;: &quot;work-pool-docker&quot;,
+        &quot;work_pool_name&quot;: &quot;docpipe-pool&quot;,
+        &quot;image&quot;: &quot;docling-pipelines:latest&quot;,
+        &quot;env&quot;: {
+          &quot;PREFECT_MODE&quot;: &quot;server&quot;,
+          &quot;PREFECT_API_URL&quot;: &quot;http://prefect-server:4200/api&quot;
+        },
+        &quot;batch_storage&quot;: {
+          &quot;type&quot;: &quot;s3&quot;,
+          &quot;bucket&quot;: &quot;docpipe-batches&quot;,
+          &quot;endpoint_url&quot;: &quot;http://minio:9000&quot;
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Environment (submitter):</strong></p>
+<pre><code class="language-bash">export PREFECT_MODE=server
+export PREFECT_API_URL=http://localhost:4200/api
+</code></pre>
+<p><strong>When to use:</strong><br />
+- Docker Compose deployments<br />
+- Multi-container environments<br />
+- Dependency isolation</p>
+<hr />
+<hr />
+<h3 id="62-side-by-side-comparison">6.2 Side-by-Side Comparison</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Ephemeral</th>
+<th>Local Distributed</th>
+<th>Docker</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Setup Complexity</td>
+<td>⭐ Simple</td>
+<td>⭐⭐ Medium</td>
+<td>⭐⭐⭐ Complex</td>
+</tr>
+<tr>
+<td>Scalability</td>
+<td>❌ Single machine</td>
+<td>✅ Single machine</td>
+<td>✅✅ Multi-container</td>
+</tr>
+<tr>
+<td>Isolation</td>
+<td>❌ None</td>
+<td>❌ Process-level</td>
+<td>✅ Container</td>
+</tr>
+<tr>
+<td>Resource Limits</td>
+<td>❌ No</td>
+<td>❌ No</td>
+<td>✅ Yes</td>
+</tr>
+<tr>
+<td>Production Ready</td>
+<td>❌ No</td>
+<td>❌ No</td>
+<td>✅ Yes</td>
+</tr>
+<tr>
+<td>Fault Tolerance</td>
+<td>❌ No</td>
+<td>✅ Basic</td>
+<td>✅✅ Good</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="63-upgrade-guidance">6.3 Upgrade Guidance</h3>
+<p><strong>From Ephemeral to Local Distributed:</strong><br />
+1. Start Prefect server<br />
+2. Create work pool<br />
+3. Start worker<br />
+4. Add work pool configuration to flow JSON<br />
+5. Set <code>PREFECT_MODE=server</code></p>
+<p><strong>From Local Distributed to Docker:</strong><br />
+1. Build Docker image<br />
+2. Start docker-compose stack<br />
+3. Update flow JSON with Docker configuration<br />
+4. Configure shared local filesystem storage</p>
+<hr />
+<h2 id="7-reference">7. Reference</h2>
+<h3 id="71-environment-variables">7.1 Environment Variables</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Required</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PREFECT_MODE</code></td>
+<td>Yes (for distributed)</td>
+<td>Execution mode</td>
+<td><code>server</code> or <code>ephemeral</code></td>
+</tr>
+<tr>
+<td><code>PREFECT_API_URL</code></td>
+<td>Yes (for distributed)</td>
+<td>Prefect server URL</td>
+<td><code>http://localhost:4200/api</code></td>
+</tr>
+<tr>
+<td><code>OLLAMA_HOST</code></td>
+<td>For Ollama operators</td>
+<td>Ollama server URL</td>
+<td><code>http://ollama:11434</code></td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_HOST</code></td>
+<td>For OpenSearch</td>
+<td>OpenSearch host</td>
+<td><code>localhost</code></td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_PORT</code></td>
+<td>For OpenSearch</td>
+<td>OpenSearch port</td>
+<td><code>9200</code></td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_USERNAME</code></td>
+<td>For OpenSearch</td>
+<td>Username</td>
+<td><code>admin</code></td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_PASSWORD</code></td>
+<td>For OpenSearch</td>
+<td>Password</td>
+<td><code>&lt;your-opensearch-password&gt;</code></td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_USE_SSL</code></td>
+<td>For OpenSearch</td>
+<td>Use SSL</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>OPENSEARCH_VERIFY_CERTS</code></td>
+<td>For OpenSearch</td>
+<td>Verify certificates</td>
+<td><code>false</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Note</strong>: Batch storage for distributed execution is configured in the flow JSON <code>batch_storage</code> section.</p>
+<h3 id="72-configuration-schema">7.2 Configuration Schema</h3>
+<p><strong>Minimal configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;global_config&quot;: {
+    &quot;prefect&quot;: {
+      &quot;batch_execution&quot;: {
+        &quot;strategy&quot;: &quot;work-pool-process&quot;,
+        &quot;work_pool_name&quot;: &quot;docpipe-pool&quot;,
+        &quot;batch_storage&quot;: {
+          &quot;type&quot;: &quot;local&quot;,
+          &quot;path&quot;: &quot;/tmp/batches&quot;
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="73-links-to-examples">7.3 Links to Examples</h3>
+<ul>
+<li><strong>Sample Flow</strong>: <a href="../../../sample_flows/quickstart/complete_pipeline_ollama.json"><code>sample_flows/quickstart/complete_pipeline_ollama.json</code></a></li>
+<li><strong>Docker Compose</strong>: <a href="../../../docker/docker-compose.distributed.yml"><code>docker/docker-compose.distributed.yml</code></a></li>
+</ul>
+<h3 id="74-related-documentation">7.4 Related Documentation</h3>
+<ul>
+<li><strong>User Guide</strong>: <a href="../../../USER_GUIDE_PIPELINE_SETUP.html">USER_GUIDE_PIPELINE_SETUP.md</a></li>
+<li><strong>Architecture</strong>: <a href="../../../ARCHITECTURE.html">ARCHITECTURE.md</a></li>
+<li><strong>Prefect Documentation</strong>: https://docs.prefect.io/concepts/work-pools/</li>
+<li><strong>Docker Documentation</strong>: https://docs.docker.com/</li>
+</ul>
+<h3 id="75-best-practices">7.5 Best Practices</h3>
+<h4>Work Pool Naming</h4>
+<p>Use descriptive names indicating environment and type:<br />
+- <code>docpipe-dev-docker</code> - Development Docker pool<br />
+- <code>docpipe-prod-process</code> - Production process pool<br />
+- <code>docpipe-staging-process</code> - Staging process pool</p>
+<h4>Resource Allocation</h4>
+<p><strong>Docker:</strong><br />
+- Use <code>--cpus</code> and <code>--memory</code> flags when starting workers<br />
+- Monitor with <code>docker stats</code></p>
+<h4>Batch Storage Selection</h4>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Recommended Storage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Development/testing</td>
+<td><code>inline</code> (if batches &lt;400KB) or <code>local</code></td>
+</tr>
+<tr>
+<td>Docker Compose</td>
+<td><code>local</code> with shared volumes</td>
+</tr>
+<tr>
+<td>Production</td>
+<td><code>s3</code> with proper IAM/credentials</td>
+</tr>
+</tbody>
+</table></div>
+<h4>Security</h4>
+<ul>
+<li>Never commit credentials to version control</li>
+<li>Store credentials securely (environment variables, secret managers)</li>
+<li>Rotate credentials regularly</li>
+</ul>
+<h4>Monitoring</h4>
+<p>Monitor these metrics:<br />
+- Worker utilization (busy workers)<br />
+- Batch execution time (average and p95)<br />
+- Batch storage transfer time<br />
+- Failed batch rate<br />
+- Queue depth (pending flow runs)</p>
+<hr />
+<h2 id="summary">Summary</h2>
+<p>Distributed execution in Docling Pipelines enables horizontal scaling and improved throughput through Prefect work pools and workers. Key takeaways:</p>
+<ol>
+<li><strong>Start Simple</strong>: Begin with ephemeral mode, progress to local POC, then Docker</li>
+<li><strong>PREFECT_MODE is Critical</strong>: Always set <code>PREFECT_MODE=server</code> for distributed execution</li>
+<li><strong>Choose Right Storage</strong>: Use inline for testing and local shared filesystem storage for distributed execution</li>
+<li><strong>Monitor and Scale</strong>: Add workers as needed, monitor performance metrics</li>
+<li><strong>Follow Best Practices</strong>: Use descriptive names, set resource limits, secure credentials</li>
+</ol>
+<p>For additional help, consult:<br />
+- <a href="../../../USER_GUIDE_PIPELINE_SETUP.html"><code>USER_GUIDE_PIPELINE_SETUP.md</code></a> - Complete setup guide<br />
+- <a href="https://docs.prefect.io/concepts/work-pools/">Prefect Documentation</a> - Official Prefect docs</p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#1-introduction-and-overview">1. Introduction and Overview</a>
+      <a href="#2-quick-start-guides">2. Quick Start Guides</a>
+      <a href="#3-work-pool-configuration">3. Work Pool Configuration</a>
+      <a href="#4-deployment-scenarios">4. Deployment Scenarios</a>
+      <a href="#5-troubleshooting">5. Troubleshooting</a>
+      <a href="#6-migration-path">6. Migration Path</a>
+      <a href="#7-reference">7. Reference</a>
+      <a href="#8-future-enhancements">8. Future Enhancements</a>
+      <a href="#6-migration-path">6. Migration Path</a>
+      <a href="#7-reference">7. Reference</a>
+      <a href="#summary">Summary</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

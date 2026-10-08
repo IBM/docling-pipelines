@@ -1,0 +1,442 @@
+/* ============================================================
+   Docling Pipelines — Documentation Landing Page Styles
+   Design language: IBM Plex + navy/cyan (matches the Antora book)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
+
+/* ── CSS Variables — dark (default) ── */
+:root {
+  --bg:           #0f1117;
+  --bg-alt:       #161b27;
+  --bg-card:      #1a2035;
+  --surface:      #1e2740;
+  --border:       #2a3550;
+  --accent:       #33b1ff;
+  --accent-dim:   #1a6ea0;
+  --accent-glow:  rgba(51, 177, 255, .15);
+  --text:         #d4dbe8;
+  --text-dim:     #8898aa;
+  --text-head:    #ffffff;
+  --code-bg:      #111827;
+  --nav-w:        272px;
+  --hdr-h:        60px;
+  --font:         'IBM Plex Sans', system-ui, sans-serif;
+  --mono:         'IBM Plex Mono', 'Courier New', monospace;
+  --radius:       6px;
+}
+
+/* ── Light mode ── */
+html.light {
+  --bg:           #ffffff;
+  --bg-alt:       #f7f8fa;
+  --bg-card:      #eef1f6;
+  --surface:      #e5e9f0;
+  --border:       #d1d9e6;
+  --accent:       #0f62fe;
+  --accent-dim:   #0043ce;
+  --accent-glow:  rgba(15, 98, 254, .1);
+  --text:         #1f2328;
+  --text-dim:     #57606a;
+  --text-head:    #0d1117;
+  --code-bg:      #f0f4f8;
+}
+
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html  { font-size: 16px; scroll-behavior: smooth; }
+body  {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Shell ── */
+.shell { display: flex; flex-direction: column; min-height: 100vh; }
+
+/* ================================================================
+   HEADER
+   ================================================================ */
+.hdr {
+  position: fixed; top: 0; left: 0; right: 0;
+  height: var(--hdr-h);
+  background: var(--bg-alt);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center;
+  padding: 0 24px; gap: 16px;
+  z-index: 200;
+}
+
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none; flex-shrink: 0;
+}
+.logo-mark {
+  width: 32px; height: 32px;
+  background: var(--accent); border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-weight: 700; font-size: 13px;
+  color: var(--bg); letter-spacing: -.5px;
+}
+.logo-text { font-size: 16px; font-weight: 700; color: var(--text-head); letter-spacing: -.3px; }
+.logo-sub  { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .6px; }
+
+.hdr-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+.badge-ver {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--accent); font-family: var(--mono); font-size: 11px;
+  padding: 3px 10px; border-radius: 20px; letter-spacing: .5px;
+}
+
+/* GitHub link */
+.gh-link {
+  display: flex; align-items: center; gap: 6px;
+  text-decoration: none; color: var(--text-dim);
+  font-size: 13px; font-weight: 500;
+  padding: 5px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface);
+  transition: color .15s, border-color .15s;
+}
+.gh-link:hover { color: var(--accent); border-color: var(--accent-dim); }
+
+/* Theme toggle */
+.theme-btn {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text-dim); cursor: pointer;
+  width: 32px; height: 32px; border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  transition: color .15s, border-color .15s;
+}
+.theme-btn:hover       { color: var(--accent); border-color: var(--accent-dim); }
+.theme-btn .icon-moon  { display: block; }
+.theme-btn .icon-sun   { display: none; }
+html.light .theme-btn .icon-moon { display: none; }
+html.light .theme-btn .icon-sun  { display: block; }
+
+/* ================================================================
+   LAYOUT BODY
+   ================================================================ */
+.body { display: flex; flex: 1; padding-top: var(--hdr-h); }
+
+/* ================================================================
+   LEFT SIDEBAR NAV
+   ================================================================ */
+.nav {
+  width: var(--nav-w); flex-shrink: 0;
+  background: var(--bg-alt);
+  border-right: 1px solid var(--border);
+  height: calc(100vh - var(--hdr-h));
+  position: sticky; top: var(--hdr-h);
+  overflow-y: auto; padding: 20px 0 40px;
+}
+.nav::-webkit-scrollbar       { width: 4px; }
+.nav::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.nav-label {
+  display: block; padding: 5px 20px 3px;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--text-dim); margin-top: 14px;
+}
+
+/* Sub-group label inside a nav section (e.g. "Core", "Developer") */
+.nav-sublabel {
+  display: block; padding: 4px 20px 2px 24px;
+  font-size: 9px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase;
+  color: var(--border); margin-top: 8px;
+  border-left: 2px solid var(--border);
+  margin-left: 20px; padding-left: 8px;
+}
+
+.nav-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 20px;
+  color: var(--text-dim); font-size: 13px; font-weight: 500;
+  text-decoration: none;
+  border-left: 3px solid transparent;
+  transition: color .15s, background .15s;
+}
+.nav-link:hover          { color: var(--text); background: var(--bg-card); }
+.nav-link.active         {
+  color: var(--accent); border-left-color: var(--accent);
+  background: var(--accent-glow); font-weight: 600;
+}
+.nav-link .dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--border); flex-shrink: 0;
+}
+
+/* Chapter sub-links (indented) */
+.nav-link.chapter      { padding-left: 32px; font-size: 12.5px; }
+.nav-link.chapter .dot { background: var(--accent-dim); }
+
+.nav-divider {
+  border: none; border-top: 1px solid var(--border);
+  margin: 12px 20px;
+}
+
+/* ── Collapsible nav group ── */
+.nav-group {}
+
+/* The clickable section header (replaces plain nav-label for collapsible groups) */
+.nav-group-toggle {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 5px 20px 3px;
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--text-dim); margin-top: 14px;
+  cursor: pointer; user-select: none;
+  background: none; border: none; width: 100%;
+  text-align: left;
+  transition: color .15s;
+}
+.nav-group-toggle:hover { color: var(--text); }
+
+/* Chevron icon rotates when open */
+.nav-group-toggle .chev {
+  font-size: 10px; color: var(--border);
+  transition: transform .2s;
+  flex-shrink: 0;
+}
+.nav-group.open .nav-group-toggle .chev { transform: rotate(90deg); }
+
+/* The collapsible body — links + sublabels */
+.nav-group-body {
+  display: none;
+  overflow: hidden;
+}
+.nav-group.open .nav-group-body { display: block; }
+
+/* ================================================================
+   MAIN CONTENT
+   ================================================================ */
+.main {
+  flex: 1; min-width: 0;
+  padding: 48px 64px;
+  max-width: 900px;
+}
+/* Tables: constrain to column width and scroll horizontally when too wide */
+.main .table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+  margin: 16px 0 28px;
+}
+.main .table-scroll table {
+  width: max-content;
+  min-width: 100%;
+  margin: 0;
+}
+
+/* ================================================================
+   RIGHT TOC
+   ================================================================ */
+.toc {
+  width: 200px; flex-shrink: 0;
+  position: sticky; top: calc(var(--hdr-h) + 48px);
+  align-self: flex-start;
+  max-height: calc(100vh - var(--hdr-h) - 80px);
+  overflow-y: auto; padding: 0 16px; font-size: 12px;
+}
+.toc-title {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 10px;
+}
+.toc a {
+  display: block; color: var(--text-dim);
+  padding: 3px 0 3px 8px;
+  border-left: 2px solid transparent;
+  text-decoration: none; line-height: 1.4;
+  transition: color .15s;
+}
+.toc a:hover, .toc a.active {
+  color: var(--accent); border-left-color: var(--accent);
+}
+
+/* ================================================================
+   HERO SECTION
+   ================================================================ */
+.hero {
+  background: linear-gradient(135deg, var(--bg-alt) 0%, var(--bg-card) 100%);
+  border: 1px solid var(--border); border-radius: 12px;
+  padding: 48px 48px 44px; margin-bottom: 48px;
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: '';
+  position: absolute; top: -40px; right: -40px;
+  width: 280px; height: 280px;
+  background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero h1 {
+  font-size: 2.4rem; font-weight: 700; margin-bottom: .35em; line-height: 1.2;
+  background: linear-gradient(135deg, var(--text-head) 0%, var(--accent) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero p {
+  font-size: 1.05rem; color: var(--text-dim);
+  max-width: 580px; line-height: 1.6; margin-bottom: 24px;
+}
+.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 20px; padding: 3px 11px;
+  font-size: 11px; font-weight: 600;
+  color: var(--text-dim); letter-spacing: .4px; text-transform: uppercase;
+}
+.chip.hi {
+  background: var(--accent-glow); border-color: var(--accent-dim); color: var(--accent);
+}
+
+/* ================================================================
+   CARD GRID
+   ================================================================ */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 14px; margin: 16px 0 36px;
+}
+.card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px;
+  text-decoration: none; display: flex; flex-direction: column; gap: 6px;
+  transition: border-color .15s, background .15s;
+}
+.card:hover         { border-color: var(--accent); background: var(--surface); }
+.card-icon          { font-size: 20px; line-height: 1; }
+.card-num           { font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--accent); letter-spacing: .5px; }
+.card-title         { font-size: 14px; font-weight: 600; color: var(--text-head); }
+.card-desc          { font-size: 12.5px; color: var(--text-dim); line-height: 1.5; }
+
+/* ── Part label (groups book chapters into Foundation / Processing / Production) ── */
+.part-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px;
+  color: var(--text-dim); margin: 20px 0 8px;
+}
+.part-label:first-of-type { margin-top: 8px; }
+
+/* ================================================================
+   CHAPTER LIST
+   ================================================================ */
+.chapter-list { list-style: none; margin: 16px 0 36px; }
+.chapter-list li {
+  display: flex; align-items: baseline; gap: 14px;
+  padding: 10px 16px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--bg-card); margin-bottom: 8px;
+  transition: border-color .15s;
+}
+.chapter-list li:hover { border-color: var(--accent-dim); }
+
+.ch-num {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  color: var(--accent); letter-spacing: .5px;
+  width: 28px; flex-shrink: 0; text-align: right;
+}
+.ch-body { min-width: 0; }
+.ch-body a {
+  color: var(--text-head); font-size: 13.5px; font-weight: 600;
+  text-decoration: none;
+}
+.ch-body a:hover  { color: var(--accent); }
+.ch-body span     { display: block; font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+/* ================================================================
+   TYPOGRAPHY
+   ================================================================ */
+h2 {
+  font-size: 1.45rem; font-weight: 700; color: var(--text-head);
+  border-bottom: 1px solid var(--border); padding-bottom: .3em;
+  margin: 2.4em 0 .7em;
+}
+h3 { font-size: 1rem; font-weight: 700; color: var(--text-head); margin: 1.4em 0 .5em; }
+
+.section-lead { color: var(--text-dim); margin-bottom: 12px; font-size: 13.5px; }
+
+/* ── Link lists ── */
+.link-list { list-style: none; margin: 6px 0 28px; }
+.link-list li {
+  margin: 6px 0; display: flex; align-items: baseline; gap: 8px;
+}
+.link-list li::before { content: '›'; color: var(--accent); font-weight: 700; flex-shrink: 0; }
+.link-list a {
+  color: var(--accent); text-decoration: none; font-weight: 500; font-size: 14px;
+}
+.link-list a:hover { text-decoration: underline; }
+.link-list span    { font-size: 13px; color: var(--text-dim); }
+
+/* ── Quick finder table ── */
+/* ── Book CTA block ── */
+.book-cta {
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  background: var(--bg-card); border: 1px solid var(--accent-dim);
+  border-radius: var(--radius); padding: 22px 24px; margin: 12px 0 36px;
+}
+.book-cta-text {
+  display: flex; flex-direction: column; gap: 4px; min-width: 0;
+}
+.book-cta-text strong { font-size: 15px; color: var(--text-head); font-weight: 600; }
+.book-cta-text span   { font-size: 12.5px; color: var(--text-dim); }
+.book-cta-topics      { font-size: 11.5px; color: var(--text-dim); font-family: var(--mono); margin-top: 4px; }
+.btn-primary {
+  display: inline-block; white-space: nowrap;
+  background: var(--accent); color: #0f1117;
+  font-size: 13px; font-weight: 600;
+  padding: 9px 18px; border-radius: 6px;
+  text-decoration: none; flex-shrink: 0;
+  transition: opacity .15s;
+}
+.btn-primary:hover { opacity: .85; }
+@media (max-width: 600px) {
+  .book-cta { flex-direction: column; align-items: flex-start; }
+}
+
+.want-table { width: 100%; border-collapse: collapse; margin: 14px 0 32px; font-size: 13.5px; }
+.want-table td { padding: 8px 14px; border: 1px solid var(--border); vertical-align: top; }
+.want-table tr:nth-child(even) td { background: var(--bg-card); }
+.want-table tr:hover td           { background: var(--surface); }
+.want-table td:first-child        { color: var(--text-dim); white-space: nowrap; }
+.want-table a { color: var(--accent); text-decoration: none; font-weight: 500; }
+.want-table a:hover { text-decoration: underline; }
+
+/* ── Inline code ── */
+code {
+  font-family: var(--mono); font-size: .85em;
+  background: var(--code-bg); color: var(--accent);
+  padding: 1px 5px; border-radius: 4px;
+  border: 1px solid var(--border);
+}
+
+/* ================================================================
+   FOOTER
+   ================================================================ */
+footer {
+  background: var(--bg-alt); border-top: 1px solid var(--border);
+  padding: 14px 24px; font-size: 12px; color: var(--text-dim);
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+footer a       { color: var(--text-dim); text-decoration: none; }
+footer a:hover { color: var(--accent); }
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+@media (max-width: 1200px) { .toc  { display: none; } }
+@media (max-width: 860px)  {
+  .nav  { display: none; }
+  .main { padding: 32px 24px; }
+}
+@media (max-width: 600px) {
+  .hero       { padding: 32px 24px; }
+  .hero h1    { font-size: 1.9rem; }
+  .card-grid  { grid-template-columns: 1fr; }
+}

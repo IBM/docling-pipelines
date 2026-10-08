@@ -1,0 +1,1130 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Guide: Creating a New Connector for Docling Pipelines — Docling Pipelines</title>
+  <meta name="description" content="Guide: Creating a New Connector for Docling Pipelines — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter active" href="CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Guide: Creating a New Connector for Docling Pipelines</span>
+      </nav>
+      <h1>Guide: Creating a New Connector for Docling Pipelines</h1>
+<p>This guide shows you how to add a new data source connector to Docling Pipelines using the hexagonal architecture adapter pattern.</p>
+
+<h2 id="overview">Overview</h2>
+<p>Docling Pipelines uses a <strong>hexagonal architecture</strong> with adapters for data sources. Each connector consists of:<br />
+- <strong>Configuration Model</strong> (Pydantic): Type-safe configuration with validation<br />
+- <strong>Adapter Class</strong>: Implements the <code>DocumentSourcePort</code> interface with required methods:<br />
+  - <code>fetch_documents()</code>: Async generator yielding <code>Document</code> objects<br />
+  - <code>test_connection()</code>: Validates connectivity to the source<br />
+  - <code>get_config_schema()</code>: Returns the Pydantic config model class<br />
+  - <code>build_config_from_operator_params()</code>: Maps operator params to adapter config<br />
+- <strong>Auto-Registration</strong>: Uses <code>@register_source_adapter</code> decorator (no parameters needed)<br />
+- <strong>Metadata Attributes</strong>: <code>SOURCE_NAME</code>, <code>SOURCE_DISPLAY_NAME</code>, <code>SOURCE_DESCRIPTION</code>, <code>SOURCE_VERSION</code></p>
+<h2 id="directory-structure">Directory Structure</h2>
+<p>Create your connector in this location:</p>
+<pre><code>src/docpipe/core/operators/ingest/adapters/outbound/sources/
+└── your_connector/
+    ├── __init__.py          # Export adapter and config
+    ├── adapter.py           # Main adapter implementation
+    ├── config.py            # Pydantic configuration model
+    └── README.md            # Required connector documentation
+</code></pre>
+<h2 id="architecture-diagram">Architecture Diagram</h2>
+<pre><code class="language-text">                    +--------------------------------------+
+                    |           Flow JSON config           |
+                    |   provider, connection, credentials  |
+                    +------------------+-------------------+
+                                       |
+                                       v
+                    +--------------------------------------+
+                    |         IngestSourceOperator         |
+                    | builds adapter-specific config model |
+                    +------------------+-------------------+
+                                       |
+                                       v
+                    +--------------------------------------+
+                    |         DocumentSourcePort           |
+                    | fetch_documents / test_connection    |
+                    +------------------+-------------------+
+                                       |
+                    +------------------+-------------------+
+                    |                                      |
+                    v                                      v
+      +-------------------------------+      +-------------------------------+
+      |   YourConnectorSourceAdapter  |      |      SourceAdapterFactory     |
+      | adapter.py                    |&lt;-----| @register_source_adapter      |
+      +---------------+---------------+      +-------------------------------+
+                      |
+                      v
+      +-------------------------------+
+      |      YourConnectorConfig      |
+      | config.py (Pydantic model)    |
+      +---------------+---------------+
+                      |
+                      v
+      +-------------------------------+
+      | Provider SDK / external API   |
+      | aiohttp, boto3, msal, etc.    |
+      +---------------+---------------+
+                      |
+                      v
+      +-------------------------------+
+      | Domain Document instances     |
+      | yielded back to the operator  |
+      +-------------------------------+
+</code></pre>
+<h3 id="step-0-determine-required-credentials">Step 0: Determine Required Credentials</h3>
+<p><strong>Before writing any code</strong>, identify what credentials your connector needs by consulting the API documentation:</p>
+<h4>Research Checklist:</h4>
+<ol>
+<li><strong>Authentication Method</strong>:</li>
+<li>API Key / Token?</li>
+<li>OAuth 2.0?</li>
+<li>Username/Password?</li>
+<li>
+<p>Certificate-based?</p>
+</li>
+<li>
+<p><strong>Connection Parameters</strong>:</p>
+</li>
+<li>API endpoint URL?</li>
+<li>Server hostname?</li>
+<li>Port number?</li>
+<li>Database/Catalog name?</li>
+<li>
+<p>Workspace/Tenant ID?</p>
+</li>
+<li>
+<p><strong>Data Location</strong>:</p>
+</li>
+<li>Folder/Directory path?</li>
+<li>Bucket name?</li>
+<li>Table/Collection name?</li>
+<li>
+<p>Query parameters?</p>
+</li>
+<li>
+<p><strong>Optional Settings</strong>:</p>
+</li>
+<li>Recursive traversal?</li>
+<li>File filters (extensions, size)?</li>
+<li>Pagination settings?</li>
+<li>Timeout values?</li>
+</ol>
+<h4>Example: Determining Google Drive Credentials</h4>
+<p>Check <a href="https://developers.google.com/drive/api/">Google Drive API docs</a>:</p>
+<p><strong>Required:</strong><br />
+- <code>credentials_path</code>: Path to OAuth credentials JSON file<br />
+- <code>scopes</code>: OAuth scopes (e.g., <code>drive.readonly</code>)</p>
+<p><strong>Optional:</strong><br />
+- <code>token_path</code>: Where to store OAuth token<br />
+- <code>folder_id</code>: Specific folder to ingest from<br />
+- <code>recursive</code>: Traverse subdirectories<br />
+- <code>file_extensions</code>: Filter by file type</p>
+<p><strong>How to get these:</strong><br />
+1. Go to Google Cloud Console<br />
+2. Create OAuth 2.0 credentials<br />
+3. Download credentials JSON file<br />
+4. Set scopes based on access needed</p>
+<h4>Pattern: Organizing Config Fields</h4>
+<p>Group your configuration fields logically:</p>
+<pre><code class="language-python">class ConnectorConfig(BaseModel):
+    &quot;&quot;&quot;Configuration for Connector.&quot;&quot;&quot;
+
+    # 1. Connection Parameters (how to reach the service)
+    host: str = Field(..., description=&quot;Service hostname&quot;)
+    port: int = Field(443, description=&quot;Service port&quot;)
+
+    # 2. Authentication (how to authenticate)
+    api_key: str = Field(..., description=&quot;API key&quot;)
+    # OR
+    username: str = Field(..., description=&quot;Username&quot;)
+    password: str = Field(..., description=&quot;Password&quot;)
+
+    # 3. Data Location (what data to fetch)
+    folder_path: str = Field(&quot;/&quot;, description=&quot;Folder to ingest&quot;)
+    database: str = Field(..., description=&quot;Database name&quot;)
+
+    # 4. Behavior (how to fetch)
+    recursive: bool = Field(True, description=&quot;Recursive traversal&quot;)
+    batch_size: int = Field(100, description=&quot;Batch size&quot;)
+
+    # 5. Filters (what to include/exclude)
+    file_extensions: List[str] = Field(default_factory=list)
+    max_file_size_mb: Optional[int] = None
+</code></pre>
+<h3 id="step-05-add-adapter-dependencies">Step 0.5: Add Adapter Dependencies</h3>
+<p>If your connector needs an external SDK or client library, add it to the project dependency manifest before implementing the adapter.</p>
+<ul>
+<li>Runtime dependencies belong in <code>pyproject.toml</code></li>
+<li>Development and test-only packages belong under the appropriate optional/dev dependency group in <code>pyproject.toml</code></li>
+<li>After updating dependencies, run <code>uv sync</code></li>
+</ul>
+<p>Examples:<br />
+- <code>boto3</code> for Amazon S3-compatible APIs<br />
+- <code>google-api-python-client</code> / <code>google-auth-*</code> for Google integrations<br />
+- <code>msal</code> for Microsoft Graph authentication<br />
+- <code>aiohttp</code> for async HTTP-based connectors</p>
+<p>Document any new dependency in the connector <code>README.md</code> and in broader project docs if the dependency changes user setup.</p>
+<h2 id="step-by-step-implementation">Step-by-Step Implementation</h2>
+<h3 id="step-1-create-configuration-model-configpy">Step 1: Create Configuration Model (<code>config.py</code>)</h3>
+<pre><code class="language-python">from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List
+
+class YourConnectorConfig(BaseModel):
+    &quot;&quot;&quot;Configuration for Your Connector source.&quot;&quot;&quot;
+
+    # Connection parameters
+    api_endpoint: str = Field(..., description=&quot;API endpoint URL&quot;)
+    folder_path: str = Field(&quot;/&quot;, description=&quot;Folder path to start from&quot;)
+
+    # Credentials
+    access_token: str = Field(..., description=&quot;Access token for authentication&quot;)
+
+    # Optional parameters
+    recursive: bool = Field(True, description=&quot;Recursively list folders&quot;)
+    file_types: Optional[List[str]] = Field(None, description=&quot;File types to include&quot;)
+
+    @field_validator(&quot;access_token&quot;)
+    @classmethod
+    def validate_token(cls, v: str) -&gt; str:
+        &quot;&quot;&quot;Validate access token format.&quot;&quot;&quot;
+        if not v or len(v) &lt; 10:
+            raise ValueError(&quot;Invalid access token&quot;)
+        return v
+</code></pre>
+<p><strong>Key Points:</strong><br />
+- Use Pydantic <code>BaseModel</code> for type safety<br />
+- Add <code>Field()</code> with descriptions for documentation<br />
+- Use <code>@field_validator</code> for custom validation<br />
+- Separate connection params and credentials</p>
+<h3 id="step-2-implement-adapter-adapterpy">Step 2: Implement Adapter (<code>adapter.py</code>)</h3>
+<pre><code class="language-python">from typing import AsyncGenerator
+import aiohttp
+import json
+
+from docpipe.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
+from docpipe.core.operators.ingest.domain.models import Document
+from docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
+from .config import YourConnectorConfig
+
+@register_source_adapter
+class YourConnectorSourceAdapter(DocumentSourcePort[YourConnectorConfig]):
+    &quot;&quot;&quot;Adapter for Your Connector data source.&quot;&quot;&quot;
+
+    # Metadata for connector discovery
+    SOURCE_NAME = &quot;your_connector&quot;
+    SOURCE_DISPLAY_NAME = &quot;Your Connector&quot;
+    SOURCE_DESCRIPTION = &quot;Ingest documents from Your Connector&quot;
+    SOURCE_VERSION = &quot;1.0.0&quot;
+
+    async def fetch_documents(
+        self, *, config: YourConnectorConfig
+    ) -&gt; AsyncGenerator[Document, None]:
+        &quot;&quot;&quot;
+        Fetch documents from Your Connector.
+
+        Args:
+            config: Configuration for the connector
+
+        Yields:
+            Document: Domain document with content and metadata
+        &quot;&quot;&quot;
+        async with aiohttp.ClientSession() as session:
+            # List files from API
+            files = await self._list_files(session=session, config=config)
+
+            # Download and yield each file
+            for file_metadata in files:
+                try:
+                    # Download file content
+                    content = await self._download_file(
+                        session=session,
+                        config=config,
+                        file_metadata=file_metadata,
+                    )
+
+                    # Create domain Document
+                    doc = Document(
+                        id=file_metadata[&quot;id&quot;],
+                        name=file_metadata[&quot;name&quot;],
+                        source_url=file_metadata[&quot;url&quot;],
+                        content=content,  # bytes
+                        size=len(content),
+                        mimetype=file_metadata.get(&quot;mime_type&quot;, &quot;application/octet-stream&quot;),
+                        extension=self._get_extension(filename=file_metadata[&quot;name&quot;]),
+                        modified_time=file_metadata.get(&quot;modified_time&quot;),
+                        metadata={
+                            &quot;path&quot;: file_metadata.get(&quot;path&quot;),
+                            &quot;custom_field&quot;: file_metadata.get(&quot;custom_field&quot;),
+                            # Add any connector-specific metadata
+                        }
+                    )
+
+                    yield doc
+
+                except Exception as e:
+                    # Log error but continue processing other files
+                    print(f&quot;Error processing {file_metadata['name']}: {e}&quot;)
+                    continue
+
+    async def _list_files(
+        self,
+        *,
+        session: aiohttp.ClientSession,
+        config: YourConnectorConfig
+    ) -&gt; list[dict]:
+        &quot;&quot;&quot;List files from the connector API.&quot;&quot;&quot;
+        url = f&quot;{config.api_endpoint}/files/list&quot;
+        headers = {&quot;Authorization&quot;: f&quot;Bearer {config.access_token}&quot;}
+        data = {
+            &quot;path&quot;: config.folder_path,
+            &quot;recursive&quot;: config.recursive
+        }
+
+        async with session.post(url, headers=headers, json=data) as response:
+            response.raise_for_status()
+            result = await response.json()
+            return [entry for entry in result[&quot;entries&quot;] if entry[&quot;type&quot;] == &quot;file&quot;]
+
+    async def _download_file(
+        self,
+        *,
+        session: aiohttp.ClientSession,
+        config: YourConnectorConfig,
+        file_metadata: dict
+    ) -&gt; bytes:
+        &quot;&quot;&quot;Download file content.&quot;&quot;&quot;
+        url = f&quot;{config.api_endpoint}/files/download&quot;
+        headers = {
+            &quot;Authorization&quot;: f&quot;Bearer {config.access_token}&quot;,
+            &quot;File-Path&quot;: file_metadata[&quot;path&quot;]
+        }
+
+        async with session.get(url, headers=headers) as response:
+            response.raise_for_status()
+            return await response.read()
+
+    def _get_extension(self, *, filename: str) -&gt; str:
+        &quot;&quot;&quot;Extract file extension.&quot;&quot;&quot;
+        return filename.split(&quot;.&quot;)[-1] if &quot;.&quot; in filename else &quot;&quot;
+
+    async def test_connection(self, *, config: YourConnectorConfig) -&gt; tuple[bool, str]:
+        &quot;&quot;&quot;
+        Test connection to Your Connector API.
+
+        Args:
+            config: Configuration for the connector
+
+        Returns:
+            Tuple[bool, str]: (success, message)
+        &quot;&quot;&quot;
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = f&quot;{config.api_endpoint}/health&quot;
+                headers = {&quot;Authorization&quot;: f&quot;Bearer {config.access_token}&quot;}
+                async with session.get(url, headers=headers) as response:
+                    if response.status == 200:
+                        return True, &quot;Connection successful&quot;
+                    return False, f&quot;Connection failed with status {response.status}&quot;
+        except Exception as e:
+            return False, f&quot;Connection error: {str(e)}&quot;
+
+    def get_config_schema(self) -&gt; type[YourConnectorConfig]:
+        &quot;&quot;&quot;Get the Pydantic configuration model for this source.&quot;&quot;&quot;
+        return YourConnectorConfig
+
+    def build_config_from_operator_params(
+        self,
+        *,
+        connection_params: dict,
+        credentials: dict,
+        included_extensions: list[str] | None = None,
+        max_files: int | None = None,
+    ) -&gt; YourConnectorConfig:
+        &quot;&quot;&quot;
+        Build adapter-specific configuration from operator parameters.
+
+        Args:
+            connection_params: Connection parameters from operator config
+            credentials: Credentials from operator config
+            included_extensions: File extensions to include (optional)
+            max_files: Maximum number of files to fetch (optional)
+
+        Returns:
+            YourConnectorConfig: Adapter-specific configuration object
+        &quot;&quot;&quot;
+        return YourConnectorConfig(
+            api_endpoint=connection_params.get(&quot;api_endpoint&quot;),
+            folder_path=connection_params.get(&quot;folder_path&quot;, &quot;/&quot;),
+            access_token=credentials.get(&quot;access_token&quot;),
+            recursive=connection_params.get(&quot;recursive&quot;, True),
+            file_types=included_extensions or connection_params.get(&quot;file_types&quot;),
+        )
+
+**Parameter Naming Note:**
+- Users configure file filtering using `include_filter` (comma-separated string) in their flow JSON
+- The operator converts this to `included_extensions` (list) and passes it to your adapter
+- Your adapter config model typically uses `file_extensions` or `file_types` as the field name
+- This separation keeps the user API simple while allowing flexible internal implementation
+
+</code></pre>
+<p><strong>Key Points:</strong><br />
+- Use <code>@register_source_adapter</code> decorator (no parameter - uses <code>SOURCE_NAME</code>)<br />
+- Implement all required methods: <code>fetch_documents()</code>, <code>test_connection()</code>, <code>get_config_schema()</code>, <code>build_config_from_operator_params()</code><br />
+- Use keyword-only arguments (<code>*,</code>) for all method parameters except <code>self</code>/<code>cls</code><br />
+- Return <code>Document</code> objects from <code>domain.models</code><br />
+- Handle errors gracefully (log and continue)<br />
+- Store binary content in <code>Document.content</code> as bytes</p>
+<h3 id="step-3-register-in-init-py">Step 3: Register in <code>__init__.py</code></h3>
+<pre><code class="language-python">&quot;&quot;&quot;Your Connector source adapter.&quot;&quot;&quot;
+
+from .adapter import YourConnectorSourceAdapter
+from .config import YourConnectorConfig
+
+__all__ = [&quot;YourConnectorSourceAdapter&quot;, &quot;YourConnectorConfig&quot;]
+</code></pre>
+<h3 id="step-4-add-required-documentation">Step 4: Add Required Documentation</h3>
+<p>Each connector should include a <code>README.md</code>. Do not treat this as optional.</p>
+<p>At minimum, document:<br />
+- authentication method and required credentials<br />
+- required dependencies and how to install/sync them<br />
+- supported connection parameters<br />
+- supported file types or filtering behavior<br />
+- local test instructions<br />
+- example flow configuration<br />
+- known limitations or provider-specific caveats</p>
+<p>This keeps the operator discoverable and reduces repeated setup/debugging work.</p>
+<h3 id="step-5-create-flow-configuration">Step 5: Create Flow Configuration</h3>
+<p>Create a JSON flow file (e.g., <code>sample_flows/use_cases/your_connector_pipeline.json</code>):</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;Your Connector to OpenSearch Pipeline&quot;,
+  &quot;description&quot;: &quot;Ingest documents from Your Connector and store in OpenSearch&quot;,
+  &quot;nodes&quot;: [
+    {
+      &quot;id&quot;: &quot;ingest_your_connector&quot;,
+      &quot;operator_type&quot;: &quot;ingest_source&quot;,
+      &quot;operator_params&quot;: {
+        &quot;provider&quot;: &quot;your_connector&quot;,
+        &quot;connection_params&quot;: {
+          &quot;api_endpoint&quot;: &quot;https://api.yourconnector.com&quot;,
+          &quot;folder_path&quot;: &quot;/Documents&quot;,
+          &quot;recursive&quot;: true
+        },
+        &quot;credentials&quot;: {
+          &quot;access_token&quot;: &quot;${YOUR_CONNECTOR_ACCESS_TOKEN}&quot;
+        }
+      }
+    },
+    {
+      &quot;id&quot;: &quot;chunk_documents&quot;,
+      &quot;operator_type&quot;: &quot;chunker&quot;,
+      &quot;operator_params&quot;: {
+        &quot;chunk_size&quot;: 512,
+        &quot;chunk_overlap&quot;: 50
+      }
+    },
+    {
+      &quot;id&quot;: &quot;generate_embeddings&quot;,
+      &quot;operator_type&quot;: &quot;embeddings_operator&quot;,
+      &quot;operator_params&quot;: {
+        &quot;model_name&quot;: &quot;nomic-embed-text&quot;
+      }
+    },
+    {
+      &quot;id&quot;: &quot;store_opensearch&quot;,
+      &quot;operator_type&quot;: &quot;opensearch_operator&quot;,
+      &quot;operator_params&quot;: {
+        &quot;index_name&quot;: &quot;your_connector_docs&quot;,
+        &quot;dimension&quot;: 768
+      }
+    }
+  ],
+  &quot;edges&quot;: [
+    {&quot;source&quot;: &quot;ingest_your_connector&quot;, &quot;target&quot;: &quot;chunk_documents&quot;},
+    {&quot;source&quot;: &quot;chunk_documents&quot;, &quot;target&quot;: &quot;generate_embeddings&quot;},
+    {&quot;source&quot;: &quot;generate_embeddings&quot;, &quot;target&quot;: &quot;store_opensearch&quot;}
+  ]
+}
+</code></pre>
+<h2 id="example-dropbox-connector">Example: Dropbox Connector</h2>
+<p>Here's a complete example implementing a Dropbox connector:</p>
+<blockquote>
+<p><strong>Note:</strong> A production Dropbox connector now ships with the project. This section remains a simplified teaching example built on raw HTTP calls; the shipped adapter uses the Dropbox SDK, supports refresh-token authentication and paginates listings. See <a href="../../src/docpipe/core/operators/ingest/adapters/outbound/sources/dropbox/README.html"><code>sources/dropbox/README.md</code></a> for the real implementation.</p>
+</blockquote>
+<h3 id="dropboxconfigpy"><code>dropbox/config.py</code></h3>
+<pre><code class="language-python">from pydantic import BaseModel, Field, field_validator
+from typing import Optional, List
+
+class DropboxConfig(BaseModel):
+    &quot;&quot;&quot;Configuration for Dropbox connector.&quot;&quot;&quot;
+
+    access_token: str = Field(..., description=&quot;Dropbox access token&quot;)
+    folder_path: str = Field(&quot;/&quot;, description=&quot;Folder path to start from&quot;)
+    recursive: bool = Field(True, description=&quot;Recursively list folders&quot;)
+    file_types: Optional[List[str]] = Field(None, description=&quot;File types to include&quot;)
+
+    @field_validator(&quot;access_token&quot;)
+    @classmethod
+    def validate_token(cls, v: str) -&gt; str:
+        if not v or len(v) &lt; 10:
+            raise ValueError(&quot;Invalid access token&quot;)
+        return v
+</code></pre>
+<h3 id="dropboxadapterpy"><code>dropbox/adapter.py</code></h3>
+<pre><code class="language-python">from typing import AsyncGenerator, List
+import aiohttp
+import json
+
+from docpipe.core.operators.ingest.ports.outbound.document_source import DocumentSourcePort
+from docpipe.core.operators.ingest.domain.models import Document
+from docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory import register_source_adapter
+from .config import DropboxConfig
+
+@register_source_adapter
+class DropboxSourceAdapter(DocumentSourcePort[DropboxConfig]):
+    &quot;&quot;&quot;Adapter for Dropbox.&quot;&quot;&quot;
+
+    SOURCE_NAME = &quot;dropbox&quot;
+    SOURCE_DISPLAY_NAME = &quot;Dropbox&quot;
+    SOURCE_DESCRIPTION = &quot;Ingest documents from Dropbox&quot;
+    SOURCE_VERSION = &quot;1.0.0&quot;
+
+    async def fetch_documents(self, *, config: DropboxConfig) -&gt; AsyncGenerator[Document, None]:
+        &quot;&quot;&quot;Fetch documents from Dropbox.&quot;&quot;&quot;
+        async with aiohttp.ClientSession() as session:
+            # List files
+            files = await self._list_files(session, config)
+
+            # Download and yield each file
+            for file_metadata in files:
+                content = await self._download_file(session, config, file_metadata)
+
+                doc = Document(
+                    id=file_metadata[&quot;id&quot;],
+                    name=file_metadata[&quot;name&quot;],
+                    content=content,
+                    source_url=f&quot;https://www.dropbox.com/home{file_metadata['path_display']}&quot;,
+                    modified_time=file_metadata.get(&quot;server_modified&quot;),
+                    size=len(content),
+                    mimetype=&quot;application/octet-stream&quot;,
+                    extension=file_metadata[&quot;name&quot;].split(&quot;.&quot;)[-1] if &quot;.&quot; in file_metadata[&quot;name&quot;] else &quot;&quot;,
+                    metadata={}
+                )
+
+                yield doc
+
+    async def _list_files(
+        self,
+        *,
+        session: aiohttp.ClientSession,
+        config: DropboxConfig
+    ) -&gt; list[dict]:
+        &quot;&quot;&quot;List files in Dropbox folder.&quot;&quot;&quot;
+        url = &quot;https://api.dropboxapi.com/2/files/list_folder&quot;
+        headers = {&quot;Authorization&quot;: f&quot;Bearer {config.access_token}&quot;}
+        data = {&quot;path&quot;: config.folder_path, &quot;recursive&quot;: config.recursive}
+
+        async with session.post(url, headers=headers, json=data) as response:
+            response.raise_for_status()
+            result = await response.json()
+            return [entry for entry in result[&quot;entries&quot;] if entry[&quot;.tag&quot;] == &quot;file&quot;]
+
+    async def _download_file(
+        self,
+        *,
+        session: aiohttp.ClientSession,
+        config: DropboxConfig,
+        file_metadata: dict
+    ) -&gt; bytes:
+        &quot;&quot;&quot;Download file content from Dropbox.&quot;&quot;&quot;
+        url = &quot;https://content.dropboxapi.com/2/files/download&quot;
+        headers = {
+            &quot;Authorization&quot;: f&quot;Bearer {config.access_token}&quot;,
+            &quot;Dropbox-API-Arg&quot;: json.dumps({&quot;path&quot;: file_metadata[&quot;path_lower&quot;]})
+        }
+
+        async with session.post(url, headers=headers) as response:
+            response.raise_for_status()
+            return await response.read()
+
+    async def test_connection(self, *, config: DropboxConfig) -&gt; tuple[bool, str]:
+        &quot;&quot;&quot;Test connection to Dropbox.&quot;&quot;&quot;
+        try:
+            async with aiohttp.ClientSession() as session:
+                url = &quot;https://api.dropboxapi.com/2/users/get_current_account&quot;
+                headers = {&quot;Authorization&quot;: f&quot;Bearer {config.access_token}&quot;}
+                async with session.post(url, headers=headers) as response:
+                    if response.status == 200:
+                        return True, &quot;Connection successful&quot;
+                    return False, f&quot;Connection failed with status {response.status}&quot;
+        except Exception as e:
+            return False, f&quot;Connection error: {str(e)}&quot;
+
+    def get_config_schema(self) -&gt; type[DropboxConfig]:
+        &quot;&quot;&quot;Get the Pydantic configuration model.&quot;&quot;&quot;
+        return DropboxConfig
+
+    def build_config_from_operator_params(
+        self,
+        *,
+        connection_params: dict,
+        credentials: dict,
+        included_extensions: list[str] | None = None,
+        max_files: int | None = None,
+    ) -&gt; DropboxConfig:
+        &quot;&quot;&quot;Build configuration from operator parameters.&quot;&quot;&quot;
+        return DropboxConfig(
+            access_token=credentials.get(&quot;access_token&quot;),
+            folder_path=connection_params.get(&quot;folder_path&quot;, &quot;/&quot;),
+            recursive=connection_params.get(&quot;recursive&quot;, True),
+            file_types=included_extensions or connection_params.get(&quot;file_types&quot;),
+        )
+</code></pre>
+<h2 id="testing">Testing</h2>
+<h3 id="unit-tests-testsunitoperatorsingesttest-your-connectorpy">Unit Tests (<code>tests/unit/operators/ingest/test_your_connector.py</code>)</h3>
+<pre><code class="language-python">import pytest
+from unittest.mock import AsyncMock, patch, Mock
+
+from docpipe.core.operators.ingest.adapters.outbound.sources.your_connector.adapter import YourConnectorSourceAdapter
+from docpipe.core.operators.ingest.adapters.outbound.sources.your_connector.config import YourConnectorConfig
+
+@pytest.mark.asyncio
+async def test_your_connector_fetch_documents():
+    &quot;&quot;&quot;Test fetching documents from Your Connector.&quot;&quot;&quot;
+    config = YourConnectorConfig(
+        api_endpoint=&quot;https://api.test.com&quot;,
+        access_token=&quot;test_token_1234567890&quot;,
+        folder_path=&quot;/test&quot;
+    )
+
+    adapter = YourConnectorSourceAdapter()
+
+    with patch.object(adapter, '_list_files', new_callable=AsyncMock) as mock_list:
+        with patch.object(adapter, '_download_file', new_callable=AsyncMock) as mock_download:
+            # Mock API responses
+            mock_list.return_value = [
+                {
+                    &quot;id&quot;: &quot;file1&quot;,
+                    &quot;name&quot;: &quot;test.txt&quot;,
+                    &quot;path&quot;: &quot;/test/test.txt&quot;,
+                    &quot;url&quot;: &quot;https://connector.com/file1&quot;
+                }
+            ]
+            mock_download.return_value = b&quot;test content&quot;
+
+            # Fetch documents
+            documents = []
+            async for doc in adapter.fetch_documents(config=config):
+                documents.append(doc)
+
+            # Assertions
+            assert len(documents) == 1
+            assert documents[0].name == &quot;test.txt&quot;
+            assert documents[0].content == b&quot;test content&quot;
+            assert documents[0].size == 12
+
+def test_config_validation():
+    &quot;&quot;&quot;Test configuration validation.&quot;&quot;&quot;
+    # Valid config
+    config = YourConnectorConfig(
+        api_endpoint=&quot;https://api.test.com&quot;,
+        access_token=&quot;valid_token_1234567890&quot;,
+        folder_path=&quot;/test&quot;
+    )
+    assert config.access_token == &quot;valid_token_1234567890&quot;
+
+    # Invalid token (too short)
+    with pytest.raises(ValueError, match=&quot;Invalid access token&quot;):
+        YourConnectorConfig(
+            api_endpoint=&quot;https://api.test.com&quot;,
+            access_token=&quot;short&quot;,
+            folder_path=&quot;/test&quot;
+        )
+</code></pre>
+<h3 id="integration-test">Integration Test</h3>
+<pre><code class="language-python">@pytest.mark.asyncio
+async def test_your_connector_integration():
+    &quot;&quot;&quot;Integration test with IngestSourceOperator.&quot;&quot;&quot;
+    from docpipe.core.operators.ingest.ingest_source import IngestSourceOperator
+
+    config = {
+        &quot;provider&quot;: &quot;your_connector&quot;,
+        &quot;connection_params&quot;: {
+            &quot;api_endpoint&quot;: &quot;https://api.test.com&quot;,
+            &quot;folder_path&quot;: &quot;/test&quot;,
+            &quot;recursive&quot;: True
+        },
+        &quot;credentials&quot;: {
+            &quot;access_token&quot;: &quot;test_token_1234567890&quot;
+        },
+        &quot;job_id&quot;: &quot;test-job-123&quot;,
+        &quot;job_run_id&quot;: &quot;test-run-456&quot;
+    }
+
+    operator = IngestSourceOperator(config)
+
+    # Mock the adapter
+    with patch(
+        &quot;docpipe.core.operators.ingest.adapters.outbound.sources.factories.source_factory.SourceAdapterFactory.create&quot;
+    ) as mock_create:
+        mock_adapter = Mock()
+
+        async def mock_fetch(config):
+            yield Mock(
+                id=&quot;1&quot;,
+                name=&quot;test.txt&quot;,
+                content=b&quot;content&quot;,
+                source_url=&quot;https://test.com/file1&quot;,
+                size=7,
+                mimetype=&quot;text/plain&quot;,
+                extension=&quot;txt&quot;,
+                modified_time=None,
+                metadata={}
+            )
+
+        mock_adapter.fetch_documents = mock_fetch
+        mock_create.return_value = mock_adapter
+
+        # Execute
+        result_tables, metadata = operator.transform(empty_input_table)
+
+        assert len(result_tables) == 1
+        assert result_tables[0].num_rows &gt; 0
+</code></pre>
+<h2 id="reference-implementations">Reference Implementations</h2>
+<p>Study these existing connectors for best practices:</p>
+<h3 id="1-sharepoint-adapter-microsoft-graph-api">1. <strong>SharePoint Adapter</strong> (Microsoft Graph API)</h3>
+<ul>
+<li>Location: <code>src/docpipe/core/operators/ingest/adapters/outbound/sources/sharepoint/</code></li>
+<li>Features: OAuth authentication, recursive folder traversal, binary content handling</li>
+<li>Good for: Enterprise connectors with OAuth</li>
+</ul>
+<h3 id="2-onedrive-adapter-microsoft-graph-api">2. <strong>OneDrive Adapter</strong> (Microsoft Graph API)</h3>
+<ul>
+<li>Location: <code>src/docpipe/core/operators/ingest/adapters/outbound/sources/onedrive/</code></li>
+<li>Features: Similar to SharePoint, personal cloud storage</li>
+<li>Good for: Personal cloud storage connectors</li>
+</ul>
+<h3 id="3-google-drive-adapter">3. <strong>Google Drive Adapter</strong></h3>
+<ul>
+<li>Location: <code>src/docpipe/core/operators/ingest/adapters/outbound/sources/google_drive/</code></li>
+<li>Features: Google OAuth, Drive API integration</li>
+<li>Good for: Google Workspace connectors</li>
+</ul>
+<h3 id="4-filesystem-adapter">4. <strong>Filesystem Adapter</strong></h3>
+<ul>
+<li>Location: <code>src/docpipe/core/operators/ingest/adapters/outbound/sources/filesystem/</code></li>
+<li>Features: Local file system access, simple implementation</li>
+<li>Good for: Local file sources, testing</li>
+</ul>
+<h3 id="5-amazon-s3-adapter">5. <strong>Amazon S3 Adapter</strong></h3>
+<ul>
+<li>Location: <code>src/docpipe/core/operators/ingest/adapters/outbound/sources/s3/</code></li>
+<li>Features: S3 bucket ingestion, cloud object storage patterns, credential-based access</li>
+<li>Good for: Object storage connectors and pagination/listing patterns</li>
+</ul>
+<h2 id="running-your-connector">Running Your Connector</h2>
+<h3 id="1-execute-flow">1. Execute Flow</h3>
+<pre><code class="language-bash">source src/docpipe_app/backend/.venv/bin/activate
+export PYTHONPATH=&quot;$(pwd)/src:${PYTHONPATH}&quot;
+docling-pipelines --flow-file tests/flow_your_connector.json
+</code></pre>
+<h3 id="2-run-tests">2. Run Tests</h3>
+<pre><code class="language-bash">source src/docpipe_app/backend/.venv/bin/activate
+export PYTHONPATH=&quot;$(pwd)/src:${PYTHONPATH}&quot;
+uv run pytest tests/unit/operators/ingest/test_your_connector.py -v
+</code></pre>
+<h2 id="best-practices">Best Practices</h2>
+<ol>
+<li><strong>Error Handling</strong>: Catch and log errors, continue processing other files</li>
+<li><strong>Binary Content</strong>: Always store as <code>bytes</code> in <code>Document.content</code></li>
+<li><strong>Async Operations</strong>: Use <code>aiohttp</code> for HTTP requests, <code>asyncio</code> for concurrency</li>
+<li><strong>Configuration</strong>: Use Pydantic for type-safe, validated configuration</li>
+<li><strong>Testing</strong>: Write both unit tests (mocked) and integration tests</li>
+<li><strong>Documentation</strong>: Add docstrings and a required README with usage examples, setup notes, and dependency details</li>
+<li><strong>Credentials</strong>: Never hardcode credentials, use environment variables</li>
+<li><strong>Metadata</strong>: Include useful metadata (path, modified time, custom fields)</li>
+</ol>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="adapter-not-found">Adapter Not Found</h3>
+<ul>
+<li>Ensure <code>@register_source_adapter</code> decorator is present (no parameters)</li>
+<li>Check that <code>SOURCE_NAME</code> class attribute is defined</li>
+<li>Check that <code>__init__.py</code> exports the adapter class</li>
+<li>Verify the <code>SOURCE_NAME</code> matches the <code>provider</code> value in flow JSON</li>
+</ul>
+<h3 id="import-errors">Import Errors</h3>
+<ul>
+<li>Set <code>PYTHONPATH</code> correctly before running</li>
+<li>Check all imports use correct module paths</li>
+<li>Ensure dependencies are installed (<code>uv sync</code>)</li>
+</ul>
+<h3 id="binary-content-issues">Binary Content Issues</h3>
+<ul>
+<li>Store content as <code>bytes</code>, not <code>str</code></li>
+<li>Use <code>_binary_content</code> attribute for LangChain compatibility</li>
+<li>Check file encoding if text files</li>
+</ul>
+<h2 id="next-steps">Next Steps</h2>
+<ol>
+<li>Create your connector directory structure</li>
+<li>Implement config and adapter classes</li>
+<li>Write unit tests</li>
+<li>Create flow JSON configuration</li>
+<li>Test with sample data</li>
+<li>Add integration tests</li>
+<li>Document usage, dependencies, and examples</li>
+</ol>
+<p>For questions or issues, refer to existing adapters and the <a href="../operators/ingest/ingest_source_readme.html">Ingest Source Operator documentation</a>.</p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#directory-structure">Directory Structure</a>
+      <a href="#architecture-diagram">Architecture Diagram</a>
+      <a href="#step-by-step-implementation">Step-by-Step Implementation</a>
+      <a href="#example-dropbox-connector">Example: Dropbox Connector</a>
+      <a href="#testing">Testing</a>
+      <a href="#reference-implementations">Reference Implementations</a>
+      <a href="#running-your-connector">Running Your Connector</a>
+      <a href="#best-practices">Best Practices</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#next-steps">Next Steps</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

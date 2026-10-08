@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Logging Best Practices — Docling Pipelines</title>
+  <meta name="description" content="Logging Best Practices — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter active" href="LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Logging Best Practices</span>
+      </nav>
+      <h1>Logging Best Practices</h1>
+<h2 id="overview">Overview</h2>
+<p>Docling Pipelines implements a security-first logging architecture designed to provide comprehensive observability while protecting sensitive data. The logging system supports both human-readable colored output for development and structured JSON logging for production environments.</p>
+<p><strong>Key Features:</strong><br />
+- Structured JSON logging with transaction ID tracking<br />
+- Automatic sensitive data sanitization<br />
+- Configurable log levels via environment variables<br />
+- No customer data or PII logged (except in DEBUG with safeguards)<br />
+- Distributed tracing support for multi-service architectures</p>
+<h2 id="quick-start">Quick Start</h2>
+<h3 id="enable-json-logging">Enable JSON Logging</h3>
+<p>Set the environment variable to enable structured JSON logging:</p>
+<pre><code class="language-bash">export DS_LOG_JSON=True
+docling-pipelines --flow-file your_flow.json
+</code></pre>
+<h3 id="set-log-level">Set Log Level</h3>
+<p>Control verbosity with the <code>DS_LOG_LEVEL</code> environment variable:</p>
+<pre><code class="language-bash">export DS_LOG_LEVEL=INFO
+docling-pipelines --flow-file your_flow.json
+</code></pre>
+<h2 id="log-levels">Log Levels</h2>
+<p>Docling Pipelines uses standard Python logging levels. Choose the appropriate level based on your environment and needs:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Level</th>
+<th>When to Use</th>
+<th>What Gets Logged</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>DEBUG</strong></td>
+<td>Development only</td>
+<td>Detailed diagnostic information including file paths and line numbers. <strong>May include metadata that could be sensitive in aggregate.</strong></td>
+</tr>
+<tr>
+<td><strong>INFO</strong></td>
+<td>Production default</td>
+<td>General informational messages about normal operation (flow execution, operator completion, statistics)</td>
+</tr>
+<tr>
+<td><strong>WARNING</strong></td>
+<td>Always enabled</td>
+<td>Potentially problematic situations that don't prevent operation</td>
+</tr>
+<tr>
+<td><strong>ERROR</strong></td>
+<td>Always enabled</td>
+<td>Error events that might still allow the application to continue</td>
+</tr>
+<tr>
+<td><strong>CRITICAL</strong></td>
+<td>Always enabled</td>
+<td>Severe errors that may cause application failure</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="log-level-examples">Log Level Examples</h3>
+<pre><code class="language-bash"># Development - verbose output
+export DS_LOG_LEVEL=DEBUG
+
+# Production - standard output
+export DS_LOG_LEVEL=INFO
+
+# Troubleshooting - focus on problems
+export DS_LOG_LEVEL=WARNING
+</code></pre>
+<h2 id="json-logging-configuration">JSON Logging Configuration</h2>
+<h3 id="enabling-json-format">Enabling JSON Format</h3>
+<p>JSON logging is controlled by the <code>DS_LOG_JSON</code> environment variable:</p>
+<pre><code class="language-bash"># Enable JSON logging (recommended for production)
+export DS_LOG_JSON=True
+
+# Disable JSON logging (default - uses colored console output)
+export DS_LOG_JSON=False
+</code></pre>
+<h3 id="json-log-structure">JSON Log Structure</h3>
+<p>When JSON logging is enabled, each log entry follows this structure:</p>
+<pre><code class="language-json">{
+  &quot;time&quot;: &quot;14:23:45&quot;,
+  &quot;logger&quot;: &quot;docpipe&quot;,
+  &quot;logLevel&quot;: &quot;INFO&quot;,
+  &quot;transaction_ID&quot;: &quot;abc123-def456-ghi789&quot;,
+  &quot;message&quot;: &quot;Flow execution completed successfully&quot;,
+  &quot;saveServiceCopy&quot;: &quot;false&quot;,
+  &quot;appname&quot;: &quot;docling-pipelines-api&quot;,
+  &quot;job_id&quot;: &quot;flow-123&quot;,
+  &quot;job_run_id&quot;: &quot;run-456&quot;
+}
+</code></pre>
+<p><strong>Field Descriptions:</strong><br />
+- <code>time</code>: Timestamp in HH:MM:SS format<br />
+- <code>logger</code>: Logger name (typically "docpipe")<br />
+- <code>logLevel</code>: Log severity (DEBUG, INFO, WARNING, ERROR, CRITICAL)<br />
+- <code>transaction_ID</code>: Unique identifier for request tracing<br />
+- <code>message</code>: Log message content<br />
+- <code>job_id</code>: Optional flow/job identifier<br />
+- <code>job_run_id</code>: Optional execution run identifier</p>
+<h3 id="exception-logging">Exception Logging</h3>
+<p>When exceptions occur, JSON logs include formatted stack traces:</p>
+<pre><code class="language-json">{
+  &quot;time&quot;: &quot;14:23:45&quot;,
+  &quot;logger&quot;: &quot;docpipe&quot;,
+  &quot;logLevel&quot;: &quot;ERROR&quot;,
+  &quot;transaction_ID&quot;: &quot;abc123-def456-ghi789&quot;,
+  &quot;message&quot;: &quot;Operator execution failed&quot;,
+  &quot;exc_info&quot;: [
+    &quot;Traceback (most recent call last):&quot;,
+    &quot;  File \&quot;operator.py\&quot;, line 42, in execute&quot;,
+    &quot;    result = process_data()&quot;,
+    &quot;ValueError: Invalid input data&quot;
+  ]
+}
+</code></pre>
+<h2 id="security-guidelines">Security Guidelines</h2>
+<h3 id="what-not-to-log">What NOT to Log</h3>
+<p><strong>Never log the following:</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Examples</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Customer Data</strong></td>
+<td>Document content, user messages, file contents</td>
+<td>Privacy violation, regulatory compliance</td>
+</tr>
+<tr>
+<td><strong>PII</strong></td>
+<td>Names, emails, addresses, phone numbers, SSNs</td>
+<td>Privacy laws (GDPR, CCPA, etc.)</td>
+</tr>
+<tr>
+<td><strong>Secrets</strong></td>
+<td>API keys, passwords, tokens, certificates</td>
+<td>Security breach risk</td>
+</tr>
+<tr>
+<td><strong>Authentication</strong></td>
+<td>Session tokens, OAuth tokens, JWT contents</td>
+<td>Account compromise risk</td>
+</tr>
+<tr>
+<td><strong>Credentials</strong></td>
+<td>Database passwords, service account keys</td>
+<td>Infrastructure compromise</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="what-is-safe-to-log">What IS Safe to Log</h3>
+<p><strong>These are safe and recommended:</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Examples</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Metadata</strong></td>
+<td>Document count, file size, processing time</td>
+<td>Performance monitoring</td>
+</tr>
+<tr>
+<td><strong>Identifiers</strong></td>
+<td>Job IDs, run IDs, transaction IDs</td>
+<td>Tracing and debugging</td>
+</tr>
+<tr>
+<td><strong>Statistics</strong></td>
+<td>Success/failure counts, throughput metrics</td>
+<td>Operational insights</td>
+</tr>
+<tr>
+<td><strong>Configuration</strong></td>
+<td>Operator names, flow structure, parameter names</td>
+<td>Troubleshooting</td>
+</tr>
+<tr>
+<td><strong>Status</strong></td>
+<td>Execution state, completion status, error types</td>
+<td>Monitoring</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="automatic-sanitization">Automatic Sanitization</h3>
+<p>Docling Pipelines automatically sanitizes sensitive data in HTTP requests and responses using the <a href="../../src/docpipe/integrations/rest_client.py"><code>sanitize_sensitive_data()</code></a> function.</p>
+<p><strong>Protected patterns:</strong><br />
+- API keys and tokens<br />
+- Passwords and secrets<br />
+- Authorization headers (Bearer, Basic)<br />
+- Any field containing: <code>token</code>, <code>password</code>, <code>key</code>, <code>secret</code>, <code>auth</code></p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-python"># Before sanitization
+headers = {
+    &quot;Authorization&quot;: &quot;Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...&quot;,
+    &quot;X-API-Key&quot;: &quot;&lt;your-api-key&gt;&quot;
+}
+
+# After sanitization (in logs)
+headers = {
+    &quot;Authorization&quot;: &quot;Bearer ***REDACTED***&quot;,
+    &quot;X-API-Key&quot;: &quot;***REDACTED***&quot;
+}
+</code></pre>
+<h2 id="transaction-tracking">Transaction Tracking</h2>
+<h3 id="what-are-transaction-ids">What are Transaction IDs?</h3>
+<p>Transaction IDs enable distributed tracing across multiple services and requests. Each request receives a unique identifier that flows through all log entries, making it easy to trace execution paths.</p>
+<h3 id="how-transaction-ids-work">How Transaction IDs Work</h3>
+<ol>
+<li><strong>API Requests</strong>: Transaction ID extracted from <code>X-Global-Transaction-Id</code> header</li>
+<li><strong>CLI Execution</strong>: Default transaction ID used (<code>docpipe-cli-default</code>)</li>
+<li><strong>Propagation</strong>: ID automatically included in all log entries within that context</li>
+</ol>
+<h3 id="using-transaction-ids">Using Transaction IDs</h3>
+<p><strong>In API calls:</strong></p>
+<pre><code class="language-bash">curl -H &quot;X-Global-Transaction-Id: my-unique-id-123&quot; \
+     http://localhost:8000/api/v1/flows
+</code></pre>
+<p><strong>In logs:</strong></p>
+<pre><code class="language-json">{
+  &quot;transaction_ID&quot;: &quot;my-unique-id-123&quot;,
+  &quot;message&quot;: &quot;Processing flow request&quot;
+}
+</code></pre>
+<p><strong>Searching logs:</strong></p>
+<pre><code class="language-bash"># Find all logs for a specific transaction
+grep &quot;my-unique-id-123&quot; application.log
+
+# With jq for JSON logs
+cat application.log | jq 'select(.transaction_ID == &quot;my-unique-id-123&quot;)'
+</code></pre>
+<h2 id="production-recommendations">Production Recommendations</h2>
+<h3 id="configuration-checklist">Configuration Checklist</h3>
+<ul>
+<li>[ ] <strong>Enable JSON logging</strong>: <code>DS_LOG_JSON=True</code></li>
+<li>[ ] <strong>Set appropriate log level</strong>: <code>DS_LOG_LEVEL=INFO</code></li>
+<li>[ ] <strong>Disable DEBUG logs</strong>: Never use DEBUG in production</li>
+<li>[ ] <strong>Configure log rotation</strong>: Prevent disk space issues</li>
+<li>[ ] <strong>Set up centralized logging</strong>: Ship logs to aggregation service</li>
+<li>[ ] <strong>Monitor log volume</strong>: Alert on unusual patterns</li>
+</ul>
+<h3 id="performance-considerations">Performance Considerations</h3>
+<p><strong>Log volume management:</strong></p>
+<pre><code class="language-bash"># Reduce log volume in production
+export DS_LOG_LEVEL=INFO  # Not DEBUG
+
+# Monitor third-party library logs
+# Docling Pipelines automatically configures these to respect DS_LOG_LEVEL:
+# - uvicorn, prefect, httpx, httpcore, urllib3
+</code></pre>
+<h2 id="developer-guidelines">Developer Guidelines</h2>
+<h3 id="adding-new-log-statements">Adding New Log Statements</h3>
+<p><strong>Good logging practices:</strong></p>
+<pre><code class="language-python">from docpipe.utils.infrastructure.logging import get_logger
+
+logger = get_logger(__name__)
+
+# ✅ GOOD: Log metadata and statistics
+logger.info(f&quot;Processed {doc_count} documents in {elapsed_time:.2f}s&quot;)
+logger.info(f&quot;Flow {flow_id} completed successfully&quot;)
+logger.debug(f&quot;Operator configuration: {operator_name} with {len(params)} parameters&quot;)
+
+# ✅ GOOD: Log identifiers for tracing
+logger.info(f&quot;Starting job_run_id={job_run_id} for job_id={job_id}&quot;)
+
+# ✅ GOOD: Log error context without sensitive data
+logger.error(f&quot;Failed to process document at index {doc_index}: {error_type}&quot;)
+
+# ❌ BAD: Never log customer data
+logger.info(f&quot;Document content: {document_text}&quot;)  # NO!
+
+# ❌ BAD: Never log PII
+logger.info(f&quot;Processing user email: {user_email}&quot;)  # NO!
+
+# ❌ BAD: Never log secrets
+logger.debug(f&quot;API key: {api_key}&quot;)  # NO!
+</code></pre>
+<h3 id="log-level-selection">Log Level Selection</h3>
+<p><strong>When to use each level:</strong></p>
+<pre><code class="language-python"># DEBUG: Detailed diagnostic information (development only)
+logger.debug(f&quot;Entering function with params: {param_names}&quot;)
+logger.debug(f&quot;Intermediate result: {result_count} items&quot;)
+
+# INFO: Confirmation of expected behavior
+logger.info(&quot;Flow execution started&quot;)
+logger.info(f&quot;Operator {name} completed in {duration}s&quot;)
+
+# WARNING: Unexpected but recoverable situations
+logger.warning(f&quot;Retrying failed operation (attempt {retry_count}/{max_retries})&quot;)
+logger.warning(&quot;Using default configuration due to missing config file&quot;)
+
+# ERROR: Errors that prevent specific operations
+logger.error(f&quot;Failed to load operator {operator_name}: {error}&quot;)
+logger.error(&quot;Database connection failed, retrying...&quot;)
+
+# CRITICAL: Severe errors requiring immediate attention
+logger.critical(&quot;Unable to initialize core system components&quot;)
+logger.critical(&quot;Data corruption detected in storage backend&quot;)
+</code></pre>
+<h3 id="structured-logging">Structured Logging</h3>
+<p><strong>Add context with extra fields:</strong></p>
+<pre><code class="language-python"># Include job context in logs
+logger.info(
+    &quot;Operator execution completed&quot;,
+    extra={
+        &quot;job_id&quot;: job_id,
+        &quot;job_run_id&quot;: job_run_id,
+        &quot;track_perf&quot;: True
+    }
+)
+</code></pre>
+<p>These extra fields automatically appear in JSON logs when using <a href="../../src/docpipe/utils/infrastructure/logging.py"><code>ConditionalFormatter</code></a>.</p>
+<h2 id="examples">Examples</h2>
+<h3 id="good-vs-bad-logging">Good vs Bad Logging</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>❌ Bad Practice</th>
+<th>✅ Good Practice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>logger.info(f"User data: {user_data}")</code></td>
+<td><code>logger.info(f"Processed {len(user_data)} records")</code></td>
+</tr>
+<tr>
+<td><code>logger.debug(f"Password: {password}")</code></td>
+<td><code>logger.debug("Authentication successful")</code></td>
+</tr>
+<tr>
+<td><code>logger.info(f"Email: {email}")</code></td>
+<td><code>logger.info(f"Notification sent to user_id={user_id}")</code></td>
+</tr>
+<tr>
+<td><code>logger.error(f"Token: {api_token}")</code></td>
+<td><code>logger.error("API authentication failed")</code></td>
+</tr>
+<tr>
+<td><code>logger.info(f"Document: {doc_content}")</code></td>
+<td><code>logger.info(f"Document processed: size={doc_size} bytes")</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="complete-example">Complete Example</h3>
+<pre><code class="language-python">from docpipe.utils.infrastructure.logging import get_logger
+
+logger = get_logger(__name__)
+
+def process_documents(documents, job_id, job_run_id):
+    &quot;&quot;&quot;Process documents with proper logging.&quot;&quot;&quot;
+
+    # ✅ Log start with identifiers
+    logger.info(
+        f&quot;Starting document processing for job_run_id={job_run_id}&quot;,
+        extra={&quot;job_id&quot;: job_id, &quot;job_run_id&quot;: job_run_id}
+    )
+
+    processed_count = 0
+    error_count = 0
+
+    for idx, doc in enumerate(documents):
+        try:
+            # ✅ Log progress with metadata (not content)
+            logger.debug(f&quot;Processing document {idx + 1}/{len(documents)}&quot;)
+
+            result = process_single_document(doc)
+            processed_count += 1
+
+        except Exception as e:
+            # ✅ Log error with context (not sensitive data)
+            logger.error(
+                f&quot;Failed to process document at index {idx}: {type(e).__name__}&quot;,
+                exc_info=True
+            )
+            error_count += 1
+
+    # ✅ Log summary statistics
+    logger.info(
+        f&quot;Document processing completed: {processed_count} successful, &quot;
+        f&quot;{error_count} failed out of {len(documents)} total&quot;,
+        extra={&quot;job_id&quot;: job_id, &quot;job_run_id&quot;: job_run_id}
+    )
+
+    return processed_count, error_count
+</code></pre>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<p><strong>Logs not appearing:</strong></p>
+<pre><code class="language-bash"># Check log level
+echo $DS_LOG_LEVEL
+
+# Ensure it's not set too high
+export DS_LOG_LEVEL=INFO
+</code></pre>
+<p><strong>JSON format not working:</strong></p>
+<pre><code class="language-bash"># Verify environment variable
+echo $DS_LOG_JSON
+
+# Should be exactly &quot;True&quot; (case-sensitive)
+export DS_LOG_JSON=True
+</code></pre>
+<p><strong>Too much log output:</strong></p>
+<pre><code class="language-bash"># Reduce verbosity
+export DS_LOG_LEVEL=WARNING
+
+# Or disable third-party library logs
+export DS_LOG_LEVEL=ERROR
+</code></pre>
+<h3 id="debugging-log-configuration">Debugging Log Configuration</h3>
+<pre><code class="language-python">import logging
+from docpipe.utils.infrastructure.logging import get_logger
+
+# Check current configuration
+logger = get_logger(__name__)
+print(f&quot;Logger level: {logging.getLevelName(logger.level)}&quot;)
+print(f&quot;Handlers: {logger.handlers}&quot;)
+print(f&quot;JSON enabled: {os.getenv('DS_LOG_JSON')}&quot;)
+</code></pre>
+<p><strong>Note:</strong> When docpipe is used as an embedded library (i.e. <code>configure_logging=False</code> was<br />
+passed to <code>DocpipeFlowManager</code>), <code>logger.handlers</code> will show only a <code>NullHandler</code>. This is<br />
+expected — the calling application controls all output through its own logging infrastructure.</p>
+<h2 id="reference">Reference</h2>
+<h3 id="environment-variables">Environment Variables</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Values</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>DS_LOG_LEVEL</code></td>
+<td>DEBUG, INFO, WARNING, ERROR, CRITICAL</td>
+<td>INFO</td>
+<td>Controls log verbosity</td>
+</tr>
+<tr>
+<td><code>DS_LOG_JSON</code></td>
+<td>True, False</td>
+<td>False</td>
+<td>Enables JSON structured logging</td>
+</tr>
+<tr>
+<td><code>NO_COLOR</code></td>
+<td>Any value</td>
+<td>(unset)</td>
+<td>Disables colored console output</td>
+</tr>
+<tr>
+<td><code>FORCE_COLOR</code></td>
+<td>1, true, yes</td>
+<td>(unset)</td>
+<td>Forces colored output even when piped</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="related-documentation">Related Documentation</h3>
+<ul>
+<li><a href="../../src/docpipe/utils/infrastructure/logging.py">Logging Implementation</a> - Source code reference</li>
+<li><a href="../../src/docpipe/integrations/rest_client.py">REST Client Sanitization</a> - Sensitive data handling</li>
+<li><a href="../../src/docpipe/api/middleware/transaction_middleware.py">API Middleware</a> - Transaction ID management</li>
+</ul>
+<h3 id="additional-resources">Additional Resources</h3>
+<ul>
+<li><a href="https://docs.python.org/3/library/logging.html">Python Logging Documentation</a></li>
+<li><a href="https://www.structlog.org/en/stable/why.html">Structured Logging Best Practices</a></li>
+<li><a href="https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html">OWASP Logging Cheat Sheet</a></li>
+</ul>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#quick-start">Quick Start</a>
+      <a href="#log-levels">Log Levels</a>
+      <a href="#json-logging-configuration">JSON Logging Configuration</a>
+      <a href="#security-guidelines">Security Guidelines</a>
+      <a href="#transaction-tracking">Transaction Tracking</a>
+      <a href="#production-recommendations">Production Recommendations</a>
+      <a href="#developer-guidelines">Developer Guidelines</a>
+      <a href="#examples">Examples</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#reference">Reference</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
