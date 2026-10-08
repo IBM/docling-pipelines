@@ -167,6 +167,7 @@ export function Home(): React.JSX.Element {
         kind="warning"
         title="Beta: "
         subtitle="The web UI is experimental and not yet production-ready. For production workloads, use the CLI or Python API."
+        lowContrast
         hideCloseButton
       />
 
