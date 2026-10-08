@@ -40,21 +40,30 @@ docker compose -f docker/docker-compose.yml logs -f --tail=100 docpipe
 
 ### Run a sample flow through the API (optional)
 
-Pull the embedding model, upload the sample flow, then start a run using the flow ID
-returned by the upload:
+Pull the embedding model:
 
 ```bash
 docker compose -f docker/docker-compose.yml exec ollama ollama pull nomic-embed-text
+```
 
-curl --fail-with-body -sS \
+Upload the sample flow and use `python3` to capture and print the returned flow ID:
+
+```bash
+FLOW_ID=$(curl --fail-with-body -sS \
   -X POST http://localhost:8080/api/v1/flows \
   -H 'Content-Type: application/json' \
-  --data-binary @sample_flows/quickstart/docker_e2e_ollama_opensearch.json
+  --data-binary @sample_flows/quickstart/docker_e2e_ollama_opensearch.json \
+  | python3 -c 'import json, sys; print(json.load(sys.stdin)["flow_id"])')
+printf 'FLOW_ID=%s\n' "$FLOW_ID"
+```
 
+Start the run in the same terminal using the captured flow ID:
+
+```bash
 curl --fail-with-body -sS \
   -X POST http://localhost:8080/api/v1/job_runs \
   -H 'Content-Type: application/json' \
-  -d '{"entity":{"job":{"asset_ref":"PASTE_FLOW_ID"}}}'
+  -d "{\"entity\":{\"job\":{\"asset_ref\":\"${FLOW_ID:?Run the flow upload command first}\"}}}"
 ```
 
 ## Stage 3: Run the sample flow in the UI
