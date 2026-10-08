@@ -30,7 +30,6 @@ interface FlowsTableProps {
   readonly onDeleteFlow: (flowId: string) => Promise<void>;
 }
 
-
 const MAX_VISIBLE_TAGS = 3;
 
 /**
