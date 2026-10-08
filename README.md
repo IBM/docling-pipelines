@@ -27,6 +27,7 @@ It connects to cloud document sources (S3, OneDrive, SharePoint, Google Drive, B
 - 🔀 **DAG-based flows** — define pipelines as JSON with automatic dependency resolution and parallel execution
 - 🔌 **Extensible** — load custom operators from Python packages, local paths, or S3 without modifying core code
 - 🖥️ **Multiple interfaces** — CLI, Python API (`DocpipeFlowManager`), and REST API (FastAPI)
+- 🌐 **Web UI** *(beta)* — browser-based pipeline builder and run monitor; experimental and not yet recommended for production workloads
 
 ## Installation
 
@@ -106,6 +107,14 @@ uvicorn docpipe.api.main:app --host 0.0.0.0 --port 8080
 ```
 
 For full details see [FRONTEND_BUILD_INTEGRATION.md](FRONTEND_BUILD_INTEGRATION.md).
+
+## Web UI (Beta)
+
+A browser-based UI for building flows and monitoring runs is included in this repository under [`frontend/`](frontend/).
+
+> **⚠️ Beta notice:** The web UI is experimental and **not production-ready**. It is under active development and may change significantly between releases. For production workloads, use the CLI, Python API, or REST API.
+
+To run the UI locally, see the [Frontend README](frontend/README.md) and the [All-in-One Docker deployment](docker/all-in-one-deployment/README.md).
 
 ## Documentation
 
