@@ -5,7 +5,6 @@
     "doc_column": "content",
     "disable_validation": false,
     "force_ingest": true,
-    "data_storage_type": "local",
     "storage": "in-memory",
     "execute_type": "local",
     "enable_micro_batching": false
