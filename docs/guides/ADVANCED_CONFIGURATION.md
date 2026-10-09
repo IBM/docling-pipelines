@@ -6,7 +6,8 @@ This guide covers advanced configuration topics for production deployments, dist
 
 1. [Job Stats Storage Configuration](#job-stats-storage-configuration)
 2. [Incremental Metadata Configuration](#incremental-metadata-configuration)
-3. [Execution Models](#execution-models)
+3. [Docling Converter Pool Configuration](#docling-converter-pool-configuration)
+4. [Execution Models](#execution-models)
 
 ---
 
@@ -248,6 +249,21 @@ Guidance:
 - do not commit real credentials into version control
 
 See [`docling-pipelines-config.yaml.example`](../../docling-pipelines-config.yaml.example) for complete backend examples and environment variable patterns.
+
+---
+
+## Docling Converter Pool Configuration
+
+The `extract_operator` reuses Docling converters through a pool that is shared by every flow and job in the process, so its limits are process-wide settings in `docling-pipelines-config.yaml` rather than flow or operator parameters:
+
+```yaml
+docling:
+  converter_pool:
+    size: 8                 # default: min(2 x CPU count, 16)
+    idle_ttl_seconds: 600   # 0 = keep idle converters until the process exits
+```
+
+The environment variables `DOCPIPE_DOCLING_CONVERTER_POOL_SIZE` and `DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS` take precedence over the file. See [Converter Reuse and Pool Sizing](../operators/extract/extract_operator_readme.md#converter-reuse-and-pool-sizing) for sizing guidance.
 
 ---
 
