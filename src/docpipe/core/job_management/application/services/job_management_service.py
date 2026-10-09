@@ -217,6 +217,8 @@ class JobManagementService:
 
         session_info = get_session_info()
         session_info.flow_id = flow_id
+        session_info.job_id = job_id
+        session_info.job_run_id = job_run_id
         self.executor.submit(
             self._execute_flow_async,
             session_info,
