@@ -84,7 +84,7 @@ dependencies = [
     "python-ldap==3.4.5",
     "python-multipart==0.0.32",
     "pyyaml==6.0.3",
-    "requests==2.33.0",
+    "requests==2.34.2",
     "sentence-transformers==5.6.0",
     "setuptools==83.0.0",
     "spacy>=3.7.4",
