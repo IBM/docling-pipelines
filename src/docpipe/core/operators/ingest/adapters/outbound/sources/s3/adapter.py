@@ -216,8 +216,7 @@ class S3SourceAdapter(DocumentSourcePort):
     def build_config_from_operator_params(
         self,
         *,
-        connection_params: dict,
-        credentials: dict,
+        provider_config: dict,
         included_extensions: list[str] | None = None,
         max_files: int | None = None,
     ) -> S3SourceConfig:
@@ -225,8 +224,7 @@ class S3SourceAdapter(DocumentSourcePort):
         Build S3 configuration from operator parameters.
 
         Args:
-            connection_params: Connection parameters from operator config
-            credentials: Credentials from operator config
+            provider_config: All provider-specific parameters including credentials.
             included_extensions: File extensions to include (optional)
             max_files: Maximum number of files to fetch while listing/downloading (optional)
 
@@ -236,23 +234,17 @@ class S3SourceAdapter(DocumentSourcePort):
         Raises:
             ValueError: If required parameters are missing or invalid
         """
-        # Extract required parameters — credential fields fall back to connection_params
-        # so flows built from operator metadata (which places all fields under connection_params)
-        # work alongside legacy flows that use a separate credentials dict.
-        # Guard against None being passed explicitly (e.g. from UI sending null).
-        credentials = credentials or {}
-        connection_params = connection_params or {}
-        access_key = resolve_env_var(credentials.get("access_key") or connection_params.get("access_key"))
-        secret_key = resolve_env_var(credentials.get("secret_key") or connection_params.get("secret_key"))
-        bucket = resolve_env_var(value=connection_params.get("bucket"))
-        prefix = resolve_env_var(value=connection_params.get("prefix", ""))
+        access_key = resolve_env_var(provider_config.get("access_key"))
+        secret_key = resolve_env_var(provider_config.get("secret_key"))
+        bucket = resolve_env_var(value=provider_config.get("bucket"))
+        prefix = resolve_env_var(value=provider_config.get("prefix", ""))
 
         if not access_key:
-            raise ValueError("Missing required credential: 'access_key'")
+            raise ValueError("Missing required parameter: 'access_key'")
         if not secret_key:
-            raise ValueError("Missing required credential: 'secret_key'")
+            raise ValueError("Missing required parameter: 'secret_key'")
         if not bucket:
-            raise ValueError("Missing required connection parameter: 'bucket'")
+            raise ValueError("Missing required parameter: 'bucket'")
         # prefix is optional - empty string means scan entire bucket
 
         # Build configuration
@@ -261,18 +253,18 @@ class S3SourceAdapter(DocumentSourcePort):
             "secret_key": secret_key,
             "bucket": bucket,
             "prefix": prefix,
-            "endpoint_url": connection_params.get("endpoint_url"),
-            "region": connection_params.get("region"),
-            "recursive": connection_params.get("recursive", True),
+            "endpoint_url": resolve_env_var(value=provider_config.get("endpoint_url")) or None,
+            "region": provider_config.get("region"),
+            "recursive": provider_config.get("recursive", True),
             "file_extensions": included_extensions or [],
-            "exclude_patterns": connection_params.get("exclude_patterns", []),
-            "max_file_size_mb": connection_params.get("max_file_size_mb"),
-            "skip_hidden_files": connection_params.get("skip_hidden_files", True),
-            "skip_empty_files": connection_params.get("skip_empty_files", True),
-            "max_concurrent_downloads": connection_params.get("max_concurrent_downloads", 20),
-            "download_timeout_seconds": connection_params.get("download_timeout_seconds", 300),
+            "exclude_patterns": provider_config.get("exclude_patterns", []),
+            "max_file_size_mb": provider_config.get("max_file_size_mb"),
+            "skip_hidden_files": provider_config.get("skip_hidden_files", True),
+            "skip_empty_files": provider_config.get("skip_empty_files", True),
+            "max_concurrent_downloads": provider_config.get("max_concurrent_downloads", 20),
+            "download_timeout_seconds": provider_config.get("download_timeout_seconds", 300),
             "max_files": max_files,
-            "verify_expected_bucket_owner": connection_params.get("verify_expected_bucket_owner", False),
+            "verify_expected_bucket_owner": provider_config.get("verify_expected_bucket_owner", False),
         }
 
         return S3SourceConfig(**config_dict)
@@ -520,25 +512,21 @@ class S3SourceAdapter(DocumentSourcePort):
         self,
         *,
         source_id: str,
-        connection_params: dict[str, Any],
-        credentials: dict[str, Any],
+        provider_config: dict[str, Any],
     ) -> bytes | None:
         """
         Fetch binary content for a specific S3 object on-demand.
 
         Args:
             source_id: S3 URI (s3://bucket/key) or S3 key
-            connection_params: S3 connection parameters (bucket, endpoint_url, region)
-            credentials: S3 credentials (access_key, secret_key)
+            provider_config: All provider-specific parameters including credentials.
 
         Returns:
             bytes | None: Binary content of the S3 object, or None if not found or error occurred
         """
         try:
-            # Resolve environment variables in credentials, falling back to
-            # connection_params so callers that store credentials there work too.
-            access_key = resolve_env_var(credentials.get("access_key") or connection_params.get("access_key"))
-            secret_key = resolve_env_var(credentials.get("secret_key") or connection_params.get("secret_key"))
+            access_key = resolve_env_var(provider_config.get("access_key"))
+            secret_key = resolve_env_var(provider_config.get("secret_key"))
 
             if not access_key or not secret_key:
                 logger.error("Missing S3 credentials for fetching %s", source_id)
@@ -550,15 +538,15 @@ class S3SourceAdapter(DocumentSourcePort):
                 bucket = parts[0]
                 key = parts[1] if len(parts) > 1 else ""
             else:
-                bucket_value = resolve_env_var(connection_params.get("bucket"))
+                bucket_value = resolve_env_var(provider_config.get("bucket"))
                 if not bucket_value:
-                    logger.error("Cannot determine S3 bucket from source_id or connection_params")
+                    logger.error("Cannot determine S3 bucket from source_id or provider_config")
                     return None
                 bucket = str(bucket_value)
                 key = source_id
 
-            endpoint_url = resolve_env_var(connection_params.get("endpoint_url"))
-            region = resolve_env_var(connection_params.get("region"))
+            endpoint_url = resolve_env_var(provider_config.get("endpoint_url"))
+            region = resolve_env_var(provider_config.get("region"))
 
             # Reuse cached boto3 client — creating a new client per document causes
             # redundant TCP handshake setup and is the main latency driver here.

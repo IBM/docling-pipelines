@@ -251,14 +251,13 @@ class MicrosoftGraphLoader(BaseLoader):
 
 # Configuration keys
 PROVIDER_KEY: str = "provider"
-CONNECTION_PARAMS_KEY: str = "connection_params"
-CREDENTIALS_KEY: str = "credentials"
+PROVIDER_CONFIG_KEY: str = "provider_config"
 MAX_FILES_KEY: str = "max_files"
 MAX_FILES_DEFAULT_VALUE: int = 100
 INCLUDE_FILTER_KEY: str = "include_filter"
 EXCLUDE_FILTER_KEY: str = "exclude_filter"
 ADAPTER_MANAGED_PROVIDERS: frozenset[str] = frozenset(
-    {"s3", "ibm_cos", "sharepoint", "onedrive", "google_drive", "box_driver", "filesystem", "web"}
+    {"s3", "ibm_cos", "sharepoint", "onedrive", "google_drive", "box_driver", "dropbox", "filesystem", "web"}
 )
 
 logger = get_logger()
@@ -309,19 +308,17 @@ class IngestSourceOperator(AbstractOperator):
         super().validate(errors=errors, warnings=warnings, available_features=available_features)
 
         # Validate adapter configuration for adapter-managed providers.
-        # Skip when credentials came from a vault reference — either still a
+        # Skip when provider_config contains vault references — either still a
         # vault:// string (execution path) or already replaced with the
         # {"__vault_mock__": True} sentinel by the flow validator sanitizer.
-        # In both cases the real credentials are unavailable here and will be
+        # In both cases the real values are unavailable here and will be
         # resolved at execution time.
-        # When credentials is a plain dict, run validation so missing fields
-        # are caught as early as possible.
         from docpipe.integrations.secrets.secret_provider import is_vault_reference
 
-        credentials_is_vault = is_vault_reference(self.credentials) or (
-            isinstance(self.credentials, dict) and self.credentials.get("__vault_mock__")
-        )
-        if self.provider in ADAPTER_MANAGED_PROVIDERS and not credentials_is_vault:
+        provider_config_has_vault = any(
+            is_vault_reference(v) for v in self.provider_config.values() if isinstance(v, str)
+        ) or self.provider_config.get("__vault_mock__")
+        if self.provider in ADAPTER_MANAGED_PROVIDERS and not provider_config_has_vault:
             try:
                 # Attempt to build adapter config to trigger Pydantic validation
                 # This will catch missing required fields like secret_key
@@ -342,8 +339,7 @@ class IngestSourceOperator(AbstractOperator):
 
         Expected parameters:
         - provider: The storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, custom)
-        - connection_params: Provider-specific connection parameters
-        - credentials: Authentication credentials
+        - provider_config: All provider-specific parameters including credentials
         - max_files: Maximum number of files to ingest
         - include_filter: Comma-separated list of file extensions to include
         - ignore_hidden_files: Skip files starting with '.' (default: True)
@@ -352,9 +348,8 @@ class IngestSourceOperator(AbstractOperator):
         """
         super().__init__(config)
         self.provider: str = config.get(PROVIDER_KEY, "").lower()
-        self.connection_params: dict[str, Any] = config.get(CONNECTION_PARAMS_KEY) or {}
-        self.credentials: dict[str, Any] = config.get(CREDENTIALS_KEY) or {}
         self.max_files: int = config.get(MAX_FILES_KEY, MAX_FILES_DEFAULT_VALUE)
+        self.provider_config: dict[str, Any] = dict(config.get(PROVIDER_CONFIG_KEY) or {})
 
         # Get supported extensions
         from docpipe.core.operators.operator_utils import get_supported_file_extensions
@@ -481,6 +476,37 @@ class IngestSourceOperator(AbstractOperator):
 
         return [output_table], metadata
 
+    def _process_doc_batch(
+        self,
+        *,
+        batch: list[Document],
+        total_fetched: int,
+        metadata: dict[str, Any],
+        doc_data: list[dict[str, Any]],
+        max_limit: int,
+    ) -> int:
+        """Process a batch of documents up to max_limit total processed docs."""
+        processed_in_batch = 0
+        current_total = len(doc_data)
+        for idx, doc in enumerate(batch):
+            if current_total >= max_limit:
+                logger.info("Reached max files limit: %d", max_limit, extra=self.common_log_arguments)
+                break
+            global_idx = total_fetched - len(batch) + idx
+            processed_doc = self.process_document(doc, global_idx, metadata)
+            if processed_doc:
+                doc_data.append(processed_doc)
+                current_total += 1
+                processed_in_batch += 1
+        return processed_in_batch
+
+    def _get_document_iterator(self) -> Iterator[Document]:
+        """Get document iterator from loader, supporting lazy_load if available."""
+        loader: BaseLoader = self._get_loader()
+        if hasattr(loader, "lazy_load"):
+            return cast(Iterator[Document], loader.lazy_load())
+        return iter(loader.load())
+
     def process_documents(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:
         """
         Process documents from the configured LangChain loader or new adapter.
@@ -499,37 +525,21 @@ class IngestSourceOperator(AbstractOperator):
             List of document dictionaries
         """
         doc_data: list[dict[str, Any]] = []
-        processed_count: int = 0
-        total_fetched: int = 0
+        total_fetched = 0
 
         try:
-            logger.info(
-                "Loading documents from %s",
-                self.provider,
-                extra=self.common_log_arguments,
-            )
-
-            # Get document iterator (lazy loading)
+            logger.info("Loading documents from %s", self.provider, extra=self.common_log_arguments)
             if SourceAdapterFactory.is_registered(self.provider):
-                # Use async generator for memory-efficient streaming
                 return self._process_documents_from_adapter(metadata)
-            loader: BaseLoader = self._get_loader()
-            # Use lazy_load if available, otherwise fall back to load()
-            if hasattr(loader, "lazy_load"):
-                documents = cast(Iterator[Document], loader.lazy_load())
-            else:
-                documents = iter(loader.load())
+            documents = self._get_document_iterator()
 
-            # Process documents in batches until max_files newly processed docs reached
-            while processed_count < self.max_files:
-                # Fetch next batch of documents
+            while len(doc_data) < self.max_files:
                 batch = list(itertools.islice(documents, self.max_files))
-
                 if not batch:
                     logger.info(
                         "No more documents available. Total fetched: %d, processed: %d",
                         total_fetched,
-                        processed_count,
+                        len(doc_data),
                         extra=self.common_log_arguments,
                     )
                     break
@@ -541,45 +551,24 @@ class IngestSourceOperator(AbstractOperator):
                     total_fetched,
                     extra=self.common_log_arguments,
                 )
-
-                # Process each document in the batch
-                for idx, doc in enumerate(batch):
-                    if processed_count >= self.max_files:
-                        logger.info(
-                            "Reached max files limit: %d",
-                            self.max_files,
-                            extra=self.common_log_arguments,
-                        )
-                        break
-
-                    # Calculate global index for this document
-                    global_idx = total_fetched - len(batch) + idx
-
-                    # Process individual document
-                    processed_doc: dict[str, Any] | None = self.process_document(doc, global_idx, metadata)
-                    if processed_doc:
-                        doc_data.append(processed_doc)
-                        processed_count += 1
-
-                # If we've processed enough documents, stop fetching more batches
-                if processed_count >= self.max_files:
-                    break
+                self._process_doc_batch(
+                    batch=batch,
+                    total_fetched=total_fetched,
+                    metadata=metadata,
+                    doc_data=doc_data,
+                    max_limit=self.max_files,
+                )
 
             logger.info(
                 "Fetched %d documents, processed %d new documents from %s",
                 total_fetched,
-                processed_count,
+                len(doc_data),
                 self.provider,
                 extra=self.common_log_arguments,
             )
 
         except Exception as e:
-            logger.error(
-                "Error loading documents from %s: %s",
-                self.provider,
-                e,
-                extra=self.common_log_arguments,
-            )
+            logger.error("Error loading documents from %s: %s", self.provider, e, extra=self.common_log_arguments)
             self.record_failed_document(
                 metadata=metadata,
                 doc_id="loader_error",
@@ -588,6 +577,39 @@ class IngestSourceOperator(AbstractOperator):
             )
 
         return doc_data
+
+    @staticmethod
+    def _domain_doc_to_langchain(domain_doc: Any) -> Document:
+        """Convert a domain Document to a LangChain Document with metadata."""
+        langchain_doc = Document(
+            page_content="",
+            metadata={
+                "source": domain_doc.source_url,
+                "name": domain_doc.name,
+                "id": domain_doc.id,
+                "last_modified": domain_doc.modified_time.isoformat() if domain_doc.modified_time else None,
+                "size": domain_doc.size,
+                "mimetype": domain_doc.mimetype,
+                "extension": domain_doc.extension,
+                "has_binary_content": True,
+                **domain_doc.metadata,
+            },
+        )
+        langchain_doc._binary_content = domain_doc.content  # type: ignore[attr-defined]
+        return langchain_doc
+
+    def _run_async_generator_in_sync_context(self, async_coro: Any) -> None:
+        """Run an async coroutine safely in synchronous execution context."""
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(async_coro)
+        else:
+            import concurrent.futures
+
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, async_coro)
+                future.result()
 
     def _process_documents_from_adapter(self, metadata: dict[str, Any]) -> list[dict[str, Any]]:
         """
@@ -606,109 +628,57 @@ class IngestSourceOperator(AbstractOperator):
         Raises:
             ValueError: If provider is not registered or configuration is invalid
         """
-        # Create adapter instance and build config
         adapter, config = self._build_adapter_config(self.provider)
-
         doc_data: list[dict[str, Any]] = []
-        processed_count: int = 0
-        total_fetched: int = 0
+        total_fetched = 0
 
-        # Process documents using async generator with batch-fetch logic
         async def process_async_generator():
-            """Process async generator."""
-            nonlocal processed_count, total_fetched
-
+            nonlocal total_fetched
             batch: list[Document] = []
-            batch_size = self.max_files
 
-            # Iterate through async generator
             async for domain_doc in adapter.fetch_documents(config):  # type: ignore[misc]
-                # Convert domain Document to LangChain Document
-                langchain_doc = Document(
-                    page_content="",
-                    metadata={
-                        "source": domain_doc.source_url,
-                        "name": domain_doc.name,
-                        "id": domain_doc.id,
-                        "last_modified": domain_doc.modified_time.isoformat() if domain_doc.modified_time else None,
-                        "size": domain_doc.size,
-                        "mimetype": domain_doc.mimetype,
-                        "extension": domain_doc.extension,
-                        "has_binary_content": True,
-                        **domain_doc.metadata,
-                    },
-                )
-                langchain_doc._binary_content = domain_doc.content  # type: ignore[attr-defined]
-
-                batch.append(langchain_doc)
+                batch.append(self._domain_doc_to_langchain(domain_doc))
                 total_fetched += 1
 
-                # Process batch when it reaches batch_size
-                if len(batch) >= batch_size:
+                if len(batch) >= self.max_files:
                     logger.info(
                         "Fetched batch of %d documents (total fetched: %d)",
                         len(batch),
                         total_fetched,
                         extra=self.common_log_arguments,
                     )
-
-                    # Process documents in batch
-                    for idx, doc in enumerate(batch):
-                        if processed_count >= self.max_files:
-                            logger.info(
-                                "Reached max files limit: %d",
-                                self.max_files,
-                                extra=self.common_log_arguments,
-                            )
-                            return  # Stop processing
-
-                        global_idx = total_fetched - len(batch) + idx
-                        processed_doc = self.process_document(doc, global_idx, metadata)
-                        if processed_doc:
-                            doc_data.append(processed_doc)
-                            processed_count += 1
-
-                    # Clear batch and check if we've processed enough
+                    self._process_doc_batch(
+                        batch=batch,
+                        total_fetched=total_fetched,
+                        metadata=metadata,
+                        doc_data=doc_data,
+                        max_limit=self.max_files,
+                    )
                     batch.clear()
-                    if processed_count >= self.max_files:
-                        return  # Stop fetching more documents
+                    if len(doc_data) >= self.max_files:
+                        return
 
-            # Process remaining documents in final batch
-            if batch and processed_count < self.max_files:
+            if batch and len(doc_data) < self.max_files:
                 logger.info(
                     "Fetched final batch of %d documents (total fetched: %d)",
                     len(batch),
                     total_fetched,
                     extra=self.common_log_arguments,
                 )
+                self._process_doc_batch(
+                    batch=batch,
+                    total_fetched=total_fetched,
+                    metadata=metadata,
+                    doc_data=doc_data,
+                    max_limit=self.max_files,
+                )
 
-                for idx, doc in enumerate(batch):
-                    if processed_count >= self.max_files:
-                        break
-
-                    global_idx = total_fetched - len(batch) + idx
-                    processed_doc = self.process_document(doc, global_idx, metadata)
-                    if processed_doc:
-                        doc_data.append(processed_doc)
-                        processed_count += 1
-
-        # Run async generator in sync context
-        try:
-            asyncio.get_running_loop()
-            # Event loop already running - run in separate thread
-            import concurrent.futures
-
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, process_async_generator())
-                future.result()
-        except RuntimeError:
-            # No event loop - safe to create new one
-            asyncio.run(process_async_generator())
+        self._run_async_generator_in_sync_context(process_async_generator())
 
         logger.info(
             "Fetched %d documents, processed %d new documents from %s",
             total_fetched,
-            processed_count,
+            len(doc_data),
             self.provider,
             extra=self.common_log_arguments,
         )
@@ -735,16 +705,58 @@ class IngestSourceOperator(AbstractOperator):
         # Create adapter instance to access its config builder
         adapter = SourceAdapterFactory.create(provider)
 
-        # Delegate configuration building to the adapter
+        # Delegate configuration building to the adapter, passing the unified
+        # provider_config dict.
         config = adapter.build_config_from_operator_params(
-            connection_params=self.connection_params,
-            credentials=self.credentials,
+            provider_config=self.provider_config,
             included_extensions=self.included_extensions,
             max_files=self.max_files,
         )
 
         # Return both adapter and config to avoid creating adapter twice
         return adapter, config
+
+    @staticmethod
+    def _extract_file_extension(*, doc_metadata: dict[str, Any], doc_name: str) -> str:
+        """Extract and normalize file extension from metadata or document name."""
+        file_extension: str = doc_metadata.get("extension", "")
+        if not file_extension:
+            file_extension = pathlib.Path(doc_name).suffix.lower()
+        if file_extension and not file_extension.startswith("."):
+            file_extension = f".{file_extension}"
+        return file_extension
+
+    @staticmethod
+    def _parse_modified_time(raw_time: int | float | str | None) -> int | float:
+        """Preserve numeric timestamps for comparison, or parse an ISO string."""
+        if isinstance(raw_time, (int, float)):
+            return raw_time
+        if isinstance(raw_time, str):
+            try:
+                from dateutil import parser
+
+                return int(parser.parse(raw_time).timestamp())
+            except Exception:
+                return 0
+        return 0
+
+    def _should_skip_extension(self, *, file_extension: str, source: str, metadata: dict[str, Any]) -> bool:
+        """Check if document should be skipped based on extension filters."""
+        if self.excluded_extensions and file_extension in self.excluded_extensions:
+            logger.info("Skipping document based on exclusion filter: %s", source, extra=self.common_log_arguments)
+            self.record_skipped_document(
+                metadata=metadata, doc_id=source, doc_name=source, reason="File extension in exclusion list"
+            )
+            return True
+
+        if self.included_extensions and file_extension not in self.included_extensions:
+            logger.info("Skipping document based on inclusion filter: %s", source, extra=self.common_log_arguments)
+            self.record_skipped_document(
+                metadata=metadata, doc_id=source, doc_name=source, reason="File extension not in inclusion list"
+            )
+            return True
+
+        return False
 
     def process_document(self, doc: Document, idx: int, metadata: dict[str, Any]) -> dict[str, Any] | None:
         """
@@ -759,91 +771,30 @@ class IngestSourceOperator(AbstractOperator):
             Processed document dictionary or None if skipped/failed
         """
         try:
-            # Extract source information
             source: str = doc.metadata.get("source", f"unknown_{idx}")
             doc_name: str = doc.metadata.get("name", source)
 
-            # Get extension for filtering
-            # First try metadata (set by adapters), then fall back to filename
-            file_extension: str = doc.metadata.get("extension", "")
-            if not file_extension:
-                file_extension = pathlib.Path(doc_name).suffix.lower()
-
-            # Ensure extension starts with dot
-            if file_extension and not file_extension.startswith("."):
-                file_extension = f".{file_extension}"
-
-            # Check excluded extensions first
-            if self.excluded_extensions and file_extension in self.excluded_extensions:
-                logger.info(
-                    "Skipping document based on exclusion filter: %s",
-                    source,
-                    extra=self.common_log_arguments,
-                )
-                self.record_skipped_document(
-                    metadata=metadata,
-                    doc_id=source,
-                    doc_name=source,
-                    reason="File extension in exclusion list",
-                )
+            file_extension = self._extract_file_extension(doc_metadata=doc.metadata, doc_name=doc_name)
+            if self._should_skip_extension(file_extension=file_extension, source=source, metadata=metadata):
                 return None
 
-            # Check included extensions
-            if self.included_extensions and file_extension not in self.included_extensions:
-                logger.info(
-                    "Skipping document based on inclusion filter: %s",
-                    source,
-                    extra=self.common_log_arguments,
-                )
-                self.record_skipped_document(
-                    metadata=metadata,
-                    doc_id=source,
-                    doc_name=source,
-                    reason="File extension not in inclusion list",
-                )
-                return None
-
-            # Generate document ID (use source hash for consistency)
             doc_id: str = hashlib.md5(source.encode(), usedforsecurity=False).hexdigest()
-
-            # Check if document was previously processed
-            # For cloud sources, we use the source path as a proxy for modification time
-            modified_time: int | str = doc.metadata.get("last_modified", 0)
-            if isinstance(modified_time, str):
-                # Try to parse timestamp if it's a string
-                try:
-                    from dateutil import parser
-
-                    modified_time = int(parser.parse(modified_time).timestamp())
-                except Exception:
-                    modified_time = 0
+            modified_time = self._parse_modified_time(doc.metadata.get("last_modified", 0))
 
             if self.previously_processed_docs_dict and is_doc_previously_processed(
                 previously_processed_docs_dict=self.previously_processed_docs_dict,
                 doc_id=doc_id,
                 modified_time=modified_time,
             ):
-                logger.info(
-                    "Skipping already processed document: %s",
-                    source,
-                    extra=self.common_log_arguments,
-                )
+                logger.info("Skipping already processed document: %s", source, extra=self.common_log_arguments)
                 self.record_skipped_document(
-                    metadata=metadata,
-                    doc_id=doc_id,
-                    doc_name=source,
-                    reason="Document already processed",
+                    metadata=metadata, doc_id=doc_id, doc_name=source, reason="Document already processed"
                 )
                 return None
 
-            # Extract document format from metadata
-            # Use file_extension (already computed and validated) instead of re-reading from metadata
             document_format: str = file_extension if file_extension else doc.metadata.get("extension", "")
-
             source_id = doc.metadata.get("source_id", source)
 
-            # Create processed document
-            # Use doc_name (actual filename) for the name field, not source (URL)
             processed_doc: dict[str, Any] = {
                 "id": doc_id,
                 "name": doc_name,
@@ -863,10 +814,7 @@ class IngestSourceOperator(AbstractOperator):
             return processed_doc
 
         except Exception as e:
-            logger.error(
-                f"Error processing document {idx}: {e!s}",
-                extra=self.common_log_arguments,
-            )
+            logger.error("Error processing document %s: %s", idx, e, extra=self.common_log_arguments)
             self.record_failed_document(
                 metadata=metadata,
                 doc_id=str(idx),
@@ -907,7 +855,7 @@ class IngestSourceOperator(AbstractOperator):
         # 2. Custom / FileNet / Other
         # This allows users to provide a python path to ANY loader class
         if self.provider == "custom":
-            loader_path = self.connection_params.get("loader_class_path")
+            loader_path = self.provider_config.get("loader_class_path")
             if not loader_path:
                 msg = "Provider is 'custom' but 'loader_class_path' is missing."
                 raise ValueError(msg)
@@ -919,8 +867,8 @@ class IngestSourceOperator(AbstractOperator):
             module: Any = importlib.import_module(module_name)
             loader_class: Any = getattr(module, class_name)
 
-            # Initialize with merged params and credentials
-            init_kwargs: dict[str, Any] = {**self.connection_params, **self.credentials}
+            # Initialize with all provider_config params
+            init_kwargs: dict[str, Any] = dict(self.provider_config)
             return loader_class(**init_kwargs)
 
         msg = f"Provider '{self.provider}' is not supported."
@@ -930,6 +878,7 @@ class IngestSourceOperator(AbstractOperator):
     def _get_provider_schemas() -> dict[str, Any]:
         """Return provider-specific connection field schemas in docpipe metadata vocabulary."""
         from docpipe.core.operators.ingest.adapters.outbound.sources.box.config import BoxSourceConfig
+        from docpipe.core.operators.ingest.adapters.outbound.sources.dropbox.config import DropboxSourceConfig
         from docpipe.core.operators.ingest.adapters.outbound.sources.filesystem.config import FilesystemSourceConfig
         from docpipe.core.operators.ingest.adapters.outbound.sources.google_drive.config import GoogleDriveSourceConfig
         from docpipe.core.operators.ingest.adapters.outbound.sources.onedrive.config import OneDriveSourceConfig
@@ -946,6 +895,7 @@ class IngestSourceOperator(AbstractOperator):
             "onedrive": OperatorUtils.model_schema_to_docpipe(schema=OneDriveSourceConfig.model_json_schema()),
             "sharepoint": OperatorUtils.model_schema_to_docpipe(schema=SharePointSourceConfig.model_json_schema()),
             "box_driver": OperatorUtils.model_schema_to_docpipe(schema=BoxSourceConfig.model_json_schema()),
+            "dropbox": OperatorUtils.model_schema_to_docpipe(schema=DropboxSourceConfig.model_json_schema()),
             "web": OperatorUtils.model_schema_to_docpipe(schema=WebPageSourceConfig.model_json_schema()),
         }
 
@@ -1023,34 +973,26 @@ class IngestSourceOperator(AbstractOperator):
             OperatorConstants.Misc.SDK: True,
             OperatorConstants.Misc.CATEGORY: IngestSourceOperator.category.value,
             OperatorConstants.Misc.LABEL: "Remote Source Ingest",
-            OperatorConstants.Config.DESCRIPTION: "Ingest documents from remote storage sources (S3, IBM COS, SharePoint, OneDrive, Google Drive).",
+            OperatorConstants.Config.DESCRIPTION: "Ingest documents from remote storage sources (S3, IBM COS, SharePoint, OneDrive, Google Drive, Box, Dropbox, filesystem, web).",
             OperatorConstants.Config.FEATURES: metadata_features,
             OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: IngestSourceOperator.is_available(),
             OperatorConstants.Config.ATTRIBUTES: {
                 PROVIDER_KEY: {
                     OperatorConstants.Columns.NAME: "Provider",
-                    OperatorConstants.Config.DESCRIPTION: "Storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, custom)",
+                    OperatorConstants.Config.DESCRIPTION: "Storage provider (s3, ibm_cos, sharepoint, onedrive, google_drive, box_driver, dropbox, filesystem, web, custom)",
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
                     OperatorConstants.Config.VALID_VALUES: sorted(ADAPTER_MANAGED_PROVIDERS | {"custom"}),
                 },
-                CONNECTION_PARAMS_KEY: {
-                    OperatorConstants.Columns.NAME: "Connection Parameters",
-                    OperatorConstants.Config.DESCRIPTION: "Provider-specific connection parameters (bucket, prefix, folder_id, etc.)",
+                PROVIDER_CONFIG_KEY: {
+                    OperatorConstants.Columns.NAME: "Provider Configuration",
+                    OperatorConstants.Config.DESCRIPTION: (
+                        "All provider-specific parameters in a single dict, including connection details "
+                        "and credentials."
+                    ),
                     OperatorConstants.Config.REQUIRED: True,
                     OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
                     OperatorConstants.Config.PROVIDERS: IngestSourceOperator._get_provider_schemas(),
-                },
-                CREDENTIALS_KEY: {
-                    OperatorConstants.Columns.NAME: "Credentials",
-                    OperatorConstants.Config.DESCRIPTION: (
-                        "Authentication credentials for the provider. Optional — credential fields "
-                        "can be passed directly inside connection_params instead."
-                    ),
-                    OperatorConstants.Config.DEFAULT: {},
-                    OperatorConstants.Config.REQUIRED: False,
-                    OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
-                    OperatorConstants.Config.SENSITIVE: True,
                 },
                 MAX_FILES_KEY: {
                     OperatorConstants.Columns.NAME: "Max Files",

@@ -175,6 +175,7 @@ class TestPostgresJobStatsStoreInterface:
             mock_job_run_stats.failed_docs = sample_job_stats_dto.failed_docs
             mock_job_run_stats.skipped_docs = sample_job_stats_dto.skipped_docs
             mock_job_run_stats.heartbeat_timestamp = None
+            mock_job_run_stats.progress_timestamp = 0
             mock_job_run_stats.deleted_doc_count = 0
             mock_job_run_stats.total_pages_processed = 0
             mock_job_run_stats.page_type_stats = {}
@@ -183,6 +184,7 @@ class TestPostgresJobStatsStoreInterface:
             mock_job_run_stats.container_kind = None
             mock_job_run_stats.container_id = None
             mock_job_run_stats.flow_id = None
+            mock_job_run_stats.flow_name = None
             mock_job_run_stats.user_id = None
             mock_job_run_stats.account_id = None
             mock_job_run_stats.user_entitlements = None
@@ -316,6 +318,7 @@ class TestPostgresJobStatsStoreInterface:
             mock_job_run_stats.failed_docs = 0
             mock_job_run_stats.skipped_docs = 0
             mock_job_run_stats.heartbeat_timestamp = None
+            mock_job_run_stats.progress_timestamp = 0
             mock_job_run_stats.deleted_doc_count = 0
             mock_job_run_stats.total_pages_processed = 0
             mock_job_run_stats.page_type_stats = {}
@@ -324,6 +327,7 @@ class TestPostgresJobStatsStoreInterface:
             mock_job_run_stats.container_kind = None
             mock_job_run_stats.container_id = None
             mock_job_run_stats.flow_id = None
+            mock_job_run_stats.flow_name = None
             mock_job_run_stats.user_id = None
             mock_job_run_stats.account_id = None
             mock_job_run_stats.user_entitlements = None

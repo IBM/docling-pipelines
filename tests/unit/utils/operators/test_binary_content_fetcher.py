@@ -72,8 +72,7 @@ class TestGetBinaryContentCloudSource:
 
         ingest_source = {
             OperatorConstants.Config.PROVIDER: "s3",
-            OperatorConstants.Config.CONNECTION_PARAMS: {"bucket": "my-bucket"},
-            OperatorConstants.Config.CREDENTIALS: {"access_key": "key"},
+            OperatorConstants.Config.PROVIDER_CONFIG: {"bucket": "my-bucket", "access_key": "key"},
         }
 
         with (
@@ -102,8 +101,7 @@ class TestGetBinaryContentCloudSource:
         from docpipe.utils.operators.binary_content_fetcher import get_binary_content
 
         ingest_source: dict = {
-            OperatorConstants.Config.CONNECTION_PARAMS: {},
-            OperatorConstants.Config.CREDENTIALS: {},
+            OperatorConstants.Config.PROVIDER_CONFIG: {},
         }
 
         result = get_binary_content(
@@ -119,8 +117,7 @@ class TestGetBinaryContentCloudSource:
 
         ingest_source = {
             OperatorConstants.Config.PROVIDER: "s3",
-            OperatorConstants.Config.CONNECTION_PARAMS: {},
-            OperatorConstants.Config.CREDENTIALS: {},
+            OperatorConstants.Config.PROVIDER_CONFIG: {},
         }
 
         result = get_binary_content(
@@ -136,8 +133,7 @@ class TestGetBinaryContentCloudSource:
 
         ingest_source = {
             OperatorConstants.Config.PROVIDER: "unknown_provider",
-            OperatorConstants.Config.CONNECTION_PARAMS: {},
-            OperatorConstants.Config.CREDENTIALS: {},
+            OperatorConstants.Config.PROVIDER_CONFIG: {},
         }
 
         with (
@@ -178,8 +174,6 @@ class TestGetAdapterForProvider:
         ):
             result = get_adapter_for_provider(
                 provider="s3",
-                connection_params={"bucket": "b"},
-                credentials={"key": "k"},
             )
 
         assert result is mock_adapter
@@ -199,8 +193,6 @@ class TestGetAdapterForProvider:
         ):
             result = get_adapter_for_provider(
                 provider="no_such_provider",
-                connection_params={},
-                credentials={},
             )
 
         assert result is None

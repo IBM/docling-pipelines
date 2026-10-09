@@ -267,3 +267,43 @@ class TestIncrementalUpdateService:
             "doc-1": {"modified_time": 1, "job_run_id": "run-1"},
             "doc-2": {"modified_time": 2, "job_run_id": "run-1"},
         }
+
+
+class TestIncrementalUpdateServiceStaticMethods:
+    """Verify incremental metadata helpers are static and callable without an instance."""
+
+    STATIC_METHODS = (
+        "filter_rows",
+        "get_deleted_doc_ids_from_dict",
+        "_prepare_records_for_save",
+        "_get_ids_to_delete",
+    )
+
+    def test_service_helpers_are_static(self):
+        """Every converted service helper must be a true staticmethod."""
+        import inspect
+
+        for method_name in self.STATIC_METHODS:
+            assert isinstance(inspect.getattr_static(IncrementalUpdateService, method_name), staticmethod), (
+                f"{method_name} is not a staticmethod"
+            )
+
+    def test_get_deleted_doc_ids_from_dict_class_call(self):
+        """Deleted-doc detection works when called directly on the class."""
+        assert IncrementalUpdateService.get_deleted_doc_ids_from_dict(
+            previously_processed_docs_dict={"doc-1": 1, "doc-2": 2}, doc_ids=["doc-1"]
+        ) == ["doc-2"]
+
+        assert (
+            IncrementalUpdateService.get_deleted_doc_ids_from_dict(previously_processed_docs_dict={}, doc_ids=["doc-1"])
+            == []
+        )
+
+    def test_get_ids_to_delete_class_call(self):
+        """Failed-doc detection works when called directly on the class."""
+        input_table = pa.table({OperatorConstants.Misc.ID: ["doc-1", "doc-2", "doc-3"]})
+        result_table = pa.table({OperatorConstants.Misc.ID: ["doc-1", "doc-3"]})
+
+        assert set(IncrementalUpdateService._get_ids_to_delete(input_table=input_table, result_table=result_table)) == {
+            "doc-2"
+        }

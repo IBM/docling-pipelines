@@ -44,6 +44,9 @@ build/
 .env
 .env.local
 
+# Local mise overrides
+/mise.local.toml
+
 # Runtime data and logs
 /data/
 *.parquet

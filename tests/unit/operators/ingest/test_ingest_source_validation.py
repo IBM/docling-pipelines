@@ -10,11 +10,9 @@ class TestIngestSourceOperatorValidation:
         """Test that validation catches missing secret_key for S3 provider."""
         config = {
             "provider": "s3",
-            "credentials": {
+            "provider_config": {
                 "access_key": "test_access_key",
                 # Missing secret_key - should trigger validation error
-            },
-            "connection_params": {
                 "bucket": "test-bucket",
                 "prefix": "test/",
             },
@@ -23,9 +21,9 @@ class TestIngestSourceOperatorValidation:
 
         operator = IngestSourceOperator(config)
 
-        errors = []
-        warnings = []
-        available_features = []
+        errors: list[str] = []
+        warnings: list[str] = []
+        available_features: list[str] = []
 
         operator.validate(errors=errors, warnings=warnings, available_features=available_features)
 
@@ -39,11 +37,9 @@ class TestIngestSourceOperatorValidation:
         """Test that validation catches missing access_key for S3 provider."""
         config = {
             "provider": "s3",
-            "credentials": {
+            "provider_config": {
                 "secret_key": "test_secret_key",  # pragma: allowlist secret
                 # Missing access_key - should trigger validation error
-            },
-            "connection_params": {
                 "bucket": "test-bucket",
                 "prefix": "test/",
             },
@@ -52,9 +48,9 @@ class TestIngestSourceOperatorValidation:
 
         operator = IngestSourceOperator(config)
 
-        errors = []
-        warnings = []
-        available_features = []
+        errors: list[str] = []
+        warnings: list[str] = []
+        available_features: list[str] = []
 
         operator.validate(errors=errors, warnings=warnings, available_features=available_features)
 
@@ -68,11 +64,9 @@ class TestIngestSourceOperatorValidation:
         """Test that validation catches missing bucket for S3 provider."""
         config = {
             "provider": "s3",
-            "credentials": {
+            "provider_config": {
                 "access_key": "test_access_key",
                 "secret_key": "test_secret_key",  # pragma: allowlist secret
-            },
-            "connection_params": {
                 # Missing bucket - should trigger validation error
                 "prefix": "test/",
             },
@@ -81,9 +75,9 @@ class TestIngestSourceOperatorValidation:
 
         operator = IngestSourceOperator(config)
 
-        errors = []
-        warnings = []
-        available_features = []
+        errors: list[str] = []
+        warnings: list[str] = []
+        available_features: list[str] = []
 
         operator.validate(errors=errors, warnings=warnings, available_features=available_features)
 
@@ -95,11 +89,9 @@ class TestIngestSourceOperatorValidation:
         """Test that validation passes with complete S3 configuration."""
         config = {
             "provider": "s3",
-            "credentials": {
+            "provider_config": {
                 "access_key": "test_access_key",
                 "secret_key": "test_secret_key",  # pragma: allowlist secret
-            },
-            "connection_params": {
                 "bucket": "test-bucket",
                 "prefix": "test/",
             },
@@ -108,9 +100,9 @@ class TestIngestSourceOperatorValidation:
 
         operator = IngestSourceOperator(config)
 
-        errors = []
-        warnings = []
-        available_features = []
+        errors: list[str] = []
+        warnings: list[str] = []
+        available_features: list[str] = []
 
         operator.validate(errors=errors, warnings=warnings, available_features=available_features)
 
@@ -121,11 +113,9 @@ class TestIngestSourceOperatorValidation:
         """Test that validation catches empty string credentials for S3."""
         config = {
             "provider": "s3",
-            "credentials": {
+            "provider_config": {
                 "access_key": "",  # Empty string
                 "secret_key": "test_secret_key",  # pragma: allowlist secret
-            },
-            "connection_params": {
                 "bucket": "test-bucket",
             },
             "validating_flow": True,
@@ -133,9 +123,9 @@ class TestIngestSourceOperatorValidation:
 
         operator = IngestSourceOperator(config)
 
-        errors = []
-        warnings = []
-        available_features = []
+        errors: list[str] = []
+        warnings: list[str] = []
+        available_features: list[str] = []
 
         operator.validate(errors=errors, warnings=warnings, available_features=available_features)
 
@@ -149,18 +139,17 @@ class TestIngestSourceOperatorValidation:
         """Test that validation works for other adapter-managed providers like Google Drive."""
         config = {
             "provider": "google_drive",
-            "credentials": {
+            "provider_config": {
                 # Missing required credentials for Google Drive
             },
-            "connection_params": {},
             "validating_flow": True,
         }
 
         operator = IngestSourceOperator(config)
 
-        errors = []
-        warnings = []
-        available_features = []
+        errors: list[str] = []
+        warnings: list[str] = []
+        available_features: list[str] = []
 
         operator.validate(errors=errors, warnings=warnings, available_features=available_features)
 

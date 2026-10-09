@@ -483,31 +483,48 @@ class TestStartTrackingJob:
     """Test start_tracking_job method."""
 
     def test_start_tracking_job_basic(self, *, job_tracker_service, mock_store):
-        """Start tracking creates initial job stats."""
+        """Start tracking creates initial job stats with correct flow_id and flow_name."""
         job_tracker_service.start_tracking_job(
             job_id=JOB_ID,
             job_run_id=JOB_RUN_ID,
+            flow_id="test-flow-uuid",
             flow_name="test_flow",
             user_id="test_user",
         )
 
-        # Verify store_job_stats was called
         assert mock_store.store_job_stats.called
         call_args = mock_store.store_job_stats.call_args
         job_stats = call_args[0][0]
 
         assert job_stats.job_id == JOB_ID
         assert job_stats.job_run_id == JOB_RUN_ID
-        assert job_stats.flow_id == "test_flow"
+        assert job_stats.flow_id == "test-flow-uuid"
+        assert job_stats.flow_name == "test_flow"
         assert job_stats.user_id == "test_user"
         assert job_stats.status == ExecutionStatus.RUNNING
         assert job_stats.start_time is not None
+
+    def test_start_tracking_job_flow_name_none(self, *, job_tracker_service, mock_store):
+        """start_tracking_job stores flow_name=None without error."""
+        job_tracker_service.start_tracking_job(
+            job_id=JOB_ID,
+            job_run_id=JOB_RUN_ID,
+            flow_id="test-flow-uuid",
+            flow_name=None,
+        )
+
+        call_args = mock_store.store_job_stats.call_args
+        job_stats = call_args[0][0]
+
+        assert job_stats.flow_id == "test-flow-uuid"
+        assert job_stats.flow_name is None
 
     def test_start_tracking_job_custom_initial_status(self, *, job_tracker_service, mock_store):
         """start_tracking_job stores the given initial_status when provided."""
         job_tracker_service.start_tracking_job(
             job_id=JOB_ID,
             job_run_id=JOB_RUN_ID,
+            flow_id="test-flow-uuid",
             flow_name="test_flow",
             initial_status=ExecutionStatus.QUEUED,
         )
@@ -519,7 +536,9 @@ class TestStartTrackingJob:
 
     def test_start_tracking_job_default_user(self, *, job_tracker_service, mock_store):
         """Start tracking with no user_id uses default."""
-        job_tracker_service.start_tracking_job(job_id=JOB_ID, job_run_id=JOB_RUN_ID, flow_name="test_flow")
+        job_tracker_service.start_tracking_job(
+            job_id=JOB_ID, job_run_id=JOB_RUN_ID, flow_id="test-flow-uuid", flow_name="test_flow"
+        )
 
         call_args = mock_store.store_job_stats.call_args
         job_stats = call_args[0][0]
@@ -1732,6 +1751,49 @@ class TestRequestDeleteJobRun:
         result = job_tracker_service.request_delete_job_run(job_run_id=JOB_RUN_ID)
         mock_store.delete_job_stats.assert_called_once_with(JOB_RUN_ID)
         assert JOB_RUN_ID in result
+
+
+class TestDeleteJobRunsByJobId:
+    """Tests for JobTrackerService.delete_job_runs_by_job_id."""
+
+    def test_no_runs_returns_zero(self, *, job_tracker_service, mock_store):
+        """Returns 0 immediately when no job runs exist for the given job_id."""
+        mock_store.list_job_runs.return_value = []
+        result = job_tracker_service.delete_job_runs_by_job_id(job_id=JOB_ID)
+        assert result == 0
+        mock_store.delete_job_stats.assert_not_called()
+
+    def test_deletes_all_runs_for_job_id(self, *, job_tracker_service, mock_store):
+        """Deletes every run returned by list_job_runs and returns the count."""
+        run_id_1 = "aaaaaaaa-0000-0000-0000-000000000001"
+        run_id_2 = "aaaaaaaa-0000-0000-0000-000000000002"
+        mock_store.list_job_runs.return_value = [
+            JobStats(job_id=JOB_ID, job_run_id=run_id_1),
+            JobStats(job_id=JOB_ID, job_run_id=run_id_2),
+        ]
+        result = job_tracker_service.delete_job_runs_by_job_id(job_id=JOB_ID)
+        assert result == 2
+        mock_store.delete_job_stats.assert_any_call(run_id_1)
+        mock_store.delete_job_stats.assert_any_call(run_id_2)
+        assert mock_store.delete_job_stats.call_count == 2
+
+    def test_partial_failure_continues_and_returns_deleted_count(self, *, job_tracker_service, mock_store):
+        """A failing delete for one run does not abort others; only successful count is returned."""
+        run_id_ok = "bbbbbbbb-0000-0000-0000-000000000001"
+        run_id_bad = "bbbbbbbb-0000-0000-0000-000000000002"
+        mock_store.list_job_runs.return_value = [
+            JobStats(job_id=JOB_ID, job_run_id=run_id_ok),
+            JobStats(job_id=JOB_ID, job_run_id=run_id_bad),
+        ]
+        mock_store.delete_job_stats.side_effect = [None, RuntimeError("store error")]
+        result = job_tracker_service.delete_job_runs_by_job_id(job_id=JOB_ID)
+        assert result == 1
+
+    def test_list_called_with_correct_job_id(self, *, job_tracker_service, mock_store):
+        """list_job_runs is called with the provided job_id."""
+        mock_store.list_job_runs.return_value = []
+        job_tracker_service.delete_job_runs_by_job_id(job_id=JOB_ID)
+        mock_store.list_job_runs.assert_called_once_with(job_id=JOB_ID, limit=100_000)
 
 
 class TestBuildBatchSummaryLines:

@@ -838,7 +838,7 @@ export function Canvas(): React.JSX.Element {
       try {
         const res = await createJobRun({
           entity: {
-            job: { asset_ref: flowId, asset_ref_type: JOB_ASSET_REF_TYPE, name: flowId },
+            job: { asset_ref: flowId, asset_ref_type: JOB_ASSET_REF_TYPE, name: flow.name ?? flowId },
             job_run: { configuration: {} },
           },
         });
@@ -960,10 +960,9 @@ export function Canvas(): React.JSX.Element {
    * is never empty when the flow is saved without opening the panel.
    *
    * Three resolution strategies per attribute, tried in order:
-   *   1. Scalar  — attr.default directly (null is included — it is an explicit backend default).
+   *   1. Scalar  — attr.default when it is a non-null value (explicit backend default).
    *   2. providers style (e.g. provider_config) — built from the active provider's property defaults.
-   *   3. properties style (e.g. text_extraction) — built from a flat sub-properties map.
-   * undefined means the backend declared no default at all and is excluded.
+   *   3. properties style (e.g. output_format, text_extraction) — built from a flat sub-properties map.
    */
   const applyNodeDefaults = useCallback((nodeId: string, nodeOp: string): void => {
     const controller = canvasControllerRef.current;
@@ -988,7 +987,7 @@ export function Canvas(): React.JSX.Element {
 
     const defaults = Object.entries(attrs).reduce<Record<string, unknown>>(
       (acc, [paramId, attr]) => {
-        let value: unknown = attr.default;
+        let value: unknown = attr.default ?? undefined;
 
         // providers style (e.g. vectordb/embeddings provider_config)
         if (value === undefined && attr.providers && activeProvider) {
@@ -1002,7 +1001,7 @@ export function Canvas(): React.JSX.Element {
           }
         }
 
-        // properties style (e.g. extract text_extraction / entity_extraction)
+        // properties style (e.g. output_format, output_structure, text_extraction)
         if (value === undefined && attr.properties) {
           const built: Record<string, unknown> = {};
           for (const [k, propDef] of Object.entries(attr.properties)) {

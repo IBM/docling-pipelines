@@ -52,6 +52,7 @@ def sample_job_stats(sample_node_stats):
         end_time=1704067300,
         duration=100,
         heartbeat_timestamp=1704067300,
+        progress_timestamp=1704067250,
         total_docs=10,
         processed_docs=10,
         completed_docs=10,
@@ -87,6 +88,8 @@ class TestToDtoConversion:
         assert dto.start_time == 1704067200
         assert dto.end_time == 1704067300
         assert dto.duration == 100
+        assert dto.heartbeat_timestamp == 1704067300
+        assert dto.progress_timestamp == 1704067250
 
     def test_to_dto_document_counts(self, sample_job_stats):
         """Should convert document count fields correctly."""
@@ -107,8 +110,42 @@ class TestToDtoConversion:
         assert dto.container_kind == "docker"
         assert dto.container_id == "container-123"
         assert dto.flow_id == "flow-789"
+        assert dto.flow_name is None  # sample_job_stats has no flow_name set
         assert dto.user_id == "user-001"
         assert dto.account_id == "account-001"
+
+    def test_to_dto_flow_name_mapped(self):
+        """flow_name is passed through from domain model to DTO."""
+        job_stats = JobStats(
+            job_id="12345678-1234-1234-1234-123456789abc",
+            job_run_id="87654321-4321-4321-4321-cba987654321",
+            status=ExecutionStatus.COMPLETED,
+            start_time=1704067200,
+            flow_id="5f429668-ded4-41b5-80b9-f1d6278dc07a",
+            flow_name="flow_06_oct_2026_11_16_PM-jyoti",
+            node_stats={},
+            batch_node_stats={},
+        )
+
+        dto = JobStatsMapper.to_dto(job_stats)
+
+        assert dto.flow_id == "5f429668-ded4-41b5-80b9-f1d6278dc07a"
+        assert dto.flow_name == "flow_06_oct_2026_11_16_PM-jyoti"
+
+    def test_to_dto_flow_name_none_when_not_set(self):
+        """flow_name defaults to None when the domain model has no flow_name."""
+        job_stats = JobStats(
+            job_id="12345678-1234-1234-1234-123456789abc",
+            job_run_id="87654321-4321-4321-4321-cba987654321",
+            status=ExecutionStatus.RUNNING,
+            start_time=1704067200,
+            node_stats={},
+            batch_node_stats={},
+        )
+
+        dto = JobStatsMapper.to_dto(job_stats)
+
+        assert dto.flow_name is None
 
     def test_to_dto_json_fields(self, sample_job_stats):
         """Should convert JSON fields correctly."""
