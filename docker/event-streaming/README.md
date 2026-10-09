@@ -7,7 +7,7 @@ Run from the repository root.
 Compose requires `OPENSEARCH_PASSWORD`. Run this in each terminal before using Compose:
 
 ```bash
-export OPENSEARCH_PASSWORD='MyStrongPass@123'
+export OPENSEARCH_PASSWORD='MyStrongPass@123'  # pragma: allowlist secret
 ```
 
 ## Stage 1: Build the images
