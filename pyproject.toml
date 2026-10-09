@@ -25,7 +25,7 @@ dependencies = [
     "datatrove==0.10.0",
     "datefinder==1.0.0",
     "defusedxml==0.7.1",
-    "docling[rapidocr]==2.130.0",
+    "docling[rapidocr]==2.132.0",
     "dropbox==12.2.1",
     "duckdb==1.3.2",
     "fastapi==0.141.1",
@@ -154,23 +154,23 @@ telemetry = [
 ]
 
 rapidocr = [
-    "docling[rapidocr]==2.130.0",
+    "docling[rapidocr]==2.132.0",
 ]
 
 easyocr = [
-    "docling[easyocr]==2.130.0",
+    "docling[easyocr]==2.132.0",
 ]
 
 ocrmac = [
-    "docling[ocrmac]==2.130.0",
+    "docling[ocrmac]==2.132.0",
 ]
 
 tesserocr = [
-    "docling[tesserocr]==2.130.0",
+    "docling[tesserocr]==2.132.0",
 ]
 
 vlm_asr = [
-    "docling[vlm,asr]==2.130.0",
+    "docling[vlm,asr]==2.132.0",
 ]
 
 [project.urls]
