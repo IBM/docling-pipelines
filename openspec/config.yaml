@@ -1,0 +1,46 @@
+schema: spec-driven
+
+context: |
+  Monorepo: Python backend (src/docpipe/) + React frontend (frontend/src/)
+
+  Backend: Python 3.12, FastAPI, pyarrow, DuckDB/Postgres, docling
+  - Package: docpipe | source root: src/
+  - REST API: FastAPI app at src/docpipe/api/main.py
+  - Routes: src/docpipe/api/routes/ (flows, projects, job_runs, operators, validation, document_sets, document_libraries, documents, providers)
+  - Core engine: src/docpipe/core/ - operators, orchestration, job_management, assets, adapters
+  - Operators extend AbstractOperator; registered in DOCPIPE_OPERATORS frozenset
+  - Storage: DuckDB (default) or Postgres; abstracted via storage interfaces
+  - Orchestrators: PythonOrchestrator (default), PrefectEngine
+  - Inter-operator data is pyarrow Tables; transform() returns tuple[list[pa.Table], dict]
+  - DDD layering in core/assets/ and core/job_management/: domain/ -> application/ -> adapters/
+  - Logging: always use get_logger() from docpipe.utils.infrastructure.logging; no f-strings in log calls
+  - No emoji or non-ASCII in log statements; use %s-style formatting
+
+  Frontend: TypeScript, React 18, Vite, Redux Toolkit, Elyra Canvas, Carbon Design System
+  - Source root: frontend/src/
+  - Pages: frontend/src/pages/ (Canvas, FlowDetail, Home, ProjectDetail, Projects, RunDetails)
+  - State management: Redux Toolkit slices in frontend/src/slices/
+  - API services: frontend/src/services/api/
+  - Elyra Canvas used for the pipeline editor (canvas-page)
+  - Carbon Design System + IBM Products component library for all UI components
+
+  Spec namespace convention:
+  - frontend/* - React page and component specs
+  - backend/*  - Python API, core engine, and operator specs
+
+  Spec naming convention (capability path suffixes):
+  - Pages:                  <name>-page           (e.g. canvas-page, home-page)
+  - Panels / flyouts:       <name>-panel          (e.g. properties-panel, run-side-panel)
+  - Canvas components:      <name>-canvas         (e.g. elyra-canvas, read-only-canvas)
+  - Operator config panels: <name>-panel          (e.g. ingest-source-panel, vectordb-panel)
+  - Common UI components:   <name>                (e.g. shared-data-table, delete-modal — path under common/ is sufficient)
+  - Redux slices:           <name>-slice          (e.g. flows-slice, projects-slice)
+  - Backend APIs:           <name>-api            (e.g. flows-api, projects-api)
+
+rules:
+  proposal:
+    - Always include a Non-goals section
+    - State whether the change is frontend-only, backend-only, or full-stack
+  tasks:
+    - Break tasks into chunks of max 2 hours
+    - "Tag each task with the layer it touches: [frontend], [backend], or [both]"
