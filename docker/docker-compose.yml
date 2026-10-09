@@ -17,6 +17,7 @@ services:
       OPENSEARCH_USERNAME: admin
       OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD:?Set OPENSEARCH_PASSWORD}
     volumes:
+      - docpipe-data:/data
       - ../tests/fixtures/invoices:/documents:ro
       - ../sample_documents:/opt/app-root/src/sample_documents:ro
     depends_on:
