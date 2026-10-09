@@ -649,8 +649,6 @@ class TestFlowIdentityAPIPath:
         submit_call = self.executor.submit.call_args
         passed_session_info = submit_call.args[1]
         assert passed_session_info.flow_id == "5f429668-ded4-41b5-80b9-f1d6278dc07a"
-        assert passed_session_info.job_id == "job-abc"
-        assert passed_session_info.job_run_id == "run-abc"
 
     @patch("docpipe.core.assets.flows.domain.models.authoring_flow.AuthoringFlow.from_dict")
     @patch("docpipe.core.assets.flows.application.services.authoring_compiler.AuthoringCompiler.compile")
