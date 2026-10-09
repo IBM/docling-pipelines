@@ -13,4 +13,8 @@ export const messages = defineMessages({
     id: 'src.components.common.ErrorBoundary.errorDetails',
     defaultMessage: 'Error details (development only)',
   },
+  unexpectedError: {
+    id: 'src.components.common.ErrorBoundary.unexpectedError',
+    defaultMessage: 'An unexpected error occurred',
+  },
 });

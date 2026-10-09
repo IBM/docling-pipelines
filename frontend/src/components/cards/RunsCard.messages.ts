@@ -21,4 +21,8 @@ export const messages = defineMessages({
     id: 'src.components.cards.RunsCard.emptySubtitle',
     defaultMessage: 'Runs will be listed here.',
   },
+  loadError: {
+    id: 'src.components.cards.RunsCard.loadError',
+    defaultMessage: 'Failed to load runs.',
+  },
 });

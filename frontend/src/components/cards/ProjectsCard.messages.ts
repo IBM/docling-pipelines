@@ -29,4 +29,12 @@ export const messages = defineMessages({
     id: 'src.components.cards.ProjectsCard.viewAll',
     defaultMessage: 'View all',
   },
+  loadError: {
+    id: 'src.components.cards.ProjectsCard.loadError',
+    defaultMessage: 'Failed to load projects.',
+  },
+  createError: {
+    id: 'src.components.cards.ProjectsCard.createError',
+    defaultMessage: 'Failed to create project.',
+  },
 });

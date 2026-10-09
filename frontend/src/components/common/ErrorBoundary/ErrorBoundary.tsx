@@ -11,7 +11,7 @@ const logger = log4js.getLogger('ErrorBoundary');
 
 /** Props passed from ErrorBoundary to the default fallback UI. */
 interface ErrorFallbackProps {
-  message: string;
+  message: string | undefined;
   errorInfo: ErrorInfo | null;
   onReset: () => void;
 }
@@ -28,7 +28,7 @@ function ErrorFallback({ message, errorInfo, onReset }: ErrorFallbackProps): Rea
       <ErrorEmptyState
         illustrationTheme={isDarkMode ? 'dark' : 'light'}
         title={intl.formatMessage(messages.title)}
-        subtitle={message}
+        subtitle={message ?? intl.formatMessage(messages.unexpectedError)}
         action={{
           text: intl.formatMessage(messages.tryAgain),
           onClick: onReset,
@@ -93,7 +93,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
       }
       return (
         <ErrorFallback
-          message={this.state.error?.message ?? 'An unexpected error occurred'}
+          message={this.state.error?.message}
           errorInfo={this.state.errorInfo}
           onReset={this.handleReset}
         />

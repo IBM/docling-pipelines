@@ -106,12 +106,12 @@ export function RunsCard(): React.JSX.Element {
         dispatch(setJobRuns(map));
       })
       .catch(() => {
-        dispatch(setError('Failed to load runs.'));
+        dispatch(setError(intl.formatMessage(messages.loadError)));
       })
       .finally(() => {
         dispatch(setLoading(false));
       });
-  }, [dispatch]);
+  }, [dispatch, intl]);
 
   useEffect(() => {
     fetchRuns();

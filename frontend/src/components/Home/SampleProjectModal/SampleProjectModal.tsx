@@ -133,7 +133,7 @@ export function SampleProjectModal({
       // Auto-redirect — no button click needed
       onSuccess(generateRoute.canvas(flowRes.data.flow_id ?? '', project.id));
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      const msg = err instanceof Error ? err.message : intl.formatMessage(messages.genericError);
       setErrorMessage(msg);
       setSteps((prev) =>
         prev.map((s) => (s.status === 'loading' ? { ...s, status: 'error' } : s))

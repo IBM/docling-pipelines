@@ -57,12 +57,12 @@ export function ProjectsCard(): React.JSX.Element {
         dispatch(setProjects(map));
       })
       .catch(() => {
-        dispatch(setError('Failed to load projects.'));
+        dispatch(setError(intl.formatMessage(messages.loadError)));
       })
       .finally(() => {
         dispatch(setLoading(false));
       });
-  }, [dispatch]);
+  }, [dispatch, intl]);
 
   /**
    * Handles tearsheet submission: creates the project (and optionally a flow),
@@ -98,7 +98,7 @@ export function ProjectsCard(): React.JSX.Element {
       }
       notify.success(`${project.name} created successfully.`);
     } catch {
-      notify.error('Failed to create project');
+      notify.error(intl.formatMessage(messages.createError));
       throw new Error('Failed to create project');
     }
   };

@@ -25,6 +25,10 @@ export const messages = defineMessages({
     id: 'src.components.Home.SampleProjectModal.errorTitle',
     defaultMessage: 'Setup failed',
   },
+  genericError: {
+    id: 'src.components.Home.SampleProjectModal.genericError',
+    defaultMessage: 'Something went wrong. Please try again.',
+  },
   close: {
     id: 'src.components.Home.SampleProjectModal.close',
     defaultMessage: 'Close',
