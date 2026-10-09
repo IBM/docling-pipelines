@@ -25,7 +25,8 @@ Guarantees
   alive at any time. When the pool is full, an idle instance of another
   configuration may be evicted (fair-share rules prevent thrashing between
   configurations that run side by side); otherwise the caller blocks until an
-  instance is returned instead of constructing more.
+  instance is returned, or until an idle instance of another configuration has been
+  idle long enough to be evicted, instead of constructing more.
 * **Correct keys** -- callers key instances with :func:`options_fingerprint`, which
   hashes the actual option *values* (recursively, including nested model types),
   so two configurations that differ in any setting never share an instance.
@@ -33,14 +34,20 @@ Guarantees
   (default 600 s) by a daemon reaper thread so a long-lived API process does not
   keep models resident forever after a job finishes.
 
-Configuration (environment variables)
--------------------------------------
-``DOCPIPE_DOCLING_CONVERTER_POOL_SIZE``
+Configuration
+-------------
+The pool is shared by every flow in the process, so it is configured process-wide
+rather than per flow or operator. Each setting is read from, in order of precedence,
+an environment variable, the ``docling.converter_pool`` section of the runtime config
+file ``docling-pipelines-config.yaml`` (path override: ``DOCPIPE_CONFIG_PATH``), and
+the built-in default. Settings are read when the pool is first used.
+
+``DOCPIPE_DOCLING_CONVERTER_POOL_SIZE`` / ``docling.converter_pool.size``
     Maximum number of live instances in the process. Default:
     ``min(2 * cpu_count, 16)``, i.e. the default number of text-extraction workers,
     so a single batch at default settings never waits while concurrent micro-batches
     share the same set of converters instead of multiplying them.
-``DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS``
+``DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS`` / ``docling.converter_pool.idle_ttl_seconds``
     Seconds an instance may stay idle before it is released. ``0`` keeps idle
     instances until process exit. Default: ``600``.
 """
@@ -56,19 +63,26 @@ import os
 import threading
 import time
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
-from pathlib import PurePath
+from contextlib import contextmanager, suppress
+from pathlib import Path, PurePath
 from typing import Any
 
-from docpipe.core.constants.constants import EnvironmentVariables
+import yaml
+
+from docpipe.core.constants.constants import DocpipeConfigKeys, EnvironmentVariables, _find_project_root
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
+
+_DEFAULT_CONFIG_PATH = _find_project_root() / "docling-pipelines-config.yaml"
+_CONFIG_SECTION_LABEL = f"{DocpipeConfigKeys.DOCLING}.{DocpipeConfigKeys.CONVERTER_POOL}"
+_CONFIG_FILE_KEYS = frozenset({DocpipeConfigKeys.SIZE, DocpipeConfigKeys.IDLE_TTL_SECONDS})
 
 _DEFAULT_IDLE_TTL_SECONDS = 600.0
 _MAX_SIZE_CEILING = 16
 _REAPER_MAX_INTERVAL_SECONDS = 60.0
 _COLD_IDLE_SECONDS = 30.0
+_MIN_COLD_WAIT_SECONDS = 0.01
 _MAX_FINGERPRINT_DEPTH = 64
 
 
@@ -271,11 +285,16 @@ class DoclingInstancePool:
                     self._waiting_logged = True
                     logger.info(
                         "Docling converter pool is at capacity (%s); callers wait for a free instance. "
-                        "Set %s to change the limit.",
+                        "Set %s or %s.%s in the runtime config file to change the limit.",
                         self._max_size,
                         EnvironmentVariables.DOCPIPE_DOCLING_CONVERTER_POOL_SIZE,
+                        _CONFIG_SECTION_LABEL,
+                        DocpipeConfigKeys.SIZE,
                     )
-                self._cond.wait()
+                # Besides a release/eviction notification, an idle instance of another key
+                # turning cold also makes room, and nothing notifies about that: wake up at
+                # the next cold deadline and retry the eviction.
+                self._cond.wait(timeout=self._cold_wait_timeout_locked(requester=key))
 
         try:
             logger.info("Creating pooled Docling instance for key %s", key)
@@ -349,6 +368,26 @@ class DoclingInstancePool:
         self._forget_locked(key=oldest_key)
         logger.debug("Evicted idle Docling instance for key %s to make room", oldest_key)
         return True
+
+    def _cold_wait_timeout_locked(self, *, requester: str) -> float | None:
+        """Return how long a blocked ``requester`` may wait before an eviction retry can succeed.
+
+        That is the time until the oldest idle instance of another key reaches
+        ``_COLD_IDLE_SECONDS`` and becomes evictable by :meth:`_evict_lru_idle_locked`.
+        The result is never below ``_MIN_COLD_WAIT_SECONDS``, so a deadline that has just
+        passed cannot turn the wait into a busy loop. Caller holds ``_cond``.
+
+        Returns:
+            Seconds to wait, or ``None`` (wait for a notification only) when no idle
+            instance of another key exists.
+        """
+        oldest = min(
+            (stack[0][1] for key, stack in self._idle.items() if key != requester and stack),
+            default=None,
+        )
+        if oldest is None:
+            return None
+        return max(oldest + _COLD_IDLE_SECONDS - time.monotonic(), _MIN_COLD_WAIT_SECONDS)
 
     def evict_expired(self, *, now: float | None = None) -> int:
         """Drop idle instances that exceeded the idle TTL.
@@ -451,49 +490,123 @@ def default_pool_size() -> int:
     return min((os.cpu_count() or 4) * 2, _MAX_SIZE_CEILING)
 
 
-def _read_env_number(*, name: str, default: float, minimum: float) -> float:
-    """Read a numeric environment variable, falling back to ``default`` when invalid."""
-    raw = os.getenv(name)
-    if raw is None or not raw.strip():
-        return default
-    try:
-        value = float(raw)
-    except ValueError:
-        logger.warning("Ignoring invalid value %r for %s; using %s", raw, name, default)
-        return default
+def _parse_number(*, raw: Any, source: str, fallback: float, minimum: float) -> float:
+    """Parse one numeric pool setting, returning ``fallback`` when it is unset or invalid.
+
+    Args:
+        raw: Value from the environment (``str``) or the config file (any YAML scalar);
+            ``None`` and blank strings mean "not set".
+        source: Human-readable origin of ``raw`` for the warning message.
+        fallback: Value used when ``raw`` is unset or rejected.
+        minimum: Smallest accepted value.
+
+    Returns:
+        The parsed value, or ``fallback``.
+    """
+    if raw is None or (isinstance(raw, str) and not raw.strip()):
+        return fallback
+    value: float | None = None
+    if not isinstance(raw, bool):  # YAML true/false would otherwise parse as 1/0
+        with suppress(TypeError, ValueError):
+            value = float(raw)
+    if value is None:
+        logger.warning("Ignoring invalid value %r for %s; using %s", raw, source, fallback)
+        return fallback
     if not math.isfinite(value) or value < minimum:
-        logger.warning("Ignoring out-of-range value %r for %s; using %s", raw, name, default)
-        return default
+        logger.warning("Ignoring out-of-range value %r for %s; using %s", raw, source, fallback)
+        return fallback
     return value
 
 
+def _load_config_file_settings() -> tuple[dict[str, Any], str]:
+    """Return the ``docling.converter_pool`` section of the runtime config file.
+
+    The file is ``docling-pipelines-config.yaml`` at the project root, or the path in
+    ``DOCPIPE_CONFIG_PATH`` (the same lookup as the other runtime settings). A missing
+    file or section yields ``{}`` silently; an unreadable file or a malformed section
+    is ignored with a warning so the pool still starts with its defaults.
+
+    Returns:
+        ``(settings, label)`` where ``label`` names the section for log messages.
+    """
+    config_path = Path(os.getenv(EnvironmentVariables.DOCPIPE_CONFIG_PATH, str(_DEFAULT_CONFIG_PATH)))
+    label = f"{config_path} ({_CONFIG_SECTION_LABEL})"
+    if not config_path.exists():
+        return {}, label
+    try:
+        with config_path.open(encoding="utf-8") as handle:
+            yaml_config = yaml.safe_load(handle)
+    except (OSError, UnicodeDecodeError, yaml.YAMLError) as exc:
+        logger.warning("Could not read %s; ignoring its Docling converter pool settings: %s", config_path, exc)
+        return {}, label
+
+    section: Any = yaml_config if isinstance(yaml_config, dict) else {}
+    for name in (DocpipeConfigKeys.DOCLING, DocpipeConfigKeys.CONVERTER_POOL):
+        section = section.get(name)
+        if section is None:
+            return {}, label
+        if not isinstance(section, dict):
+            logger.warning("Ignoring %s: '%s' must be a mapping, got %s", label, name, type(section).__name__)
+            return {}, label
+    unknown = sorted(str(name) for name in section if name not in _CONFIG_FILE_KEYS)
+    if unknown:
+        logger.warning("Ignoring unknown key(s) %s in %s", ", ".join(unknown), label)
+    return section, label
+
+
+def _resolve_pool_settings() -> tuple[int, float]:
+    """Resolve ``(max_size, idle_ttl_seconds)``: environment > config file > built-in default.
+
+    An invalid value is skipped with a warning and the next source in that order is used.
+    """
+    file_settings, label = _load_config_file_settings()
+    size_fallback = _parse_number(
+        raw=file_settings.get(DocpipeConfigKeys.SIZE),
+        source=f"{DocpipeConfigKeys.SIZE} in {label}",
+        fallback=default_pool_size(),
+        minimum=1,
+    )
+    size = _parse_number(
+        raw=os.getenv(EnvironmentVariables.DOCPIPE_DOCLING_CONVERTER_POOL_SIZE),
+        source=EnvironmentVariables.DOCPIPE_DOCLING_CONVERTER_POOL_SIZE,
+        fallback=size_fallback,
+        minimum=1,
+    )
+    ttl_fallback = _parse_number(
+        raw=file_settings.get(DocpipeConfigKeys.IDLE_TTL_SECONDS),
+        source=f"{DocpipeConfigKeys.IDLE_TTL_SECONDS} in {label}",
+        fallback=_DEFAULT_IDLE_TTL_SECONDS,
+        minimum=0,
+    )
+    ttl = _parse_number(
+        raw=os.getenv(EnvironmentVariables.DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS),
+        source=EnvironmentVariables.DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS,
+        fallback=ttl_fallback,
+        minimum=0,
+    )
+    return int(size), ttl
+
+
 def get_docling_pool() -> DoclingInstancePool:
-    """Return the process-wide pool, creating it from environment settings on first use."""
+    """Return the process-wide pool, creating it on first use.
+
+    Settings are resolved once per pool (see :func:`_resolve_pool_settings`); call
+    :func:`reset_docling_pool` to pick up changed settings.
+    """
     global _default_pool
     pool = _default_pool
     if pool is not None:
         return pool
     with _default_pool_lock:
         if _default_pool is None:
-            size = int(
-                _read_env_number(
-                    name=EnvironmentVariables.DOCPIPE_DOCLING_CONVERTER_POOL_SIZE,
-                    default=default_pool_size(),
-                    minimum=1,
-                )
-            )
-            ttl = _read_env_number(
-                name=EnvironmentVariables.DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS,
-                default=_DEFAULT_IDLE_TTL_SECONDS,
-                minimum=0,
-            )
+            size, ttl = _resolve_pool_settings()
             _default_pool = DoclingInstancePool(max_size=size, idle_ttl_seconds=ttl)
             logger.info("Initialised Docling converter pool (max_size=%s, idle_ttl_seconds=%s)", size, ttl)
         return _default_pool
 
 
 def reset_docling_pool() -> None:
-    """Close and discard the process-wide pool; the next use re-reads the environment."""
+    """Close and discard the process-wide pool; the next use re-reads env and config file."""
     global _default_pool
     with _default_pool_lock:
         pool, _default_pool = _default_pool, None
