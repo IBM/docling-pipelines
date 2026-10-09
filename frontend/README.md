@@ -1,5 +1,7 @@
 # Docling Pipelines Frontend
 
+> **⚠️ Beta notice:** The Docling Pipelines web UI is **experimental and not yet production-ready**. APIs, UI structure, and features may change without notice between releases. For production workloads, use the CLI, Python API (`DocpipeFlowManager`), or REST API instead.
+
 A React + TypeScript frontend application built with Vite and IBM Carbon Design System for the Docling Pipelines project.
 
 ## Prerequisites

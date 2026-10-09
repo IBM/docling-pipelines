@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Grid, Column, Button } from '@carbon/react';
+import { Grid, Column, Button, InlineNotification } from '@carbon/react';
 import { go } from '@/utils';
 import { RecentlyViewed } from '@carbon/icons-react';
 import {
@@ -160,6 +160,16 @@ export function Home(): React.JSX.Element {
           tileClickHandler={handleTileClick}
         />
       </div>
+
+      {/* Beta notice — full-width banner below the animated header */}
+      <InlineNotification
+        className={styles.betaBanner}
+        kind="warning"
+        title="Beta: "
+        subtitle="The web UI is experimental and not yet production-ready. For production workloads, use the CLI or Python API."
+        lowContrast
+        hideCloseButton
+      />
 
       {/* Zone 2: Recently Visited — hidden when cache is empty */}
       {recentChips.length > 0 && (
