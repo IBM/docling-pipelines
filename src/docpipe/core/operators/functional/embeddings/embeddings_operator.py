@@ -29,6 +29,7 @@ from docpipe.core.operators.functional.doc_id_hash import DocIdHashOperator
 from docpipe.core.operators.operator_utils import OperatorUtils
 from docpipe.core.ports.llm_embedding_port import LLMEmbeddingPort
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.error_codes import ErrorCode
 from docpipe.utils.core.memmap_file_utils import write_content_to_file
 from docpipe.utils.data.transform import TransformUtils
 from docpipe.utils.infrastructure.filesystem import get_data_path
@@ -59,6 +60,15 @@ EMBEDDING_DIM_FALLBACK: int = 384
 #   int       -> position of the text in the flattened request stream
 #   list[int] -> positions of the pieces of a text longer than the char limit (averaged)
 _TextSlot = int | list[int] | None
+
+# HTTP statuses with which a provider rejects the content of a request (invalid input,
+# payload too large, unprocessable text). Only these failures can depend on which texts
+# were sent together; any other status (401/403/404, 408, 429, 5xx, ...) is provider-wide.
+_INPUT_DEPENDENT_HTTP_STATUSES: frozenset[int] = frozenset({400, 413, 422})
+
+# Message fragments of errors raised for a text that is too long for the model. Some
+# providers (e.g. older Ollama releases) report them with a generic 5xx status.
+_INPUT_DEPENDENT_ERROR_MARKERS: tuple[str, ...] = ("context length", "context window")
 
 
 class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
@@ -347,14 +357,17 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
 
         Add a new entry here when registering a new embeddings provider.
         """
-        from docpipe.core.operators.shared.llm_provider_config import LLMProviderConfig, WatsonxProviderConfig
+        from docpipe.core.operators.shared.llm_provider_config import (
+            LLMEmbeddingProviderConfig,
+            WatsonxEmbeddingProviderConfig,
+        )
 
         return {
             OperatorConstants.Config.PROVIDER_LITELLM: OperatorUtils.model_schema_to_docpipe(
-                schema=LLMProviderConfig.model_json_schema()
+                schema=LLMEmbeddingProviderConfig.model_json_schema()
             ),
             OperatorConstants.Config.PROVIDER_WATSONX: OperatorUtils.model_schema_to_docpipe(
-                schema=WatsonxProviderConfig.model_json_schema()
+                schema=WatsonxEmbeddingProviderConfig.model_json_schema()
             ),
         }
 
@@ -651,6 +664,122 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
                 vectors.append(np.mean([flat_vectors[pos] for pos in slot], axis=0).tolist())
         return vectors
 
+    @staticmethod
+    def _error_chain(error: BaseException) -> list[BaseException]:
+        """
+        Return ``error`` followed by the exceptions it was raised from.
+
+        Follows ``__cause__`` (``raise ... from``) and otherwise the implicit
+        ``__context__`` unless it was suppressed, stopping at the first repeated exception.
+
+        Args:
+            error: Outermost exception
+
+        Returns:
+            The exceptions of the chain, outermost first
+        """
+        chain: list[BaseException] = []
+        current: BaseException | None = error
+        while current is not None and all(current is not seen for seen in chain):
+            chain.append(current)
+            current = current.__cause__ or (None if current.__suppress_context__ else current.__context__)
+        return chain
+
+    @staticmethod
+    def _http_status_of(error: BaseException) -> int | None:
+        """
+        Return the HTTP status a provider answered with, if ``error`` carries one.
+
+        LiteLLM/OpenAI exceptions expose ``status_code``; requests/httpx/huggingface_hub
+        HTTP errors expose ``response.status_code``. ``DocpipeException.status_code``
+        defaults to 500/502 for any error, so it is only trusted for the REST client's
+        HTTP errors (``ErrorCode.HTTP_ERROR``, used by the watsonx client).
+
+        Args:
+            error: One exception of an error chain
+
+        Returns:
+            The HTTP status, or None when the exception does not carry one
+        """
+        if isinstance(error, DocpipeException):
+            status = error.status_code if error.error_code == ErrorCode.HTTP_ERROR else None
+        else:
+            status = getattr(error, "status_code", None)
+            if status is None:
+                status = getattr(getattr(error, "response", None), "status_code", None)
+        return status if isinstance(status, int) and not isinstance(status, bool) else None
+
+    @staticmethod
+    def _is_input_dependent_error(error: BaseException) -> bool:
+        """
+        Tell whether a failed request could have failed because of one of its texts.
+
+        Input-dependent: a context-length / context-window error (by message, whatever
+        the status), or an HTTP 400, 413 or 422 response (bad request, payload too large,
+        unprocessable input, which includes LiteLLM's ``ContextWindowExceededError`` and
+        ``ContentPolicyViolationError``). The first HTTP status found in the error chain
+        decides; any other status (rate limit, timeout, authentication, not found, 5xx)
+        and errors without an HTTP status (connection errors, malformed responses, local
+        failures) are treated as provider-wide, because re-sending the texts would fail
+        the same way and only add load.
+
+        Args:
+            error: Error of a failed embedding request, possibly wrapped by the client,
+                adapter and operator layers
+
+        Returns:
+            True when re-sending each document on its own can isolate the failure
+        """
+        chain = EmbeddingsOperator._error_chain(error)
+        if any(marker in str(exc).lower() for exc in chain for marker in _INPUT_DEPENDENT_ERROR_MARKERS):
+            return True
+        for exc in chain:
+            status = EmbeddingsOperator._http_status_of(exc)
+            if status is not None:
+                return status in _INPUT_DEPENDENT_HTTP_STATUSES
+        return False
+
+    def _route_failed_request(
+        self,
+        *,
+        error: Exception,
+        owners: list[int],
+        stream_start: int,
+        doc_errors: dict[int, Exception],
+        retry_positions: dict[int, list[int]],
+    ) -> None:
+        """
+        Decide what happens to the documents of a request that failed permanently.
+
+        The documents are retried in isolation only when the request carried texts of
+        several documents and the error could depend on one of those texts. Otherwise
+        (a single-document request, or a provider-wide error such as a rate limit,
+        timeout, outage or authentication failure) every document of the request fails
+        with ``error`` and nothing is re-sent.
+
+        Args:
+            error: Error of the failed request
+            owners: Owning document of each text of the request, in stream order
+            stream_start: Stream position of the first text of the request
+            doc_errors: Error per failed document; extended in place
+            retry_positions: Stream positions to retry in isolation, per document;
+                extended in place
+        """
+        documents = list(dict.fromkeys(owners))
+        if len(documents) > 1 and self._is_input_dependent_error(error):
+            for offset, doc_pos in enumerate(owners):
+                retry_positions.setdefault(doc_pos, []).append(stream_start + offset)
+            return
+        if len(documents) > 1:
+            logger.warning(
+                "A shared embedding request failed with an error that does not depend on its texts; "
+                "failing its %d documents without re-sending them",
+                len(documents),
+                extra=self.common_log_arguments,
+            )
+        for doc_pos in documents:
+            doc_errors.setdefault(doc_pos, error)
+
     def _embed_in_isolation(
         self,
         *,
@@ -707,10 +836,11 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
         texts with up to ``max_concurrent_requests`` requests in flight, and the
         resulting vectors are scattered back to their documents in order.
 
-        A request that fails permanently and carried texts of a single document fails
-        that document. If it carried texts of several documents, each of them is
-        re-embedded in isolation (see ``_embed_in_isolation``) so that one bad text only
-        fails its own document.
+        A request that fails permanently fails all documents whose texts it carried,
+        without re-sending them, unless it carried texts of several documents and its
+        error could depend on one of those texts (see ``_is_input_dependent_error``):
+        then each of those documents is re-embedded in isolation (see
+        ``_embed_in_isolation``) so that one bad text only fails its own document.
 
         Args:
             texts_per_doc: Texts of each document (one output vector per text)
@@ -755,13 +885,13 @@ class EmbeddingsOperator(AbstractOperator):  # type: ignore[misc]
             start = request_idx * batch_size
             end = start + len(requests[request_idx])
             if isinstance(result, Exception):
-                owners = list(dict.fromkeys(flat_owner[start:end]))
-                if len(owners) == 1:
-                    # The request carried only this document's texts: it fails on its own error
-                    doc_errors.setdefault(owners[0], result)
-                else:
-                    for pos in range(start, end):
-                        retry_positions.setdefault(flat_owner[pos], []).append(pos)
+                self._route_failed_request(
+                    error=result,
+                    owners=flat_owner[start:end],
+                    stream_start=start,
+                    doc_errors=doc_errors,
+                    retry_positions=retry_positions,
+                )
                 continue
             flat_vectors[start:end] = result
             # Cache embedding dimension from the first result available
