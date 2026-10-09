@@ -1,6 +1,18 @@
 import { defineMessages } from 'react-intl';
 
 export const messages = defineMessages({
+  headerStartTime: {
+    id: 'src.components.FlowDetail.FlowRunsTable.headerStartTime',
+    defaultMessage: 'Start time',
+  },
+  headerStatus: {
+    id: 'src.components.FlowDetail.FlowRunsTable.headerStatus',
+    defaultMessage: 'Status',
+  },
+  headerDuration: {
+    id: 'src.components.FlowDetail.FlowRunsTable.headerDuration',
+    defaultMessage: 'Duration',
+  },
   statusAll: {
     id: 'src.components.FlowDetail.FlowRunsTable.statusAll',
     defaultMessage: 'All',

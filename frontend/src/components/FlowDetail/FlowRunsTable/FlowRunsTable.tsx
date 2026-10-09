@@ -54,15 +54,6 @@ export interface RunRow {
   duration_seconds?: number;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const TABLE_HEADERS = [
-  { key: 'start_time', header: 'Start time', isSortable: true },
-  { key: 'status',     header: 'Status'     },
-  { key: 'duration',   header: 'Duration',   isSortable: true },
-  { key: 'actions',    header: ''           },
-];
-
 // ─── StatusIcon ───────────────────────────────────────────────────────────────
 
 export function StatusIcon({ status, iconStyles }: { status: RunStatus; iconStyles: Record<string, string> }): React.JSX.Element {
@@ -128,6 +119,13 @@ export function FlowRunsTable({
     cancelled:       intl.formatMessage(messages.statusCanceled),
   };
 
+  const tableHeaders = [
+    { key: 'start_time', header: intl.formatMessage(messages.headerStartTime), isSortable: true },
+    { key: 'status',     header: intl.formatMessage(messages.headerStatus)     },
+    { key: 'duration',   header: intl.formatMessage(messages.headerDuration),  isSortable: true },
+    { key: 'actions',    header: ''                                            },
+  ];
+
   const statusOptions = [
     { id: 'all',             label: intl.formatMessage(messages.statusAll)            },
     { id: 'run',             label: intl.formatMessage(messages.statusCompleted)      },
@@ -164,7 +162,7 @@ export function FlowRunsTable({
   return (
     <div className={styles.tableWrapper}>
       <SharedDataTable
-        headers={TABLE_HEADERS}
+        headers={tableHeaders}
         rows={filteredRows}
         searchable
         searchPlaceholder={intl.formatMessage(messages.searchPlaceholder)}

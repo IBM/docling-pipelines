@@ -1,6 +1,30 @@
 import { defineMessages } from 'react-intl';
 
 export const messages = defineMessages({
+  headerFlow: {
+    id: 'src.components.ProjectDetail.FlowsTable.headerFlow',
+    defaultMessage: 'Flow',
+  },
+  headerRuns: {
+    id: 'src.components.ProjectDetail.FlowsTable.headerRuns',
+    defaultMessage: 'Runs',
+  },
+  headerNeedsReview: {
+    id: 'src.components.ProjectDetail.FlowsTable.headerNeedsReview',
+    defaultMessage: 'Needs review',
+  },
+  headerTags: {
+    id: 'src.components.ProjectDetail.FlowsTable.headerTags',
+    defaultMessage: 'Tags',
+  },
+  headerLastModified: {
+    id: 'src.components.ProjectDetail.FlowsTable.headerLastModified',
+    defaultMessage: 'Last modified',
+  },
+  headerCreatedOn: {
+    id: 'src.components.ProjectDetail.FlowsTable.headerCreatedOn',
+    defaultMessage: 'Created on',
+  },
   statusLabel: {
     id: 'src.components.ProjectDetail.FlowsTable.statusLabel',
     defaultMessage: 'Status',

@@ -87,17 +87,6 @@ function renderNeedsReviewCell(runStatus: FlowRunStatus | null, runCount: number
   );
 }
 
-// Flow | Runs | Needs review | Tags | Last modified | Created on
-const TABLE_HEADERS = [
-  { key: 'name',        header: 'Flow'          },
-  { key: 'run_count',   header: 'Runs'         },
-  { key: 'run_status',  header: 'Needs review'  },
-  { key: 'tags',        header: 'Tags'          },
-  { key: 'modified_on', header: 'Last modified', isSortable: true },
-  { key: 'created_on',  header: 'Created on',    isSortable: true },
-  { key: 'actions',     header: ''              },
-];
-
 export function FlowsTable({
   rows,
   isLoading = false,
@@ -109,6 +98,16 @@ export function FlowsTable({
   onDeleteFlow,
 }: FlowsTableProps): React.JSX.Element {
   const intl = useIntl();
+  // Flow | Runs | Needs review | Tags | Last modified | Created on
+  const tableHeaders = [
+    { key: 'name',        header: intl.formatMessage(messages.headerFlow)         },
+    { key: 'run_count',   header: intl.formatMessage(messages.headerRuns)         },
+    { key: 'run_status',  header: intl.formatMessage(messages.headerNeedsReview)  },
+    { key: 'tags',        header: intl.formatMessage(messages.headerTags)         },
+    { key: 'modified_on', header: intl.formatMessage(messages.headerLastModified), isSortable: true },
+    { key: 'created_on',  header: intl.formatMessage(messages.headerCreatedOn),    isSortable: true },
+    { key: 'actions',     header: ''                                              },
+  ];
   const statusOptions = [
     { id: 'all',      label: intl.formatMessage(messages.statusAll)      },
     { id: 'errors',   label: intl.formatMessage(messages.statusErrors)   },
@@ -189,7 +188,7 @@ export function FlowsTable({
   return (
     <div className={styles.tableWrapper}>
       <SharedDataTable
-        headers={TABLE_HEADERS}
+        headers={tableHeaders}
         rows={filteredRows}
         searchable
         searchPlaceholder={intl.formatMessage(messages.searchPlaceholder)}

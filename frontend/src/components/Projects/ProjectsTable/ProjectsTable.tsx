@@ -73,16 +73,6 @@ function renderTagsCell(tags: string[]): React.JSX.Element {
   );
 }
 
-/** Column definitions for Carbon `DataTable`. The `actions` column has no header text. */
-const TABLE_HEADERS = [
-  { key: 'name',         header: 'Name'          },
-  { key: 'flows',        header: 'Flows'         },
-  { key: 'tags',         header: 'Tag'           },
-  { key: 'lastModified', header: 'Last modified', isSortable: true },
-  { key: 'createdOn',    header: 'Created on',    isSortable: true },
-  { key: 'actions',      header: ''              },
-];
-
 /**
  * Searchable data table for the projects list. Built on {@link SharedDataTable}.
  *
@@ -107,6 +97,15 @@ export function ProjectsTable({
   onEditProject,
 }: ProjectsTableProps): React.JSX.Element {
   const intl = useIntl();
+  /** Column definitions for Carbon `DataTable`. The `actions` column has no header text. */
+  const tableHeaders = [
+    { key: 'name',         header: intl.formatMessage(messages.headerName)         },
+    { key: 'flows',        header: intl.formatMessage(messages.headerFlows)        },
+    { key: 'tags',         header: intl.formatMessage(messages.headerTag)          },
+    { key: 'lastModified', header: intl.formatMessage(messages.headerLastModified), isSortable: true },
+    { key: 'createdOn',    header: intl.formatMessage(messages.headerCreatedOn),    isSortable: true },
+    { key: 'actions',      header: ''                                              },
+  ];
   const [deleteTarget, setDeleteTarget] = useState<ProjectRow | null>(null);
   const [editTarget, setEditTarget] = useState<ProjectRow | null>(null);
 
@@ -152,7 +151,7 @@ export function ProjectsTable({
   return (
     <div className={styles.tableWrapper}>
       <SharedDataTable
-        headers={TABLE_HEADERS}
+        headers={tableHeaders}
         rows={tableRows}
         searchable
         searchPlaceholder={intl.formatMessage(messages.searchPlaceholder)}
