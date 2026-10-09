@@ -213,8 +213,10 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
         )
 
         logger.info(
-            f"Initialized DocumentClassifierOperator with provider={self.provider}, "
-            f"model={self.model_id}, types={len(self.document_types)}"
+            "Initialized DocumentClassifierOperator with provider=%s, model=%s, types=%s",
+            self.provider,
+            self.model_id,
+            len(self.document_types),
         )
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
@@ -342,7 +344,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
 
         except Exception as e:
             # Log but don't fail the operation if progress update fails
-            logger.warning(f"Failed to update classification progress: {e!s}")
+            logger.warning("Failed to update classification progress: %s", e)
 
     def _classify_document(self, *, content: str, doc_name: str | None = None) -> dict[str, Any]:
         """
@@ -374,8 +376,10 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                 }
 
             logger.info(
-                f"Classified document {doc_name or OperatorConstants.Classification.UNKNOWN_TYPE}: "
-                f"type={response.document_type}, confidence={response.confidence}"
+                "Classified document %s: type=%s, confidence=%s",
+                doc_name or OperatorConstants.Classification.UNKNOWN_TYPE,
+                response.document_type,
+                response.confidence,
             )
 
             return {
@@ -386,7 +390,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                 "is_confident": response.confidence >= self.confidence_threshold,
             }
         except Exception as e:
-            logger.error(f"Classification failed for {doc_name or 'unknown'}: {e!s}")
+            logger.error("Classification failed for %s: %s", doc_name or "unknown", e)
             return {
                 OperatorConstants.Extraction.SUCCESS: False,
                 OperatorConstants.Extraction.ERROR: str(e),
@@ -425,7 +429,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                     else f"doc_{idx}"
                 )
                 error_msg = f"Unsupported file extension: {file_ext}"
-                logger.info(f"Skipping document {doc_name}: {error_msg}")
+                logger.info("Skipping document %s: %s", doc_name, error_msg)
 
                 self.record_skipped_document(
                     metadata=metadata,
@@ -459,7 +463,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
             return [table], metadata
 
         if self.output_column in table.column_names:
-            logger.warning(f"{self.output_column} already already present. Moving to next operator")
+            logger.warning("%s already already present. Moving to next operator", self.output_column)
             return [table], metadata
 
         # Check if DOC_COLUMN_KEY already exists
@@ -475,7 +479,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
             doc_contents = table.column(self.doc_column).to_pylist()
             # No extraction metadata available when content already exists
             doc_extraction_metadata = [None] * table.num_rows
-            logger.info(f"Using existing '{self.doc_column}' column for classification")
+            logger.info("Using existing '%s' column for classification", self.doc_column)
 
             # Validate file extensions for existing content
             skipped_indices = self._validate_extensions_for_existing_content(
@@ -483,7 +487,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
             )
         else:
             # Fetch content using utility function with extension validation
-            logger.info(f"'{self.doc_column}' column not found, fetching content from documents")
+            logger.info("'%s' column not found, fetching content from documents", self.doc_column)
             content_was_fetched = True
             # Prepare document data for parallel processing with extension validation
             doc_tasks = OperatorUtils.prepare_document_content_fetch(
@@ -492,7 +496,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                 supported_extensions=set(OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS),
             )
 
-            logger.info(f"Processing {len(doc_tasks)} documents in parallel with {self.max_workers} workers")
+            logger.info("Processing %s documents in parallel with %s workers", len(doc_tasks), self.max_workers)
             # Process documents in parallel using ThreadPoolExecutor
             doc_contents.extend([None] * table.num_rows)
             with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
@@ -551,12 +555,14 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                                 reason=result.get(OperatorConstants.Extraction.ERROR, "Unknown error"),
                             )
                             logger.error(
-                                f"Failed to extract content from {task['doc_name']}: {result.get(OperatorConstants.Extraction.ERROR)}",
+                                "Failed to extract content from %s: %s",
+                                task["doc_name"],
+                                result.get(OperatorConstants.Extraction.ERROR),
                                 extra=self.common_log_arguments,
                             )
 
                     except Exception as e:
-                        logger.error(f"Error processing document at index {idx}: {e!s}")
+                        logger.error("Error processing document at index %s: %s", idx, e)
                         self.record_failed_document(
                             metadata=metadata, doc_id=str(task["doc_id"]), doc_name=task["doc_name"], reason=str(e)
                         )
@@ -585,7 +591,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                 if not content or (isinstance(content, str) and not content.strip()):
                     # Only record if NOT already skipped during validation
                     if idx not in skipped_indices:
-                        logger.warning(f"Empty content for document {doc_name}, skipping classification")
+                        logger.warning("Empty content for document %s, skipping classification", doc_name)
                         self.record_skipped_document(
                             metadata=metadata, doc_id=str(idx), doc_name=doc_name, reason="Empty content"
                         )
@@ -626,8 +632,11 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                                 f"to classify as {result[OperatorConstants.Classification.FIELD_DOCUMENT_TYPE]}"
                             )
                             logger.info(
-                                f"Document {task['doc_name']} confidence {result[OperatorConstants.Classification.FIELD_CONFIDENCE]} below threshold {self.confidence_threshold}, "
-                                f"predicted type {result[OperatorConstants.Classification.FIELD_DOCUMENT_TYPE]}, returning None",
+                                "Document %s confidence %s below threshold %s, predicted type %s, returning None",
+                                task["doc_name"],
+                                result[OperatorConstants.Classification.FIELD_CONFIDENCE],
+                                self.confidence_threshold,
+                                result[OperatorConstants.Classification.FIELD_DOCUMENT_TYPE],
                                 extra=self.common_log_arguments,
                             )
                             metadata[Metrics.External.PROCESSED_DOCS] += 1
@@ -651,7 +660,9 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                         classifications[idx] = None
                         reasonings[idx] = result.get(OperatorConstants.Extraction.ERROR, "")
                         logger.error(
-                            f"Failed to classify content from {task['doc_name']}: {result.get(OperatorConstants.Extraction.ERROR)}",
+                            "Failed to classify content from %s: %s",
+                            task["doc_name"],
+                            result.get(OperatorConstants.Extraction.ERROR),
                             extra=self.common_log_arguments,
                         )
 
@@ -661,7 +672,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                     )
                     classifications[idx] = None
                     reasonings[idx] = str(e)
-                    logger.error(f"Error processing document at index {idx}: {e!s}")
+                    logger.error("Error processing document at index %s: %s", idx, e)
 
         # Start with the original table
         output_table = table
@@ -673,7 +684,8 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
             output_table = TransformUtils.add_column(output_table, DocpipeConstants.TEMP_CONTENT_COLUMN, doc_contents)
 
             logger.info(
-                f"Stored fetched content in '{DocpipeConstants.TEMP_CONTENT_COLUMN}' column for potential reuse by extract operator"
+                "Stored fetched content in '%s' column for potential reuse by extract operator",
+                DocpipeConstants.TEMP_CONTENT_COLUMN,
             )
 
             # Calculate and store pages_processed for content reuse scenario
@@ -699,12 +711,14 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                 output_table, DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN, pages_processed_list
             )
             logger.info(
-                f"Calculated and stored page counts in '{DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN}' column for extract operator"
+                "Calculated and stored page counts in '%s' column for extract operator",
+                DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN,
             )
         elif content_was_fetched and len(skipped_indices) > 0:
             logger.info(
-                f"Skipping temp column creation: {len(skipped_indices)} documents with unsupported extensions detected. "
-                f"Extract operator will fetch content for all documents."
+                "Skipping temp column creation: %s documents with unsupported extensions detected. "
+                "Extract operator will fetch content for all documents.",
+                len(skipped_indices),
             )
 
         # Add classification columns to table
@@ -728,8 +742,12 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
         )
 
         logger.info(
-            f"Classification complete: {processed_count}/{total_docs} documents classified, "
-            f"{failed_count} failed, {skipped_count} skipped, status={metadata[Metrics.External.NODE_STATUS]}"
+            "Classification complete: %s/%s documents classified, %s failed, %s skipped, status=%s",
+            processed_count,
+            total_docs,
+            failed_count,
+            skipped_count,
+            metadata[Metrics.External.NODE_STATUS],
         )
 
         return [output_table], metadata

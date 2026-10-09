@@ -460,4 +460,3 @@ If you need to change *when* an event fires — not just where it goes — imple
 > During development, pair a custom observer with
 > [`NoOpLineagePublisherAdapter`](../../../src/docpipe/core/lineage/adapters/noop/publisher.py)
 > to silence actual emission while you iterate on the observer logic.
-
