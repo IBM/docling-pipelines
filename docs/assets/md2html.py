@@ -51,7 +51,7 @@ def _get_version() -> str:
 VERSION = "v2.0"  # updated manually; switch back to _get_version() once v2.0 is tagged
 
 FILES = [
-    # root-level
+    # root-level docs (output goes to docs/ so paths are self-contained)
     "ARCHITECTURE.md",
     "CHANGELOG.md",
     "COMMUNITY.md",
@@ -209,9 +209,9 @@ def build_site_nav(html_file: Path, current_rel: str) -> str:
     # ── Getting Started (collapsible) ─────────────────────────────────────────
     lines.append(divider())
     gs_members = [
-        link("QUICKSTART.html", "Quick Start"),
-        link("USER_GUIDE_PIPELINE_SETUP.html", "Setup Guide"),
-        link("TROUBLESHOOTING.html", "Troubleshooting"),
+        link("docs/QUICKSTART.html", "Quick Start"),
+        link("docs/USER_GUIDE_PIPELINE_SETUP.html", "Setup Guide"),
+        link("docs/TROUBLESHOOTING.html", "Troubleshooting"),
     ]
     lines.extend(group("Getting Started", gs_members, "getting-started"))
 
@@ -351,10 +351,10 @@ def build_site_nav(html_file: Path, current_rel: str) -> str:
 
     # Contributing
     contrib_members = [
-        link("ARCHITECTURE.html", "Architecture Overview"),
-        link("CONTRIBUTING.html", "Contributing Guide"),
-        link("CHANGELOG.html", "Changelog"),
-        link("COMMUNITY.html", "Community"),
+        link("docs/ARCHITECTURE.html", "Architecture Overview"),
+        link("docs/CONTRIBUTING.html", "Contributing Guide"),
+        link("docs/CHANGELOG.html", "Changelog"),
+        link("docs/COMMUNITY.html", "Community"),
     ]
     lines.extend(group("Contributing", contrib_members, "contributing"))
 
@@ -645,7 +645,12 @@ def main():
             if not md.exists():
                 print(f"  ✗  {rel_path} (not found, skipping)")
                 continue
-            html = md.with_suffix(".html")
+            # Root-level .md files output into docs/ so all HTML lives under
+            # docs/ and links stay self-contained (no ../ escapes needed).
+            if md.parent == ROOT:
+                html = ROOT / "docs" / md.with_suffix(".html").name
+            else:
+                html = md.with_suffix(".html")
             convert(md, html)
         print("Done.")
         return

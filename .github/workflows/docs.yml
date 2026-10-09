@@ -5,6 +5,7 @@ on:
     branches: [docs/main]
     paths:
       - 'docs/**'
+      - '*.html'
   workflow_dispatch:   # allow manual trigger from the Actions tab
 
 # Only one deployment at a time
@@ -50,13 +51,26 @@ jobs:
         run: |
           antora docs/book/antora-playbook-ci.yml
 
+      - name: Copy root-level HTML pages into docs/
+        # QUICKSTART.html, ARCHITECTURE.html, etc. live at repo root but are
+        # linked from docs/index.html. Copy them into docs/ so the entire site
+        # is served from a single docs/ root without any ../ path escapes.
+        run: |
+          for f in QUICKSTART.html ARCHITECTURE.html CHANGELOG.html COMMUNITY.html \
+                   CONTRIBUTING.html README.html TROUBLESHOOTING.html \
+                   USER_GUIDE_PIPELINE_SETUP.html; do
+            [ -f "$f" ] && cp "$f" "docs/$f"
+          done
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v4
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/book/site
+          # Serve the whole docs/ folder — the HTML site is at docs/index.html
+          # and the Antora book lives at docs/book/site/docling-pipelines/1.0/
+          path: docs
 
   deploy:
     name: Deploy to GitHub Pages
