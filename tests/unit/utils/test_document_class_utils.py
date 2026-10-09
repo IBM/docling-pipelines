@@ -824,7 +824,7 @@ class TestStaticDocumentClassProvider:
             "docpipe.utils.document_class_utils.DocumentClassUtils.get_schema_templates",
             return_value=fake_schemas,
         ) as mock_util:
-            result = StaticDocumentClassProvider().get_schema_templates(["invoice"])
+            result = StaticDocumentClassProvider().get_schema_templates(document_types=["invoice"])
 
         mock_util.assert_called_once_with(["invoice"])
         assert result == fake_schemas
@@ -839,7 +839,7 @@ class TestStaticDocumentClassProvider:
             "docpipe.utils.document_class_utils.DocumentClassUtils.generate_docling_templates_for_types",
             return_value=fake_templates,
         ) as mock_util:
-            result = StaticDocumentClassProvider().generate_docling_templates_for_types(["invoice"])
+            result = StaticDocumentClassProvider().generate_docling_templates_for_types(document_types=["invoice"])
 
         mock_util.assert_called_once_with(["invoice"], include_nested=True)
         assert result == fake_templates
@@ -852,6 +852,8 @@ class TestStaticDocumentClassProvider:
             "docpipe.utils.document_class_utils.DocumentClassUtils.generate_docling_templates_for_types",
             return_value={},
         ) as mock_util:
-            StaticDocumentClassProvider().generate_docling_templates_for_types(["invoice"], include_nested=False)
+            StaticDocumentClassProvider().generate_docling_templates_for_types(
+                document_types=["invoice"], include_nested=False
+            )
 
         mock_util.assert_called_once_with(["invoice"], include_nested=False)
