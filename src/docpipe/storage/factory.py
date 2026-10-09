@@ -7,6 +7,7 @@ from docpipe.storage.duck_db.duckdb_table_storage import DuckDBTableStorage
 from docpipe.storage.file_system.key_value_file_system_storage import KeyValueFileSystemStorage
 from docpipe.storage.interfaces.key_value_storage_port import KeyValueStoragePort
 from docpipe.storage.interfaces.table_storage_port import TableStoragePort
+from docpipe.storage.postgres.postgresql_table_storage import PostgreSQLTableStorage
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -21,7 +22,7 @@ class StorageFactory:
 
     # Supported storage types
     SUPPORTED_KEY_VALUE_TYPES: ClassVar[list[str]] = ["filesystem", "duckdb"]
-    SUPPORTED_TABLE_TYPES: ClassVar[list[str]] = ["duckdb"]
+    SUPPORTED_TABLE_TYPES: ClassVar[list[str]] = ["duckdb", "postgres"]
 
     @staticmethod
     def create_key_value_storage(*, storage_type: str, **config: Any) -> KeyValueStoragePort:
@@ -43,7 +44,7 @@ class StorageFactory:
                 database_path="data/assets.db"
             )
         """
-        logger.debug(f"Creating key-value storage: {storage_type}")
+        logger.debug("Creating key-value storage: %s", storage_type)
 
         if storage_type == "filesystem":
             return KeyValueFileSystemStorage(**config)
@@ -74,10 +75,12 @@ class StorageFactory:
                 database_path="data/tables.db"
             )
         """
-        logger.debug(f"Creating table storage: {storage_type}")
+        logger.debug("Creating table storage: %s", storage_type)
 
         if storage_type == "duckdb":
             return DuckDBTableStorage(**config)
+        if storage_type == "postgres":
+            return PostgreSQLTableStorage(**config)
         raise ValueError(
             f"Unsupported table storage type: '{storage_type}'. "
             f"Supported types: {', '.join(StorageFactory.SUPPORTED_TABLE_TYPES)}"
