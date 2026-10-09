@@ -1082,18 +1082,26 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                                     doc_name=task["doc_name"],
                                     reason="Binary content unavailable for VLM extraction.",
                                 )
-                                continue
-                            entity_content: str | bytes = binary_content
+                            else:
+                                entity_content: str | bytes = binary_content
+                                entity_future = entity_executor.submit(
+                                    self.entity_adapter.extract_entities_single,
+                                    doc_id=str(task["doc_id"]),
+                                    doc_name=task["doc_name"],
+                                    content=entity_content,
+                                    schema=schema_to_use,
+                                )
+                                entity_future_to_info[entity_future] = (idx, str(task["doc_id"]), task["doc_name"])
                         else:
                             entity_content = extracted_content
-                        entity_future = entity_executor.submit(
-                            self.entity_adapter.extract_entities_single,
-                            doc_id=str(task["doc_id"]),
-                            doc_name=task["doc_name"],
-                            content=entity_content,
-                            schema=schema_to_use,
-                        )
-                        entity_future_to_info[entity_future] = (idx, str(task["doc_id"]), task["doc_name"])
+                            entity_future = entity_executor.submit(
+                                self.entity_adapter.extract_entities_single,
+                                doc_id=str(task["doc_id"]),
+                                doc_name=task["doc_name"],
+                                content=entity_content,
+                                schema=schema_to_use,
+                            )
+                            entity_future_to_info[entity_future] = (idx, str(task["doc_id"]), task["doc_name"])
 
                 else:
                     # ---- Text extraction failed ----

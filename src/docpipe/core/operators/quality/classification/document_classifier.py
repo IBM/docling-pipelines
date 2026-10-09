@@ -522,8 +522,8 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                     future = submit_task_with_context_propagation(
                         executor,
                         OperatorUtils.extract_content,
-                        task["doc_name"],
-                        task["binary_content"],
+                        file_path=task["doc_name"],
+                        binary_content=task["binary_content"],
                     )
 
                     future_to_task[future] = task

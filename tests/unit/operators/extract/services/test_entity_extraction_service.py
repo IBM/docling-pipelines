@@ -634,7 +634,7 @@ def test_load_schema_templates_delegates_to_provider():
     templates: dict[str, dict] = {}
     service._load_schema_templates(document_types=["invoice"], schema_templates=templates)
 
-    provider.get_schema_templates.assert_called_once_with(["invoice"])
+    provider.get_schema_templates.assert_called_once_with(document_types=["invoice"])
     assert "invoice" in templates
 
 

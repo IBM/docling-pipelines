@@ -39,7 +39,7 @@ class DocumentClassProvider(ABC):
         ...
 
     @abstractmethod
-    def get_schema_templates(self, document_types: list[str]) -> dict[str, dict]:
+    def get_schema_templates(self, *, document_types: list[str]) -> dict[str, dict]:
         """Return the raw document-class schemas for the requested types.
 
         Args:
@@ -53,8 +53,8 @@ class DocumentClassProvider(ABC):
     @abstractmethod
     def generate_docling_templates_for_types(
         self,
-        document_types: list[str],
         *,
+        document_types: list[str],
         include_nested: bool = True,
     ) -> dict[str, dict]:
         """Return Docling extraction templates for the requested document types.
@@ -81,15 +81,15 @@ class StaticDocumentClassProvider(DocumentClassProvider):
 
         return dict(DocumentClassUtils.get_document_types())
 
-    def get_schema_templates(self, document_types: list[str]) -> dict[str, dict]:
+    def get_schema_templates(self, *, document_types: list[str]) -> dict[str, dict]:
         from docpipe.utils.document_class_utils import DocumentClassUtils
 
         return DocumentClassUtils.get_schema_templates(document_types)
 
     def generate_docling_templates_for_types(
         self,
-        document_types: list[str],
         *,
+        document_types: list[str],
         include_nested: bool = True,
     ) -> dict[str, dict[str, Any]]:
         from docpipe.utils.document_class_utils import DocumentClassUtils
