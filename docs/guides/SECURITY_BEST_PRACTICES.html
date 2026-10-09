@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Security Best Practices — Docling Pipelines</title>
+  <meta name="description" content="Security Best Practices — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter active" href="SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Security Best Practices</span>
+      </nav>
+      <h1>Security Best Practices</h1>
+<p>This guide describes the security practices users of this repository should follow when deploying, configuring, and operating Docling-pipelines.</p>
+<p>For the internal security architecture (how Docling-pipelines implements these controls), see <a href="../../ARCHITECTURE.html#security-architecture">ARCHITECTURE.md — Security Architecture</a>.</p>
+
+<hr />
+<h2 id="1-secret-and-credential-management">1. Secret and Credential Management</h2>
+<h3 id="never-commit-secrets-to-source-control">Never commit secrets to source control</h3>
+<p>Docling-pipelines reads all sensitive values from environment variables. The <code>.env.example</code> and <code>.env.oauth2.example</code> files in the project root show which variables are required; copy one to <code>.env</code> and fill in real values — never commit the populated <code>.env</code> file.</p>
+<p>The repository enforces this with a <code>detect-secrets</code> pre-commit hook. Do not bypass pre-commit hooks (<code>git commit --no-verify</code> is blocked by project policy).</p>
+<h3 id="use-environment-variable-substitution-in-flow-files">Use environment variable substitution in flow files</h3>
+<p>Flow JSON definitions support <code>${ENV_VAR}</code> substitution. Use this pattern for any value that is sensitive — API keys, passwords, or endpoints that should not appear in a committed file:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;embeddings&quot;,
+  &quot;name&quot;: &quot;embed&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;watsonx&quot;,
+    &quot;provider_config&quot;: {
+      &quot;api_key&quot;: &quot;${WATSONX_API_KEY}&quot;,
+      &quot;url&quot;: &quot;${WATSONX_API_BASE_URL}&quot;
+    }
+  }
+}
+</code></pre>
+<h3 id="rotate-secrets-regularly">Rotate secrets regularly</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Credential</th>
+<th>Recommended rotation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>JWT_SECRET_KEY</code></td>
+<td>At least every 90 days; immediately after any suspected exposure</td>
+</tr>
+<tr>
+<td>LDAP bind password (<code>LDAP_BIND_PASSWORD</code>)</td>
+<td>Follow your organisation's directory policy</td>
+</tr>
+<tr>
+<td>OAuth2 client secret (<code>OAUTH2_CLIENT_SECRET</code>)</td>
+<td>At least every 90 days</td>
+</tr>
+<tr>
+<td>WatsonX / IBM Cloud API keys</td>
+<td>Follow IBM Cloud key rotation policy</td>
+</tr>
+<tr>
+<td>OpenSearch credentials</td>
+<td>Follow your OpenSearch deployment policy</td>
+</tr>
+<tr>
+<td>Object-storage access keys (S3/COS)</td>
+<td>Follow your cloud provider's recommendation</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="secrets-at-rest">Secrets at rest</h3>
+<ul>
+<li>Store <code>.env</code> files in a secrets manager (HashiCorp Vault, AWS Secrets Manager, Azure Key Vault, IBM Secrets Manager) rather than on disk in plain text.</li>
+<li>In containerised deployments, inject secrets as environment variables from the orchestrator (Kubernetes Secrets, Docker secrets) rather than baking them into images.</li>
+<li>Restrict filesystem permissions on <code>.env</code> files: <code>chmod 600 .env</code>.</li>
+</ul>
+<hr />
+<h2 id="2-rest-api-security">2. REST API Security</h2>
+<h3 id="set-a-strong-jwt-secret">Set a strong JWT secret</h3>
+<p><code>JWT_SECRET_KEY</code> is used to sign all access tokens. In production this <strong>must</strong> be a cryptographically random string of at least 32 bytes:</p>
+<pre><code class="language-bash">python -c &quot;import secrets; print(secrets.token_hex(32))&quot;
+</code></pre>
+<p>Never use the placeholder value from <code>.env.oauth2.example</code> in a real deployment.</p>
+<h3 id="reduce-token-lifetime-for-sensitive-deployments">Reduce token lifetime for sensitive deployments</h3>
+<p>The default JWT access token lifetime is 30 minutes (<code>JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30</code>). For high-security environments reduce this to 10–15 minutes and implement token refresh.</p>
+<h3 id="lock-down-cors-origins">Lock down CORS origins</h3>
+<p><code>CORS_ORIGINS</code> defaults to <code>http://localhost:3000</code> (development only). In production, set it explicitly to the exact origins of your frontend:</p>
+<pre><code class="language-bash">CORS_ORIGINS=https://app.example.com,https://admin.example.com
+</code></pre>
+<p>Do not use <code>*</code> as a CORS origin in production — it disables origin-based cross-site request protection.</p>
+<h3 id="run-the-api-behind-tls">Run the API behind TLS</h3>
+<p>Docling-pipelines's built-in server (<code>uvicorn</code>) does not terminate TLS. In production always place a TLS-terminating reverse proxy (nginx, Traefik, AWS ALB, etc.) in front. Never expose port 8080 to the public internet without TLS.</p>
+<h3 id="restrict-network-exposure">Restrict network exposure</h3>
+<p>Only expose the API port to trusted networks or behind an API gateway. The Prefect server, OpenSearch, and Ollama should never be exposed to the public internet.</p>
+<hr />
+<h2 id="3-authentication-configuration">3. Authentication Configuration</h2>
+<h3 id="prefer-oauth2oidc-over-ldap-for-new-deployments">Prefer OAuth2/OIDC over LDAP for new deployments</h3>
+<p>OAuth2/OIDC delegates authentication to a hardened identity provider (Google, Azure AD, Okta, etc.) and is easier to integrate with MFA enforcement and SSO. LDAP is appropriate for environments that already have a directory service.</p>
+<h3 id="enforce-mfa-at-the-identity-provider">Enforce MFA at the identity provider</h3>
+<p>Docling-pipelines itself does not enforce multi-factor authentication — this must be configured at the identity provider. Enable MFA for all user accounts in your OAuth2/OIDC provider before connecting it to Docling-pipelines.</p>
+<h3 id="enable-ldap-tls-ldap-use-ssltrue">Enable LDAP TLS (<code>LDAP_USE_SSL=true</code>)</h3>
+<p>Plain LDAP (port 389) transmits credentials in clear text. Always enable StartTLS (<code>LDAP_USE_SSL=true</code>) or use LDAPS (port 636) to protect credentials in transit.</p>
+<h3 id="restrict-the-ldap-service-account">Restrict the LDAP service account</h3>
+<p>The <code>LDAP_BIND_DN</code> service account is used only to search for user DNs. Grant it read-only access scoped to the <code>LDAP_USER_DN</code> subtree — it does not need write permissions or access to the full directory.</p>
+<h3 id="validate-oauth2-oidc-configuration">Validate OAuth2 OIDC configuration</h3>
+<p>When using a generic OIDC provider, confirm that all three of <code>OIDC_ISSUER</code>, <code>oidc_audience</code>, and <code>OAUTH2_JWKS_URI</code> are set. Missing values weaken token validation:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Missing variable</th>
+<th>Risk</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OIDC_ISSUER</code></td>
+<td>Tokens from any issuer are accepted</td>
+</tr>
+<tr>
+<td><code>oidc_audience</code></td>
+<td>Tokens issued for other applications are accepted</td>
+</tr>
+<tr>
+<td><code>OAUTH2_JWKS_URI</code></td>
+<td>Signature cannot be verified</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="4-document-access-control">4. Document Access Control</h2>
+<h3 id="populate-allowed-users-on-every-indexed-document">Populate <code>allowed_users</code> on every indexed document</h3>
+<p>The ACL system is fail-closed: documents without an <code>allowed_users</code> field, or with an empty array, are inaccessible to all users. Ensure every document ingested into OpenSearch has a non-empty <code>allowed_users</code> list populated with the usernames authorised to read it.</p>
+<h3 id="use-usernames-that-match-your-identity-provider">Use usernames that match your identity provider</h3>
+<p>The <code>allowed_users</code> field is compared against the <code>username</code> claim in the JWT token. Ensure the usernames in your documents match the claim emitted by your identity provider (e.g. UPN for Azure AD, email for Google).</p>
+<h3 id="do-not-share-service-account-tokens-with-end-users">Do not share service-account tokens with end users</h3>
+<p>If you run automated pipelines using a service account, do not reuse that account's JWT token for interactive users. Service accounts should have tightly scoped <code>allowed_users</code> access and separate credentials.</p>
+<hr />
+<h2 id="5-network-and-infrastructure">5. Network and Infrastructure</h2>
+<h3 id="opensearch">OpenSearch</h3>
+<ul>
+<li>Enable TLS on OpenSearch (<code>OPENSEARCH_USE_SSL=true</code>, <code>OPENSEARCH_VERIFY_CERTS=true</code>).</li>
+<li>Use a dedicated OpenSearch user for Docling-pipelines with the minimum required permissions (read/write to pipeline indexes only).</li>
+<li>Never use the default <code>admin</code>/<code>admin</code> credentials in production.</li>
+</ul>
+<pre><code class="language-bash">OPENSEARCH_USE_SSL=true
+OPENSEARCH_VERIFY_CERTS=true
+OPENSEARCH_USERNAME=docpipe-service-user
+OPENSEARCH_PASSWORD=&lt;strong-random-password&gt;
+</code></pre>
+<h3 id="ollama">Ollama</h3>
+<ul>
+<li>Ollama listens on <code>localhost:11434</code> by default. Do not expose it externally unless required.</li>
+<li>If Ollama must be accessible from multiple hosts, place it behind an authenticated reverse proxy.</li>
+</ul>
+<h3 id="prefect">Prefect</h3>
+<ul>
+<li>The Prefect server and work pools should be accessible only from within the same network as the Docling Pipelines workers.</li>
+<li>Use Prefect's built-in API key authentication for remote work pool access.</li>
+</ul>
+<h3 id="docker-container-deployments">Docker / container deployments</h3>
+<ul>
+<li>Do not run containers as <code>root</code>. Use a non-root user in the <code>Dockerfile</code>.</li>
+<li>Mount secrets as environment variables from the container orchestrator, not as files in the image.</li>
+<li>Scan images for known CVEs with your CI pipeline (e.g. <code>trivy</code>, <code>grype</code>) before deployment.</li>
+</ul>
+<hr />
+<h2 id="6-pii-and-sensitive-data-in-pipelines">6. PII and Sensitive Data in Pipelines</h2>
+<h3 id="detect-and-redact-pii-before-storage">Detect and redact PII before storage</h3>
+<p>If your documents may contain personally identifiable information, add the <code>PIIAndHAPAnnotator</code> and <code>Redaction</code> operators to your pipeline <strong>before</strong> the <code>Chunker</code>, <code>EmbeddingsOperator</code>, and <code>VectorDBOperator</code> stages:</p>
+<pre><code class="language-json">[
+  { &quot;type&quot;: &quot;ingest_source&quot;,       &quot;name&quot;: &quot;ingest&quot;   },
+  { &quot;type&quot;: &quot;extract&quot;,             &quot;name&quot;: &quot;extract&quot;  },
+  { &quot;type&quot;: &quot;pii_and_hap&quot;,         &quot;name&quot;: &quot;pii_scan&quot; },
+  { &quot;type&quot;: &quot;redaction&quot;,           &quot;name&quot;: &quot;redact&quot;   },
+  { &quot;type&quot;: &quot;chunker&quot;,             &quot;name&quot;: &quot;chunk&quot;    },
+  { &quot;type&quot;: &quot;embeddings&quot;,          &quot;name&quot;: &quot;embed&quot;    },
+  { &quot;type&quot;: &quot;vector_db&quot;,           &quot;name&quot;: &quot;store&quot;    }
+]
+</code></pre>
+<p>This ensures PII is removed before it enters long-term storage or becomes part of an embedding.</p>
+<h3 id="do-not-log-document-content-at-debug-level-in-production">Do not log document content at DEBUG level in production</h3>
+<p>Set <code>DS_LOG_LEVEL=INFO</code> (or <code>WARNING</code>) in production. <code>DEBUG</code> logging can expose document content, embeddings, and query results in log files.</p>
+<pre><code class="language-bash">DS_LOG_LEVEL=INFO
+</code></pre>
+<h3 id="treat-vector-embeddings-as-sensitive">Treat vector embeddings as sensitive</h3>
+<p>Embeddings can sometimes be reversed to approximate the original text. Apply the same access controls to your vector index as you would to the source documents.</p>
+<hr />
+<h2 id="7-dependency-and-supply-chain-security">7. Dependency and Supply-Chain Security</h2>
+<h3 id="keep-dependencies-up-to-date">Keep dependencies up to date</h3>
+<p>Run dependency audits regularly:</p>
+<pre><code class="language-bash">source .venv/bin/activate
+uv pip audit          # or: pip-audit
+</code></pre>
+<p>Pin dependencies to specific versions in <code>requirements.txt</code> and review updates before upgrading in production.</p>
+<h3 id="use-pre-commit-hooks-on-every-commit">Use pre-commit hooks on every commit</h3>
+<p>The repository ships with a <code>.pre-commit-config.yaml</code> that includes <code>detect-secrets</code>, <code>ruff</code>, and <code>mypy</code>. Install and enable them:</p>
+<pre><code class="language-bash">pre-commit install
+</code></pre>
+<p>Never bypass hooks with <code>--no-verify</code>.</p>
+<h3 id="validate-custom-operators-before-use">Validate custom operators before use</h3>
+<p>Custom operators loaded from <code>examples/custom_operators/</code> or external packages execute arbitrary Python during pipeline runs. Only load operators from trusted, reviewed sources.</p>
+<hr />
+<h2 id="8-observability-and-audit-logging">8. Observability and Audit Logging</h2>
+<h3 id="retain-authentication-logs">Retain authentication logs</h3>
+<p>The API logs all login attempts, token verifications, and access-denied events at <code>INFO</code>/<code>WARNING</code> level. Route these logs to a centralised log management system (Splunk, Elastic, IBM Log Analysis) and retain them for at least 90 days for audit purposes.</p>
+<p>Key log events to monitor:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Log message pattern</th>
+<th>Significance</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Failed login attempt for user:</code></td>
+<td>Possible brute-force attempt</td>
+</tr>
+<tr>
+<td><code>Invalid authentication token provided</code></td>
+<td>Invalid or expired token reuse</td>
+</tr>
+<tr>
+<td><code>LDAP server is unavailable</code></td>
+<td>Authentication service outage</td>
+</tr>
+<tr>
+<td><code>Invalid OAuth2 state parameter received</code></td>
+<td>Possible CSRF attack</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="enable-opentelemetry-tracing-for-production">Enable OpenTelemetry tracing for production</h3>
+<p>Distributed tracing helps correlate authentication events with pipeline execution. Enable the telemetry integration in production:</p>
+<pre><code class="language-bash">DOCLING_PIPELINES_TELEMETRY_ENABLED=true
+OTEL_SERVICE_NAME=docpipe-production
+OTEL_EXPORTER_OTLP_ENDPOINT=https://your-collector:4317
+</code></pre>
+<p>See <a href="TELEMETRY_SETUP.html">Telemetry Setup</a> for full configuration instructions.</p>
+<hr />
+<h2 id="9-quick-reference-checklist">9. Quick-Reference Checklist</h2>
+<p>Use this checklist when preparing a production deployment.</p>
+<h3 id="secrets">Secrets</h3>
+<ul>
+<li>[ ] <code>.env</code> is not committed to source control</li>
+<li>[ ] <code>JWT_SECRET_KEY</code> is a cryptographically random value (≥ 32 bytes), not the example placeholder</li>
+<li>[ ] All API keys and passwords are loaded from environment variables, not hard-coded in flow files</li>
+<li>[ ] Secrets are stored in a secrets manager, not as plain-text files on disk</li>
+</ul>
+<h3 id="authentication">Authentication</h3>
+<ul>
+<li>[ ] <code>JWT_ACCESS_TOKEN_EXPIRE_MINUTES</code> is set to an appropriate value for your risk profile</li>
+<li>[ ] <code>LDAP_USE_SSL=true</code> (or LDAPS) is enabled if using LDAP</li>
+<li>[ ] MFA is enforced at the identity provider (OAuth2/OIDC deployments)</li>
+<li>[ ] OIDC configuration includes <code>OIDC_ISSUER</code>, <code>oidc_audience</code>, and <code>OAUTH2_JWKS_URI</code></li>
+</ul>
+<h3 id="api">API</h3>
+<ul>
+<li>[ ] The API is served behind a TLS-terminating reverse proxy</li>
+<li>[ ] <code>CORS_ORIGINS</code> is set to specific production origins (not <code>*</code>)</li>
+<li>[ ] The API port is not publicly accessible without TLS</li>
+</ul>
+<h3 id="data">Data</h3>
+<ul>
+<li>[ ] Every document indexed in OpenSearch has a populated <code>allowed_users</code> field</li>
+<li>[ ] PII-containing pipelines use <code>pii_and_hap</code> → <code>redaction</code> before storage</li>
+<li>[ ] <code>DS_LOG_LEVEL</code> is set to <code>INFO</code> or higher (not <code>DEBUG</code>) in production</li>
+</ul>
+<h3 id="infrastructure">Infrastructure</h3>
+<ul>
+<li>[ ] OpenSearch TLS is enabled (<code>OPENSEARCH_USE_SSL=true</code>, <code>OPENSEARCH_VERIFY_CERTS=true</code>)</li>
+<li>[ ] Default OpenSearch credentials have been changed</li>
+<li>[ ] Ollama and Prefect are not exposed to the public internet</li>
+<li>[ ] Container images run as non-root and are scanned for CVEs</li>
+</ul>
+<h3 id="operations">Operations</h3>
+<ul>
+<li>[ ] Authentication and access-denied logs are forwarded to a centralised log store</li>
+<li>[ ] Dependency audit (<code>uv pip audit</code>) is scheduled in CI</li>
+<li>[ ] Pre-commit hooks are installed and passing</li>
+</ul>
+<hr />
+<p><em>For related internal implementation details, see <a href="../../ARCHITECTURE.html#security-architecture">ARCHITECTURE.md — Security Architecture</a>.</em></p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#1-secret-and-credential-management">1. Secret and Credential Management</a>
+      <a href="#2-rest-api-security">2. REST API Security</a>
+      <a href="#3-authentication-configuration">3. Authentication Configuration</a>
+      <a href="#4-document-access-control">4. Document Access Control</a>
+      <a href="#5-network-and-infrastructure">5. Network and Infrastructure</a>
+      <a href="#6-pii-and-sensitive-data-in-pipelines">6. PII and Sensitive Data in Pipelines</a>
+      <a href="#7-dependency-and-supply-chain-security">7. Dependency and Supply-Chain Security</a>
+      <a href="#8-observability-and-audit-logging">8. Observability and Audit Logging</a>
+      <a href="#9-quick-reference-checklist">9. Quick-Reference Checklist</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

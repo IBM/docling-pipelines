@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Docpipe UI User Guide — Docling Pipelines</title>
+  <meta name="description" content="Docpipe UI User Guide — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter active" href="UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Docpipe UI User Guide</span>
+      </nav>
+      <h1>Docpipe UI User Guide</h1>
+<p>The Docpipe web UI is a visual tool for building, running, and monitoring document processing pipelines.<br />
+It is served by the FastAPI backend and is accessible at <code>/ui</code> on whichever host you have deployed Docpipe to.</p>
+<ul>
+<li><strong>Development</strong>: <code>http://localhost:3000/ui</code></li>
+<li><strong>Wheel / Docker</strong>: <code>http://localhost:8080/ui</code></li>
+<li><strong>OpenShift / Kubernetes</strong>: <code>https://&lt;your-route-host&gt;/ui</code></li>
+</ul>
+<hr />
+<h2 id="navigation">Navigation</h2>
+<p>The application header contains four primary navigation items:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Item</th>
+<th>URL pattern</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Home</strong></td>
+<td><code>/ui/home</code></td>
+<td>Overview dashboard — recent projects, flows, and runs</td>
+</tr>
+<tr>
+<td><strong>Projects</strong></td>
+<td><code>/ui/projects</code></td>
+<td>Manage projects and their flows</td>
+</tr>
+<tr>
+<td><strong>Canvas</strong></td>
+<td><code>/ui/canvas/:flowId</code></td>
+<td>Visual pipeline editor (opened from a flow)</td>
+</tr>
+<tr>
+<td><strong>Runs</strong></td>
+<td>(accessible from a project)</td>
+<td>Job run history and status</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="pages">Pages</h2>
+<h3 id="home">Home</h3>
+<p>The Home page provides an at-a-glance overview with three summary cards:</p>
+<ul>
+<li><strong>Projects card</strong> — lists your most recently modified projects.</li>
+<li><strong>Flows card</strong> — lists your most recently modified flows across all projects.</li>
+<li><strong>Runs card</strong> — lists recent job runs and their status.</li>
+</ul>
+<p>Click any item in a card to navigate directly to it.</p>
+<hr />
+<h3 id="projects">Projects</h3>
+<p>The Projects page lists all projects. A <strong>project</strong> is a logical container for one or more pipelines (flows).</p>
+<p><strong>Creating a project</strong></p>
+<p>Click <strong>Create project</strong> in the top-right corner of the page. Enter a name and an optional description. The project appears in the list immediately after creation.</p>
+<p><strong>Opening a project</strong></p>
+<p>Click on any project card to open its detail view, which shows the flows that belong to it.</p>
+<p><strong>Editing or deleting a project</strong></p>
+<p>Use the overflow menu (⋮) on the project card to rename, edit the description, or delete the project.</p>
+<hr />
+<h3 id="project-detail-flows">Project detail — Flows</h3>
+<p>Inside a project you see the list of flows. A <strong>flow</strong> is a directed pipeline of operators: it defines which operators run, in what order, and with what configuration.</p>
+<p><strong>Creating a flow</strong></p>
+<p>Click <strong>Create flow</strong>. Enter a name and optional description. The flow is saved to the project.</p>
+<p><strong>Opening a flow in the canvas</strong></p>
+<p>Click on any flow card to open the visual canvas editor for that flow.</p>
+<p><strong>Editing or deleting a flow</strong></p>
+<p>Use the overflow menu (⋮) on the flow card.</p>
+<hr />
+<h3 id="canvas">Canvas</h3>
+<p>The Canvas is the visual pipeline editor. It opens when you click a flow.</p>
+<h4>Operator palette</h4>
+<p>The left panel lists all available operators grouped by category (Ingest, Extract, Functional, Quality, VectorDB, Storage). Drag an operator from the palette onto the canvas to add it to your pipeline.</p>
+<h4>Building a pipeline</h4>
+<ol>
+<li><strong>Add operators</strong>: drag them from the palette onto the canvas.</li>
+<li><strong>Connect operators</strong>: drag from the output port of one operator to the input port of the next. Pipelines must have exactly one root operator (an ingest node with no incoming connections).</li>
+<li><strong>Configure an operator</strong>: double-click a node (or right-click → <strong>Edit</strong>) to open the properties panel on the right. Fill in the operator's parameters and click <strong>Save</strong>.</li>
+<li><strong>Delete a node or link</strong>: select it and press Delete, or use the right-click context menu.</li>
+</ol>
+<h4>Running a pipeline</h4>
+<p>Click <strong>Run</strong> in the canvas toolbar. The pipeline is submitted to the backend as a job. A notification appears when the run starts. Click <strong>View run</strong> (or navigate to the Runs page) to follow progress.</p>
+<h4>Flow run history</h4>
+<p>Click the <strong>Flow run history</strong> button in the toolbar to see all past runs for this flow with their status and duration.</p>
+<h4>About flow</h4>
+<p>Click <strong>About flow</strong> in the toolbar to view and edit the flow name and description without leaving the canvas.</p>
+<hr />
+<h3 id="runs">Runs</h3>
+<p>The Runs page (accessible from within a project) lists all job runs for that project. Each row shows:</p>
+<ul>
+<li><strong>Flow name</strong></li>
+<li><strong>Status</strong> — <code>PENDING</code>, <code>RUNNING</code>, <code>COMPLETED</code>, <code>FAILED</code></li>
+<li><strong>Start time</strong> and <strong>duration</strong></li>
+</ul>
+<p>Click any row to open the <strong>Run details</strong> page, which shows per-operator status, document counts, and error messages.</p>
+<hr />
+<h2 id="concepts">Concepts</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Project</strong></td>
+<td>A logical container for one or more flows</td>
+</tr>
+<tr>
+<td><strong>Flow</strong></td>
+<td>A directed acyclic graph (DAG) of operators that defines a pipeline</td>
+</tr>
+<tr>
+<td><strong>Operator</strong></td>
+<td>A single processing step (ingest, extract, chunk, embed, store, etc.)</td>
+</tr>
+<tr>
+<td><strong>Node</strong></td>
+<td>An operator instance placed on the canvas</td>
+</tr>
+<tr>
+<td><strong>Link</strong></td>
+<td>A connection between two nodes that defines data flow</td>
+</tr>
+<tr>
+<td><strong>Job run</strong></td>
+<td>A single execution of a flow</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="typical-workflow">Typical workflow</h2>
+<pre><code>1. Create a project
+2. Create a flow inside the project
+3. Open the flow in the canvas
+4. Drag an Ingest operator onto the canvas and configure the file path or source
+5. Add downstream operators (Extract, Chunker, Embeddings, VectorDB)
+6. Connect them in order
+7. Click Run
+8. Monitor progress on the Runs page
+</code></pre>
+<hr />
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p>Symptoms can have different causes depending on how you started the UI. Find your deployment mode below.</p>
+<hr />
+<h3 id="local-dev-npm-run-dev">Local dev (<code>npm run dev</code>)</h3>
+<p><strong>Blank page or nothing loads at <code>http://localhost:3000/ui</code></strong></p>
+<ul>
+<li>Check that both processes started: the terminal running <code>npm run dev</code> should show output from both <code>BFF</code> and <code>VITE</code> prefixes.</li>
+<li>Check that <code>frontend/.env</code> exists. If not, run <code>cp .env.example .env</code> from the <code>frontend/</code> directory and restart.</li>
+<li>Check that <code>BACKEND_API_URL</code> in <code>frontend/.env</code> points to where FastAPI is actually running (default: <code>http://localhost:8080</code>).</li>
+</ul>
+<p><strong>Canvas shows no operators in the palette</strong></p>
+<p>The browser cannot reach the backend API through the BFF. Open the browser developer console (F12) and check for errors on the Network tab.</p>
+<ul>
+<li><code>net::ERR_CONNECTION_REFUSED</code> on <code>/api/*</code> — the BFF is not running. Check the <code>BFF</code> prefix output in the terminal; if it exited, re-run <code>npm run dev</code>.</li>
+<li><code>404</code> from the BFF — the FastAPI backend is not running. Start it: <code>uvicorn docpipe.api.main:app --host 0.0.0.0 --port 8080</code>.</li>
+<li>CORS errors — the FastAPI backend is running on a different port than <code>BACKEND_API_URL</code> in <code>frontend/.env</code>.</li>
+</ul>
+<p><strong>BFF exits immediately with <code>BACKEND_API_URL is not set</code></strong></p>
+<p><code>frontend/.env</code> is missing or empty. Run <code>cp .env.example .env</code> from the <code>frontend/</code> directory.</p>
+<hr />
+<h3 id="wheel-install-uvicorn-docpipeapimainapp">Wheel install (<code>uvicorn docpipe.api.main:app</code>)</h3>
+<p><strong>UI not accessible at <code>http://localhost:8080/ui</code></strong></p>
+<p>The frontend assets were not bundled into the wheel. Rebuild them manually and restart:</p>
+<pre><code class="language-bash">cd frontend &amp;&amp; npm install &amp;&amp; npm run build
+python scripts/build_frontend.py
+uvicorn docpipe.api.main:app --host 0.0.0.0 --port 8080
+</code></pre>
+<p><strong>Canvas shows no operators — backend logs show "BFF not started: node not found"</strong></p>
+<p><code>node</code> is not in <code>PATH</code>. Install Node.js (any version ≥ 18) and ensure it is on the system <code>PATH</code>, then restart the server.</p>
+<p><strong>Canvas shows no operators — backend logs show "BFF not started: bff/server.cjs not found"</strong></p>
+<p>The BFF bundle was not included in the wheel. Run <code>python scripts/build_frontend.py</code> from the project root to rebuild the assets and bundle, then restart.</p>
+<hr />
+<h3 id="docker-compose">Docker Compose</h3>
+<p><strong>A service is not healthy</strong></p>
+<pre><code class="language-bash">docker compose -f docker/all-in-one-deployment/docker-compose.yml ps
+docker compose -f docker/all-in-one-deployment/docker-compose.yml logs bff
+docker compose -f docker/all-in-one-deployment/docker-compose.yml logs docpipe
+</code></pre>
+<p><strong>Canvas shows no operators after the stack is healthy</strong></p>
+<p>The <code>docpipe</code> container depends on <code>bff</code> being healthy before it starts. If the BFF container restarted after <code>docpipe</code> came up, FastAPI may have lost its BFF URL. Restart the <code>docpipe</code> container:</p>
+<pre><code class="language-bash">docker compose -f docker/all-in-one-deployment/docker-compose.yml restart docpipe
+</code></pre>
+<hr />
+<h3 id="openshift-kubernetes">OpenShift / Kubernetes</h3>
+<p><strong>UI route returns 502 or connection refused</strong></p>
+<p>Check that the BFF pod is running and healthy, and that <code>BFF_URL</code> is set correctly on the backend deployment:</p>
+<pre><code class="language-bash">oc get pods -l app=docpipe-bff
+oc logs deployment/docpipe-bff
+oc get env deployment/docpipe-backend | grep BFF_URL
+</code></pre>
+<hr />
+<h3 id="all-modes">All modes</h3>
+<p><strong>A run stays in PENDING forever</strong></p>
+<p>The backend started the job but an operator cannot reach an external service. Check the FastAPI logs for connection errors to Ollama, OpenSearch, or other configured services.</p>
+<p><strong>Page loads but all API calls return 401 Unauthorized</strong></p>
+<p>Authentication is not yet enforced in the UI. If you are seeing 401 responses, the backend JWT configuration may be misconfigured. Check <code>JWT_SECRET_KEY</code> in your <code>.env</code> file.</p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#navigation">Navigation</a>
+      <a href="#pages">Pages</a>
+      <a href="#concepts">Concepts</a>
+      <a href="#typical-workflow">Typical workflow</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

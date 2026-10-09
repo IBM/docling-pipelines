@@ -1,0 +1,2221 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ExtractOperator — Docling Pipelines</title>
+  <meta name="description" content="ExtractOperator — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter active" href="extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">ExtractOperator</span>
+      </nav>
+      <h1>ExtractOperator</h1>
+<p>Converts raw document files to markdown text and optionally extracts structured entities.</p>
+<ul>
+<li><strong>Short Name:</strong> <code>extract_operator</code></li>
+<li><strong>Category:</strong> Extract</li>
+</ul>
+<hr />
+<h2 id="overview">Overview</h2>
+<p>The operator follows hexagonal architecture principles, separating business logic from infrastructure concerns:</p>
+<ul>
+<li><strong>Domain Layer</strong>: Core models (<code>TextExtractionMode</code>, <code>EntityExtractionMode</code>, extraction requests/results)</li>
+<li><strong>Port Layer</strong>: Interfaces defining extraction contracts (<code>TextExtractionPort</code>, <code>EntityExtractionPort</code>)</li>
+<li><strong>Adapter Layer</strong>: Concrete implementations for different extraction strategies</li>
+<li><strong>Factory Layer</strong>: Creates appropriate adapters based on configuration</li>
+</ul>
+<p>This architecture enables:<br />
+- Easy addition of new extraction strategies<br />
+- Clear separation of concerns<br />
+- Testability through dependency injection<br />
+- Flexibility in switching between implementations</p>
+<h2 id="key-features">Key Features</h2>
+<ul>
+<li><strong>Dual-Mode Operation</strong>: Supports both text extraction and entity extraction in a single operator</li>
+<li><strong>Multiple Text Extraction Strategies</strong>: Docling Library (with optional VLM and ASR pipeline) and Docling Serve API</li>
+<li><strong>Multiple Entity Extraction Strategies</strong>: LiteLLM (including Ollama via openai/ prefix), Docling template-based, and WatsonX</li>
+<li><strong>Streaming Pipeline</strong>: When entity extraction is enabled, each document is submitted for entity extraction immediately after its text extraction completes, without waiting for the full batch. The two stages run concurrently, reducing end-to-end latency on large batches.</li>
+<li><strong>Estimated Page Count Calculation</strong>: Automatically calculates estimated page counts for extracted text</li>
+<li><strong>Parallel Processing</strong>: Automatic worker optimization based on CPU count</li>
+<li><strong>Flexible Configuration</strong>: Provider-specific parameters with sensible defaults</li>
+<li><strong>Consistent Error Handling</strong>: Unified error handling and metadata across all modes</li>
+</ul>
+<h2 id="operator-configuration">Operator Configuration</h2>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;extract_operator&quot;,
+  &quot;name&quot;: &quot;extract_documents&quot;,
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;,
+      &quot;provider_config&quot;: {}
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    }
+  },
+  &quot;depends_on&quot;: [&quot;ingest_documents&quot;]
+}
+</code></pre>
+<h2 id="text-extraction-providers">Text Extraction Providers</h2>
+<h3 id="1-docling-library-provider-default">1. Docling Library Provider (Default)</h3>
+<p>Standard document extraction using the Docling library locally. Supports optional VLM (Vision-Language Model) pipeline for enhanced extraction and ASR (Automatic Speech Recognition) pipeline for audio/video processing.</p>
+<p><strong>Basic Configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;max_workers&quot;: 4,
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;,
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;provider_config&quot;: {
+    }
+  },
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;none&quot;
+  }
+}
+</code></pre>
+<p><strong>VLM Pipeline Configuration:</strong></p>
+<p>Enable VLM pipeline for enhanced extraction with vision-language models:</p>
+<pre><code class="language-json">{
+  &quot;max_workers&quot;: 1,
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;,
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;provider_config&quot;: {
+      &quot;vlm_pipeline&quot;: {
+        &quot;preset&quot;: &quot;granite_docling&quot;,
+        &quot;engine&quot;: &quot;transformers&quot;,
+        &quot;engine_options&quot;: {}
+      }
+    }
+  },
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;none&quot;
+  }
+}
+</code></pre>
+<p><strong>GPU Acceleration Configuration:</strong></p>
+<p>Enable GPU-accelerated standard pipeline processing for PDF and image documents. The adapter builds one <code>DocumentConverter</code> at initialization and reuses it across all documents — model weights are loaded onto the GPU once per adapter execution.</p>
+<blockquote>
+<p><strong>Note:</strong> Cannot be combined with <code>vlm_pipeline</code>. Requires <code>max_workers: 1</code> and <code>use_processes: false</code>.</p>
+</blockquote>
+<p>When <code>device</code> is omitted, the best available GPU is auto-detected at runtime via torch (CUDA → MPS → XPU). Specify <code>device</code> explicitly to pin a particular GPU.</p>
+<pre><code class="language-json">{
+  &quot;max_workers&quot;: 1,
+  &quot;use_processes&quot;: false,
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;,
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;provider_config&quot;: {
+      &quot;standard_pipeline&quot;: {
+        &quot;accelerator&quot;: {
+          &quot;num_threads&quot;: 6
+        }
+      }
+    }
+  },
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;none&quot;
+  }
+}
+</code></pre>
+<p>Or with an explicit device:</p>
+<pre><code class="language-json">{
+  &quot;max_workers&quot;: 1,
+  &quot;use_processes&quot;: false,
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;,
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;provider_config&quot;: {
+      &quot;standard_pipeline&quot;: {
+        &quot;accelerator&quot;: {
+          &quot;device&quot;: &quot;cuda&quot;,
+          &quot;num_threads&quot;: 6
+        }
+      }
+    }
+  },
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;none&quot;
+  }
+}
+</code></pre>
+<p><strong>Supported GPU Devices:</strong><br />
+- <code>mps</code> — Apple Metal Performance Shaders (Apple Silicon: M1/M2/M3/M4)<br />
+- <code>cuda</code> — NVIDIA CUDA (automatic device selection)<br />
+- <code>cuda:&lt;index&gt;</code> — NVIDIA CUDA on a specific device (e.g. <code>cuda:0</code>, <code>cuda:1</code>)<br />
+- <code>xpu</code> — Intel XPU</p>
+<p><strong>Supported VLM Engines:</strong><br />
+- <code>transformers</code>: Local inference using Transformers library<br />
+- <code>mlx</code>: Local inference optimized for macOS (Apple Silicon)<br />
+- <code>api_ollama</code>: Ollama API<br />
+- <code>api_openai</code>: OpenAI API<br />
+- <code>api_watsonx</code>: IBM watsonx.ai API<br />
+- <code>api_lmstudio</code>: LM Studio API<br />
+- <code>api</code>: Generic API endpoint</p>
+<p><strong>VLM Pipeline Configuration Examples:</strong></p>
+<p>Ollama:</p>
+<pre><code class="language-json">{
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;,
+    &quot;provider_config&quot;: {
+      &quot;vlm_pipeline&quot;: {
+        &quot;preset&quot;: &quot;granite_docling&quot;,
+        &quot;engine&quot;: &quot;api_ollama&quot;,
+        &quot;engine_options&quot;: {
+          &quot;api_base&quot;: &quot;http://localhost:11434&quot;,
+          &quot;model_id&quot;: &quot;ibm/granite-docling:258m&quot;
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<p>OpenAI:</p>
+<pre><code class="language-json">{
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;,
+    &quot;provider_config&quot;: {
+      &quot;vlm_pipeline&quot;: {
+        &quot;preset&quot;: &quot;qwen&quot;,
+        &quot;engine&quot;: &quot;api_openai&quot;,
+        &quot;engine_options&quot;: {
+          &quot;api_base&quot;: &quot;https://api.openai.com&quot;,
+          &quot;model_id&quot;: &quot;gpt-4-vision-preview&quot;,
+          &quot;api_key&quot;: &quot;&lt;your-api-key&gt;&quot;
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>ASR Pipeline Configuration:</strong></p>
+<p>Enable ASR pipeline for audio and video file transcription:</p>
+<pre><code class="language-json">{
+  &quot;max_workers&quot;: 2,
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;,
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;provider_config&quot;: {
+      &quot;asr_pipeline&quot;: {
+        &quot;model_id&quot;: &quot;whisper_turbo&quot;
+      }
+    }
+  },
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;none&quot;
+  }
+}
+</code></pre>
+<p><strong>Use Cases:</strong><br />
+- Simple document conversion to markdown (without VLM)<br />
+- Complex document layouts (with VLM)<br />
+- Documents with mixed content types (with VLM)<br />
+- Audio/video transcription (with ASR)<br />
+- Local processing without external dependencies<br />
+- High-accuracy extraction requirements (with VLM)<br />
+- Quick prototyping and testing</p>
+<p><strong>Sample Flows:</strong><br />
+- Basic: <a href="../../../sample_flows/quickstart/basic_ingest_extract.json"><code>sample_flows/quickstart/basic_ingest_extract.json</code></a><br />
+- Complete: <a href="../../../sample_flows/quickstart/complete_pipeline_ollama.json"><code>sample_flows/quickstart/complete_pipeline_ollama.json</code></a><br />
+- Audio/Video: <a href="../../../sample_flows/use_cases/audio_video_extraction.json"><code>sample_flows/use_cases/audio_video_extraction.json</code></a></p>
+<h3 id="2-docling-serve-provider">2. Docling Serve Provider</h3>
+<p>REST API-based extraction using the Docling-Serve service for scalable, production-ready document processing.</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_serve&quot;,
+    &quot;provider_config&quot;: {
+      &quot;base_url&quot;: &quot;http://localhost:5001&quot;,
+      &quot;timeout&quot;: 300,
+      &quot;poll_interval&quot;: 2,
+      &quot;max_retries&quot;: 3,
+      &quot;ocr&quot;: {
+        &quot;enabled&quot;: true,
+        &quot;engine&quot;: &quot;easyocr&quot;,
+        &quot;engine_options&quot;: {
+          &quot;lang&quot;: [&quot;en&quot;]
+        }
+      },
+      &quot;pdf_backend&quot;: &quot;dlparse_v4&quot;,
+      &quot;table_mode&quot;: &quot;accurate&quot;,
+      &quot;image_export_mode&quot;: &quot;embedded&quot;
+    }
+  },
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;none&quot;
+  }
+}
+</code></pre>
+<p><strong>File Handling:</strong><br />
+- <code>.txt</code> files are processed locally using basic text extraction (not sent to Docling Serve)<br />
+- Binary content submissions preserve the original filename for proper MIME type detection<br />
+- Supported MIME types are automatically detected based on file extension</p>
+<p><strong>MIME Type Mapping:</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Extension</th>
+<th>MIME Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>.html</code>, <code>.htm</code></td>
+<td><code>text/html</code></td>
+</tr>
+<tr>
+<td><code>.md</code></td>
+<td><code>text/markdown</code></td>
+</tr>
+<tr>
+<td><code>.txt</code></td>
+<td><code>text/plain</code></td>
+</tr>
+<tr>
+<td><code>.pdf</code></td>
+<td><code>application/pdf</code></td>
+</tr>
+<tr>
+<td><code>.docx</code></td>
+<td><code>application/vnd.openxmlformats-officedocument.wordprocessingml.document</code></td>
+</tr>
+<tr>
+<td><code>.doc</code></td>
+<td><code>application/msword</code></td>
+</tr>
+<tr>
+<td><code>.xlsx</code></td>
+<td><code>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</code></td>
+</tr>
+<tr>
+<td><code>.xls</code></td>
+<td><code>application/vnd.ms-excel</code></td>
+</tr>
+<tr>
+<td><code>.pptx</code></td>
+<td><code>application/vnd.openxmlformats-officedocument.presentationml.presentation</code></td>
+</tr>
+<tr>
+<td><code>.ppt</code></td>
+<td><code>application/vnd.ms-powerpoint</code></td>
+</tr>
+<tr>
+<td>Other</td>
+<td><code>application/octet-stream</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Prerequisites:</strong></p>
+<pre><code class="language-bash"># Start docling-serve locally
+docker run -p 5001:5001 ds4sd/docling-serve:latest
+
+# Or use docker-compose
+docker-compose -f docker-compose.docling-serve.yml up -d
+</code></pre>
+<p><strong>Features:</strong><br />
+- <strong>OCR Support</strong>: Process scanned documents and images<br />
+  - EasyOCR engine (supports 80+ languages)<br />
+  - Tesseract engine<br />
+  - Multi-language support<br />
+- <strong>Multiple PDF Backends</strong>:<br />
+  - <code>dlparse_v4</code>: Latest Docling parser (recommended)<br />
+  - <code>dlparse_v3</code>: Legacy Docling parser<br />
+  - <code>pypdfium2</code>: PyPDFium2 backend<br />
+- <strong>Table Extraction Modes</strong>:<br />
+  - <code>accurate</code>: High accuracy (slower)<br />
+  - <code>fast</code>: Fast processing (less accurate)<br />
+- <strong>Image Export Options</strong>:<br />
+  - <code>placeholder</code>: Replace images with a placeholder (default)<br />
+  - <code>embedded</code>: Embed images in output<br />
+  - <code>referenced</code>: Reference images by path<br />
+  - <code>none</code>: Skip image export</p>
+<p><strong>Use Cases:</strong><br />
+- Production document processing pipelines<br />
+- High-volume document ingestion<br />
+- Scanned document processing with OCR<br />
+- Multi-language document processing<br />
+- Distributed processing architectures</p>
+<p><strong>Sample Flow:</strong> <a href="../../../sample_flows/quickstart/complete_pipeline_ollama.json"><code>sample_flows/quickstart/complete_pipeline_ollama.json</code></a></p>
+<h2 id="entity-extraction-providers">Entity Extraction Providers</h2>
+<p>Entity extraction can be combined with any text extraction provider to extract structured data from the extracted text.</p>
+<h3 id="1-none-provider-default">1. None Provider (Default)</h3>
+<p>No entity extraction is performed. Only text extraction is executed.</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;
+  },
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;none&quot;
+  }
+}
+</code></pre>
+<h3 id="2-docling-provider-vlm-based">2. Docling Provider (VLM-Based)</h3>
+<p>Vision-Language Model (VLM) based entity extraction using Docling's VLM pipeline for structured data extraction from documents.</p>
+<p><strong>Basic Configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;
+  },
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling&quot;,
+    &quot;custom_schema&quot;: {
+      &quot;invoice_number&quot;: &quot;string&quot;,
+      &quot;invoice_date&quot;: &quot;string&quot;,
+      &quot;total_amount&quot;: &quot;number&quot;,
+      &quot;line_items&quot;: [
+        {
+          &quot;description&quot;: &quot;string&quot;,
+          &quot;quantity&quot;: &quot;number&quot;,
+          &quot;unit_price&quot;: &quot;number&quot;
+        }
+      ]
+    }
+  }
+}
+</code></pre>
+<p><strong>Custom Model Configuration:</strong></p>
+<p>Users can configure custom inline VLM models for entity extraction using the <code>vlm_pipeline</code> parameter. Only inline models (HuggingFace) are supported as DocumentExtractor does not support remote API endpoints.</p>
+<p><strong>Inline Model (HuggingFace with Transformers):</strong></p>
+<pre><code class="language-json">{
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;
+  },
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling&quot;,
+    &quot;provider_config&quot;: {
+      &quot;vlm_pipeline&quot;: {
+        &quot;model_type&quot;: &quot;inline&quot;,
+        &quot;inline_model&quot;: {
+          &quot;repo_id&quot;: &quot;numind/NuExtract-2.0-2B&quot;,
+          &quot;inference_framework&quot;: &quot;transformers&quot;,
+          &quot;scale&quot;: 2.0,
+          &quot;temperature&quot;: 0.0,
+          &quot;max_new_tokens&quot;: 4096,
+          &quot;load_in_8bit&quot;: true,
+          &quot;torch_dtype&quot;: &quot;bfloat16&quot;
+        }
+      }
+    },
+    &quot;custom_schema&quot;: {
+      &quot;invoice_number&quot;: &quot;string&quot;,
+      &quot;total_amount&quot;: &quot;number&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Note:</strong> API model configuration is not supported. For API-based entity extraction, use <code>entity_extraction.provider: "litellm"</code> instead.</p>
+<p><strong>Supported Model Types:</strong><br />
+- <strong>Inline Models</strong>: HuggingFace models with Transformers, vLLM, or MLX backends<br />
+- <strong>API Models</strong>: Ollama, vLLM server, OpenAI-compatible endpoints</p>
+<p><strong>Supported Backends (for inline models):</strong><br />
+- <code>transformers</code>: HuggingFace Transformers library<br />
+- <code>vllm</code>: vLLM inference engine<br />
+- <code>mlx</code>: Apple MLX framework (macOS only)</p>
+<p><strong>Use Cases:</strong><br />
+- Extracting structured data from standardized forms<br />
+- Processing documents with known schema<br />
+- Vision-based entity extraction from complex layouts<br />
+- Custom model integration for specialized domains<br />
+- Template-driven workflows with VLM enhancement</p>
+<p><strong>Sample Flow:</strong> <a href="../../../sample_flows/quickstart/complete_pipeline_ollama.json"><code>sample_flows/quickstart/complete_pipeline_ollama.json</code></a></p>
+<h3 id="3-litellm-provider">3. LiteLLM Provider</h3>
+<p>Multi-provider LLM extraction using LiteLLM for accessing 100+ LLM providers (OpenAI, Anthropic, Cohere, Ollama, etc.).</p>
+<p><strong>Configuration (OpenAI):</strong></p>
+<pre><code class="language-json">{
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;
+  },
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;litellm&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;openai/gpt-3.5-turbo&quot;,
+      &quot;api_key&quot;: &quot;your-api-key&quot;,  # pragma: allowlist secret
+      &quot;api_base&quot;: &quot;https://api.openai.com/v1&quot;,
+      &quot;temperature&quot;: 0.0,
+      &quot;max_tokens&quot;: 2000
+    },
+    &quot;custom_schema&quot;: {
+      &quot;invoice_number&quot;: &quot;string&quot;,
+      &quot;total_amount&quot;: &quot;number&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Configuration (Ollama via LiteLLM):</strong></p>
+<pre><code class="language-json">{
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;
+  },
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;litellm&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;openai/llama3.2&quot;,
+      &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+      &quot;api_key&quot;: &quot;&lt;ollama_key&gt;&quot;,
+      &quot;temperature&quot;: 0.0,
+      &quot;max_tokens&quot;: 4096
+    },
+    &quot;custom_schema&quot;: {
+      &quot;invoice_number&quot;: &quot;string&quot;,
+      &quot;total_amount&quot;: &quot;number&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Configuration (Remote vLLM with Streaming &amp; Extended Timeout):</strong></p>
+<p>For high-concurrency scenarios with remote vLLM clusters processing large documents, use streaming and extended timeouts to prevent connection drops:</p>
+<pre><code class="language-json">{
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;
+  },
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;litellm&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;openai/granite4:latest&quot;,
+      &quot;api_base&quot;: &quot;https://your-vllm-route/v1&quot;,
+      &quot;api_key&quot;: &quot;YOUR_API_KEY&quot;,  # pragma: allowlist secret
+      &quot;temperature&quot;: 0.0,
+      &quot;max_tokens&quot;: 5000,
+      &quot;stream&quot;: true,
+      &quot;timeout&quot;: 1800
+    },
+    &quot;custom_schema&quot;: {
+      &quot;invoice_number&quot;: &quot;string&quot;,
+      &quot;total_amount&quot;: &quot;number&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Advanced Provider Configuration Parameters:</strong><br />
+- <code>stream</code> (boolean, default: <code>false</code>): Enable HTTP chunked transfer encoding to keep connections alive during long-running requests. Recommended for remote vLLM clusters processing large documents.<br />
+- <code>timeout</code> (integer, default: <code>60</code>): HTTP client read timeout in seconds. Set to 1800 (30 minutes) for large documents that require extended generation time.</p>
+<p><strong>Why Streaming &amp; Extended Timeout?</strong></p>
+<p>During high-concurrency scalability testing with remote vLLM clusters, connection issues were identified:<br />
+1. <strong>Infrastructure Idle Timeout</strong>: Load balancers (IBM Cloud Edge, HAProxy) reset idle connections after ~100 seconds without data transmission. With <code>stream=false</code>, vLLM waits until entire generation completes (150+ seconds for large documents) before sending response, causing connections to be dropped mid-generation.<br />
+2. <strong>Extended Processing Time</strong>: Large documents requiring 5000+ tokens at ~88 tokens/sec take 150+ seconds to generate, exceeding typical load balancer idle timeouts.</p>
+<p><strong>Solution</strong>: Combining <code>stream=true</code> with <code>timeout=1800</code> ensures:<br />
+- Continuous packet flow (streaming chunks) prevents idle timeout detection by load balancers<br />
+- Extended timeout (30 minutes) allows completion of large document processing<br />
+- Connections remain stable under high concurrency (10,000+ documents)</p>
+<p><strong>Supported Providers:</strong><br />
+- OpenAI (GPT-3.5, GPT-4, GPT-4o)<br />
+- Anthropic (Claude 3 Opus, Sonnet, Haiku)<br />
+- Cohere (Command, Command-R)<br />
+- Google (Gemini Pro, Gemini Ultra)<br />
+- Azure OpenAI<br />
+- AWS Bedrock<br />
+- Ollama (via openai/ model prefix)<br />
+- And 100+ other providers via LiteLLM</p>
+<p><strong>Prerequisites for Ollama:</strong><br />
+- Ollama server running on <code>http://localhost:11434</code><br />
+- Model pulled: <code>ollama pull llama3.2</code></p>
+<p><strong>Use Cases:</strong><br />
+- Multi-provider LLM support without code changes<br />
+- Enterprise LLM deployments (Azure, AWS Bedrock)<br />
+- Cost optimization by switching between providers<br />
+- Fallback strategies across multiple providers<br />
+- Schema-based and schema-free entity extraction<br />
+- Local LLM processing via Ollama</p>
+<p><strong>Sample Flows:</strong><br />
+- <a href="../../../sample_flows/operators/entity_extraction_litellm.json"><code>sample_flows/operators/entity_extraction_litellm.json</code></a></p>
+<h3 id="4-watsonx-provider">4. WatsonX Provider</h3>
+<p>IBM WatsonX.ai LLM-based entity extraction for enterprise deployments.</p>
+<p><strong>Configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;text_extraction&quot;: {
+    &quot;provider&quot;: &quot;docling_library&quot;
+  },
+  &quot;entity_extraction&quot;: {
+    &quot;provider&quot;: &quot;watsonx&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;ibm/granite-13b-chat-v2&quot;,
+      &quot;api_key&quot;: &quot;${WATSONX_API_KEY}&quot;,
+      &quot;container_id&quot;: &quot;${WATSONX_CONTAINER_ID}&quot;,
+      &quot;api_base&quot;: &quot;https://us-south.ml.cloud.ibm.com&quot;,
+      &quot;container_kind&quot;: &quot;project&quot;,
+      &quot;temperature&quot;: 0.0,
+      &quot;max_tokens&quot;: 2000
+    },
+    &quot;custom_schema&quot;: {
+      &quot;invoice_number&quot;: &quot;string&quot;,
+      &quot;total_amount&quot;: &quot;number&quot;
+    }
+  }
+}
+</code></pre>
+<p><strong>Environment Variables:</strong><br />
+- <code>WATSONX_API_KEY</code>: WatsonX API key (required)<br />
+- <code>WATSONX_CONTAINER_ID</code>: WatsonX project or space ID (required)<br />
+- <code>WATSONX_API_BASE_URL</code>: WatsonX API base URL (optional, defaults to us-south)<br />
+- <code>WATSONX_CONTAINER_KIND</code>: Container type - "project" or "space" (optional, defaults to "project")</p>
+<p><strong>Use Cases:</strong><br />
+- Enterprise LLM deployments with IBM WatsonX.ai<br />
+- Regulated industries requiring on-premises or private cloud LLM<br />
+- Schema-based entity extraction with IBM Granite models<br />
+- Integration with existing IBM Cloud infrastructure</p>
+<p><strong>Sample Flow:</strong> <a href="../../../sample_flows/operators/entity_extraction_watsonx.json"><code>sample_flows/operators/entity_extraction_watsonx.json</code></a></p>
+<h2 id="configuration-parameters">Configuration Parameters</h2>
+<h3 id="common-parameters">Common Parameters</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>text_extraction.provider</code></td>
+<td>string</td>
+<td><code>"docling_library"</code></td>
+<td>Text extraction strategy: <code>"docling_library"</code> or <code>"docling_serve"</code></td>
+</tr>
+<tr>
+<td><code>text_extraction.doc_column</code></td>
+<td>string</td>
+<td><code>"doc_content"</code></td>
+<td>Column name for storing extracted content</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.additional_formats</code></td>
+<td>array</td>
+<td><code>[]</code></td>
+<td>Additional output formats (e.g., <code>["html", "markdown"]</code>)</td>
+</tr>
+<tr>
+<td><code>max_workers</code></td>
+<td>integer</td>
+<td>auto</td>
+<td>Maximum number of parallel workers (auto-detected based on CPU)</td>
+</tr>
+<tr>
+<td><code>use_processes</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Use ProcessPoolExecutor instead of ThreadPoolExecutor (top-level parameter)</td>
+</tr>
+<tr>
+<td><code>entity_extraction.provider</code></td>
+<td>string</td>
+<td><code>"none"</code></td>
+<td>Entity extraction strategy: <code>"litellm"</code> (includes Ollama via openai/ prefix), <code>"docling"</code>, <code>"watsonx"</code>, or <code>"none"</code></td>
+</tr>
+<tr>
+<td><code>entity_extraction.custom_schema</code></td>
+<td>object</td>
+<td><code>{}</code></td>
+<td>Schema dictionary for structured extraction (top-level entity_extraction parameter)</td>
+</tr>
+<tr>
+<td><code>entity_extraction.expand_extracted_data</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Expand entity data JSON into individual columns (entity extraction only)</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="docling-library-provider-parameters">Docling Library Provider Parameters</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>text_extraction.provider_config.vlm_pipeline</code></td>
+<td>object</td>
+<td><code>null</code></td>
+<td>VLM (Vision-Language Model) pipeline configuration object. Provide empty dict <code>{}</code> to enable with defaults, or omit to disable.</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.vlm_pipeline.preset</code></td>
+<td>string</td>
+<td><code>"granite_docling"</code></td>
+<td>VLM preset name. Valid presets: <code>smoldocling</code>, <code>granite_docling</code>, <code>deepseek_ocr</code>, <code>granite_vision</code>, <code>pixtral</code>, <code>got_ocr</code>, <code>phi4</code>, <code>qwen</code>, <code>nanonets_ocr2</code>, <code>gemma_12b</code>, <code>gemma_27b</code>, <code>dolphin</code>, <code>glm_ocr</code>, <code>lightonocr</code>, <code>falcon_ocr</code></td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.vlm_pipeline.engine</code></td>
+<td>string</td>
+<td><code>"api_ollama"</code></td>
+<td>VLM engine type. Valid engines: <code>api_ollama</code>, <code>api_openai</code>, <code>api_watsonx</code>, <code>api_lmstudio</code>, <code>api</code> (generic), <code>transformers</code> (local), <code>mlx</code> (macOS)</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.vlm_pipeline.engine_options</code></td>
+<td>object</td>
+<td><code>{}</code></td>
+<td>Engine-specific options (api_base, model_id, etc.)</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.asr_pipeline</code></td>
+<td>object</td>
+<td><code>null</code></td>
+<td>ASR (Automatic Speech Recognition) pipeline configuration object. Provide empty dict <code>{}</code> to enable with defaults, or omit to disable.</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.asr_pipeline.model_id</code></td>
+<td>string</td>
+<td><code>"whisper_turbo"</code></td>
+<td>ASR model name. Valid values: <code>whisper_tiny</code>, <code>whisper_small</code>, <code>whisper_medium</code>, <code>whisper_base</code>, <code>whisper_large</code>, <code>whisper_turbo</code>, and their <code>_mlx</code>/<code>_native</code> variants (e.g., <code>whisper_tiny_mlx</code>, <code>whisper_tiny_native</code>)</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.standard_pipeline</code></td>
+<td>object</td>
+<td><code>null</code></td>
+<td>Standard pipeline acceleration block. Omit entirely to use default Docling behaviour.</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.standard_pipeline.accelerator</code></td>
+<td>object</td>
+<td><code>null</code></td>
+<td>GPU accelerator options. When present, one <code>DocumentConverter</code> is built at init and reused. <strong>Requires <code>max_workers: 1</code> and <code>use_processes: false</code>. Cannot be combined with <code>vlm_pipeline</code>.</strong></td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.standard_pipeline.accelerator.device</code></td>
+<td>string</td>
+<td>auto-detected</td>
+<td>GPU device. Accepted: <code>mps</code>, <code>cuda</code>, <code>cuda:&lt;index&gt;</code> (e.g. <code>cuda:0</code>), <code>xpu</code>. When omitted, best available device is auto-detected via torch (CUDA → MPS → XPU). Validated at runtime via torch backends.</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.standard_pipeline.accelerator.num_threads</code></td>
+<td>int</td>
+<td><code>4</code></td>
+<td>CPU-side pipeline thread count. Must be a positive integer (booleans rejected).</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="docling-serve-provider-parameters">Docling Serve Provider Parameters</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>text_extraction.provider_config.base_url</code></td>
+<td>string</td>
+<td><code>"http://localhost:5001"</code></td>
+<td>Docling Serve API endpoint URL</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.api_key</code></td>
+<td>string</td>
+<td><code>null</code></td>
+<td>Optional API key for authentication</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.timeout</code></td>
+<td>integer</td>
+<td><code>300</code></td>
+<td>Request timeout in seconds</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.poll_interval</code></td>
+<td>integer</td>
+<td><code>2</code></td>
+<td>Polling interval in seconds</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.max_retries</code></td>
+<td>integer</td>
+<td><code>3</code></td>
+<td>Maximum retry attempts</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.additional_formats</code></td>
+<td>array</td>
+<td><code>[]</code></td>
+<td>Additional output formats beyond markdown (e.g., <code>["html", "json", "text", "doctags", "doclang"]</code>)</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.ocr</code></td>
+<td>object</td>
+<td><code>null</code></td>
+<td><strong>Canonical OCR config block</strong> (see OCR Configuration section below)</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.pdf_backend</code></td>
+<td>string</td>
+<td><code>"dlparse_v2"</code></td>
+<td>PDF backend: <code>"dlparse_v4"</code>, <code>"dlparse_v3"</code>, or <code>"pypdfium2"</code></td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.table_mode</code></td>
+<td>string</td>
+<td><code>null</code></td>
+<td>Table extraction mode: <code>"accurate"</code> or <code>"fast"</code>. Not set by default; the Docling Serve instance uses its own default.</td>
+</tr>
+<tr>
+<td><code>text_extraction.provider_config.image_export_mode</code></td>
+<td>string</td>
+<td><code>"placeholder"</code></td>
+<td>Image export mode: <code>"placeholder"</code>, <code>"embedded"</code>, <code>"referenced"</code>, or <code>"none"</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="ocr-configuration">OCR Configuration</h3>
+<p>Both <code>docling_library</code> and <code>docling_serve</code> providers accept an <code>ocr</code> block inside <code>provider_config</code>. Omitting the block entirely uses docling-pipelines defaults (OCR enabled, RapidOCR engine, default mode).</p>
+<pre><code class="language-json">&quot;provider_config&quot;: {
+  &quot;ocr&quot;: {
+    &quot;enabled&quot;: true,
+    &quot;engine&quot;: &quot;easyocr&quot;,
+    &quot;mode&quot;: &quot;pdf_aware_layout_regions&quot;,
+    &quot;engine_options&quot;: {
+      &quot;lang&quot;: [&quot;en&quot;, &quot;fr&quot;],
+      &quot;use_gpu&quot;: false,
+      &quot;confidence_threshold&quot;: 0.5
+    }
+  }
+}
+</code></pre>
+<h4>OCR Fields</h4>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ocr.enabled</code></td>
+<td>bool</td>
+<td><code>true</code></td>
+<td>Enable OCR processing. Set <code>false</code> to skip OCR entirely.</td>
+</tr>
+<tr>
+<td><code>ocr.engine</code></td>
+<td>string</td>
+<td><code>"rapidocr"</code></td>
+<td>OCR engine. <code>"rapidocr"</code> is the default.</td>
+</tr>
+<tr>
+<td><code>ocr.mode</code></td>
+<td>string</td>
+<td><code>"default"</code></td>
+<td>OCR scanning mode. <code>"pdf_aware_layout_regions"</code> is most efficient for mixed PDFs.</td>
+</tr>
+<tr>
+<td><code>ocr.engine_options</code></td>
+<td>object</td>
+<td><code>null</code></td>
+<td>Engine-specific parameters (see table below).</td>
+</tr>
+</tbody>
+</table></div>
+<h4>Supported Engines</h4>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Engine</th>
+<th>Value</th>
+<th>Install extra</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Auto-select</td>
+<td><code>"auto"</code></td>
+<td>none</td>
+<td>Optional runtime selection when you explicitly want Docling to choose an installed backend.</td>
+</tr>
+<tr>
+<td>EasyOCR</td>
+<td><code>"easyocr"</code></td>
+<td><code>easyocr</code></td>
+<td>Cross-platform alternative; 80+ languages.</td>
+</tr>
+<tr>
+<td>Tesseract (Python bindings)</td>
+<td><code>"tesserocr"</code></td>
+<td><code>tesserocr</code></td>
+<td>Linux-focused local OCR option; 3-letter ISO 639-2 lang codes; PSM control.</td>
+</tr>
+<tr>
+<td>Tesseract (CLI)</td>
+<td><code>"tesseract"</code></td>
+<td><code>tesseract</code> binary</td>
+<td>Same as above via CLI; portable.</td>
+</tr>
+<tr>
+<td>RapidOCR</td>
+<td><code>"rapidocr"</code></td>
+<td>included in base install</td>
+<td>Default OCR engine for new users; PaddlePaddle-based; multiple backends.</td>
+</tr>
+<tr>
+<td>macOS Vision</td>
+<td><code>"ocrmac"</code></td>
+<td><code>ocrmac</code></td>
+<td>Optional macOS-specific alternative; Apple-only.</td>
+</tr>
+<tr>
+<td>KServe V2</td>
+<td><code>"kserve_v2_ocr"</code></td>
+<td>custom</td>
+<td>Remote KServe/Triton inference server.</td>
+</tr>
+<tr>
+<td>Nemotron OCR</td>
+<td><code>"nemotron-ocr"</code></td>
+<td>custom</td>
+<td>NVIDIA Nemotron v2.</td>
+</tr>
+</tbody>
+</table></div>
+<h4>Installation Guidance by OS</h4>
+<p>RapidOCR is included in the default PyPI install, and <code>ocr.engine: "rapidocr"</code> is the default runtime behaviour for first-run OCR.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>OS / environment</th>
+<th>Default install behaviour</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>macOS</td>
+<td><code>pip install docling-pipelines</code></td>
+<td>RapidOCR works out of the box. Install <code>docling-pipelines[ocrmac]</code> only if you want Apple's Vision OCR explicitly.</td>
+</tr>
+<tr>
+<td>Linux</td>
+<td><code>pip install docling-pipelines</code></td>
+<td>RapidOCR works out of the box. Install <code>docling-pipelines[tesserocr]</code> only if you want Tesseract bindings explicitly.</td>
+</tr>
+<tr>
+<td>Cross-platform / unsure</td>
+<td><code>pip install docling-pipelines</code></td>
+<td>Recommended for new users. First OCR run should work without extra setup.</td>
+</tr>
+</tbody>
+</table></div>
+<h4>Supported Modes</h4>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Value</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Default</td>
+<td><code>"default"</code></td>
+<td>Docling picks automatically</td>
+</tr>
+<tr>
+<td>Full page</td>
+<td><code>"full_page"</code></td>
+<td>Scan entire page as one region</td>
+</tr>
+<tr>
+<td>Layout regions</td>
+<td><code>"layout_regions"</code></td>
+<td>Scan only layout-detected text regions</td>
+</tr>
+<tr>
+<td>PDF-aware layout regions</td>
+<td><code>"pdf_aware_layout_regions"</code></td>
+<td>Skip regions with an existing PDF text layer — most efficient for mixed PDFs</td>
+</tr>
+</tbody>
+</table></div>
+<h4><code>engine_options</code> Reference</h4>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Engine</th>
+<th>Key</th>
+<th>Type</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>easyocr</code></td>
+<td><code>lang</code></td>
+<td>list[str]</td>
+<td>ISO 639-1 codes, e.g. <code>["en", "fr"]</code></td>
+</tr>
+<tr>
+<td><code>easyocr</code></td>
+<td><code>use_gpu</code></td>
+<td>bool/null</td>
+<td><code>null</code> = auto-detect</td>
+</tr>
+<tr>
+<td><code>easyocr</code></td>
+<td><code>confidence_threshold</code></td>
+<td>float</td>
+<td>0.0–1.0</td>
+</tr>
+<tr>
+<td><code>tesserocr</code> / <code>tesseract</code></td>
+<td><code>lang</code></td>
+<td>list[str]</td>
+<td>3-letter ISO 639-2, e.g. <code>["eng", "fra"]</code></td>
+</tr>
+<tr>
+<td><code>tesserocr</code> / <code>tesseract</code></td>
+<td><code>psm</code></td>
+<td>int</td>
+<td>Page segmentation mode 0–13</td>
+</tr>
+<tr>
+<td><code>tesserocr</code> / <code>tesseract</code></td>
+<td><code>path</code></td>
+<td>str/null</td>
+<td>Tessdata directory</td>
+</tr>
+<tr>
+<td><code>rapidocr</code></td>
+<td><code>lang</code></td>
+<td>list[str]</td>
+<td>Language list</td>
+</tr>
+<tr>
+<td><code>rapidocr</code></td>
+<td><code>backend</code></td>
+<td>string</td>
+<td><code>"onnxruntime"</code>, <code>"openvino"</code>, <code>"paddle"</code>, <code>"torch"</code></td>
+</tr>
+<tr>
+<td><code>rapidocr</code></td>
+<td><code>text_score</code></td>
+<td>float</td>
+<td>Detection confidence threshold</td>
+</tr>
+<tr>
+<td><code>ocrmac</code></td>
+<td><code>lang</code></td>
+<td>list[str]</td>
+<td>Locale format, e.g. <code>["en-US"]</code></td>
+</tr>
+<tr>
+<td><code>ocrmac</code></td>
+<td><code>recognition</code></td>
+<td>string</td>
+<td><code>"accurate"</code> or <code>"fast"</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="docling-entity-extraction-parameters">Docling Entity Extraction Parameters</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>entity_extraction.provider_config.vlm_pipeline</code></td>
+<td>object</td>
+<td><code>null</code></td>
+<td>Custom VLM model configuration (see Custom Model Configuration section above for full details)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>vlm_pipeline Structure:</strong></p>
+<p>Only <code>"inline"</code> models (HuggingFace) are supported. API model types are not supported by Docling's <code>DocumentExtractor</code>; use <code>entity_extraction.provider: "litellm"</code> for API-based extraction instead.</p>
+<p>Example (all fields shown with their defaults; only <code>repo_id</code> is required):</p>
+<pre><code class="language-json">{
+  &quot;model_type&quot;: &quot;inline&quot;,
+  &quot;inline_model&quot;: {
+    &quot;repo_id&quot;: &quot;numind/NuExtract-2.0-2B&quot;,
+    &quot;inference_framework&quot;: &quot;transformers&quot;,
+    &quot;scale&quot;: 2.0,
+    &quot;temperature&quot;: 0.0,
+    &quot;max_new_tokens&quot;: 4096,
+    &quot;load_in_8bit&quot;: true,
+    &quot;torch_dtype&quot;: &quot;bfloat16&quot;,
+    &quot;prompt&quot;: &quot;&quot;,
+    &quot;response_format&quot;: &quot;markdown&quot;
+  }
+}
+</code></pre>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th><code>inline_model</code> field</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>repo_id</code></td>
+<td>string</td>
+<td>required</td>
+<td>HuggingFace repository ID (e.g., <code>"numind/NuExtract-2.0-2B"</code>)</td>
+</tr>
+<tr>
+<td><code>inference_framework</code></td>
+<td>string</td>
+<td><code>"transformers"</code></td>
+<td>Inference backend: <code>"transformers"</code>, <code>"vllm"</code>, or <code>"mlx"</code></td>
+</tr>
+<tr>
+<td><code>scale</code></td>
+<td>float</td>
+<td><code>2.0</code></td>
+<td>Image scale factor for rendering</td>
+</tr>
+<tr>
+<td><code>temperature</code></td>
+<td>float</td>
+<td><code>0.0</code></td>
+<td>Sampling temperature</td>
+</tr>
+<tr>
+<td><code>max_new_tokens</code></td>
+<td>integer</td>
+<td><code>4096</code></td>
+<td>Maximum tokens to generate</td>
+</tr>
+<tr>
+<td><code>load_in_8bit</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Load model in 8-bit quantization</td>
+</tr>
+<tr>
+<td><code>torch_dtype</code></td>
+<td>string</td>
+<td><code>"bfloat16"</code></td>
+<td>Torch data type: <code>"bfloat16"</code>, <code>"float16"</code>, <code>"float32"</code></td>
+</tr>
+<tr>
+<td><code>prompt</code></td>
+<td>string</td>
+<td><code>""</code></td>
+<td>Custom prompt override (leave empty to use model default)</td>
+</tr>
+<tr>
+<td><code>response_format</code></td>
+<td>string</td>
+<td><code>"markdown"</code></td>
+<td>Expected response format from the model</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="litellm-entity-extraction-parameters">LiteLLM Entity Extraction Parameters</h3>
+<p>All parameters are nested under <code>entity_extraction.provider_config</code>:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model_id</code></td>
+<td>string</td>
+<td><code>"gpt-3.5-turbo"</code></td>
+<td>LLM model identifier. <strong>Must include provider prefix</strong> when using LiteLLM (e.g., <code>openai/gpt-4</code>, <code>openai/llama3.2</code> for Ollama, <code>anthropic/claude-3-opus</code>)</td>
+</tr>
+<tr>
+<td><code>temperature</code></td>
+<td>float</td>
+<td><code>0.0</code></td>
+<td>Sampling temperature</td>
+</tr>
+<tr>
+<td><code>max_tokens</code></td>
+<td>integer</td>
+<td><code>2000</code></td>
+<td>Maximum response tokens</td>
+</tr>
+<tr>
+<td><code>api_key</code></td>
+<td>string</td>
+<td><code>null</code></td>
+<td>API key for the provider. For Ollama, can be any value</td>
+</tr>
+<tr>
+<td><code>api_base</code></td>
+<td>string</td>
+<td><code>null</code></td>
+<td>API base URL. For Ollama, set to <code>http://localhost:11434/v1</code></td>
+</tr>
+<tr>
+<td><code>stream</code></td>
+<td>boolean</td>
+<td><code>false</code></td>
+<td>Enable HTTP chunked transfer encoding. For remote vLLM with large documents, use <code>stream: true</code> and <code>timeout: 1800</code></td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>integer</td>
+<td><code>60</code></td>
+<td>HTTP client read timeout in seconds. For remote vLLM with large documents, use <code>stream: true</code> and <code>timeout: 1800</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="watsonx-entity-extraction-parameters">WatsonX Entity Extraction Parameters</h3>
+<p>All parameters are nested under <code>entity_extraction.provider_config</code>:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Type</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model_id</code></td>
+<td>string</td>
+<td><code>"ibm/granite-13b-chat-v2"</code></td>
+<td>WatsonX model identifier</td>
+</tr>
+<tr>
+<td><code>temperature</code></td>
+<td>float</td>
+<td><code>0.0</code></td>
+<td>Sampling temperature</td>
+</tr>
+<tr>
+<td><code>max_tokens</code></td>
+<td>integer</td>
+<td><code>2000</code></td>
+<td>Maximum response tokens</td>
+</tr>
+<tr>
+<td><code>api_key</code></td>
+<td>string</td>
+<td>required</td>
+<td>WatsonX API key</td>
+</tr>
+<tr>
+<td><code>container_id</code></td>
+<td>string</td>
+<td>required</td>
+<td>WatsonX project or space ID</td>
+</tr>
+<tr>
+<td><code>api_base</code></td>
+<td>string</td>
+<td><code>"https://us-south.ml.cloud.ibm.com"</code></td>
+<td>WatsonX API base URL (optional)</td>
+</tr>
+<tr>
+<td><code>container_kind</code></td>
+<td>string</td>
+<td><code>"project"</code></td>
+<td>Container type: "project" or "space" (optional)</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="inputoutput-data-formats">Input/Output Data Formats</h2>
+<h3 id="input-columns-from-ingestsourceoperator">Input columns (from IngestSourceOperator)</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Column</th>
+<th>Type</th>
+<th>Required</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Document identifier</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Document name/filename</td>
+</tr>
+<tr>
+<td><code>path</code></td>
+<td>string</td>
+<td>Yes</td>
+<td>Document file path</td>
+</tr>
+<tr>
+<td><code>document_type</code></td>
+<td>string</td>
+<td>No</td>
+<td>Document type for template-based entity extraction</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="output-columns">Output Columns</h2>
+<p>All input columns are preserved. The operator appends:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Column</th>
+<th>PyArrow Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>doc_content</code></td>
+<td><code>string</code></td>
+<td>Extracted markdown text</td>
+</tr>
+<tr>
+<td><code>doc_id_hash</code></td>
+<td><code>string</code></td>
+<td>Hash ID generated from document content</td>
+</tr>
+<tr>
+<td><code>pages_processed</code></td>
+<td><code>int32</code></td>
+<td>Estimated page count (3000 chars = 1 page)</td>
+</tr>
+<tr>
+<td><code>entities</code></td>
+<td><code>string</code></td>
+<td>JSON string of extracted entities (when entity extraction is enabled)</td>
+</tr>
+<tr>
+<td><code>extracted_data</code></td>
+<td><code>string</code></td>
+<td>Structured data from template extraction (when applicable)</td>
+</tr>
+</tbody>
+</table></div>
+<p>When <code>expand_extracted_data: true</code>, entity fields are expanded into individual columns.</p>
+<hr />
+<h2 id="examples">Examples</h2>
+<h3 id="example-1-basic-text-extraction-only">Example 1: Basic Text Extraction Only</h3>
+<pre><code class="language-json">{
+
+  &quot;operator_params&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;,
+      &quot;provider_config&quot;: {
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    }
+  }
+}
+</code></pre>
+<h3 id="example-2-text-entity-extraction-with-ollama-via-litellm">Example 2: Text + Entity Extraction with Ollama (via LiteLLM)</h3>
+<pre><code class="language-json">{
+
+  &quot;operator_params&quot;: {
+    &quot;max_workers&quot;: 2,
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;litellm&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;openai/llama3.2&quot;,
+        &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+        &quot;api_key&quot;: &quot;&lt;ollama_key&gt;&quot;,
+        &quot;temperature&quot;: 0.0,
+        &quot;max_tokens&quot;: 4096
+      },
+      &quot;custom_schema&quot;: {
+        &quot;invoice_number&quot;: &quot;string&quot;,
+        &quot;vendor_name&quot;: &quot;string&quot;,
+        &quot;total_amount&quot;: &quot;number&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="example-3-vlm-pipeline-text-extraction">Example 3: VLM Pipeline Text Extraction</h3>
+<pre><code class="language-json">{
+
+  &quot;operator_params&quot;: {
+    &quot;max_workers&quot;: 1,
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;,
+      &quot;provider_config&quot;: {
+        &quot;vlm_pipeline&quot;: {
+          &quot;preset&quot;: &quot;granite_docling&quot;,
+          &quot;engine&quot;: &quot;transformers&quot;,
+          &quot;engine_options&quot;: {}
+        }
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    }
+  }
+}
+</code></pre>
+<h3 id="example-4-docling-serve-with-ocr">Example 4: Docling Serve with OCR</h3>
+<pre><code class="language-json">{
+  &quot;operator_params&quot;: {
+    &quot;max_workers&quot;: 4,
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_serve&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;,
+      &quot;provider_config&quot;: {
+        &quot;base_url&quot;: &quot;http://localhost:5001&quot;,
+        &quot;ocr&quot;: {
+          &quot;enabled&quot;: true,
+          &quot;engine&quot;: &quot;tesseract&quot;,
+          &quot;mode&quot;: &quot;layout_regions&quot;,
+          &quot;engine_options&quot;: {
+            &quot;lang&quot;: [&quot;eng&quot;, &quot;spa&quot;]
+          }
+        },
+        &quot;pdf_backend&quot;: &quot;dlparse_v4&quot;,
+        &quot;table_mode&quot;: &quot;accurate&quot;
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    }
+  }
+}
+</code></pre>
+<h3 id="example-5-template-based-entity-extraction">Example 5: Template-Based Entity Extraction</h3>
+<pre><code class="language-json">{
+
+  &quot;operator_params&quot;: {
+    &quot;max_workers&quot;: 2,
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling&quot;,
+      &quot;custom_schema&quot;: {
+        &quot;invoice_number&quot;: &quot;string&quot;,
+        &quot;invoice_date&quot;: &quot;string&quot;,
+        &quot;vendor_name&quot;: &quot;string&quot;,
+        &quot;vendor_address&quot;: &quot;string&quot;,
+        &quot;total_amount&quot;: &quot;number&quot;,
+        &quot;currency&quot;: &quot;string&quot;,
+        &quot;line_items&quot;: [
+          {
+            &quot;description&quot;: &quot;string&quot;,
+            &quot;quantity&quot;: &quot;number&quot;,
+            &quot;unit_price&quot;: &quot;number&quot;,
+            &quot;total&quot;: &quot;number&quot;
+          }
+        ]
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="example-6-vlm-pipeline-ollama-entity-extraction-via-litellm">Example 6: VLM Pipeline + Ollama Entity Extraction (via LiteLLM)</h3>
+<pre><code class="language-json">{
+
+  &quot;operator_params&quot;: {
+    &quot;max_workers&quot;: 1,
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;,
+      &quot;provider_config&quot;: {
+        &quot;vlm_pipeline&quot;: {
+          &quot;preset&quot;: &quot;granite_docling&quot;,
+          &quot;engine&quot;: &quot;transformers&quot;,
+          &quot;engine_options&quot;: {}
+        }
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;litellm&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;openai/llama3.2&quot;,
+        &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+        &quot;api_key&quot;: &quot;&lt;ollama_key&gt;&quot;,
+        &quot;temperature&quot;: 0.0
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="example-7-asr-pipeline-for-audiovideo-transcription">Example 7: ASR Pipeline for Audio/Video Transcription</h3>
+<pre><code class="language-json">{
+
+  &quot;operator_params&quot;: {
+    &quot;max_workers&quot;: 2,
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;,
+      &quot;provider_config&quot;: {
+        &quot;asr_pipeline&quot;: {
+          &quot;model_id&quot;: &quot;whisper_turbo&quot;
+        }
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    }
+  }
+}
+</code></pre>
+<h2 id="integration-requirements">Integration Requirements</h2>
+<h3 id="asr-dependencies-for-audiovideo-processing">ASR Dependencies (for Audio/Video Processing)</h3>
+<p><strong>Requirement:</strong> ASR (Automatic Speech Recognition) dependencies must be installed to process audio and video files</p>
+<p><strong>Installation:</strong></p>
+<pre><code class="language-bash"># Install ASR dependencies
+uv pip install -e '.[asr]'
+</code></pre>
+<p><strong>Supported Audio/Video Formats (when ASR is installed):</strong><br />
+- Audio: MP3, WAV, M4A, FLAC, OGG<br />
+- Video: MP4, AVI, MOV, MKV</p>
+<p><strong>Note:</strong> If ASR dependencies are not installed, the operator will only support standard document formats (PDF, DOCX, PPTX, etc.) and will log a warning if <code>use_asr_pipeline=true</code> is configured.</p>
+<p><strong>Used By:</strong> Text extraction with ASR when <code>use_asr_pipeline=true</code></p>
+<h3 id="ffmpeg-for-audiovideo-processing">ffmpeg (for Audio/Video Processing)</h3>
+<p><strong>Requirement:</strong> ffmpeg must be installed and available on your PATH for processing certain audio and video formats</p>
+<p><strong>Required For:</strong><br />
+- Audio formats: M4A, AAC, OGG, FLAC<br />
+- All video formats: MP4, AVI, MOV, etc.</p>
+<p><strong>Not Required For:</strong><br />
+- Audio formats: WAV, MP3<br />
+- Document formats: PDF, images, etc.</p>
+<p><strong>Installation:</strong></p>
+<p><strong>macOS (using Homebrew):</strong></p>
+<pre><code class="language-bash">brew install ffmpeg
+</code></pre>
+<p><strong>Linux (Ubuntu/Debian):</strong></p>
+<pre><code class="language-bash">sudo apt update
+sudo apt install ffmpeg
+</code></pre>
+<p><strong>Linux (RHEL/CentOS/Fedora):</strong></p>
+<pre><code class="language-bash">sudo dnf install ffmpeg
+</code></pre>
+<p><strong>Verify Installation:</strong></p>
+<pre><code class="language-bash">ffmpeg -version
+</code></pre>
+<p><strong>Used By:</strong> Text extraction with ASR (Automatic Speech Recognition) when processing audio/video files</p>
+<h3 id="ollama-integration-for-litellm-entity-extraction-with-ollama">Ollama Integration (for LiteLLM entity extraction with Ollama)</h3>
+<p><strong>Requirement:</strong> Ollama server must be running on <code>http://localhost:11434</code></p>
+<p><strong>Setup:</strong></p>
+<pre><code class="language-bash"># Install Ollama
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Pull required model
+ollama pull llama3.2
+
+# Verify Ollama is running
+curl http://localhost:11434/api/tags
+</code></pre>
+<p><strong>Used By:</strong> Entity extraction when <code>entity_extraction.provider="litellm"</code> with <code>entity_extraction.provider_config.model_id="openai/llama3.2"</code> and <code>entity_extraction.provider_config.api_base="http://localhost:11434/v1"</code></p>
+<h3 id="docling-serve-integration-for-docling-serve-text-extraction">Docling Serve Integration (for docling_serve text extraction)</h3>
+<p><strong>Requirement:</strong> Docling Serve must be running (default: <code>http://localhost:5001</code>)</p>
+<p><strong>Setup:</strong></p>
+<pre><code class="language-bash"># Using Docker
+docker run -p 5001:5001 ds4sd/docling-serve:latest
+
+# Or using docker-compose
+docker-compose -f docker-compose.docling-serve.yml up -d
+
+# Verify service is running
+curl http://localhost:5001/health
+</code></pre>
+<p><strong>Used By:</strong> Text extraction when <code>text_extraction.provider="docling_serve"</code></p>
+<h2 id="mode-comparison">Mode Comparison</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>Docling Library (Basic)</th>
+<th>Docling Library (VLM)</th>
+<th>Docling Serve</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Processing Location</strong></td>
+<td>Local</td>
+<td>Local/API</td>
+<td>Remote API</td>
+</tr>
+<tr>
+<td><strong>OCR Support</strong></td>
+<td>No</td>
+<td>Limited</td>
+<td>Yes (EasyOCR, Tesseract)</td>
+</tr>
+<tr>
+<td><strong>Multi-language OCR</strong></td>
+<td>No</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>Scalability</strong></td>
+<td>Low</td>
+<td>Medium</td>
+<td>High</td>
+</tr>
+<tr>
+<td><strong>Setup Complexity</strong></td>
+<td>Low</td>
+<td>Medium</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>Processing Speed</strong></td>
+<td>Fast</td>
+<td>Slow</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>Accuracy</strong></td>
+<td>Good</td>
+<td>Excellent</td>
+<td>Excellent</td>
+</tr>
+<tr>
+<td><strong>External Dependencies</strong></td>
+<td>None</td>
+<td>Model files</td>
+<td>Docker container</td>
+</tr>
+</tbody>
+</table></div>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>LiteLLM (Ollama)</th>
+<th>LiteLLM (Cloud)</th>
+<th>Docling</th>
+<th>WatsonX</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Processing Location</strong></td>
+<td>Local</td>
+<td>Remote API</td>
+<td>Local</td>
+<td>Remote API</td>
+</tr>
+<tr>
+<td><strong>Schema Support</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>Schema-Free Mode</strong></td>
+<td>Yes</td>
+<td>Yes</td>
+<td>No</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><strong>Setup Complexity</strong></td>
+<td>Medium</td>
+<td>Low</td>
+<td>Low</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>Processing Speed</strong></td>
+<td>Medium</td>
+<td>Fast</td>
+<td>Fast</td>
+<td>Medium</td>
+</tr>
+<tr>
+<td><strong>Accuracy</strong></td>
+<td>High</td>
+<td>High</td>
+<td>Good</td>
+<td>High</td>
+</tr>
+<tr>
+<td><strong>External Dependencies</strong></td>
+<td>Ollama server</td>
+<td>API keys</td>
+<td>None</td>
+<td>WatsonX credentials</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="when-to-use-each-text-extraction-provider">When to Use Each Text Extraction Provider</h3>
+<p><strong>Use Docling Library Provider (Basic) When:</strong><br />
+- Processing simple documents locally<br />
+- No OCR required<br />
+- Quick prototyping<br />
+- Minimal setup needed</p>
+<p><strong>Use Docling Library Provider (VLM Pipeline) When:</strong><br />
+- Complex document layouts<br />
+- High accuracy requirements<br />
+- Local processing preferred<br />
+- GPU available for inference</p>
+<p><strong>Use Docling Serve Provider When:</strong><br />
+- Production deployment<br />
+- OCR required for scanned documents<br />
+- Multi-language support needed<br />
+- Horizontal scaling required<br />
+- Processing high document volumes</p>
+<h3 id="when-to-use-each-entity-extraction-provider">When to Use Each Entity Extraction Provider</h3>
+<p><strong>Use None Provider When:</strong><br />
+- Only text extraction is needed<br />
+- Entity extraction will be done in a separate step</p>
+<p><strong>Use LiteLLM Provider When:</strong><br />
+- Multi-provider LLM support needed<br />
+- Cloud-based or local (Ollama) LLM processing<br />
+- Cost optimization by switching between providers<br />
+- Flexible entity extraction without predefined templates<br />
+- Schema-based or schema-free extraction needed</p>
+<p><strong>Use Docling Provider When:</strong><br />
+- Extracting structured data from standardized forms<br />
+- Processing documents with known schema<br />
+- Fast, deterministic extraction required<br />
+- Template-driven workflows</p>
+<p><strong>Use WatsonX Provider When:</strong><br />
+- Enterprise LLM deployments with IBM WatsonX.ai<br />
+- Regulated industries requiring private cloud LLM<br />
+- Integration with existing IBM Cloud infrastructure<br />
+- IBM Granite models preferred</p>
+<h3 id="performance-optimization">Performance Optimization</h3>
+<ol>
+<li><strong>Worker Configuration:</strong></li>
+<li>Text extraction: Use default auto-detection (typically 4-8 workers)</li>
+<li>Entity extraction with LLM: Reduce to 1-2 workers to avoid overwhelming the LLM</li>
+<li>
+<p>VLM extraction: Use 1 worker due to high memory requirements</p>
+</li>
+<li>
+<p><strong>Document Size:</strong></p>
+</li>
+<li>For large documents with entity extraction, adjust <code>entity_max_doc_chars</code> to control LLM input size</li>
+<li>
+<p>Consider chunking very large documents before extraction</p>
+</li>
+<li>
+<p><strong>Parallel Processing:</strong></p>
+</li>
+<li>Set top-level <code>use_processes: true</code> for CPU-intensive tasks</li>
+<li>Use <code>use_processes: false</code> (default) for I/O-bound tasks</li>
+</ol>
+<h2 id="execution-metadata">Execution Metadata</h2>
+<p>The operator provides the following metadata after execution:</p>
+<ul>
+<li><strong><code>page_type_stats</code></strong> (dict): Aggregate estimated pages grouped by source document format (e.g., <code>{"pdf": 120, "docx": 45}</code>)</li>
+<li><strong><code>total_pages_converted</code></strong> (int): Total estimated pages across all successfully processed documents</li>
+</ul>
+<p>These metrics are available through the operator's metadata and can be used for tracking document processing volume and performance analysis.</p>
+<h2 id="sample-flows">Sample Flows</h2>
+<p>Complete sample flows are available in <a href="../../../sample_flows/"><code>sample_flows/</code></a>:</p>
+<ul>
+<li><a href="../../../sample_flows/quickstart/basic_ingest_extract.json"><code>sample_flows/quickstart/basic_ingest_extract.json</code></a> - Basic text extraction without entity extraction</li>
+<li><a href="../../../sample_flows/quickstart/complete_pipeline_ollama.json"><code>sample_flows/quickstart/complete_pipeline_ollama.json</code></a> - Complete extraction with VLM and entity extraction (Ollama)</li>
+<li><a href="../../../sample_flows/quickstart/complete_pipeline_watsonx.json"><code>sample_flows/quickstart/complete_pipeline_watsonx.json</code></a> - Complete extraction with WatsonX</li>
+<li><a href="../../../sample_flows/operators/entity_extraction_litellm.json"><code>sample_flows/operators/entity_extraction_litellm.json</code></a> - LiteLLM entity extraction</li>
+<li><a href="../../../sample_flows/operators/entity_extraction_watsonx.json"><code>sample_flows/operators/entity_extraction_watsonx.json</code></a> - WatsonX entity extraction</li>
+<li><a href="../../../sample_flows/use_cases/audio_video_extraction.json"><code>sample_flows/use_cases/audio_video_extraction.json</code></a> - Audio and video extraction</li>
+</ul>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<p><strong>Issue: "Failed to initialize text extraction adapter"</strong><br />
+- Verify the <code>text_extraction.provider</code> value is valid: <code>"docling_library"</code> or <code>"docling_serve"</code><br />
+- For VLM pipeline (when <code>vlm_pipeline</code> is configured), ensure required model files are available<br />
+- For Docling Serve provider, verify the service is running and accessible</p>
+<p><strong>Issue: "Failed to initialize entity extraction adapter"</strong><br />
+- Verify the <code>entity_extraction.provider</code> value is valid: <code>"litellm"</code>, <code>"docling"</code>, <code>"watsonx"</code>, or <code>"none"</code><br />
+- For LiteLLM provider with Ollama, ensure Ollama server is running and the model is pulled, and use <code>openai/</code> model prefix<br />
+- For WatsonX provider, ensure environment variables <code>WATSONX_API_KEY</code> and <code>WATSONX_CONTAINER_ID</code> are set<br />
+- Check that required parameters (model_name, etc.) are provided</p>
+<p><strong>Issue: "Ollama connection refused"</strong><br />
+- Verify Ollama is running: <code>curl http://localhost:11434/api/tags</code><br />
+- Check that the specified model is available: <code>ollama list</code><br />
+- Ensure no firewall is blocking port 11434</p>
+<p><strong>Issue: "Docling Serve timeout"</strong><br />
+- Increase <code>timeout</code> value<br />
+- Check Docling Serve service health: <code>curl http://localhost:5001/health</code><br />
+- Verify network connectivity to the Docling Serve endpoint</p>
+<p><strong>Issue: "Entity extraction returns empty results"</strong><br />
+- Verify document content is not empty after text extraction<br />
+- Check <code>entity_max_doc_chars</code> is not too restrictive<br />
+- For schema-based extraction, ensure the schema matches the document structure<br />
+- Review LLM model capabilities for the extraction task</p>
+<p><strong>Issue: "Audio/video processing fails with codec errors"</strong><br />
+- Ensure ffmpeg is installed: <code>ffmpeg -version</code><br />
+- Verify ffmpeg is in your PATH: <code>which ffmpeg</code> (macOS/Linux) or <code>where ffmpeg</code> (Windows)<br />
+- Install ffmpeg if missing:<br />
+  - macOS: <code>brew install ffmpeg</code><br />
+  - Linux: <code>sudo apt install ffmpeg</code> or <code>sudo dnf install ffmpeg</code><br />
+- Supported formats requiring ffmpeg: M4A, AAC, OGG, FLAC (audio), MP4, AVI, MOV (video)<br />
+- WAV and MP3 audio files do not require ffmpeg</p>
+<p><strong>Issue: "ffmpeg not found" error during audio/video extraction</strong><br />
+- Verify ffmpeg installation: <code>ffmpeg -version</code><br />
+- Add ffmpeg to your PATH if installed but not found<br />
+- Restart your terminal/shell after installing ffmpeg<br />
+- On macOS, ensure Homebrew's bin directory is in PATH: <code>export PATH="/opt/homebrew/bin:$PATH"</code></p>
+<h2 id="architecture-details">Architecture Details</h2>
+<h3 id="hexagonal-architecture">Hexagonal Architecture</h3>
+<p>The ExtractOperator follows hexagonal architecture (ports and adapters pattern) with clear separation of concerns:</p>
+<pre><code>ExtractOperator (Orchestrator)
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Domain Layer                                                 │
+│  - EntityExtractionService (business logic)                  │
+│  - Domain Models (TextExtractionMode, EntityExtractionMode)  │
+└─────────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Port Layer (Interfaces)                                      │
+│  - TextExtractionPort                                        │
+│  - EntityExtractionPort                                      │
+└─────────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Adapter Layer (Implementations)                              │
+│  Text Extraction:                                            │
+│   - DoclingAdapter (docling_library provider, optional VLM/ASR)  │
+│   - DoclingServeAdapter (docling_serve provider)                 │
+│  Entity Extraction:                                          │
+│   - LLMEntityAdapter (litellm and watsonx providers - unified)   │
+│   - DoclingEntityAdapter (docling provider)                      │
+└─────────────────────────────────────────────────────────────┘
+    ↓
+┌─────────────────────────────────────────────────────────────┐
+│ Factory Layer                                                │
+│  - TextExtractionAdapterFactory                              │
+│  - EntityExtractionAdapterFactory                            │
+└─────────────────────────────────────────────────────────────┘
+</code></pre>
+<p><strong>Architecture Components:</strong></p>
+<ul>
+<li><strong>Domain Layer</strong>: <code>EntityExtractionService</code> handles business logic (prompt building, schema validation, response parsing)</li>
+<li><strong>Port Layer</strong>: Interfaces define extraction contracts without implementation details</li>
+<li><strong>Adapter Layer</strong>: Concrete implementations for different extraction strategies</li>
+<li><strong>Factory Layer</strong>: Creates appropriate adapters based on configuration mode</li>
+</ul>
+<p><strong>Key Benefits:</strong><br />
+- Easy addition of new extraction strategies by implementing ports<br />
+- Clear separation between business logic, interfaces, and implementations<br />
+- Testability through dependency injection and mocking<br />
+- Unified LLM support: Both <code>litellm</code> and <code>watsonx</code> use the same <code>LLMEntityAdapter</code></p>
+<h3 id="execution-flow">Execution Flow</h3>
+<ol>
+<li><strong>Initialization:</strong></li>
+<li>Parse extraction providers from configuration</li>
+<li>Create text extraction adapter via <code>TextExtractionAdapterFactory</code></li>
+<li>Create entity extraction adapter via <code>EntityExtractionAdapterFactory</code> (if enabled)</li>
+<li>
+<p>Initialize <code>EntityExtractionService</code> with the entity adapter</p>
+</li>
+<li>
+<p><strong>Text Extraction:</strong></p>
+</li>
+<li>Delegate to text extraction adapter</li>
+<li>Process documents in parallel using worker pool</li>
+<li>
+<p>Collect extracted content and metadata</p>
+</li>
+<li>
+<p><strong>Entity Extraction (if enabled):</strong></p>
+</li>
+<li><code>EntityExtractionService</code> builds prompts with schema</li>
+<li>Delegate to entity extraction adapter</li>
+<li>Process extracted text in parallel</li>
+<li>Extract structured entities based on schema or LLM</li>
+<li>
+<p>Service parses and validates responses</p>
+</li>
+<li>
+<p><strong>Result Assembly:</strong></p>
+</li>
+<li>Combine text and entity extraction results</li>
+<li>Update metadata with processing statistics</li>
+<li>Return transformed PyArrow table</li>
+</ol>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="https://github.com/DS4SD/docling">Docling Documentation</a></li>
+<li><a href="https://ollama.com/docs">Ollama Documentation</a></li>
+<li><a href="../../../sample_flows/">Sample Flows</a></li>
+</ul>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#key-features">Key Features</a>
+      <a href="#operator-configuration">Operator Configuration</a>
+      <a href="#text-extraction-providers">Text Extraction Providers</a>
+      <a href="#entity-extraction-providers">Entity Extraction Providers</a>
+      <a href="#configuration-parameters">Configuration Parameters</a>
+      <a href="#inputoutput-data-formats">Input/Output Data Formats</a>
+      <a href="#output-columns">Output Columns</a>
+      <a href="#examples">Examples</a>
+      <a href="#integration-requirements">Integration Requirements</a>
+      <a href="#mode-comparison">Mode Comparison</a>
+      <a href="#best-practices">Best Practices</a>
+      <a href="#execution-metadata">Execution Metadata</a>
+      <a href="#sample-flows">Sample Flows</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#architecture-details">Architecture Details</a>
+      <a href="#related-documentation">Related Documentation</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

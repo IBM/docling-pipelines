@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Node Metadata Aggregation Strategy — Docling Pipelines</title>
+  <meta name="description" content="Node Metadata Aggregation Strategy — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link active" href="NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Node Metadata Aggregation Strategy</span>
+      </nav>
+      <h1>Node Metadata Aggregation Strategy</h1>
+<h2 id="overview">Overview</h2>
+<p>This document defines how node metadata is aggregated across batch executions in micro-batching scenarios. It serves as the authoritative reference for understanding, maintaining, and extending metadata aggregation behavior.</p>
+<p>This is the primary maintainer guide for updating aggregation behavior when operators introduce new metadata fields.</p>
+<hr />
+
+<hr />
+<h2 id="core-concepts">Core Concepts</h2>
+<h3 id="nodemetadataitem-structure">NodeMetadataItem Structure</h3>
+<p>Each batch execution produces a <code>NodeMetadataItem</code> with the following structure:</p>
+<pre><code class="language-python">{
+    &quot;id&quot;: &quot;node-uuid&quot;,                    # Node identifier
+    &quot;operator&quot;: &quot;Operator Name&quot;,          # Operator name
+    &quot;node_metadata&quot;: {                    # Nested operator-specific data
+        # Base metadata fields (present in all operators)
+        &quot;total_docs&quot;: 100,
+        &quot;processed_docs&quot;: 100,
+        &quot;failed_docs_count&quot;: 0,
+        &quot;failed_docs&quot;: [],
+        &quot;skipped_docs_count&quot;: 0,
+        &quot;skipped_docs&quot;: [],
+        &quot;node_status&quot;: &quot;COMPLETED&quot;,
+
+        # Operator-specific fields (varies by operator)
+        &quot;progress_percentage&quot;: &quot;100.00%&quot;,
+        &quot;custom_field&quot;: &quot;operator-specific value&quot;,
+        # ... other operator-specific fields
+    }
+}
+</code></pre>
+<h3 id="batch-level-vs-aggregated-metadata">Batch-Level vs Aggregated Metadata</h3>
+<ul>
+<li><strong>Batch-Level</strong>: Each batch execution creates one <code>NodeMetadataItem</code> record</li>
+<li><strong>Aggregated</strong>: Multiple batch records are combined using aggregation strategies</li>
+<li><strong>Storage</strong>: Batch records stored with <code>batch_id</code> and <code>batch_num</code> fields</li>
+<li><strong>Retrieval</strong>: API returns aggregated view (single record per node)</li>
+</ul>
+<hr />
+<h2 id="aggregation-strategies">Aggregation Strategies</h2>
+<h3 id="strategy-definitions">Strategy Definitions</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SUM</strong></td>
+<td>Add numeric values</td>
+<td><code>10 + 20 = 30</code></td>
+</tr>
+<tr>
+<td><strong>UNION</strong></td>
+<td>Combine lists, remove duplicates</td>
+<td><code>[a,b] + [b,c] = [a,b,c]</code></td>
+</tr>
+<tr>
+<td><strong>CONCAT</strong></td>
+<td>Combine lists, keep duplicates</td>
+<td><code>[a,b] + [b,c] = [a,b,b,c]</code></td>
+</tr>
+<tr>
+<td><strong>PRIORITY_STATUS</strong></td>
+<td>Select most severe status</td>
+<td><code>RUNNING &gt; FAILED &gt; COMPLETED</code></td>
+</tr>
+<tr>
+<td><strong>MIN</strong></td>
+<td>Select minimum value</td>
+<td><code>min(10, 5, 15) = 5</code></td>
+</tr>
+<tr>
+<td><strong>MAX</strong></td>
+<td>Select maximum value</td>
+<td><code>max(10, 5, 15) = 15</code></td>
+</tr>
+<tr>
+<td><strong>WEIGHTED_AVERAGE</strong></td>
+<td>Average with batch size consideration</td>
+<td><code>(50*10 + 75*20) / 30 = 66.67</code></td>
+</tr>
+<tr>
+<td><strong>LAST_COMPLETED</strong></td>
+<td>Use last non-empty value</td>
+<td>Last error message</td>
+</tr>
+<tr>
+<td><strong>MERGE_DICT</strong></td>
+<td>Shallow merge dictionaries</td>
+<td><code>{a:1} + {b:2} = {a:1, b:2}</code></td>
+</tr>
+<tr>
+<td><strong>DEEP_MERGE</strong></td>
+<td>Deep merge nested dictionaries</td>
+<td>Recursive merge</td>
+</tr>
+<tr>
+<td><strong>FIRST</strong></td>
+<td>Use first value</td>
+<td>First batch value</td>
+</tr>
+<tr>
+<td><strong>LAST</strong></td>
+<td>Use last value</td>
+<td>Last batch value</td>
+</tr>
+<tr>
+<td><strong>CUSTOM</strong></td>
+<td>Custom function</td>
+<td>User-defined logic</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="implementation">Implementation</h3>
+<p>Strategies are implemented in:<br />
+- <strong>File</strong>: <code>src/docpipe/core/job_management/application/aggregation/strategies.py</code><br />
+- <strong>Enum</strong>: <code>AggregationStrategy</code><br />
+- <strong>Aggregator</strong>: <code>MetadataAggregator</code> class</p>
+<hr />
+<h2 id="default-strategy-mappings">Default Strategy Mappings</h2>
+<h3 id="standard-metadata-fields">Standard Metadata Fields</h3>
+<p>These strategies apply to the nested <code>node_metadata</code> field within <code>NodeStatsDto</code>:</p>
+<pre><code class="language-python">DEFAULT_STRATEGIES = {
+    # Document counters - sum across batches
+    &quot;processed_docs&quot;: AggregationStrategy.SUM,
+    &quot;total_docs&quot;: AggregationStrategy.SUM,
+    &quot;failed_docs_count&quot;: AggregationStrategy.SUM,
+    &quot;skipped_docs_count&quot;: AggregationStrategy.SUM,
+
+    # Document ID lists - union to avoid duplicates
+    &quot;docs_completed&quot;: AggregationStrategy.UNION,
+    &quot;failed_docs&quot;: AggregationStrategy.UNION,
+    &quot;skipped_docs&quot;: AggregationStrategy.UNION,
+
+    # Status fields - priority-based (RUNNING &gt; FAILED &gt; COMPLETED)
+    &quot;status&quot;: AggregationStrategy.PRIORITY_STATUS,
+    &quot;node_status&quot;: AggregationStrategy.PRIORITY_STATUS,
+
+    # Timing fields
+    &quot;start_time&quot;: AggregationStrategy.MIN,  # Earliest start
+    &quot;end_time&quot;: AggregationStrategy.MAX,    # Latest end
+    &quot;time_taken&quot;: AggregationStrategy.SUM,  # Total duration
+
+    # Progress tracking
+    &quot;progress_percentage&quot;: AggregationStrategy.WEIGHTED_AVERAGE,
+
+    # Error handling - keep last meaningful error
+    &quot;error&quot;: AggregationStrategy.LAST_COMPLETED,
+    &quot;error_message&quot;: AggregationStrategy.LAST_COMPLETED,
+}
+</code></pre>
+<h3 id="nodestatsdto-top-level-fields">NodeStatsDto Top-Level Fields</h3>
+<p>These fields are aggregated at the <code>NodeStatsDto</code> level (not in nested metadata):</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Strategy</th>
+<th>Rationale</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>node_status</code></td>
+<td>PRIORITY_STATUS</td>
+<td>Most severe status wins</td>
+</tr>
+<tr>
+<td><code>start_time</code></td>
+<td>MIN</td>
+<td>Earliest batch start</td>
+</tr>
+<tr>
+<td><code>end_time</code></td>
+<td>MAX</td>
+<td>Latest batch end</td>
+</tr>
+<tr>
+<td><code>time_taken</code></td>
+<td>SUM</td>
+<td>Total processing time</td>
+</tr>
+<tr>
+<td><code>total_docs</code></td>
+<td>UNION</td>
+<td>All unique document IDs</td>
+</tr>
+<tr>
+<td><code>docs_completed</code></td>
+<td>UNION</td>
+<td>All completed document IDs</td>
+</tr>
+<tr>
+<td><code>failed_docs</code></td>
+<td>UNION</td>
+<td>All failed document IDs</td>
+</tr>
+<tr>
+<td><code>skipped_docs</code></td>
+<td>UNION</td>
+<td>All skipped document IDs</td>
+</tr>
+<tr>
+<td><code>docs_completed_count</code></td>
+<td>Calculated</td>
+<td><code>len(docs_completed)</code></td>
+</tr>
+<tr>
+<td><code>col_names</code></td>
+<td>FIRST</td>
+<td>Schema from first batch</td>
+</tr>
+<tr>
+<td><code>error</code></td>
+<td>LAST_COMPLETED</td>
+<td>Last meaningful error</td>
+</tr>
+<tr>
+<td><code>node_metadata</code></td>
+<td>MetadataAggregator</td>
+<td>Nested aggregation</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="operator-responsibilities">Operator Responsibilities</h2>
+<h3 id="base-metadata-requirements">Base Metadata Requirements</h3>
+<p>All operators <strong>MUST</strong> emit these base metadata fields:</p>
+<pre><code class="language-python">from common.constants.constants import Metrics, ExecutionStatus
+
+metadata = {
+    Metrics.External.TOTAL_DOCS: 100,           # Total documents to process
+    Metrics.External.PROCESSED_DOCS: 95,        # Documents processed so far
+    Metrics.External.FAILED_DOCS_COUNT: 3,      # Count of failed documents
+    Metrics.External.FAILED_DOCS: [             # List of failed documents
+        {&quot;id&quot;: &quot;doc1&quot;, &quot;name&quot;: &quot;file1.pdf&quot;, &quot;reason&quot;: &quot;Parse error&quot;, &quot;document_url&quot;: &quot;&quot;}
+    ],
+    Metrics.External.SKIPPED_DOCS_COUNT: 2,     # Count of skipped documents
+    Metrics.External.SKIPPED_DOCS: [            # List of skipped documents
+        {&quot;id&quot;: &quot;doc2&quot;, &quot;name&quot;: &quot;file2.pdf&quot;, &quot;reason&quot;: &quot;Empty file&quot;, &quot;document_url&quot;: &quot;&quot;}
+    ],
+    Metrics.External.NODE_STATUS: ExecutionStatus.COMPLETED.value  # Final status
+}
+</code></pre>
+<h3 id="helper-methods">Helper Methods</h3>
+<p>Use <code>AbstractOperator</code> helper methods for consistency:</p>
+<pre><code class="language-python">from core.operators.abstract_operator import AbstractOperator
+
+# Create base metadata
+metadata = AbstractOperator.create_base_metadata(
+    total_docs_count=table.num_rows,
+    node_status=ExecutionStatus.RUNNING.value
+)
+
+# Record failed document
+AbstractOperator.record_failed_document(
+    metadata=metadata,
+    doc_id=&quot;doc123&quot;,
+    doc_name=&quot;file.pdf&quot;,
+    reason=&quot;Processing error&quot;
+)
+
+# Record skipped document
+AbstractOperator.record_skipped_document(
+    metadata=metadata,
+    doc_id=&quot;doc456&quot;,
+    doc_name=&quot;empty.pdf&quot;,
+    reason=&quot;Empty file&quot;
+)
+</code></pre>
+<h3 id="operator-specific-fields">Operator-Specific Fields</h3>
+<p>Operators <strong>MAY</strong> add custom fields on top of base metadata:</p>
+<pre><code class="language-python"># Example: Embedding operator
+metadata[&quot;embedding_model&quot;] = &quot;nomic-embed-text&quot;
+metadata[&quot;embedding_dimension&quot;] = 768
+metadata[&quot;batch_size&quot;] = 32
+
+# Example: Extraction operator
+metadata[&quot;extraction_method&quot;] = &quot;docling&quot;
+metadata[&quot;tables_extracted&quot;] = 5
+metadata[&quot;images_extracted&quot;] = 12
+</code></pre>
+<hr />
+<h2 id="maintainer-contract">Maintainer Contract</h2>
+<p>When an operator adds, removes, renames, or changes the meaning of any emitted metadata field, maintainers must review aggregation behavior in <a href="../../src/docpipe/core/job_management/application/aggregation/strategies.py"><code>strategies.py</code></a>.</p>
+<h3 id="required-maintainer-checks">Required Maintainer Checks</h3>
+<ol>
+<li>Identify every new or changed metadata field emitted by the operator.</li>
+<li>Decide whether the default <code>LAST</code> behavior is correct for each field.</li>
+<li>If a different behavior is required, add or update the field entry in <code>DEFAULT_STRATEGIES</code>.</li>
+<li>Add or update aggregation tests for the changed fields.</li>
+<li>Update this document when the new field introduces a reusable pattern or non-obvious rule.</li>
+</ol>
+<h3 id="why-this-is-required">Why This Is Required</h3>
+<p>Micro-batch execution stores raw node stats per batch and combines them later during read-side aggregation. If a new metadata field is introduced without an explicit aggregation review, the aggregated API view may silently produce incorrect values.</p>
+<p>Common examples:<br />
+- counters usually need <code>SUM</code><br />
+- document collections often need <code>UNION</code><br />
+- progress-like values may need <code>WEIGHTED_AVERAGE</code><br />
+- status-like fields usually need <code>PRIORITY_STATUS</code><br />
+- configuration or descriptive values may legitimately remain <code>LAST</code></p>
+<h3 id="default-behavior-reminder">Default Behavior Reminder</h3>
+<p>If a field is not listed in <code>DEFAULT_STRATEGIES</code>, the aggregator falls back to the default <code>LAST</code> strategy. That fallback is intentional, but it is not correct for many counters, lists, or status fields.</p>
+<h2 id="adding-new-operators">Adding New Operators</h2>
+<p>When creating a new operator that emits metadata:</p>
+<h3 id="step-1-define-operator-metadata">Step 1: Define Operator Metadata</h3>
+<pre><code class="language-python">class MyNewOperator(AbstractOperator):
+    def transform(self, table: pa.Table, file_name: str = None) -&gt; tuple[list[pa.Table], dict[str, Any]]:
+        # 1. Create base metadata
+        metadata = self.create_base_metadata(
+            total_docs_count=table.num_rows,
+            node_status=ExecutionStatus.RUNNING.value
+        )
+
+        # 2. Add operator-specific fields
+        metadata[&quot;my_custom_metric&quot;] = 0
+        metadata[&quot;my_custom_list&quot;] = []
+
+        # 3. Process and update metadata
+        # ... processing logic ...
+
+        return [output_table], metadata
+</code></pre>
+<h3 id="step-2-review-aggregation-strategy">Step 2: Review Aggregation Strategy</h3>
+<p>This step is mandatory whenever the operator emits new metadata.</p>
+<ol>
+<li>Open <a href="../../src/docpipe/core/job_management/application/aggregation/strategies.py"><code>strategies.py</code></a>.</li>
+<li>Review whether each new field should keep the default <code>LAST</code> behavior.</li>
+<li>Add strategy mappings to <code>DEFAULT_STRATEGIES</code> for every field that requires explicit aggregation.</li>
+</ol>
+<pre><code class="language-python">DEFAULT_STRATEGIES = {
+    # ... existing strategies ...
+    &quot;my_custom_metric&quot;: AggregationStrategy.SUM,
+    &quot;my_custom_list&quot;: AggregationStrategy.UNION,
+}
+</code></pre>
+<p><strong>If using default strategy (<code>LAST</code>):</strong><br />
+- no code change is required in <code>DEFAULT_STRATEGIES</code><br />
+- the field still requires an explicit maintainer review before leaving it unmapped</p>
+<h3 id="step-3-update-documentation">Step 3: Update Documentation</h3>
+<ol>
+<li>Document operator-specific fields in operator's docstring</li>
+<li>Add example to this document if field has special aggregation needs</li>
+<li>Update operator README if applicable</li>
+</ol>
+<h3 id="step-4-add-tests">Step 4: Add Tests</h3>
+<p>Create tests for metadata aggregation:</p>
+<pre><code class="language-python">def test_my_operator_metadata_aggregation():
+    &quot;&quot;&quot;Test metadata aggregation across batches.&quot;&quot;&quot;
+    # Create batch records
+    batch1_metadata = {&quot;my_custom_metric&quot;: 10, &quot;my_custom_list&quot;: [&quot;a&quot;, &quot;b&quot;]}
+    batch2_metadata = {&quot;my_custom_metric&quot;: 20, &quot;my_custom_list&quot;: [&quot;b&quot;, &quot;c&quot;]}
+
+    # Aggregate
+    aggregator = MetadataAggregator()
+    result = aggregator.aggregate_metadata(
+        metadata_list=[batch1_metadata, batch2_metadata]
+    )
+
+    # Verify
+    assert result[&quot;my_custom_metric&quot;] == 30  # SUM
+    assert set(result[&quot;my_custom_list&quot;]) == {&quot;a&quot;, &quot;b&quot;, &quot;c&quot;}  # UNION
+</code></pre>
+<hr />
+<h2 id="modifying-existing-operators">Modifying Existing Operators</h2>
+<p>When modifying operator metadata:</p>
+<h3 id="step-1-assess-impact">Step 1: Assess Impact</h3>
+<p><strong>Questions to answer:</strong><br />
+- Does the change add new metadata fields?<br />
+- Does the change modify existing field semantics?<br />
+- Does the change affect aggregation behavior?</p>
+<h3 id="step-2-update-aggregation-strategy">Step 2: Update Aggregation Strategy</h3>
+<p><strong>If adding new fields:</strong><br />
+- Follow <a href="#step-2-review-aggregation-strategy">Step 2</a> in the new-operator workflow<br />
+- Do not rely on implicit <code>LAST</code> behavior without reviewing the field explicitly</p>
+<p><strong>If modifying existing fields:</strong><br />
+1. Review current strategy in <code>DEFAULT_STRATEGIES</code><br />
+2. Determine if strategy still appropriate<br />
+3. Update if needed and document rationale</p>
+<h3 id="step-3-update-tests">Step 3: Update Tests</h3>
+<p><strong>Required test updates:</strong><br />
+- Unit tests for operator metadata emission<br />
+- Integration tests for batch aggregation<br />
+- End-to-end tests if behavior changes</p>
+<h3 id="step-4-update-documentation">Step 4: Update Documentation</h3>
+<p><strong>Required documentation updates:</strong><br />
+- Operator docstring<br />
+- This document (if strategy changed)<br />
+- CHANGELOG.md (if breaking change)</p>
+<hr />
+<h2 id="testing-requirements">Testing Requirements</h2>
+<h3 id="unit-tests">Unit Tests</h3>
+<p><strong>Location</strong>: <code>tests/unit/core/job_management/application/aggregation/</code></p>
+<p><strong>Required tests:</strong><br />
+1. Strategy application for each strategy type<br />
+2. Edge cases (empty lists, null values, single batch)<br />
+3. Custom strategy registration</p>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-python">def test_sum_strategy():
+    aggregator = MetadataAggregator()
+    result = aggregator.aggregate_metadata(
+        metadata_list=[
+            {&quot;count&quot;: 10},
+            {&quot;count&quot;: 20},
+            {&quot;count&quot;: 30}
+        ]
+    )
+    assert result[&quot;count&quot;] == 60
+</code></pre>
+<h3 id="integration-tests">Integration Tests</h3>
+<p><strong>Location</strong>: <code>tests/integration/core/job_management/</code></p>
+<p><strong>Required tests:</strong><br />
+1. End-to-end batch aggregation<br />
+2. Multiple operators with different metadata<br />
+3. Real operator metadata structures</p>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-python">def test_batch_aggregation_with_real_operator():
+    # Execute operator across 3 batches
+    batch_records = execute_operator_in_batches(
+        operator=ExtractDocling(),
+        batches=3
+    )
+
+    # Aggregate
+    aggregated = aggregate_batch_node_stats(
+        node_id=&quot;extract_1&quot;,
+        batch_records=batch_records,
+        aggregator=MetadataAggregator()
+    )
+
+    # Verify aggregation
+    assert aggregated[&quot;node_status&quot;] == &quot;COMPLETED&quot;
+    assert len(aggregated[&quot;total_docs&quot;]) == total_expected_docs
+</code></pre>
+<hr />
+<h2 id="architecture-references">Architecture References</h2>
+<h3 id="key-files">Key Files</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>File</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>strategies.py</code></td>
+<td>Strategy enum and default mappings</td>
+</tr>
+<tr>
+<td><code>aggregator.py</code></td>
+<td>MetadataAggregator implementation</td>
+</tr>
+<tr>
+<td><code>batch_aggregator.py</code></td>
+<td>Batch-level aggregation logic</td>
+</tr>
+<tr>
+<td><code>node_stats_aggregator.py</code></td>
+<td>Service layer aggregation</td>
+</tr>
+<tr>
+<td><code>node_stats_dto.py</code></td>
+<td>NodeStatsDto and NodeMetadataItem models</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="data-flow">Data Flow</h3>
+<pre><code>Operator Execution (Batch 1)
+    ↓
+NodeMetadataItem (Batch 1) → Store
+    ↓
+Operator Execution (Batch 2)
+    ↓
+NodeMetadataItem (Batch 2) → Store
+    ↓
+Operator Execution (Batch 3)
+    ↓
+NodeMetadataItem (Batch 3) → Store
+    ↓
+API Request (Get Status)
+    ↓
+NodeStatsAggregator.get_aggregated_node_stats()
+    ↓
+Fetch all batch records from store
+    ↓
+Group by node_id
+    ↓
+aggregate_batch_node_stats() for each node
+    ↓
+MetadataAggregator.aggregate_metadata()
+    ↓
+Apply strategy for each field
+    ↓
+Return aggregated NodeStatsDto
+</code></pre>
+<h3 id="enterprise-alignment">Enterprise Alignment</h3>
+<p>This implementation aligns with enterprise behavior documented in:<br />
+- <code>JOBSTATS_MANAGEMENT_KNOWLEDGE.md</code> Section "Aggregation Strategy"<br />
+- <code>JOBSTATS_MANAGEMENT_KNOWLEDGE.md</code> Section "Node Metadata vs Node Stats"<br />
+- <code>JOBSTATS_MANAGEMENT_KNOWLEDGE.md</code> Section "Micro-Batching Support"</p>
+<p><strong>Key alignment points:</strong><br />
+1. ✅ Batch-level metadata storage<br />
+2. ✅ Strategy-based aggregation (SUM, UNION, PRIORITY_STATUS, etc.)<br />
+3. ✅ Nested metadata structure (NodeMetadataItem)<br />
+4. ✅ Base metadata fields in all operators<br />
+5. ✅ Operator-specific field extensibility</p>
+<hr />
+<h2 id="maintenance-checklist">Maintenance Checklist</h2>
+<p>When working with node metadata:</p>
+<ul>
+<li>[ ] Operator emits all base metadata fields</li>
+<li>[ ] Custom fields have appropriate aggregation strategy</li>
+<li>[ ] Strategy documented in <code>DEFAULT_STRATEGIES</code></li>
+<li>[ ] Unit tests for metadata emission</li>
+<li>[ ] Integration tests for batch aggregation</li>
+<li>[ ] Operator docstring updated</li>
+<li>[ ] This document updated if strategy changed</li>
+<li>[ ] CHANGELOG.md updated if breaking change</li>
+</ul>
+<hr />
+<h2 id="questions-and-support">Questions and Support</h2>
+<p>For questions about metadata aggregation:<br />
+1. Review this document<br />
+2. Check enterprise <code>JOBSTATS_MANAGEMENT_KNOWLEDGE.md</code><br />
+3. Examine existing operator implementations<br />
+4. Review test cases in <code>tests/unit/core/job_management/</code></p>
+<hr />
+<p><strong>Document Version</strong>: 1.0<br />
+<strong>Last Updated</strong>: 2026-04-21<br />
+<strong>Maintained By</strong>: Docling Pipelines Core Team</p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#core-concepts">Core Concepts</a>
+      <a href="#aggregation-strategies">Aggregation Strategies</a>
+      <a href="#default-strategy-mappings">Default Strategy Mappings</a>
+      <a href="#operator-responsibilities">Operator Responsibilities</a>
+      <a href="#maintainer-contract">Maintainer Contract</a>
+      <a href="#adding-new-operators">Adding New Operators</a>
+      <a href="#modifying-existing-operators">Modifying Existing Operators</a>
+      <a href="#testing-requirements">Testing Requirements</a>
+      <a href="#architecture-references">Architecture References</a>
+      <a href="#maintenance-checklist">Maintenance Checklist</a>
+      <a href="#questions-and-support">Questions and Support</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

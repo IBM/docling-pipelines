@@ -1,159 +1,97 @@
 # Docling Pipelines Documentation
 
-Welcome to the Docling Pipelines documentation! This guide will help you navigate our comprehensive documentation and find exactly what you need.
+> **For the best experience open [docs/index.html](index.html)** — a fully styled landing page with
+> left-sidebar navigation, dark/light mode toggle, and direct links into the Documentation Book.
 
-## 📚 Documentation Book
-
-The [Docling-pipelines Book](book/site/docling-pipelines/1.0/index.html) is a 12-chapter guide covering architecture, installation, flow authoring, document processing, vector storage, LLM integration, deployment, and more. It is authored in AsciiDoc and built with Antora into a static website (hosted on GitHub Pages) and a PDF.
-
-## 🚀 Getting Started
-
-**New to Docling Pipelines?** Start here:
-
-- **[Quick Start Guide](../QUICKSTART.md)** - Get your first pipeline running in 5 minutes
-- **[Complete Setup Guide](../USER_GUIDE_PIPELINE_SETUP.md)** - Detailed installation and configuration
-- **[Troubleshooting Guide](../TROUBLESHOOTING.md)** - Solutions to common issues
-
-## 📖 Guides
-
-Task-oriented guides to help you accomplish specific goals:
-
-### Core Guides
-- **[Flow Authoring Format](guides/FLOW_AUTHORING_FORMAT.md)** - Learn the simplified flow authoring format
-- **[Flow Configuration Guide](guides/FLOW_CONFIGURATION_GUIDE.md)** - Complete flow configuration reference
-- **[Python API Guide](guides/PYTHON_API_GUIDE.md)** - Use Docling Pipelines programmatically
-
-### Developer Guides
-- **[Create Connector Guide](guides/CREATE_CONNECTOR_GUIDE.md)** - Build custom data source connectors
-- **[Custom Operators Guide](guides/CUSTOM_OPERATORS_GUIDE.md)** - Create your own operators
-- **[External Operator Integration](guides/EXTERNAL_OPERATOR_INTEGRATION.md)** - Integrate external operators
-- **[Testing Standards](guides/TESTING_STANDARDS.md)** - Coverage requirements, test organisation, fixtures, and naming conventions
-
-### Advanced Topics
-- **[Advanced Configuration](guides/ADVANCED_CONFIGURATION.md)** - Production deployment and optimization
-- **[Security Best Practices](guides/SECURITY_BEST_PRACTICES.md)** - Credential management, authentication, ACL, and production hardening
-- **[Unified LLM Architecture](guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.md)** - LLM integration patterns
-- **[Document Libraries](guides/USER_GUIDE_DOCUMENT_LIBRARIES.md)** - Managing document collections
-- **[Document Class Utils](guides/DOCUMENT_CLASS_UTILS.md)** - Document schema utilities
-- **[Vault Integration](guides/VAULT_INTEGRATION_GUIDE.md)** - HashiCorp Vault secret resolution via `vault://` URIs
-- **[UI User Guide](guides/UI_USER_GUIDE.md)** - Using the React frontend
-
-### Best Practices
-- **[Logging Best Practices](guides/LOGGING_BEST_PRACTICES.md)** - Security-first logging, sensitive data handling, and NFR Point 12 compliance
-
-## ⚙️ Operator Configurations
-
-Configuration examples and patterns for all operators:
-
-### Core Pipeline Operators
-- **[IngestSource](operators/ingest/ingest_source_readme.md)** - Ingest documents from local filesystem or external sources (S3, SharePoint, etc.)
-- **[Extract](operators/extract/extract_operator_readme.md)** - Extract text and entities from documents
-- **[Chunker](operators/functional/chunker_readme.md)** - Split documents into chunks
-- **[Embeddings](operators/functional/embeddings_readme.md)** - Generate vector embeddings
-- **[VectorDB](operators/vectordb/)** - Store vectors in OpenSearch or Milvus
-- **[StorageOutput](operators/storage/storage_output_readme.md)** - Write documents to a file destination (filesystem, etc.)
-
-### All Operator Configurations
-Browse the complete list of operator configuration examples in the [operators/](operators/) directory.
-
-## 📚 Reference
-
-Quick lookup documentation for parameters and APIs:
-
-- **[Global Configuration Reference](reference/GLOBAL_CONFIG.md)** - Flow-level configuration parameters
-- **[Operator Reference](reference/OPERATORS.md)** - Complete operator parameter specifications
-- **[Document Schemas](reference/DOCUMENT_SCHEMAS.md)** - Document class schema definitions
-
-## 🌐 REST API
-
-Documentation for the Docling Pipelines REST API server:
-
-- **[REST API Server](api/REST_API_SERVER.md)** - Server setup, all endpoints, authentication, and security overview
-- **[Document Retrieval API](api/ACL_DOCUMENT_RETRIEVAL.md)** - ACL-based document retrieval endpoints
-- **[OAuth2 Authentication](api/OAUTH2_AUTHENTICATION.md)** - OAuth2 and OIDC authentication setup
-
-## 🔌 Integrations
-
-Integration-specific documentation:
-
-- **[OpenSearch](integrations/opensearch/)** - Vector storage with OpenSearch
-  - [Quick Start](integrations/opensearch/OPENSEARCH_QUICKSTART.md)
-  - [Environment Setup](integrations/opensearch/ENVIRONMENT_SETUP.md)
-  - [Schema Templates](integrations/opensearch/SCHEMA_TEMPLATES.md)
-- **[Milvus](integrations/milvus/)** - Vector storage with Milvus
-- **[Prefect](integrations/prefect/)** - Distributed execution with Prefect
-  - [Distributed Execution Guide](integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)
-
-## 🛠️ Contributing
-
-Resources for contributors:
-
-- **[Contributing Guide](../CONTRIBUTING.md)** - How to contribute to Docling Pipelines
-- **[Documentation Style Guide](guides/DOCUMENTATION_STYLE_GUIDE.md)** - Formatting, Mermaid, and writing conventions for all contributors
-
-## 🔬 Internals
-
-Internal documentation for maintainers:
-
-- **[Metadata Aggregation Strategy](internals/NODE_METADATA_AGGREGATION_STRATEGY.md)** - Metadata aggregation in micro-batching
-- **[Document Libraries Architecture](internals/DOCUMENT_LIBRARIES_ARCHITECTURE.md)** - Document library system design
-- **[Unified Asset Architecture](internals/UNIFIED_ASSET_ARCHITECTURE.md)** - Complete reference for the common asset layer: domain models, ports, adapters, factories, and service wiring
-
-## 🚀 Deployment
-
-Deployment guides for production environments:
-
-- **[OpenShift Deployment](deployment/OPENSHIFT.md)** - Deploy Docling Pipelines on OpenShift
-
-## 💡 Architecture
-
-Understand how Docling Pipelines works:
-
-- **[Architecture Overview](../ARCHITECTURE.md)** - System design and operator catalog
-
-## 📋 Documentation Organization
-
-Our documentation is organized by user journey:
-
-```
-docs/
-├── guides/              # How-to guides (task-oriented)
-├── operators/           # Operator configuration examples
-├── reference/           # Parameter and API lookups
-├── api/                 # REST API documentation
-├── integrations/        # Integration-specific docs
-├── internals/           # Internal maintainer docs
-└── deployment/          # Deployment guides
-```
-
-**Note:** Comprehensive operator documentation (architecture, implementation details) is located in the source code directories at `src/docpipe/core/operators/*/README.md`.
-
-## 🔍 Finding What You Need
-
-**I want to...**
-
-- **Get started quickly** → [Quick Start Guide](../QUICKSTART.md)
-- **Set up my environment** → [Complete Setup Guide](../USER_GUIDE_PIPELINE_SETUP.md)
-- **Write my first flow** → [Flow Authoring Format](guides/FLOW_AUTHORING_FORMAT.md)
-- **Look up a parameter** → [Global Config Reference](reference/GLOBAL_CONFIG.md) or [Operator Reference](reference/OPERATORS.md)
-- **See operator config examples** → [Operator Configs Directory](operators/)
-- **Understand operator internals** → Check `src/docpipe/core/operators/*/README.md` in source code
-- **Use the Python API** → [Python API Guide](guides/PYTHON_API_GUIDE.md)
-- **Use the REST API** → [REST API Server](api/REST_API_SERVER.md)
-- **Set up OAuth2 authentication** → [OAuth2 Authentication Guide](api/OAUTH2_AUTHENTICATION.md)
-- **Create a custom connector** → [Create Connector Guide](guides/CREATE_CONNECTOR_GUIDE.md)
-- **Secure my deployment** → [Security Best Practices](guides/SECURITY_BEST_PRACTICES.md)
-- **Deploy to production** → [Advanced Configuration](guides/ADVANCED_CONFIGURATION.md)
-- **Troubleshoot an issue** → [Troubleshooting Guide](../TROUBLESHOOTING.md)
-- **Contribute code** → [Contributing Guide](../CONTRIBUTING.md)
-
-## 📞 Need Help?
-
-- Check the [Troubleshooting Guide](../TROUBLESHOOTING.md) for common issues
-- Review the [Architecture Overview](../ARCHITECTURE.md) to understand system design
-- Browse [operator configuration examples](operators/) for usage patterns
-- Check existing GitHub issues or create a new one
+The table below is a plain-text fallback for tools that render only Markdown.
 
 ---
 
-**Happy data processing! 🚀**
+## Documentation Book
+
+The [Docling-pipelines Book](book/site/docling-pipelines/1.0/index.html) is a 12-chapter guide
+covering architecture, installation, flow authoring, document processing, vector storage, LLM
+integration, deployment, and more.
+
+| # | Chapter |
+|---|---------|
+| 01 | [Introduction & Architecture](book/site/docling-pipelines/1.0/01_introduction_and_architecture.html) |
+| 02 | [Installation & Quick Start](book/site/docling-pipelines/1.0/02_installation_and_quick_start.html) |
+| 03 | [Authoring Flows](book/site/docling-pipelines/1.0/03_authoring_flows.html) |
+| 04 | [Ingesting Data](book/site/docling-pipelines/1.0/04_ingesting_data.html) |
+| 05 | [Extracting & Processing Documents](book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html) |
+| 06 | [Data Quality & Enrichment](book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html) |
+| 07 | [Vector Storage & Retrieval](book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html) |
+| 08 | [LLM Integration](book/site/docling-pipelines/1.0/08_llm_integration.html) |
+| 09 | [Python API](book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html) |
+| 10 | [Extending Docling Pipelines](book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html) |
+| 11 | [Production Deployment](book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html) |
+| 12 | [Troubleshooting & Contributing](book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html) |
+
+## Getting Started
+
+- **[Quick Start Guide](../QUICKSTART.md)** — Get your first pipeline running in 5 minutes
+- **[Complete Setup Guide](../USER_GUIDE_PIPELINE_SETUP.md)** — Detailed installation and configuration
+- **[Troubleshooting Guide](../TROUBLESHOOTING.md)** — Solutions to common issues
+
+## Guides
+
+### Core Guides
+- **[Flow Authoring Format](guides/FLOW_AUTHORING_FORMAT.md)**
+- **[Flow Configuration Guide](guides/FLOW_CONFIGURATION_GUIDE.md)**
+- **[Python API Guide](guides/PYTHON_API_GUIDE.md)**
+
+### Developer Guides
+- **[Create Connector Guide](guides/CREATE_CONNECTOR_GUIDE.md)**
+- **[Custom Operators Guide](guides/CUSTOM_OPERATORS_GUIDE.md)**
+- **[External Operator Integration](guides/EXTERNAL_OPERATOR_INTEGRATION.md)**
+- **[Testing Standards](guides/TESTING_STANDARDS.md)**
+
+### Advanced Topics
+- **[Advanced Configuration](guides/ADVANCED_CONFIGURATION.md)**
+- **[Security Best Practices](guides/SECURITY_BEST_PRACTICES.md)**
+- **[Unified LLM Architecture](guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.md)**
+- **[Document Libraries](guides/USER_GUIDE_DOCUMENT_LIBRARIES.md)**
+- **[Vault Integration](guides/VAULT_INTEGRATION_GUIDE.md)**
+- **[UI User Guide](guides/UI_USER_GUIDE.md)**
+- **[Logging Best Practices](guides/LOGGING_BEST_PRACTICES.md)**
+
+## Operators
+
+- **[IngestSource](operators/ingest/ingest_source_readme.md)**
+- **[Extract](operators/extract/extract_operator_readme.md)**
+- **[Chunker](operators/functional/chunker_readme.md)**
+- **[Embeddings](operators/functional/embeddings_readme.md)**
+- **[VectorDB](operators/vectordb/vectordb_readme.md)**
+- **[StorageOutput](operators/storage/storage_output_readme.md)**
+
+Browse all operator docs in [operators/](operators/).
+
+## Reference
+
+- **[Global Configuration Reference](reference/GLOBAL_CONFIG.md)**
+- **[Operator Reference](reference/OPERATORS.md)**
+- **[Document Schemas](reference/DOCUMENT_SCHEMAS.md)**
+
+## REST API
+
+- **[REST API Server](api/REST_API_SERVER.md)**
+- **[Document Retrieval API](api/ACL_DOCUMENT_RETRIEVAL.md)**
+- **[OAuth2 Authentication](api/OAUTH2_AUTHENTICATION.md)**
+
+## Integrations
+
+- **[OpenSearch](integrations/opensearch/OPENSEARCH_QUICKSTART.md)**
+- **[Milvus](integrations/milvus/README.md)**
+- **[Prefect](integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.md)**
+- **[HashiCorp Vault](integrations/vault/README.md)**
+
+## Deployment
+
+- **[OpenShift Deployment](deployment/OPENSHIFT.md)**
+- **[Architecture Overview](../ARCHITECTURE.md)**
+
+## Contributing
+
+- **[Contributing Guide](../CONTRIBUTING.md)**
+- **[Documentation Style Guide](guides/DOCUMENTATION_STYLE_GUIDE.md)**

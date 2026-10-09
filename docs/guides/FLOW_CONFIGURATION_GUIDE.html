@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Docling Pipelines Flow Configuration Guide — Docling Pipelines</title>
+  <meta name="description" content="Docling Pipelines Flow Configuration Guide — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter active" href="FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Docling Pipelines Flow Configuration Guide</span>
+      </nav>
+      <h1>Docling Pipelines Flow Configuration Guide</h1>
+<p>This guide explains how to create and configure Docling Pipelines pipeline flows using JSON configuration files.</p>
+
+<hr />
+<h2 id="flow-structure-overview">Flow Structure Overview</h2>
+<p>Docling Pipelines pipelines are defined using JSON configuration files. Here's the basic structure:</p>
+<pre><code class="language-json">{
+  &quot;flow_name&quot;: &quot;complete-document-pipeline&quot;,
+  &quot;description&quot;: &quot;Complete document processing pipeline&quot;,
+  &quot;global_config&quot;: {
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;disable_validation&quot;: false,
+    &quot;force_ingest&quot;: true,
+    &quot;storage&quot;: &quot;in-memory&quot;,
+    &quot;execute_type&quot;: &quot;local&quot;
+  },
+  &quot;flow&quot;: [
+    // Operator definitions go here
+  ]
+}
+</code></pre>
+<hr />
+<h2 id="required-top-level-fields">Required Top-Level Fields</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>flow_name</code></td>
+<td>string</td>
+<td>Human-readable flow name</td>
+<td><code>"complete-document-pipeline"</code></td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td>string</td>
+<td>Flow purpose description</td>
+<td><code>"Complete document processing pipeline"</code></td>
+</tr>
+<tr>
+<td><code>global_config</code></td>
+<td>object</td>
+<td>Global configuration</td>
+<td>See below</td>
+</tr>
+<tr>
+<td><code>flow</code></td>
+<td>array</td>
+<td>Operator definitions</td>
+<td>See operator sections</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="global-configuration-options">Global Configuration Options</h2>
+<p>The <code>global_config</code> object supports the following options:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>doc_column</code></td>
+<td>string</td>
+<td>Column name for document content</td>
+<td><code>"content"</code></td>
+<td><code>"content"</code></td>
+</tr>
+<tr>
+<td><code>force_ingest</code></td>
+<td>boolean</td>
+<td>Force re-ingestion of documents</td>
+<td><code>false</code></td>
+<td><code>true</code></td>
+</tr>
+<tr>
+<td><code>disable_validation</code></td>
+<td>boolean</td>
+<td>Disable flow validation</td>
+<td><code>false</code></td>
+<td><code>true</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Example with global configuration</strong></p>
+<pre><code class="language-json">{
+  &quot;global_config&quot;: {
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;force_ingest&quot;: true,
+    &quot;disable_validation&quot;: true
+  }
+}
+</code></pre>
+<h3 id="flow-identification-flow-name-and-job-id">Flow Identification: flow_name and job_id</h3>
+<p>The <code>flow_name</code> field in your flow definition serves different purposes depending on how you execute the flow:</p>
+<h4>CLI Execution (<code>docling-pipelines</code>)</h4>
+<p>When using the <code>docling-pipelines</code> CLI, the <code>flow_name</code> is automatically used to generate a unique <code>job_id</code> for tracking flow executions and incremental processing.</p>
+<p><strong>Automatic job_id Generation:</strong><br />
+- job_id is automatically generated from flow_name as a deterministic 36-character UUID (UUID v5)<br />
+- Format: Standard UUID (e.g., <code>a1b2c3d4-e5f6-5789-a012-b3c4d5e6f7a8</code>)<br />
+- The UUID is deterministic, so the same flow_name always produces the same job_id<br />
+- Compatible with all storage backends (filesystem, DuckDB, PostgreSQL)<br />
+- Generation process:<br />
+  1. Sanitize flow_name (lowercase, replace spaces/special chars with hyphens)<br />
+  2. Generate 8-character hash from original flow_name<br />
+  3. Create intermediate string: <code>{sanitized}_{hash}</code><br />
+  4. Generate UUID v5 from intermediate string<br />
+- Example: flow_name "My Document Pipeline" → job_id "f8e3a1b2-c4d5-5678-9abc-def012345678"</p>
+<p><strong>Important Considerations:</strong></p>
+<blockquote>
+<p>⚠️ <strong>flow_name Uniqueness</strong>: Use a unique flow_name for each logically different pipeline. Reusing the same flow_name across different pipelines will generate the same job_id, causing incremental metadata conflicts where documents processed in one pipeline may be incorrectly marked as processed in another.</p>
+<p>⚠️ <strong>Incremental Processing Impact</strong>: Since incremental ingestion metadata is associated with the job_id (derived from flow_name), changing a flow's flow_name will generate a new job_id, causing previously processed files to be reprocessed.</p>
+</blockquote>
+<h4>Python API (<code>DocpipeFlowManager</code>)</h4>
+<p>When using the Python API, you must provide a unique <code>job_id</code> parameter for each flow execution:</p>
+<pre><code class="language-python">from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+
+# You must provide a unique job_id
+manager = DocpipeFlowManager(
+    flow_file=&quot;my_flow.json&quot;,
+    job_id=&quot;my-unique-job-id-12345&quot;  # Required for proper tracking
+)
+result = manager.execute()
+</code></pre>
+<p>If no <code>job_id</code> is provided, a random UUID will be generated, which means incremental processing will not work correctly across executions.</p>
+<h4>REST API</h4>
+<p>When creating flows via the REST API, a <code>flow_id</code> is automatically generated and used as the <code>job_id</code> for execution tracking.</p>
+<hr />
+<h2 id="operator-configuration">Operator Configuration</h2>
+<h3 id="operator-1-ingestsourceoperator">Operator 1: IngestSourceOperator</h3>
+<p>Reads files from a local directory:</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;ingest&quot;,
+  &quot;type&quot;: &quot;ingest_source&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;filesystem&quot;,
+    &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./tests/fixtures/invoices&quot;]},
+    &quot;include_filter&quot;: &quot;.pdf&quot;
+  }
+}
+</code></pre>
+<p><strong>Note:</strong> Extension names should include the dot prefix and be comma-separated (e.g., <code>".pdf,.txt,.docx"</code> not <code>"*.pdf,*.txt"</code> or <code>"pdf,txt"</code>).</p>
+<hr />
+<h3 id="operator-2-extractoperator">Operator 2: ExtractOperator</h3>
+<p>The <code>extract_operator</code> handles both text extraction and entity extraction.</p>
+<p><strong>Supported text extraction providers:</strong></p>
+<ul>
+<li><code>docling_library</code></li>
+<li><code>docling_serve</code></li>
+</ul>
+<p><strong>Supported entity extraction providers:</strong></p>
+<ul>
+<li><code>docling</code></li>
+<li><code>litellm</code></li>
+<li><code>watsonx</code></li>
+<li><code>none</code></li>
+</ul>
+<h4>Basic Text Extraction (DEFAULT)</h4>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;type&quot;: &quot;extract_operator&quot;,
+  &quot;depends_on&quot;: [&quot;ingest&quot;],
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    }
+  }
+}
+</code></pre>
+<h4>Advanced Template-Based Extraction</h4>
+<p>For structured data extraction with predefined schemas, use <code>entity_extraction.provider: "docling"</code></p>
+<p><strong>Important:</strong> When using any entity extraction provider (not <code>none</code>), you must provide either:<br />
+- A <code>custom_schema</code> in the operator configuration (as shown below), OR<br />
+- A <code>document_type</code> column from an upstream classification operator (e.g., DocumentClassifierOperator)</p>
+<p>If neither is provided, the operator will throw a <code>ConfigurationError</code>.</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;type&quot;: &quot;extract_operator&quot;,
+  &quot;depends_on&quot;: [&quot;ingest&quot;],
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling&quot;,
+      &quot;expand_extracted_data&quot;: true,
+      &quot;custom_schema&quot;: {
+        &quot;invoice_number&quot;: &quot;string&quot;,
+        &quot;invoice_date&quot;: &quot;string&quot;,
+        &quot;vendor_name&quot;: &quot;string&quot;,
+        &quot;total&quot;: &quot;float&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<h4>LLM-Based Entity Extraction with Ollama</h4>
+<p>For LLM-powered entity extraction using Ollama models, use <code>entity_extraction.provider: "litellm"</code> with the <code>openai/</code> prefix:</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;type&quot;: &quot;extract_operator&quot;,
+  &quot;depends_on&quot;: [&quot;ingest&quot;],
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;litellm&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;openai/llama3.1:latest&quot;,
+        &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;
+      },
+      &quot;expand_extracted_data&quot;: true,
+      &quot;custom_schema&quot;: {
+        &quot;invoice_number&quot;: &quot;string&quot;,
+        &quot;invoice_date&quot;: &quot;string&quot;,
+        &quot;vendor_name&quot;: &quot;string&quot;,
+        &quot;total&quot;: &quot;float&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<p>This approach uses LiteLLM to access Ollama models for flexible, LLM-powered entity extraction. This is useful when you need to extract specific fields from structured documents like invoices, forms, or receipts.</p>
+<h4>GPU-Accelerated Text Extraction</h4>
+<p>For hardware-accelerated PDF and image extraction using a local GPU. The adapter builds one <code>DocumentConverter</code> at initialization and reuses it for every document — GPU model weights are loaded once per flow execution.</p>
+<blockquote>
+<p>Requires <code>max_workers: 1</code> and <code>use_processes: false</code>. Cannot be combined with <code>vlm_pipeline</code>.</p>
+</blockquote>
+<p>When <code>device</code> is omitted, the best available GPU is auto-detected via torch at runtime (CUDA → MPS → XPU). Specify <code>device</code> explicitly to pin a particular GPU.</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;type&quot;: &quot;extract_operator&quot;,
+  &quot;depends_on&quot;: [&quot;ingest&quot;],
+  &quot;config&quot;: {
+    &quot;text_extraction&quot;: {
+      &quot;provider&quot;: &quot;docling_library&quot;,
+      &quot;doc_column&quot;: &quot;content&quot;,
+      &quot;provider_config&quot;: {
+        &quot;standard_pipeline&quot;: {
+          &quot;accelerator&quot;: {
+            &quot;num_threads&quot;: 6
+          }
+        }
+      }
+    },
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;none&quot;
+    },
+    &quot;max_workers&quot;: 1,
+    &quot;use_processes&quot;: false
+  }
+}
+</code></pre>
+<p><strong>Supported devices:</strong> <code>mps</code> (Apple Silicon), <code>cuda</code> (NVIDIA), <code>cuda:&lt;index&gt;</code> (e.g. <code>cuda:0</code>), <code>xpu</code> (Intel). Auto-detected when <code>device</code> is not specified.</p>
+<hr />
+<h3 id="operator-3-chunkeroperator">Operator 3: ChunkerOperator</h3>
+<p>Splits documents into chunks:</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;chunk&quot;,
+  &quot;type&quot;: &quot;chunker&quot;,
+  &quot;depends_on&quot;: [&quot;extract&quot;],
+  &quot;config&quot;: {
+    &quot;chunk_type&quot;: &quot;hybrid&quot;,
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;chunk_size&quot;: 512,
+    &quot;chunk_overlap&quot;: 128,
+    &quot;retain_original_content&quot;: false
+  }
+}
+</code></pre>
+<hr />
+<h3 id="operator-4-embeddingsoperator">Operator 4: EmbeddingsOperator</h3>
+<p>Generates vector embeddings:</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;embeddings&quot;,
+  &quot;type&quot;: &quot;embeddings&quot;,
+  &quot;depends_on&quot;: [&quot;chunk&quot;],
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;litellm&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;openai/granite4:latest&quot;,
+      &quot;api_base&quot;: &quot;http://localhost:11434&quot;
+    },
+    &quot;embeddings_column&quot;: &quot;embeddings&quot;,
+    &quot;overlap_ratio&quot;: 0.2,
+    &quot;doc_column&quot;: &quot;content&quot;
+  }
+}
+</code></pre>
+<p><strong>Note:</strong> Use <code>ollama list</code> to see available models on your system. Common embedding models include <code>granite4:latest</code>, <code>nomic-embed-text</code>, and <code>mxbai-embed-large</code>.</p>
+<hr />
+<h3 id="operator-5-vectordboperator">Operator 5: VectorDBOperator</h3>
+<p>Stores documents and embeddings in OpenSearch for vector similarity search.</p>
+<h4>Basic Configuration</h4>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;vectordb&quot;,
+  &quot;type&quot;: &quot;vectordb&quot;,
+  &quot;depends_on&quot;: [&quot;embeddings&quot;],
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;doc_id_column&quot;: &quot;doc_id_hash&quot;,
+    &quot;embeddings_column&quot;: &quot;embeddings&quot;,
+    &quot;create_index&quot;: true,
+    &quot;vector_dimension&quot;: 384,
+    &quot;provider_config&quot;: {
+      &quot;index_name&quot;: &quot;documents&quot;,
+      &quot;host&quot;: &quot;localhost&quot;,
+      &quot;port&quot;: 9200,
+      &quot;username&quot;: &quot;admin&quot;,
+      &quot;password&quot;: &quot;&lt;your-opensearch-password&gt;&quot;,
+      &quot;use_ssl&quot;: false,
+      &quot;verify_certs&quot;: false,
+      &quot;engine&quot;: &quot;faiss&quot;,
+      &quot;algorithm&quot;: &quot;hnsw&quot;,
+      &quot;space_type&quot;: &quot;l2&quot;,
+      &quot;batch_size&quot;: 100
+    },
+    &quot;feature_mappings&quot;: {
+      &quot;content&quot;: &quot;content&quot;,
+      &quot;doc_name&quot;: &quot;doc_name&quot;,
+      &quot;file_path&quot;: &quot;file_path&quot;,
+      &quot;doc_id_hash&quot;: &quot;doc_id_hash&quot;,
+      &quot;chunk_id&quot;: &quot;chunk_id&quot;,
+      &quot;chunk_index&quot;: &quot;chunk_index&quot;
+    },
+    &quot;available_features&quot;: {
+      &quot;embeddings&quot;: {
+        &quot;type&quot;: &quot;vector&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;content&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;doc_name&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;file_path&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;doc_id_hash&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;chunk_id&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;chunk_index&quot;: {
+        &quot;type&quot;: &quot;integer&quot;,
+        &quot;available_for_vector_db&quot;: true
+      }
+    }
+  }
+}
+</code></pre>
+<h4>Required Parameters</h4>
+<ul>
+<li><strong>provider</strong>: Type of vector database (uses "opensearch" by default)</li>
+<li><strong>provider_config</strong>: All connection parameters and the resource name for the target backend. The resource name key is provider-specific.</li>
+<li><strong>available_features</strong>: Defines which columns to store and their types. <strong>Embeddings field is mandatory.</strong></li>
+<li>Must include <code>embeddings</code> with <code>"type": "vector"</code> and <code>"available_for_vector_db": true</code></li>
+<li>Other fields are optional but recommended: content, doc_name, doc_id_hash</li>
+<li>Supported types: vector, string, integer, float, boolean</li>
+<li><strong>feature_mappings</strong>: Maps PyArrow column names to vector DB field names</li>
+<li>Format: <code>{"pyarrow_column": "vector_db_field"}</code></li>
+<li>Must include all fields defined in available_features</li>
+</ul>
+<h4>Optional Provider Configurations (provider_config)</h4>
+<ul>
+<li><strong>host</strong>: OpenSearch server address (default: "localhost")</li>
+<li><strong>port</strong>: Server port (default: 9200)</li>
+<li><strong>username/password</strong>: Authentication credentials</li>
+<li><strong>use_ssl</strong>: Enable SSL (default: true)</li>
+<li><strong>verify_certs</strong>: Verify SSL certificates (default: true)</li>
+<li><strong>create_index</strong>: Auto-create index if missing (default: true)</li>
+<li><strong>vector_dimension</strong>: Embedding dimension (default: 384, auto-detected from data)</li>
+<li><strong>Must match the embedding model's output dimension</strong></li>
+<li>Common dimensions: <code>nomic-embed-text</code>: 768, <code>llama3.2</code>: 4096, <code>granite-embedding</code>: 384</li>
+<li>The dimension in this configuration must exactly match the dimension produced by your embeddings operator</li>
+<li><strong>engine</strong>: KNN engine - faiss, lucene, nmslib (default: faiss)</li>
+<li><strong>algorithm</strong>: KNN algorithm - hnsw, ivf (default: hnsw)</li>
+<li><strong>space_type</strong>: Distance metric - l2, cosine, inner_product (default: l2)</li>
+<li><strong>batch_size</strong>: Documents per batch (default: 100)</li>
+<li><strong>engine_parameters</strong>: Optional engine-specific parameters (e.g., {"ef_construction": 512, "m": 16} for HNSW)</li>
+<li><strong>schema_template_path</strong>: Path to JSON schema template (relative to <code>src/docpipe/core/operators/vectordb/</code>)</li>
+<li>Built-in templates: <code>schemas/default_schema.v1.json</code>, <code>schemas/template_with_content_analyzer.v1.json</code></li>
+<li>If not specified, schema is generated dynamically from <code>available_features</code></li>
+</ul>
+<blockquote>
+<p><strong>⚠️ Important</strong>: The embeddings column is mandatory. The operator validates embeddings exist in the input table and will fail if missing. You must explicitly configure embeddings in <code>available_features</code> for them to be stored in OpenSearch.</p>
+</blockquote>
+<h4>Using Schema Templates</h4>
+<p>Schema templates provide reusable index configurations with consistent settings across pipelines. Instead of defining <code>available_features</code> and <code>feature_mappings</code> manually, you can use a pre-configured template.</p>
+<p><strong>Benefits of Schema Templates:</strong></p>
+<ul>
+<li>Consistent index structure across different flows</li>
+<li>Pre-configured analyzers and field types</li>
+<li>Automatic placeholder replacement for dynamic values</li>
+<li>Reduced configuration complexity</li>
+</ul>
+<p><strong>Built-in Templates:</strong></p>
+<ol>
+<li><strong>default_schema.v1.json</strong>: Basic schema with standard field types</li>
+<li>Suitable for general document storage</li>
+<li>
+<p>Includes standard text, numeric, and vector fields</p>
+</li>
+<li>
+<p><strong>template_with_content_analyzer.v1.json</strong>: Template with custom content analyzer</p>
+</li>
+<li>Custom content analyzer with stemming and stop words</li>
+<li>Optimized for semantic search on document chunks</li>
+</ol>
+<p><strong>Example with Schema Template:</strong></p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;vectordb&quot;,
+  &quot;type&quot;: &quot;vectordb&quot;,
+  &quot;depends_on&quot;: [&quot;embeddings&quot;],
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;doc_id_column&quot;: &quot;doc_id_hash&quot;,
+    &quot;embeddings_column&quot;: &quot;embeddings&quot;,
+    &quot;create_index&quot;: true,
+    &quot;vector_dimension&quot;: 384,
+    &quot;provider_config&quot;: {
+      &quot;index_name&quot;: &quot;document_chunks&quot;,
+      &quot;schema_template_path&quot;: &quot;schemas/template_with_content_analyzer.v1.json&quot;,
+      &quot;host&quot;: &quot;localhost&quot;,
+      &quot;port&quot;: 9200,
+      &quot;username&quot;: &quot;admin&quot;,
+      &quot;password&quot;: &quot;&lt;your-opensearch-password&gt;&quot;,
+      &quot;use_ssl&quot;: false,
+      &quot;verify_certs&quot;: false,
+      &quot;engine&quot;: &quot;faiss&quot;,
+      &quot;algorithm&quot;: &quot;hnsw&quot;,
+      &quot;space_type&quot;: &quot;l2&quot;
+    },
+    &quot;feature_mappings&quot;: {
+      &quot;content&quot;: &quot;content&quot;,
+      &quot;doc_id_hash&quot;: &quot;id&quot;,
+      &quot;embeddings&quot;: &quot;embeddings&quot;
+    },
+    &quot;available_features&quot;: {
+      &quot;embeddings&quot;: {
+        &quot;type&quot;: &quot;vector&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;content&quot;: {
+        &quot;type&quot;: &quot;content_text&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;doc_id_hash&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;available_for_vector_db&quot;: true
+      }
+    }
+  }
+}
+</code></pre>
+<p><strong>Note:</strong> When using schema templates, the template defines the index settings and field type mappings. You still need to specify <code>available_features</code> and <code>feature_mappings</code> to control which columns from your data are stored.</p>
+<h4>Automatic Metadata Aggregation</h4>
+<p>The VectorDBOperator automatically collects common metadata fields into a <code>metadata</code> object:</p>
+<ul>
+<li><code>name</code>, <code>size</code>, <code>created_time</code>, <code>modified_time</code>, <code>source</code>, <code>mimetype</code>, <code>extension</code>, <code>page_count</code></li>
+<li>Column name aliases are automatically applied (e.g., <code>path</code> → <code>source</code>, <code>pages_processed</code> → <code>page_count</code>)</li>
+<li>Missing fields like <code>extension</code> and <code>mimetype</code> are derived when possible</li>
+</ul>
+<hr />
+<h2 id="connecting-operators">Connecting Operators</h2>
+<p>Operators are connected using the <code>depends_on</code> field, which specifies which operators must complete before the current operator runs. Simply reference the <code>name</code> of the upstream operator(s).</p>
+<p><strong>Example:</strong></p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;extract&quot;,
+  &quot;type&quot;: &quot;extract_operator&quot;,
+  &quot;depends_on&quot;: [&quot;ingest&quot;],
+  &quot;config&quot;: {...}
+}
+</code></pre>
+<p>This creates a dependency where the <code>extract</code> operator will only run after the <code>ingest</code> operator completes successfully.</p>
+<p><strong>Multiple Dependencies:</strong></p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;merge&quot;,
+  &quot;type&quot;: &quot;merge_operator&quot;,
+  &quot;depends_on&quot;: [&quot;branch1&quot;, &quot;branch2&quot;],
+  &quot;config&quot;: {...}
+}
+</code></pre>
+<hr />
+<h2 id="complete-examples">Complete Examples</h2>
+<h3 id="example-1-basic-document-processing-pipeline">Example 1: Basic Document Processing Pipeline</h3>
+<pre><code class="language-json">{
+  &quot;flow_name&quot;: &quot;basic-document-pipeline&quot;,
+  &quot;description&quot;: &quot;Basic document ingestion and extraction&quot;,
+  &quot;global_config&quot;: {
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;force_ingest&quot;: false
+  },
+  &quot;flow&quot;: [
+    {
+      &quot;name&quot;: &quot;ingest&quot;,
+      &quot;type&quot;: &quot;ingest_source&quot;,
+      &quot;config&quot;: {
+        &quot;provider&quot;: &quot;filesystem&quot;,
+        &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./documents&quot;]},
+        &quot;include_filter&quot;: &quot;.pdf,.txt&quot;
+      }
+    },
+    {
+      &quot;name&quot;: &quot;extract&quot;,
+      &quot;type&quot;: &quot;extract_operator&quot;,
+      &quot;depends_on&quot;: [&quot;ingest&quot;],
+      &quot;config&quot;: {
+        &quot;text_extraction&quot;: {
+          &quot;provider&quot;: &quot;docling_library&quot;,
+          &quot;doc_column&quot;: &quot;content&quot;
+        },
+        &quot;entity_extraction&quot;: {
+          &quot;provider&quot;: &quot;none&quot;
+        }
+      }
+    }
+  ]
+}
+</code></pre>
+<h3 id="example-2-complete-rag-pipeline">Example 2: Complete RAG Pipeline</h3>
+<pre><code class="language-json">{
+  &quot;flow_name&quot;: &quot;complete-rag-pipeline&quot;,
+  &quot;description&quot;: &quot;Complete pipeline for RAG system&quot;,
+  &quot;global_config&quot;: {
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;force_ingest&quot;: true
+  },
+  &quot;flow&quot;: [
+    {
+      &quot;name&quot;: &quot;ingest&quot;,
+      &quot;type&quot;: &quot;ingest_source&quot;,
+      &quot;config&quot;: {
+        &quot;provider&quot;: &quot;filesystem&quot;,
+        &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./documents&quot;]},
+        &quot;include_filter&quot;: &quot;.pdf&quot;
+      }
+    },
+    {
+      &quot;name&quot;: &quot;extract&quot;,
+      &quot;type&quot;: &quot;extract_operator&quot;,
+      &quot;depends_on&quot;: [&quot;ingest&quot;],
+      &quot;config&quot;: {
+        &quot;text_extraction&quot;: {
+          &quot;provider&quot;: &quot;docling_library&quot;,
+          &quot;doc_column&quot;: &quot;content&quot;
+        },
+        &quot;entity_extraction&quot;: {
+          &quot;provider&quot;: &quot;none&quot;
+        }
+      }
+    },
+    {
+      &quot;name&quot;: &quot;chunk&quot;,
+      &quot;type&quot;: &quot;chunker&quot;,
+      &quot;depends_on&quot;: [&quot;extract&quot;],
+      &quot;config&quot;: {
+        &quot;chunk_type&quot;: &quot;hybrid&quot;,
+        &quot;chunk_size&quot;: 512,
+        &quot;chunk_overlap&quot;: 128
+      }
+    },
+    {
+      &quot;name&quot;: &quot;embeddings&quot;,
+      &quot;type&quot;: &quot;embeddings&quot;,
+      &quot;depends_on&quot;: [&quot;chunk&quot;],
+      &quot;config&quot;: {
+        &quot;provider&quot;: &quot;litellm&quot;,
+        &quot;provider_config&quot;: {
+          &quot;model_id&quot;: &quot;openai/nomic-embed-text:latest&quot;,
+          &quot;api_base&quot;: &quot;http://localhost:11434&quot;
+        },
+        &quot;embeddings_column&quot;: &quot;embeddings&quot;
+      }
+    },
+    {
+      &quot;name&quot;: &quot;vectordb&quot;,
+      &quot;type&quot;: &quot;vectordb&quot;,
+      &quot;depends_on&quot;: [&quot;embeddings&quot;],
+      &quot;config&quot;: {
+        &quot;provider&quot;: &quot;opensearch&quot;,
+        &quot;doc_id_column&quot;: &quot;doc_id_hash&quot;,
+        &quot;embeddings_column&quot;: &quot;embeddings&quot;,
+        &quot;vector_dimension&quot;: 768,
+        &quot;provider_config&quot;: {
+          &quot;index_name&quot;: &quot;documents&quot;,
+          &quot;host&quot;: &quot;localhost&quot;,
+          &quot;port&quot;: 9200,
+          &quot;username&quot;: &quot;admin&quot;,
+          &quot;password&quot;: &quot;&lt;your-opensearch-password&gt;&quot;
+        },
+        &quot;feature_mappings&quot;: {
+          &quot;content&quot;: &quot;content&quot;,
+          &quot;doc_id_hash&quot;: &quot;doc_id_hash&quot;,
+          &quot;embeddings&quot;: &quot;embeddings&quot;
+        },
+        &quot;available_features&quot;: {
+          &quot;embeddings&quot;: {
+            &quot;type&quot;: &quot;vector&quot;,
+            &quot;available_for_vector_db&quot;: true
+          },
+          &quot;content&quot;: {
+            &quot;type&quot;: &quot;string&quot;,
+            &quot;available_for_vector_db&quot;: true
+          },
+          &quot;doc_id_hash&quot;: {
+            &quot;type&quot;: &quot;string&quot;,
+            &quot;available_for_vector_db&quot;: true
+          }
+        }
+      }
+    }
+  ]
+}
+</code></pre>
+<hr />
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><strong><a href="../../USER_GUIDE_PIPELINE_SETUP.html">User Guide: Pipeline Setup</a></strong> - Basic setup and first pipeline</li>
+<li><strong><a href="../reference/OPERATORS.html">Operator Reference</a></strong> - Complete operator parameter specifications</li>
+<li><strong><a href="FLOW_AUTHORING_FORMAT.html">Flow Authoring Format</a></strong> - Detailed flow authoring guide</li>
+<li><strong><a href="../../sample_flows/">Sample Flows</a></strong> - Example flow configurations</li>
+</ul>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#flow-structure-overview">Flow Structure Overview</a>
+      <a href="#required-top-level-fields">Required Top-Level Fields</a>
+      <a href="#global-configuration-options">Global Configuration Options</a>
+      <a href="#operator-configuration">Operator Configuration</a>
+      <a href="#connecting-operators">Connecting Operators</a>
+      <a href="#complete-examples">Complete Examples</a>
+      <a href="#related-documentation">Related Documentation</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

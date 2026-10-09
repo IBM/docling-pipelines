@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Docling Pipelines Pipeline User Guide: Complete Setup and Execution — Docling Pipelines</title>
+  <meta name="description" content="Docling Pipelines Pipeline User Guide: Complete Setup and Execution — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="docs/assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="docs/index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="docs/index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link active" href="USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="docs/guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="docs/guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="docs/guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="docs/guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="docs/guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="docs/guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="docs/guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="docs/guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="docs/guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="docs/guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="docs/guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="docs/guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="docs/guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="docs/guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="docs/guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="docs/guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="docs/guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="docs/guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="docs/operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="docs/operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="docs/operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="docs/operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="docs/operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="docs/operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="docs/operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="docs/operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="docs/operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="docs/operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="docs/operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="docs/operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="docs/operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="docs/operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="docs/operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="docs/operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="docs/operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="docs/operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="docs/operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="docs/operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="docs/operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="docs/operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="docs/operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="docs/operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="docs/reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="docs/reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="docs/api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="docs/api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="docs/integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="docs/integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="docs/integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="docs/integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="docs/integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="docs/integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="docs/internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="docs/internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="docs/index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Docling Pipelines Pipeline User Guide: Complete Setup and Execution</span>
+      </nav>
+      <h1>Docling Pipelines Pipeline User Guide: Complete Setup and Execution</h1>
+<p>This comprehensive guide walks you through setting up and executing a complete Docling Pipelines pipeline from document ingestion to vector storage in OpenSearch.</p>
+
+<hr />
+<h2 id="quick-reference">Quick Reference</h2>
+<blockquote>
+<p><strong>⚠️ CRITICAL: Working Directory Requirements</strong></p>
+<p>All <code>docling-pipelines</code> commands <strong>MUST</strong> be run from the <strong>project root directory</strong> (<code>docling-pipelines/</code>).</p>
+<p><strong>Correct:</strong></p>
+<p>```bash</p>
+<h1>From project root (docling-pipelines/)</h1>
+<p>docling-pipelines --flow-file sample_flows/use_cases/invoice_processing.json<br />
+```</p>
+<p><strong>Incorrect:</strong></p>
+<p>```bash</p>
+<h1>From docpipe directory - WILL FAIL with ModuleNotFoundError</h1>
+<p>cd src/docpipe<br />
+docling-pipelines --flow-file ...  # ERROR: No module named 'docpipe'<br />
+```</p>
+<p><strong>Why:</strong> The PYTHONPATH must point to <code>src</code> as the source root. Running from subdirectories breaks Python imports.</p>
+</blockquote>
+<hr />
+<h2 id="1-introduction">1. Introduction</h2>
+<h3 id="quick-start">Quick Start</h3>
+<p><strong>For fast setup (5 minutes), see <a href="QUICKSTART.html">QUICKSTART.md</a></strong> which provides automated installation and your first pipeline execution.</p>
+<p>This guide provides comprehensive details for:<br />
+- Manual installation and configuration<br />
+- Understanding each component<br />
+- Troubleshooting and debugging</p>
+<h3 id="prerequisites">Prerequisites</h3>
+<p>Before proceeding, ensure you have:<br />
+- Python 3.12 installed<br />
+- 5GB+ available disk space<br />
+- Internet connection for downloading dependencies</p>
+<p><strong>Quick setup:</strong> Use the automated script from <a href="QUICKSTART.html">QUICKSTART.md</a>:</p>
+<pre><code class="language-bash">./scripts/setup_docling_pipelines_environment.sh
+
+# Combine options
+./scripts/setup_docling_pipelines_environment.sh --interactive --models granite4
+</code></pre>
+<h4>Available Options</h4>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Option</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--interactive</code></td>
+<td>Enable interactive mode with prompts for each step</td>
+</tr>
+<tr>
+<td><code>--models MODEL1,MODEL2</code></td>
+<td>Specify Ollama models (comma-separated). Default: granite4,llama3.2,nomic-embed-text</td>
+</tr>
+<tr>
+<td><code>--skip-ollama</code></td>
+<td>Skip Ollama installation and setup</td>
+</tr>
+<tr>
+<td><code>--skip-opensearch</code></td>
+<td>Skip OpenSearch installation and setup</td>
+</tr>
+<tr>
+<td><code>--skip-python</code></td>
+<td>Skip Python environment setup</td>
+</tr>
+<tr>
+<td><code>--help</code></td>
+<td>Show help message with all options</td>
+</tr>
+</tbody>
+</table></div>
+<h4>What the Script Installs</h4>
+<p><strong>Python Environment:</strong></p>
+<ul>
+<li>Verifies Python 3.12 is installed</li>
+<li>Installs uv package manager</li>
+<li>Creates virtual environment in <code>.venv</code></li>
+<li>Installs all project dependencies</li>
+</ul>
+<p><strong>Ollama (for LLM operations):</strong></p>
+<ul>
+<li>Installs Ollama server</li>
+<li>Starts Ollama service on <code>http://localhost:11434</code></li>
+<li>Downloads specified models (default: granite4, llama3.2, nomic-embed-text)</li>
+</ul>
+<p><strong>OpenSearch (for vector storage):</strong></p>
+<ul>
+<li>Installs Podman or uses existing Docker</li>
+<li>Installs podman-compose</li>
+<li>Starts OpenSearch on <code>http://localhost:9200</code></li>
+<li>Starts OpenSearch Dashboards on <code>http://localhost:5601</code></li>
+<li>Default credentials: admin / <code>&lt;YOUR_OPENSEARCH_PASSWORD&gt;</code> (configured in <code>docker/docker-compose.opensearch.yml</code>)</li>
+</ul>
+<h4>After Setup Completes</h4>
+<p>The script creates two files:</p>
+<ul>
+<li><code>.docpipe_setup_config</code> - Configuration settings</li>
+<li><code>docpipe_setup.log</code> - Detailed setup log</li>
+</ul>
+<p><strong>Next steps:</strong></p>
+<ol>
+<li>Set PYTHONPATH from project root:</li>
+</ol>
+<p><code>bash
+   export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"</code></p>
+<blockquote>
+<p><strong>Warning:</strong> This must be run from the project root directory (<code>docling-pipelines</code>), not from subdirectories. The PYTHONPATH must point to <code>src</code> as the source root for Python imports to work correctly.</p>
+</blockquote>
+<ol>
+<li>Activate the virtual environment:</li>
+</ol>
+<p><code>bash
+   # From project root
+   source .venv/bin/activate</code></p>
+<ol>
+<li>Verify installation:</li>
+</ol>
+<p><code>bash
+   docling-pipelines --help</code></p>
+<ol>
+<li>Run your first flow:<br />
+<code>bash
+   docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json</code></li>
+</ol>
+<h4>Troubleshooting the Setup Script</h4>
+<p><strong>Script fails with "Python 3.12 not found":</strong></p>
+<ul>
+<li>Install Python 3.12 manually (see <a href="#2-prerequisites-and-installation">Prerequisites</a>)</li>
+<li>Run the script again</li>
+</ul>
+<p><strong>Ollama fails to start:</strong></p>
+<ul>
+<li>Check if port 11434 is already in use: <code>lsof -i :11434</code></li>
+<li>Start manually: <code>ollama serve</code></li>
+</ul>
+<p><strong>OpenSearch fails to start:</strong></p>
+<ul>
+<li>Check if ports 9200 or 5601 are in use</li>
+<li>View logs: <code>podman-compose -f docker/docker-compose.opensearch.yml logs</code></li>
+<li>Ensure you're in the project root directory</li>
+</ul>
+<p><strong>Permission denied errors:</strong></p>
+<ul>
+<li>Make script executable: <code>chmod +x scripts/setup_docling_pipelines_environment.sh</code></li>
+<li>Some operations may require sudo (script will prompt)</li>
+</ul>
+<p><strong>Want to start fresh?</strong></p>
+<pre><code class="language-bash"># Stop services
+podman-compose -f docker/docker-compose.opensearch.yml down
+pkill -f &quot;ollama serve&quot;
+
+# Remove configuration
+rm .docpipe_setup_config docpipe_setup.log
+
+# Run setup again
+./scripts/setup_docling_pipelines_environment.sh
+</code></pre>
+<hr />
+<h3 id="manual-setup">Manual Setup</h3>
+<p>If you prefer manual control or the automated script doesn't work for your environment, follow the detailed manual setup instructions below.</p>
+<hr />
+<h3 id="what-is-docling-pipelines">What is Docling Pipelines?</h3>
+<p>Docling Pipelines is a modular, operator-based data processing framework designed for building flexible data pipelines. It enables you to:</p>
+<ul>
+<li>Ingest documents from various sources</li>
+<li>Extract structured content using AI-powered tools</li>
+<li>Chunk documents for optimal processing</li>
+<li>Generate embeddings for semantic search</li>
+<li>Store vectors in OpenSearch for similarity search</li>
+</ul>
+<h3 id="what-this-guide-covers">What This Guide Covers</h3>
+<p>This guide demonstrates the complete <strong>Ingest → Extract → Chunk → Embeddings → OpenSearch</strong> pipeline, which is the foundation for building Retrieval-Augmented Generation (RAG) systems and semantic search applications.</p>
+<h3 id="pipeline-overview">Pipeline Overview</h3>
+<pre><code>┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐
+│   Ingest    │───▶│   Extract   │───▶│    Chunk    │───▶│ Embeddings  │───▶│ OpenSearch  │
+│   Local     │    │   Docling   │    │   Hybrid    │    │   Ollama    │    │   Vector    │
+│   Folder    │    │             │    │             │    │             │    │   Storage   │
+└─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘
+</code></pre>
+<h3 id="prerequisites-overview">Prerequisites Overview</h3>
+<p>Before starting, you'll need:</p>
+<ul>
+<li><strong>Python 3.12</strong> - Required for Docling Pipelines</li>
+<li><strong>uv package manager</strong> - Fast Python package management</li>
+<li><strong>Ollama</strong> - Local LLM server for embeddings</li>
+<li><strong>Podman or Docker</strong> - For running OpenSearch</li>
+<li><strong>Basic command-line knowledge</strong> - For running commands</li>
+<li><strong>ffmpeg</strong> - Required for audio/video processing (M4A, AAC, OGG, FLAC, MP4, AVI, MOV formats)</li>
+</ul>
+<hr />
+<h2 id="2-prerequisites-and-installation">2. Prerequisites and Installation</h2>
+<h3 id="python-312-requirement">Python 3.12 Requirement</h3>
+<p>Docling Pipelines requires Python 3.12. Check your version:</p>
+<pre><code class="language-bash">python --version
+# Should output: Python 3.12.x
+</code></pre>
+<p>If you need to install Python 3.12:</p>
+<p><strong>macOS (using Homebrew):</strong></p>
+<pre><code class="language-bash">brew install python@3.12
+</code></pre>
+<p><strong>Linux (Ubuntu/Debian):</strong></p>
+<pre><code class="language-bash">sudo apt update
+sudo apt install python3.12 python3.12-venv
+</code></pre>
+<h3 id="installing-uv-package-manager">Installing uv Package Manager</h3>
+<p>uv is a fast Python package manager that Docling Pipelines uses for dependency management.</p>
+<p><strong>Install uv:</strong></p>
+<pre><code class="language-bash">curl -LsSf https://astral.sh/uv/install.sh | sh
+</code></pre>
+<p><strong>Verify installation:</strong></p>
+<pre><code class="language-bash">uv --version
+</code></pre>
+<h3 id="installing-ffmpeg-required-for-audiovideo-processing">Installing ffmpeg (Required for Audio/Video Processing)</h3>
+<p>ffmpeg is required for processing audio formats (M4A, AAC, OGG, FLAC) and all video formats (MP4, AVI, MOV) with Docling ASR.</p>
+<p><strong>macOS (using Homebrew):</strong></p>
+<pre><code class="language-bash">brew install ffmpeg
+</code></pre>
+<p><strong>Linux (Ubuntu/Debian):</strong></p>
+<pre><code class="language-bash">sudo apt update
+sudo apt install ffmpeg
+</code></pre>
+<p><strong>Linux (RHEL/CentOS/Fedora):</strong></p>
+<pre><code class="language-bash">sudo dnf install ffmpeg
+</code></pre>
+<p><strong>Verify installation:</strong></p>
+<pre><code class="language-bash">ffmpeg -version
+</code></pre>
+<p><strong>Note:</strong> If you only process WAV or MP3 audio files, ffmpeg is not required. However, for M4A, AAC, OGG, FLAC audio formats and all video formats, ffmpeg must be installed and available on your PATH.</p>
+<h3 id="cloning-and-setting-up-the-project">Cloning and Setting Up the Project</h3>
+<p><strong>1. Clone the repository:</strong></p>
+<pre><code class="language-bash">git clone https://github.com/IBM/docling-pipelines.git
+cd docling-pipelines
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> If you already have the repository cloned, simply navigate to it:</p>
+<p><code>bash
+cd docling-pipelines</code></p>
+</blockquote>
+<p><strong>2. Create virtual environment and install dependencies:</strong></p>
+<pre><code class="language-bash"># From project root
+uv sync --extra dev
+</code></pre>
+<p>This command:</p>
+<ul>
+<li>Installs CPython 3.12.13 in a virtual environment (<code>.venv/</code> at project root)</li>
+<li>Installs all project dependencies</li>
+<li>Installs development dependencies</li>
+</ul>
+<blockquote>
+<p><strong>Note: VLM, ASR, and Docling entity extraction require an additional install step.</strong></p>
+<p>If you intend to use VLM-based text extraction (<code>text_extraction.provider_config.vlm_pipeline</code>),<br />
+ASR transcription (<code>text_extraction.provider_config.asr_pipeline</code>), or Docling template-based<br />
+entity extraction (<code>entity_extraction.provider: "docling"</code>), install the <code>vlm_asr</code> optional<br />
+dependency group which provides <code>docling[vlm,asr]</code>:</p>
+<p><code>bash
+uv sync --extra vlm_asr</code></p>
+</blockquote>
+<p><strong>3. Activate the virtual environment:</strong></p>
+<p><strong>macOS/Linux:</strong></p>
+<pre><code class="language-bash"># From project root
+source .venv/bin/activate
+pre-commit install
+</code></pre>
+<p><strong>Windows:</strong></p>
+<pre><code class="language-bash">.venv\Scripts\activate
+pre-commit install
+</code></pre>
+<p><strong>4. Configure environment variables:</strong></p>
+<pre><code class="language-bash"># Copy environment template
+cp .env.example .env
+
+# The default values work for local development
+# Edit .env if you need to customize settings
+</code></pre>
+<blockquote>
+<p><strong>HashiCorp Vault (optional):</strong> If your organisation uses Vault for secret management, set <code>secrets.vault.enabled: true</code> in <code>docling-pipelines-config.yaml</code> and supply <code>VAULT_ROLE_ID</code> and <code>VAULT_SECRET_ID</code> as environment variables. See the <a href="ARCHITECTURE.html">Architecture Guide — HashiCorp Vault Integration</a> for full details.</p>
+</blockquote>
+<h3 id="verify-installation">Verify Installation</h3>
+<pre><code class="language-bash"># Check Docling Pipelines CLI is available
+docling-pipelines --help
+
+# List available operators
+docling-pipelines --list-operators
+</code></pre>
+<hr />
+<h2 id="3-ollama-setup">3. Ollama Setup</h2>
+<h3 id="installing-ollama">Installing Ollama</h3>
+<p>Ollama provides local LLM inference for embeddings and entity extraction.</p>
+<p><strong>macOS:</strong></p>
+<pre><code class="language-bash">brew install ollama
+</code></pre>
+<p><strong>Linux:</strong></p>
+<pre><code class="language-bash">curl -fsSL https://ollama.com/install.sh | sh
+</code></pre>
+<p><strong>Verify installation:</strong></p>
+<pre><code class="language-bash">ollama --version
+</code></pre>
+<h3 id="starting-the-ollama-server">Starting the Ollama Server</h3>
+<pre><code class="language-bash"># Start Ollama server (runs in background)
+ollama serve
+</code></pre>
+<p>The server will start on <code>http://localhost:11434</code>.</p>
+<h3 id="downloading-models">Downloading Models</h3>
+<p>Download the models you'll use for embeddings and extraction:</p>
+<pre><code class="language-bash"># Embedding model (required for embeddings operator)
+ollama pull nomic-embed-text
+
+# Alternative embedding models
+ollama pull granite4
+ollama pull mxbai-embed-large
+
+# LLM models for entity extraction (optional)
+ollama pull llama3.2
+ollama pull llama3.1
+</code></pre>
+<p><strong>Verify models are downloaded:</strong></p>
+<pre><code class="language-bash">ollama list
+</code></pre>
+<h3 id="verifying-ollama-is-running">Verifying Ollama is Running</h3>
+<pre><code class="language-bash"># Check server status
+curl http://localhost:11434/api/tags
+
+# Should return JSON with list of available models
+</code></pre>
+<p><strong>Expected response:</strong></p>
+<pre><code class="language-json">{
+  &quot;models&quot;: [
+    {
+      &quot;name&quot;: &quot;nomic-embed-text:latest&quot;,
+      ...
+    }
+  ]
+}
+</code></pre>
+<h3 id="troubleshooting-common-ollama-issues">Troubleshooting Common Ollama Issues</h3>
+<p><strong>Issue: Port 11434 already in use</strong></p>
+<pre><code class="language-bash"># Find process using port 11434
+lsof -i :11434
+
+# Kill the process if needed
+kill -9 &lt;PID&gt;
+
+# Restart Ollama
+ollama serve
+</code></pre>
+<p><strong>Issue: Model download fails</strong></p>
+<pre><code class="language-bash"># Check internet connection
+# Try downloading again
+ollama pull nomic-embed-text
+
+# If still fails, check Ollama logs
+ollama logs
+</code></pre>
+<hr />
+<h2 id="4-opensearch-setup-with-podman">4. OpenSearch Setup with Podman</h2>
+<h3 id="installing-podman">Installing Podman</h3>
+<p>Podman is a container engine similar to Docker, used to run OpenSearch.</p>
+<p><strong>macOS:</strong></p>
+<pre><code class="language-bash">brew install podman
+</code></pre>
+<p><strong>Linux (Ubuntu/Debian):</strong></p>
+<pre><code class="language-bash">sudo apt update
+sudo apt install podman
+</code></pre>
+<p><strong>Linux (Fedora/RHEL):</strong></p>
+<pre><code class="language-bash">sudo dnf install podman
+</code></pre>
+<p><strong>Verify installation:</strong></p>
+<pre><code class="language-bash">podman --version
+</code></pre>
+<p><strong>Initialize Podman machine (macOS only):</strong></p>
+<pre><code class="language-bash">podman machine init
+podman machine start
+</code></pre>
+<h3 id="starting-opensearch-using-podman-compose">Starting OpenSearch Using podman-compose</h3>
+<p><strong>1. Install podman-compose:</strong></p>
+<pre><code class="language-bash">pip install podman-compose
+</code></pre>
+<p><strong>2. Start OpenSearch:</strong></p>
+<pre><code class="language-bash"># From project root
+podman-compose -f docker/docker-compose.opensearch.yml up -d
+</code></pre>
+<p>This starts:<br />
+- OpenSearch on <code>http://localhost:9200</code><br />
+- OpenSearch Dashboards on <code>http://localhost:5601</code></p>
+<p><strong>3. Wait for OpenSearch to start (30-60 seconds):</strong></p>
+<pre><code class="language-bash"># Check if OpenSearch is ready
+curl -u admin:&lt;YOUR_OPENSEARCH_PASSWORD&gt; http://localhost:9200
+
+# Should return cluster information
+</code></pre>
+<blockquote>
+<p><strong>Note:</strong> Replace <code>&lt;YOUR_OPENSEARCH_PASSWORD&gt;</code> with the password from <code>docker/docker-compose.opensearch.yml</code>.</p>
+</blockquote>
+<h3 id="verifying-opensearch-is-running">Verifying OpenSearch is Running</h3>
+<pre><code class="language-bash"># Check cluster health
+curl -u admin:&lt;YOUR_OPENSEARCH_PASSWORD&gt; http://localhost:9200/_cluster/health?pretty
+
+# Expected: &quot;status&quot;: &quot;green&quot; or &quot;yellow&quot;
+</code></pre>
+<p><strong>Check container status:</strong></p>
+<pre><code class="language-bash">podman-compose -f docker/docker-compose.opensearch.yml ps
+</code></pre>
+<h3 id="accessing-opensearch-dashboards">Accessing OpenSearch Dashboards</h3>
+<p>Open your browser to: <strong>http://localhost:5601</strong></p>
+<p><strong>Login credentials:</strong><br />
+- Username: <code>admin</code><br />
+- Password: <code>&lt;YOUR_OPENSEARCH_PASSWORD&gt;</code></p>
+<blockquote>
+<p><strong>Note:</strong> Use the password configured in <code>docker/docker-compose.opensearch.yml</code>.</p>
+</blockquote>
+<p>Navigate to <strong>Dev Tools</strong> to run queries against your indexed documents.</p>
+<h3 id="default-credentials-and-security">Default Credentials and Security</h3>
+<p><strong>Default credentials (for development only):</strong><br />
+- Username: <code>admin</code><br />
+- Password: <code>&lt;YOUR_OPENSEARCH_PASSWORD&gt;</code></p>
+<blockquote>
+<p><strong>⚠️ Security Warning</strong>: The default password in the docker-compose file is for development only. For production:<br />
+- Change the <code>OPENSEARCH_INITIAL_ADMIN_PASSWORD</code> in docker-compose or use environment variables<br />
+- Enable SSL/TLS<br />
+- Configure proper authentication<br />
+- See <a href="docs/guides/ADVANCED_CONFIGURATION.html">Advanced Configuration Guide</a> for production setup</p>
+</blockquote>
+<h3 id="stopping-and-cleaning-up-opensearch">Stopping and Cleaning Up OpenSearch</h3>
+<p><strong>Stop OpenSearch:</strong></p>
+<pre><code class="language-bash">podman-compose -f docker/docker-compose.opensearch.yml down
+</code></pre>
+<p><strong>Remove volumes (deletes all data):</strong></p>
+<pre><code class="language-bash">podman-compose -f docker/docker-compose.opensearch.yml down -v
+</code></pre>
+<p><strong>View logs:</strong></p>
+<pre><code class="language-bash">podman-compose -f docker/docker-compose.opensearch.yml logs
+</code></pre>
+<hr />
+<h2 id="5-creating-your-first-flow">5. Creating Your First Flow</h2>
+<h3 id="testing-with-the-sample-flow">Testing with the Sample Flow</h3>
+<p><strong>Before creating your own flow</strong>, test your setup using the provided sample flow.</p>
+<p>The repository includes a complete, ready-to-run pipeline in <code>sample_flows/quickstart/complete_pipeline_ollama.json</code> that demonstrates the full document processing workflow:</p>
+<ul>
+<li><strong>Ingest</strong> → Reads documents from <code>./sample_documents</code></li>
+<li><strong>Extract</strong> → Extracts content using Docling</li>
+<li><strong>Chunk</strong> → Splits documents using hybrid chunking (512 tokens, 128 overlap)</li>
+<li><strong>Embed</strong> → Generates embeddings using Ollama</li>
+<li><strong>Store</strong> → Saves vectors to OpenSearch index <code>sample-documents-index</code></li>
+</ul>
+<p><strong>To test your setup:</strong></p>
+<blockquote>
+<p><strong>⚠️ Important:</strong> Commands must be run from the <strong>project root directory</strong> (<code>docling-pipelines/</code>), not from subdirectories.</p>
+</blockquote>
+<ol>
+<li>Ensure you have sample documents in <code>./sample_documents/</code> directory (create it if needed)</li>
+<li>Run the sample flow:<br />
+<code>bash
+   # From project root
+   docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json</code></li>
+</ol>
+<h3 id="understanding-pipeline-output">Understanding Pipeline Output</h3>
+<p>Docling Pipelines provides clean, formatted console output showing pipeline progress in real-time.</p>
+<p><strong>Example output:</strong></p>
+<pre><code>================================================================================
+ FLOW: complete-document-pipeline
+ Operators: 5
+ Started: 2024-01-15 10:30:00
+================================================================================
+
+[ingest] Starting ingest_source...
+
+================================================================================
+ ingest (COMPLETED)
+================================================================================
+ Duration: 0.50s | Documents: 1 processed, 0 failed, 0 skipped
+
+ Data Columns: 8 total (8 added by this operator)
+   Added (8): id, name, path, size, created_time, modified_time, content, extension
+================================================================================
+
+[extract] Starting extract_operator...
+[chunk] Starting chunker...
+[embeddings] Starting embeddings...
+[vectordb] Starting vectordb...
+
+================================================================================
+ FLOW EXECUTION SUMMARY
+================================================================================
+ Status: COMPLETED
+ Total Duration: 15.30s
+ Documents: 1 completed, 0 failed, 0 skipped (of 1 total)
+
+ Operator Summary:
+ Operator                       Status               Duration     Docs
+ ------------------------------------------------------------------------------
+ ingest                         COMPLETED            0.50s        1/1
+ extract                        COMPLETED            3.20s        1/1
+ chunk                          COMPLETED            1.10s        1/1
+ embeddings                     COMPLETED            8.50s        1/1
+ vectordb                       COMPLETED            2.00s        1/1
+================================================================================
+</code></pre>
+<p><strong>Output Features:</strong><br />
+- Real-time operator progress with document counts<br />
+- Schema changes showing new columns added by each operator<br />
+- Operator-specific metrics (chunk counts, embedding dimensions, etc.)<br />
+- Final summary table with per-operator statistics</p>
+<h4>Controlling Log Verbosity</h4>
+<p>Control log output using the <code>DS_LOG_LEVEL</code> environment variable:</p>
+<pre><code class="language-bash"># Debug: Detailed information
+export DS_LOG_LEVEL=DEBUG
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
+
+# Info: Standard output (default)
+export DS_LOG_LEVEL=INFO
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
+
+# Warning: Only warnings and errors
+export DS_LOG_LEVEL=WARNING
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
+
+# Error: Only errors
+export DS_LOG_LEVEL=ERROR
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
+</code></pre>
+<h3 id="creating-a-custom-flow">Creating a Custom Flow</h3>
+<p>For detailed information on creating and configuring flows, see:</p>
+<p><strong><a href="docs/guides/FLOW_CONFIGURATION_GUIDE.html">Flow Configuration Guide</a></strong></p>
+<p>This comprehensive guide covers:<br />
+- Flow structure and required fields<br />
+- Global configuration options<br />
+- Complete operator configuration examples<br />
+- Connecting operators<br />
+- Schema templates and best practices</p>
+<hr />
+<h2 id="6-running-the-pipeline">6. Running the Pipeline</h2>
+<h3 id="setting-pythonpath">Setting PYTHONPATH</h3>
+<p><strong>Critical:</strong> Set PYTHONPATH before running any Docling Pipelines commands:</p>
+<pre><code class="language-bash"># From project root
+export PYTHONPATH=&quot;$(pwd)/src:${PYTHONPATH}&quot;
+</code></pre>
+<blockquote>
+<p><strong>⚠️ Important:</strong> This must be run from the project root directory, not from subdirectories.</p>
+</blockquote>
+<h3 id="activating-the-virtual-environment">Activating the Virtual Environment</h3>
+<pre><code class="language-bash"># From project root
+source .venv/bin/activate
+</code></pre>
+<h3 id="executing-the-flow">Executing the Flow</h3>
+<pre><code class="language-bash"># From project root
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
+</code></pre>
+<p><strong>Common CLI options:</strong></p>
+<pre><code class="language-bash"># List available operators
+docling-pipelines --list-operators
+
+# List operators with detailed information
+docling-pipelines --list-operators --verbose
+
+# Validate flow without executing
+docling-pipelines --flow-file my_flow.json --validate
+
+# Run with debug logging
+DS_LOG_LEVEL=DEBUG docling-pipelines --flow-file my_flow.json
+</code></pre>
+<h3 id="understanding-the-output">Understanding the Output</h3>
+<p>The pipeline will:<br />
+1. Load and validate the flow configuration<br />
+2. Execute operators in dependency order<br />
+3. Display real-time progress for each operator<br />
+4. Show final execution summary with statistics</p>
+<p><strong>Success indicators:</strong><br />
+- All operators show <code>COMPLETED</code> status<br />
+- No errors in the output<br />
+- Final summary shows all documents processed</p>
+<hr />
+<h2 id="7-verification-and-testing">7. Verification and Testing</h2>
+<h3 id="verify-ollama-setup">Verify Ollama Setup</h3>
+<pre><code class="language-bash"># Check Ollama is running
+curl http://localhost:11434/api/tags
+
+# List downloaded models
+ollama list
+
+# Test embedding generation
+curl http://localhost:11434/api/embeddings -d '{
+  &quot;model&quot;: &quot;nomic-embed-text&quot;,
+  &quot;prompt&quot;: &quot;test&quot;
+}'
+</code></pre>
+<h3 id="verify-opensearch-setup">Verify OpenSearch Setup</h3>
+<pre><code class="language-bash"># Check cluster health
+curl -u admin:&lt;YOUR_OPENSEARCH_PASSWORD&gt; http://localhost:9200/_cluster/health?pretty
+
+# List indices
+curl -u admin:&lt;YOUR_OPENSEARCH_PASSWORD&gt; http://localhost:9200/_cat/indices?v
+
+# Query sample index
+curl -u admin:&lt;YOUR_OPENSEARCH_PASSWORD&gt; \
+  &quot;http://localhost:9200/sample-documents-index/_search?pretty&quot; \
+  -H 'Content-Type: application/json' \
+  -d '{&quot;query&quot;: {&quot;match_all&quot;: {}}, &quot;size&quot;: 1}'
+</code></pre>
+<h3 id="using-opensearch-dashboards">Using OpenSearch Dashboards</h3>
+<ol>
+<li>Open browser to: <strong>http://localhost:5601</strong></li>
+<li>Login with credentials: <code>admin</code> / <code>&lt;YOUR_OPENSEARCH_PASSWORD&gt;</code></li>
+<li>Navigate to <strong>Dev Tools</strong></li>
+<li>Run queries:</li>
+</ol>
+<pre><code class="language-json">GET sample-documents-index/_search
+{
+  &quot;query&quot;: {
+    &quot;match_all&quot;: {}
+  }
+}
+</code></pre>
+<hr />
+<h2 id="8-troubleshooting">8. Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<p><strong>Issue: ModuleNotFoundError</strong></p>
+<pre><code class="language-bash"># Solution: Set PYTHONPATH from project root
+export PYTHONPATH=&quot;$(pwd)/src:${PYTHONPATH}&quot;
+
+# Verify you're in project root
+pwd  # Should end with /docling-pipelines
+</code></pre>
+<p><strong>Issue: Ollama connection refused</strong></p>
+<pre><code class="language-bash"># Check if Ollama is running
+curl http://localhost:11434/api/tags
+
+# If not running, start it
+ollama serve
+
+# Verify models are downloaded
+ollama list
+</code></pre>
+<p><strong>Issue: OpenSearch connection refused</strong></p>
+<pre><code class="language-bash"># Check OpenSearch status
+podman-compose -f docker/docker-compose.opensearch.yml ps
+
+# View logs
+podman-compose -f docker/docker-compose.opensearch.yml logs
+
+# Restart if needed
+podman-compose -f docker/docker-compose.opensearch.yml restart
+</code></pre>
+<p><strong>Issue: Flow validation failed</strong></p>
+<pre><code class="language-bash"># Validate flow to see specific errors
+docling-pipelines --flow-file my_flow.json --validate
+
+# Check flow syntax and operator configurations
+# See Flow Configuration Guide for correct format
+</code></pre>
+<h3 id="debug-logging">Debug Logging</h3>
+<p>Enable debug logging for detailed troubleshooting:</p>
+<pre><code class="language-bash">export DS_LOG_LEVEL=DEBUG
+docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json
+</code></pre>
+<p>For comprehensive troubleshooting, see <strong><a href="TROUBLESHOOTING.html">TROUBLESHOOTING.md</a></strong>.</p>
+<hr />
+<h2 id="9-next-steps">9. Next Steps</h2>
+<h3 id="explore-more-operators">Explore More Operators</h3>
+<pre><code class="language-bash"># List all available operators
+docling-pipelines --list-operators
+
+# Get detailed operator information
+docling-pipelines --list-operators --verbose
+</code></pre>
+<p><strong>Available operator categories:</strong><br />
+- <strong>Ingest</strong>: IngestSourceOperator (filesystem, S3, IBM COS, SharePoint, OneDrive, Google Drive, Box, CSV, web)<br />
+- <strong>Extract</strong>: ExtractOperator (with multiple extraction providers)<br />
+- <strong>Quality</strong>: DocumentClassifier, LanguageDetect, Redaction, Dedup<br />
+- <strong>Functional</strong>: Chunker, Embeddings, Branching, Merge, NOOP<br />
+- <strong>VectorDB</strong>: VectorDBOperator (OpenSearch, Milvus)<br />
+- <strong>Storage</strong>: DocumentSetOperator</p>
+<p>See <strong><a href="docs/reference/OPERATORS.html">Operator Reference</a></strong> for complete specifications.</p>
+<h3 id="customize-your-pipeline">Customize Your Pipeline</h3>
+<ol>
+<li><strong>Copy the sample flow</strong>: <code>cp sample_flows/quickstart/complete_pipeline_ollama.json my_flow.json</code></li>
+<li><strong>Edit the configuration</strong>: Change paths, chunk sizes, models, etc.</li>
+<li><strong>Run your custom flow</strong>: <code>docling-pipelines --flow-file my_flow.json</code></li>
+</ol>
+<p><strong>For detailed flow configuration</strong>, see <strong><a href="docs/guides/FLOW_CONFIGURATION_GUIDE.html">Flow Configuration Guide</a></strong>.</p>
+<h3 id="performance-tuning">Performance Tuning</h3>
+<p>For production deployments and performance optimization, see <strong><a href="docs/guides/ADVANCED_CONFIGURATION.html">Advanced Configuration Guide</a></strong> which covers:<br />
+- Job stats storage backends (DuckDB, PostgreSQL)<br />
+- Incremental metadata for avoiding reprocessing<br />
+- Distributed execution with Prefect work pools<br />
+- Production deployment patterns</p>
+<h3 id="programmatic-usage">Programmatic Usage</h3>
+<p>Use Docling Pipelines as a Python library in your applications:</p>
+<pre><code class="language-python">from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+
+manager = DocpipeFlowManager(flow_file=&quot;my_flow.json&quot;)
+result = manager.execute()
+</code></pre>
+<p><strong>For complete Python API documentation</strong>, see <strong><a href="docs/guides/PYTHON_API_GUIDE.html">Python API Guide</a></strong>.</p>
+<hr />
+<h2 id="additional-resources">Additional Resources</h2>
+<h3 id="documentation">Documentation</h3>
+<ul>
+<li><strong><a href="QUICKSTART.html">QUICKSTART.md</a></strong> - Fast 5-minute setup</li>
+<li><strong><a href="docs/guides/FLOW_CONFIGURATION_GUIDE.html">Flow Configuration Guide</a></strong> - Creating and configuring flows</li>
+<li><strong><a href="docs/guides/PYTHON_API_GUIDE.html">Python API Guide</a></strong> - Programmatic usage</li>
+<li><strong><a href="docs/guides/ADVANCED_CONFIGURATION.html">Advanced Configuration</a></strong> - Production deployment</li>
+<li><strong><a href="docs/reference/OPERATORS.html">Operator Reference</a></strong> - Complete operator specifications</li>
+<li><strong><a href="TROUBLESHOOTING.html">TROUBLESHOOTING.md</a></strong> - Comprehensive troubleshooting</li>
+<li><strong><a href="ARCHITECTURE.html">ARCHITECTURE.md</a></strong> - System design and architecture</li>
+<li><strong><a href="CONTRIBUTING.html">CONTRIBUTING.md</a></strong> - Contributing guidelines</li>
+</ul>
+<h3 id="examples">Examples</h3>
+<ul>
+<li><strong><a href="sample_flows/">Sample Flows</a></strong> - Example flow configurations</li>
+<li><strong><a href="examples/">Examples Directory</a></strong> - Code examples and patterns</li>
+<li><strong><a href="docs/operators/">Operator Examples</a></strong> - Detailed operator guides</li>
+</ul>
+<h3 id="community">Community</h3>
+<ul>
+<li><strong>Issues</strong>: Report bugs and request features</li>
+<li><strong>Discussions</strong>: Ask questions and share ideas</li>
+<li><strong>Contributing</strong>: See <a href="CONTRIBUTING.html">CONTRIBUTING.md</a> for guidelines</li>
+</ul>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#quick-reference">Quick Reference</a>
+      <a href="#1-introduction">1. Introduction</a>
+      <a href="#2-prerequisites-and-installation">2. Prerequisites and Installation</a>
+      <a href="#3-ollama-setup">3. Ollama Setup</a>
+      <a href="#4-opensearch-setup-with-podman">4. OpenSearch Setup with Podman</a>
+      <a href="#5-creating-your-first-flow">5. Creating Your First Flow</a>
+      <a href="#6-running-the-pipeline">6. Running the Pipeline</a>
+      <a href="#7-verification-and-testing">7. Verification and Testing</a>
+      <a href="#8-troubleshooting">8. Troubleshooting</a>
+      <a href="#9-next-steps">9. Next Steps</a>
+      <a href="#additional-resources">Additional Resources</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="docs/index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

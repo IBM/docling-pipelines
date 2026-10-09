@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>ACL Document Retrieval API — Docling Pipelines</title>
+  <meta name="description" content="ACL Document Retrieval API — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link active" href="ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">ACL Document Retrieval API</span>
+      </nav>
+      <h1>ACL Document Retrieval API</h1>
+<h2 id="overview">Overview</h2>
+<p>The ACL Document Retrieval API provides secure, user-scoped access to documents stored in OpenSearch. All document access is automatically filtered based on the <code>allowed_users</code> field, ensuring users can only retrieve documents they are authorized to view.</p>
+<h2 id="features">Features</h2>
+<ul>
+<li><strong>Authentication-Required</strong>: All endpoints require valid JWT authentication</li>
+<li><strong>ACL Enforcement</strong>: Automatic filtering based on <code>allowed_users</code> field</li>
+<li><strong>Security by Obscurity</strong>: Returns 404 for unauthorized access (not 403) to prevent information leakage</li>
+<li><strong>Full-Text Search</strong>: Search across document content, title, and metadata</li>
+<li><strong>Field Filtering</strong>: Filter documents by specific field values</li>
+<li><strong>Sorting</strong>: Sort results by any field</li>
+<li><strong>Pagination</strong>: Efficient pagination with limit/offset</li>
+</ul>
+<h2 id="architecture">Architecture</h2>
+<h3 id="components">Components</h3>
+<ol>
+<li><strong>OpenSearchService</strong> (<code>src/docpipe/api/services/opensearch_service.py</code>)</li>
+<li>Manages OpenSearch client connections</li>
+<li>Provides connection pooling and health checks</li>
+<li>
+<p>Configurable via environment variables</p>
+</li>
+<li>
+<p><strong>ACLQueryBuilder</strong> (<code>src/docpipe/api/services/acl_query_builder.py</code>)</p>
+</li>
+<li>Constructs OpenSearch queries with ACL filtering</li>
+<li>Injects <code>allowed_users</code> filter into all queries</li>
+<li>
+<p>Validates ACL field presence and format</p>
+</li>
+<li>
+<p><strong>Document DTOs</strong> (<code>src/docpipe/api/dto/document_dto.py</code>)</p>
+</li>
+<li><code>DocumentResponse</code>: Document retrieval response model</li>
+<li><code>DocumentSearchRequest</code>: Search request parameters</li>
+<li>
+<p><code>DocumentSearchResponse</code>: Search results with pagination</p>
+</li>
+<li>
+<p><strong>API Routes</strong> (<code>src/docpipe/api/routes/documents.py</code>)</p>
+</li>
+<li><code>GET /api/v1/documents/{document_id}</code>: Retrieve single document</li>
+<li><code>POST /api/v1/documents/search</code>: Search documents</li>
+</ol>
+<h2 id="api-endpoints">API Endpoints</h2>
+<h3 id="1-retrieve-document-by-id">1. Retrieve Document by ID</h3>
+<p><strong>Endpoint</strong>: <code>GET /api/v1/documents/{document_id}</code></p>
+<p><strong>Authentication</strong>: Required (JWT Bearer token)</p>
+<p><strong>Description</strong>: Retrieve a single document by its ID. Access is granted only if the authenticated user's username is present in the document's <code>allowed_users</code> field.</p>
+<p><strong>Request</strong>:</p>
+<pre><code class="language-bash">curl -X GET &quot;http://localhost:8080/api/v1/documents/doc-123&quot; \
+  -H &quot;Authorization: Bearer YOUR_JWT_TOKEN&quot;
+</code></pre>
+<p><strong>Response</strong> (200 OK):</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;doc-123&quot;,
+  &quot;content&quot;: &quot;Document content here...&quot;,
+  &quot;title&quot;: &quot;Sample Document&quot;,
+  &quot;metadata&quot;: {
+    &quot;category&quot;: &quot;tech&quot;,
+    &quot;author&quot;: &quot;John Doe&quot;
+  },
+  &quot;created_at&quot;: &quot;2026-05-01T10:00:00Z&quot;,
+  &quot;updated_at&quot;: &quot;2026-05-15T14:30:00Z&quot;
+}
+</code></pre>
+<p><strong>Error Responses</strong>:<br />
+- <code>401 Unauthorized</code>: Missing or invalid JWT token<br />
+- <code>404 Not Found</code>: Document not found OR user not authorized (security by obscurity)<br />
+- <code>503 Service Unavailable</code>: OpenSearch service unavailable</p>
+<h3 id="2-search-documents">2. Search Documents</h3>
+<p><strong>Endpoint</strong>: <code>POST /api/v1/documents/search</code></p>
+<p><strong>Authentication</strong>: Required (JWT Bearer token)</p>
+<p><strong>Description</strong>: Search documents with full-text search, filters, sorting, and pagination. Results are automatically filtered to only include documents where the authenticated user is in <code>allowed_users</code>.</p>
+<p><strong>Request</strong>:</p>
+<pre><code class="language-bash">curl -X POST &quot;http://localhost:8080/api/v1/documents/search&quot; \
+  -H &quot;Authorization: Bearer YOUR_JWT_TOKEN&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;query&quot;: &quot;machine learning&quot;,
+    &quot;filters&quot;: {
+      &quot;category&quot;: &quot;tech&quot;,
+      &quot;status&quot;: &quot;published&quot;
+    },
+    &quot;sort&quot;: [
+      {&quot;created_at&quot;: &quot;desc&quot;}
+    ],
+    &quot;limit&quot;: 20,
+    &quot;offset&quot;: 0
+  }'
+</code></pre>
+<p><strong>Request Body Parameters</strong>:<br />
+- <code>query</code> (optional): Full-text search query across content, title, and metadata<br />
+- <code>filters</code> (optional): Field filters for exact matching (supports single values or arrays)<br />
+- <code>sort</code> (optional): Sort specification with field and direction (asc/desc)<br />
+- <code>limit</code> (optional): Maximum results per page (1-100, default: 10)<br />
+- <code>offset</code> (optional): Number of results to skip (default: 0)</p>
+<p><strong>Response</strong> (200 OK):</p>
+<pre><code class="language-json">{
+  &quot;documents&quot;: [
+    {
+      &quot;id&quot;: &quot;doc-1&quot;,
+      &quot;content&quot;: &quot;Machine learning content...&quot;,
+      &quot;title&quot;: &quot;ML Guide&quot;,
+      &quot;metadata&quot;: {&quot;category&quot;: &quot;tech&quot;},
+      &quot;created_at&quot;: &quot;2026-05-01T10:00:00Z&quot;,
+      &quot;updated_at&quot;: &quot;2026-05-15T14:30:00Z&quot;
+    }
+  ],
+  &quot;total&quot;: 42,
+  &quot;limit&quot;: 20,
+  &quot;offset&quot;: 0,
+  &quot;has_more&quot;: true
+}
+</code></pre>
+<p><strong>Error Responses</strong>:<br />
+- <code>401 Unauthorized</code>: Missing or invalid JWT token<br />
+- <code>422 Unprocessable Entity</code>: Invalid request parameters<br />
+- <code>503 Service Unavailable</code>: OpenSearch service unavailable</p>
+<h2 id="acl-security-model">ACL Security Model</h2>
+<h3 id="fail-closed-security">Fail-Closed Security</h3>
+<p>The API implements a <strong>fail-closed</strong> security model:</p>
+<ol>
+<li><strong>Missing <code>allowed_users</code> field</strong>: Document is <strong>NOT accessible</strong></li>
+<li><strong>Empty <code>allowed_users</code> array</strong>: Document is <strong>NOT accessible</strong></li>
+<li><strong><code>allowed_users</code> contains username</strong>: Document is <strong>accessible</strong></li>
+</ol>
+<h3 id="information-leakage-prevention">Information Leakage Prevention</h3>
+<p>The API returns <code>404 Not Found</code> for both:<br />
+- Documents that don't exist<br />
+- Documents that exist but user is not authorized</p>
+<p>This prevents attackers from enumerating document IDs by observing different error codes.</p>
+<h3 id="query-level-enforcement">Query-Level Enforcement</h3>
+<p>ACL filtering is applied at the OpenSearch query level, not in application code. This ensures:<br />
+- Performance: OpenSearch filters results efficiently<br />
+- Security: No documents leak through application logic<br />
+- Consistency: Same ACL rules apply to all queries</p>
+<h2 id="configuration">Configuration</h2>
+<h3 id="environment-variables">Environment Variables</h3>
+<p>Add to <code>.env</code> file:</p>
+<pre><code class="language-bash"># OpenSearch Connection
+OPENSEARCH_HOST=localhost
+OPENSEARCH_PORT=9200
+OPENSEARCH_USE_SSL=false
+OPENSEARCH_VERIFY_CERTS=false
+OPENSEARCH_USERNAME=admin
+OPENSEARCH_PASSWORD=admin
+
+# Document Retrieval Configuration
+OPENSEARCH_DEFAULT_INDEX=documents
+OPENSEARCH_TIMEOUT=30
+OPENSEARCH_MAX_RETRIES=3
+</code></pre>
+<h3 id="opensearch-index-setup">OpenSearch Index Setup</h3>
+<p>Documents must have an <code>allowed_users</code> field:</p>
+<pre><code class="language-json">{
+  &quot;_id&quot;: &quot;doc-123&quot;,
+  &quot;_source&quot;: {
+    &quot;content&quot;: &quot;Document content&quot;,
+    &quot;title&quot;: &quot;Document title&quot;,
+    &quot;metadata&quot;: {},
+    &quot;allowed_users&quot;: [&quot;john.doe&quot;, &quot;jane.smith&quot;],
+    &quot;created_at&quot;: &quot;2026-05-01T10:00:00Z&quot;,
+    &quot;updated_at&quot;: &quot;2026-05-15T14:30:00Z&quot;
+  }
+}
+</code></pre>
+<p><strong>Index Mapping</strong> (recommended):</p>
+<pre><code class="language-json">{
+  &quot;mappings&quot;: {
+    &quot;properties&quot;: {
+      &quot;content&quot;: {&quot;type&quot;: &quot;text&quot;},
+      &quot;title&quot;: {&quot;type&quot;: &quot;text&quot;},
+      &quot;metadata&quot;: {&quot;type&quot;: &quot;object&quot;},
+      &quot;allowed_users&quot;: {&quot;type&quot;: &quot;keyword&quot;},
+      &quot;created_at&quot;: {&quot;type&quot;: &quot;date&quot;},
+      &quot;updated_at&quot;: {&quot;type&quot;: &quot;date&quot;}
+    }
+  }
+}
+</code></pre>
+<h2 id="authentication-flow">Authentication Flow</h2>
+<h3 id="1-obtain-jwt-token">1. Obtain JWT Token</h3>
+<pre><code class="language-bash">curl -X POST &quot;http://localhost:8080/auth/login&quot; \
+  -H &quot;Content-Type: application/json&quot; \
+  -d '{
+    &quot;username&quot;: &quot;john.doe&quot;,
+    &quot;password&quot;: &quot;${USER_PASSWORD}&quot;
+  }'
+</code></pre>
+<p>Response:</p>
+<pre><code class="language-json">{
+  &quot;access_token&quot;: &quot;ey...&quot;,
+  &quot;token_type&quot;: &quot;bearer&quot;
+}
+</code></pre>
+<h3 id="2-verify-identity">2. Verify Identity</h3>
+<pre><code class="language-bash">curl -X GET &quot;http://localhost:8080/auth/me&quot; \
+  -H &quot;Authorization: Bearer YOUR_JWT_TOKEN&quot;
+</code></pre>
+<p>Response:</p>
+<pre><code class="language-json">{
+  &quot;username&quot;: &quot;john.doe&quot;,
+  &quot;email&quot;: &quot;john.doe@example.com&quot;,
+  &quot;full_name&quot;: &quot;John Doe&quot;
+}
+</code></pre>
+<h3 id="3-access-documents">3. Access Documents</h3>
+<p>Use the JWT token in the <code>Authorization</code> header for all document requests.</p>
+<h2 id="usage-examples">Usage Examples</h2>
+<h3 id="example-1-retrieve-specific-document">Example 1: Retrieve Specific Document</h3>
+<pre><code class="language-python">import requests
+
+# Authenticate
+auth_response = requests.post(
+    &quot;http://localhost:8080/auth/login&quot;,
+    json={&quot;username&quot;: &quot;john.doe&quot;, &quot;password&quot;: &quot;&lt;YOUR_PASSWORD&gt;&quot;}
+)
+token = auth_response.json()[&quot;access_token&quot;]
+
+# Retrieve document
+headers = {&quot;Authorization&quot;: f&quot;Bearer {token}&quot;}
+response = requests.get(
+    &quot;http://localhost:8080/api/v1/documents/doc-123&quot;,
+    headers=headers
+)
+
+if response.status_code == 200:
+    document = response.json()
+    print(f&quot;Title: {document['title']}&quot;)
+    print(f&quot;Content: {document['content']}&quot;)
+elif response.status_code == 404:
+    print(&quot;Document not found or not authorized&quot;)
+</code></pre>
+<h3 id="example-2-search-with-filters">Example 2: Search with Filters</h3>
+<pre><code class="language-python">import requests
+
+# Authenticate (same as above)
+token = &quot;YOUR_JWT_TOKEN&quot;
+headers = {&quot;Authorization&quot;: f&quot;Bearer {token}&quot;}
+
+# Search documents
+search_request = {
+    &quot;query&quot;: &quot;artificial intelligence&quot;,
+    &quot;filters&quot;: {
+        &quot;category&quot;: &quot;tech&quot;,
+        &quot;status&quot;: &quot;published&quot;
+    },
+    &quot;sort&quot;: [{&quot;created_at&quot;: &quot;desc&quot;}],
+    &quot;limit&quot;: 20,
+    &quot;offset&quot;: 0
+}
+
+response = requests.post(
+    &quot;http://localhost:8080/api/v1/documents/search&quot;,
+    headers=headers,
+    json=search_request
+)
+
+results = response.json()
+print(f&quot;Found {results['total']} documents&quot;)
+for doc in results['documents']:
+    print(f&quot;- {doc['title']}&quot;)
+</code></pre>
+<h3 id="example-3-pagination">Example 3: Pagination</h3>
+<pre><code class="language-python">import requests
+
+token = &quot;YOUR_JWT_TOKEN&quot;
+headers = {&quot;Authorization&quot;: f&quot;Bearer {token}&quot;}
+
+# Fetch all results with pagination
+all_documents = []
+offset = 0
+limit = 100
+
+while True:
+    response = requests.post(
+        &quot;http://localhost:8080/api/v1/documents/search&quot;,
+        headers=headers,
+        json={&quot;limit&quot;: limit, &quot;offset&quot;: offset}
+    )
+
+    results = response.json()
+    all_documents.extend(results['documents'])
+
+    if not results['has_more']:
+        break
+
+    offset += limit
+
+print(f&quot;Retrieved {len(all_documents)} total documents&quot;)
+</code></pre>
+<h2 id="testing">Testing</h2>
+<h3 id="unit-tests">Unit Tests</h3>
+<p>Located in <code>tests/unit/api/services/test_acl_query_builder.py</code>:</p>
+<pre><code class="language-bash"># Run unit tests
+pytest tests/unit/api/services/test_acl_query_builder.py -v
+</code></pre>
+<h3 id="integration-tests">Integration Tests</h3>
+<p>Located in <code>tests/integration/api/test_documents_api.py</code>:</p>
+<pre><code class="language-bash"># Run integration tests (requires OpenSearch)
+pytest tests/integration/api/test_documents_api.py -v
+</code></pre>
+<h3 id="test-coverage">Test Coverage</h3>
+<pre><code class="language-bash"># Run with coverage
+pytest tests/unit/api/services/ tests/integration/api/test_documents_api.py \
+  --cov=src/docpipe/api/services \
+  --cov=src/docpipe/api/routes/documents \
+  --cov-report=html
+</code></pre>
+<h2 id="performance-considerations">Performance Considerations</h2>
+<h3 id="query-optimization">Query Optimization</h3>
+<ol>
+<li><strong>Index <code>allowed_users</code> field</strong>: Create an index on the <code>allowed_users</code> field for fast filtering</li>
+<li><strong>Use OpenSearch caching</strong>: Enable query result caching in OpenSearch</li>
+<li><strong>Pagination</strong>: Use reasonable page sizes (10-100 documents)</li>
+</ol>
+<h3 id="connection-pooling">Connection Pooling</h3>
+<p>The <code>OpenSearchService</code> maintains a connection pool for efficient resource usage:<br />
+- Connections are reused across requests<br />
+- Automatic retry on transient failures<br />
+- Configurable timeout and max retries</p>
+<h3 id="monitoring">Monitoring</h3>
+<p>Monitor these metrics:<br />
+- Query response times<br />
+- OpenSearch cluster health<br />
+- Authentication failures<br />
+- 404 vs 401 error rates</p>
+<h2 id="security-best-practices">Security Best Practices</h2>
+<ol>
+<li><strong>Use HTTPS</strong>: Always use HTTPS in production</li>
+<li><strong>Rotate JWT secrets</strong>: Regularly rotate JWT signing keys</li>
+<li><strong>Monitor access patterns</strong>: Log and monitor document access for anomalies</li>
+<li><strong>Rate limiting</strong>: Implement rate limiting on search endpoints</li>
+<li><strong>Audit logging</strong>: Log all document access attempts with user identity</li>
+</ol>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="common-issues">Common Issues</h3>
+<p><strong>Issue</strong>: <code>503 Service Unavailable</code><br />
+- <strong>Cause</strong>: OpenSearch is down or unreachable<br />
+- <strong>Solution</strong>: Check OpenSearch health, verify connection settings</p>
+<p><strong>Issue</strong>: <code>401 Unauthorized</code><br />
+- <strong>Cause</strong>: Invalid or expired JWT token<br />
+- <strong>Solution</strong>: Re-authenticate to obtain a new token</p>
+<p><strong>Issue</strong>: <code>404 Not Found</code> for existing documents<br />
+- <strong>Cause</strong>: User not in <code>allowed_users</code> field<br />
+- <strong>Solution</strong>: Verify user has proper access rights in the document</p>
+<p><strong>Issue</strong>: Empty search results<br />
+- <strong>Cause</strong>: No documents match both search criteria AND ACL filter<br />
+- <strong>Solution</strong>: Verify documents exist and user has access</p>
+<h3 id="debug-mode">Debug Mode</h3>
+<p>Enable debug logging:</p>
+<pre><code class="language-bash">export DS_LOG_LEVEL=DEBUG
+</code></pre>
+<p>This will log:<br />
+- OpenSearch queries<br />
+- ACL filter construction<br />
+- Authentication details<br />
+- Query execution times</p>
+<h2 id="future-enhancements">Future Enhancements</h2>
+<p>Planned features for future releases:</p>
+<ol>
+<li><strong>Group-Based ACLs</strong>: Support <code>allowed_groups</code> in addition to <code>allowed_users</code></li>
+<li><strong>Role-Based Access</strong>: Integrate with role management system</li>
+<li><strong>Document Sharing</strong>: API to modify <code>allowed_users</code> field</li>
+<li><strong>Access Analytics</strong>: Dashboard showing document access patterns</li>
+<li><strong>Bulk Operations</strong>: Batch document retrieval API</li>
+<li><strong>Advanced Search</strong>: Faceted search, aggregations, highlighting</li>
+</ol>
+<h2 id="related-documentation">Related Documentation</h2>
+<ul>
+<li><a href="../reference/OPERATORS.html">API Reference</a></li>
+<li><a href="../../ARCHITECTURE.html">Architecture</a></li>
+<li><a href="OAUTH2_AUTHENTICATION.html">OAuth2 Authentication Guide</a></li>
+</ul>
+<h2 id="support">Support</h2>
+<p>For issues or questions:<br />
+1. Check existing documentation<br />
+2. Search GitHub issues<br />
+3. Create a new issue with detailed information</p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#features">Features</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#api-endpoints">API Endpoints</a>
+      <a href="#acl-security-model">ACL Security Model</a>
+      <a href="#configuration">Configuration</a>
+      <a href="#authentication-flow">Authentication Flow</a>
+      <a href="#usage-examples">Usage Examples</a>
+      <a href="#testing">Testing</a>
+      <a href="#performance-considerations">Performance Considerations</a>
+      <a href="#security-best-practices">Security Best Practices</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#future-enhancements">Future Enhancements</a>
+      <a href="#related-documentation">Related Documentation</a>
+      <a href="#support">Support</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

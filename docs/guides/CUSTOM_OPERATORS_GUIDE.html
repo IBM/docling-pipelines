@@ -1,0 +1,1502 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Custom Operators Guide — Docling Pipelines</title>
+  <meta name="description" content="Custom Operators Guide — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter active" href="CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Custom Operators Guide</span>
+      </nav>
+      <h1>Custom Operators Guide</h1>
+
+<hr />
+<h2 id="overview">Overview</h2>
+<p>This guide covers creating, registering, and using custom operators in docpipe. Custom operators extend docpipe's functionality by allowing you to add your own data processing logic to pipelines.</p>
+<p><strong>Custom operators can be provided in three ways:</strong></p>
+<ol>
+<li><strong>Filesystem Paths (Recommended for Development)</strong>: Python files in a local directory</li>
+<li>Most common approach for development</li>
+<li>No packaging or installation required</li>
+<li>
+<p>Just place <code>.py</code> files in a directory and register the path</p>
+</li>
+<li>
+<p><strong>Python Packages (Recommended for Distribution)</strong>: Pip-installable packages</p>
+</li>
+<li>Best for sharing operators across teams or projects</li>
+<li>Standard Python packaging with entry points</li>
+<li>Install once with <code>pip install</code>, use everywhere</li>
+<li>
+<p>Covered in <a href="#package-based-operators-for-distribution">Advanced Topics</a></p>
+</li>
+<li>
+<p><strong>S3 URIs (Optional)</strong>: Remote storage for enterprise deployments</p>
+</li>
+<li>For centralized operator management in cloud environments</li>
+<li>Covered in <a href="#s3-configuration-for-enterprise-deployments">Advanced Topics</a></li>
+</ol>
+<hr />
+<h2 id="prerequisites">Prerequisites</h2>
+<p>Before creating custom operators, ensure you have:</p>
+<ul>
+<li>✅ <strong>docpipe installed</strong>: <code>pip install docling-pipelines</code></li>
+<li>✅ <strong>Basic Python knowledge</strong>: Classes, inheritance, type hints</li>
+<li>✅ <strong>PyArrow familiarity</strong>: Understanding of PyArrow tables (basic level)</li>
+<li>✅ <strong>Docling Pipelines experience</strong>: Successfully run at least one Docling Pipelines flow</li>
+</ul>
+<p><strong>New to Docling Pipelines?</strong> Complete the <a href="../../USER_GUIDE_PIPELINE_SETUP.html"><code>USER_GUIDE_PIPELINE_SETUP.md</code></a> first to understand the basics of flows and operators.</p>
+<hr />
+<h2 id="quick-start-your-first-custom-operator">Quick Start: Your First Custom Operator</h2>
+<p>Let's create a simple operator that adds a greeting column to your data.</p>
+<h3 id="step-1-get-the-example-operator-file">Step 1: Get the Example Operator File</h3>
+<p>A ready-made example operator is available at <code>examples/custom_operators/hello_operator.py</code>.<br />
+It adds a greeting column to the table — a minimal but complete custom operator.</p>
+<p>Use it directly, or copy it as a starting point for your own operator:</p>
+<pre><code class="language-bash"># Use the example directly
+export DOCPIPE_CUSTOM_OPERATORS=&quot;./examples/custom_operators/hello_operator.py&quot;
+
+# Or copy it to your own workspace
+cp examples/custom_operators/hello_operator.py ~/my_custom_operators/hello_operator.py
+</code></pre>
+<h3 id="step-2-register-the-operator">Step 2: Register the Operator</h3>
+<p>Point <code>DOCPIPE_CUSTOM_OPERATORS</code> at a file or a directory:</p>
+<pre><code class="language-bash"># Single file
+export DOCPIPE_CUSTOM_OPERATORS=&quot;./examples/custom_operators/hello_operator.py&quot;
+
+# Directory (scans recursively for .py files)
+export DOCPIPE_CUSTOM_OPERATORS=&quot;$HOME/my_custom_operators&quot;
+</code></pre>
+<h3 id="step-3-use-in-a-flow">Step 3: Use in a Flow</h3>
+<p>Create a flow JSON file (<code>hello_flow.json</code>):</p>
+<pre><code class="language-json">{
+  &quot;flow_name&quot;: &quot;Hello Custom Operator Flow&quot;,
+  &quot;description&quot;: &quot;Example flow using custom hello operator&quot;,
+  &quot;global_config&quot;: {
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;disable_validation&quot;: false
+  },
+  &quot;flow&quot;: [
+    {
+      &quot;name&quot;: &quot;ingest_1&quot;,
+      &quot;type&quot;: &quot;ingest_source&quot;,
+      &quot;config&quot;: {
+        &quot;provider&quot;: &quot;filesystem&quot;,
+        &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./sample_documents&quot;]}
+      }
+    },
+    {
+      &quot;name&quot;: &quot;hello_1&quot;,
+      &quot;type&quot;: &quot;hello&quot;,
+      &quot;config&quot;: {},
+      &quot;depends_on&quot;: [&quot;ingest_1&quot;]
+    }
+  ]
+}
+</code></pre>
+<p>Run the flow:</p>
+<pre><code class="language-bash">docling-pipelines --flow-file hello_flow.json
+</code></pre>
+<h3 id="step-4-verify-registration">Step 4: Verify Registration</h3>
+<p>Check that your operator is registered:</p>
+<pre><code class="language-bash"># List all operators (look for owner=&quot;custom&quot;)
+docling-pipelines --list-operators
+
+# Detailed view with parameters
+docling-pipelines --list-operators --verbose
+</code></pre>
+<p>You should see output like:</p>
+<pre><code>Operator: hello
+  Category: Functional
+  Owner: custom
+  Label: Hello Operator
+</code></pre>
+<p><strong>Congratulations!</strong> You've created and run your first custom operator. Now let's understand how it works.</p>
+<hr />
+<h2 id="understanding-custom-operators">Understanding Custom Operators</h2>
+<h3 id="required-imports">Required Imports</h3>
+<p>Every custom operator needs these imports:</p>
+<pre><code class="language-python"># Core operator classes
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+
+# Constants for metadata and configuration
+from docpipe.core.constants.constants import DocpipeConstants, AttributeDataTypes
+from docpipe.core.constants.operator_constants import OperatorConstants
+
+# Data handling
+import pyarrow as pa
+from typing import Any
+</code></pre>
+<p><strong>Optional imports</strong> (depending on your needs):</p>
+<pre><code class="language-python"># For logging
+import logging
+
+# For advanced type hints
+from collections.abc import Callable
+
+# For working with PyArrow schemas
+import pyarrow.compute as pc
+</code></pre>
+<h3 id="minimum-requirements">Minimum Requirements</h3>
+<p>Custom operators must:</p>
+<ol>
+<li><strong>Inherit from <code>AbstractOperator</code></strong></li>
+<li><strong>Define required class attributes</strong>: <code>short_name</code>, <code>category</code>, <code>owner</code></li>
+<li><strong>Implement required methods</strong>: <code>transform()</code>, <code>get_metadata()</code>, <code>get_required_features()</code></li>
+</ol>
+<h3 id="class-attributes">Class Attributes</h3>
+<pre><code class="language-python">class MyCustomOperator(AbstractOperator):
+    # Unique identifier used in flow JSON files
+    short_name: str = &quot;my_custom&quot;
+
+    # Operator category: Extract, Ingest, Functional, Quality, VectorDB, Storage
+    category: OperatorCategory = OperatorCategory.Functional
+
+    # Identifies as custom operator (always use this constant)
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
+</code></pre>
+<p><strong>Important:</strong> The <code>short_name</code> must be unique. If it conflicts with a built-in operator, your custom operator will override it (first discovered wins).</p>
+<h3 id="required-methods-overview">Required Methods Overview</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Purpose</th>
+<th>When Called</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>transform()</code></td>
+<td>Process data</td>
+<td>During pipeline execution</td>
+</tr>
+<tr>
+<td><code>get_metadata()</code></td>
+<td>Define configuration schema</td>
+<td>During flow authoring/validation</td>
+</tr>
+<tr>
+<td><code>get_required_features()</code></td>
+<td>Declare input dependencies</td>
+<td>During flow validation</td>
+</tr>
+<tr>
+<td><code>validate()</code></td>
+<td>Runtime validation (optional)</td>
+<td>Before pipeline execution</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="core-methods-basic-implementation">Core Methods: Basic Implementation</h2>
+<h3 id="transform">transform()</h3>
+<p>The <code>transform()</code> method processes PyArrow tables and returns results with metadata.</p>
+<p><strong>Method Signature:</strong></p>
+<pre><code class="language-python">def transform(self, table: pa.Table, file_name: str | None = None) -&gt; tuple[list[pa.Table], dict[str, Any]]:
+    &quot;&quot;&quot;
+    Process the input table and return transformed results.
+
+    Args:
+        table: Input PyArrow table with data to process
+        file_name: Optional filename for context (e.g., for logging)
+
+    Returns:
+        Tuple of (list of output tables, metadata dictionary)
+    &quot;&quot;&quot;
+</code></pre>
+<p><strong>Basic Pattern:</strong></p>
+<pre><code class="language-python">def transform(self, table: pa.Table, file_name: str | None = None) -&gt; tuple[list[pa.Table], dict[str, Any]]:
+    # 1. Process the table (your custom logic here)
+    result_table = table  # Replace with your transformation
+
+    # 2. Create metadata
+    metadata = self.create_base_metadata(total_docs_count=table.num_rows)
+    metadata[&quot;processed_docs&quot;] = table.num_rows
+    metadata[&quot;custom_metric&quot;] = 42  # Add your custom metrics
+
+    # 3. Return results
+    return [result_table], metadata
+</code></pre>
+<p><strong>Common Patterns:</strong></p>
+<ol>
+<li><strong>Adding a new column:</strong></li>
+</ol>
+<pre><code class="language-python">def transform(self, table: pa.Table, file_name: str | None = None):
+    # Create new column data
+    new_values = [compute_value(row) for row in range(table.num_rows)]
+
+    # Add column to table
+    table = table.append_column(&quot;new_column&quot;, pa.array(new_values))
+
+    return [table], self.create_base_metadata(total_docs_count=table.num_rows)
+</code></pre>
+<ol>
+<li><strong>Filtering rows:</strong></li>
+</ol>
+<pre><code class="language-python">def transform(self, table: pa.Table, file_name: str | None = None):
+    # Filter based on condition
+    mask = pc.greater(table[&quot;score&quot;], 0.5)
+    filtered_table = table.filter(mask)
+
+    metadata = self.create_base_metadata(total_docs_count=filtered_table.num_rows)
+    metadata[&quot;filtered_out&quot;] = table.num_rows - filtered_table.num_rows
+
+    return [filtered_table], metadata
+</code></pre>
+<ol>
+<li><strong>Splitting into multiple tables:</strong></li>
+</ol>
+<pre><code class="language-python">def transform(self, table: pa.Table, file_name: str | None = None):
+    # Split based on condition
+    high_quality = table.filter(pc.greater(table[&quot;score&quot;], 0.8))
+    low_quality = table.filter(pc.less_equal(table[&quot;score&quot;], 0.8))
+
+    metadata = self.create_base_metadata(total_docs_count=table.num_rows)
+    return [high_quality, low_quality], metadata
+</code></pre>
+<h3 id="get-metadata---basic">get_metadata() - Basic</h3>
+<p>The <code>get_metadata()</code> method defines your operator's configuration interface. Start with this basic structure:</p>
+<pre><code class="language-python">@staticmethod
+def get_metadata() -&gt; dict[str, Any]:
+    &quot;&quot;&quot;Return operator metadata for UI display and validation.&quot;&quot;&quot;
+    return {
+        # Operator category
+        OperatorConstants.Misc.CATEGORY: MyCustomOperator.category.value,
+
+        # Availability flag
+        OperatorConstants.Misc.IS_OPERATOR_AVAILABLE: True,
+
+        # Display name for UI
+        OperatorConstants.Misc.LABEL: &quot;My Custom Operator&quot;,
+
+        # Output columns this operator produces (see Advanced Topics)
+        OperatorConstants.Config.FEATURES: {},
+
+        # Input parameters for configuration (see Advanced Topics)
+        OperatorConstants.Config.ATTRIBUTES: {},
+    }
+</code></pre>
+<p><strong>For now, you can leave <code>FEATURES</code> and <code>ATTRIBUTES</code> empty.</strong> We'll cover these in detail in the <a href="#get_metadata---advanced-configuration">Advanced Topics</a> section.</p>
+<h3 id="get-required-features">get_required_features()</h3>
+<p>This method declares which columns must exist in the input table.</p>
+<pre><code class="language-python">@staticmethod
+def get_required_features() -&gt; list[str]:
+    &quot;&quot;&quot;
+    Return list of required input columns.
+
+    These are columns that must be present in the PyArrow table
+    coming from upstream operators.
+    &quot;&quot;&quot;
+    return []  # No requirements
+</code></pre>
+<p><strong>Examples:</strong></p>
+<pre><code class="language-python"># Operator needs content column
+@staticmethod
+def get_required_features() -&gt; list[str]:
+    return [&quot;content&quot;]
+
+# Operator needs multiple columns
+@staticmethod
+def get_required_features() -&gt; list[str]:
+    return [&quot;content&quot;, &quot;doc_id&quot;, &quot;metadata&quot;]
+
+# Operator needs chunked content from ChunkerOperator
+@staticmethod
+def get_required_features() -&gt; list[str]:
+    return [&quot;chunked_content&quot;]
+</code></pre>
+<hr />
+<h2 id="registration-and-usage">Registration and Usage</h2>
+<h3 id="which-registration-method-should-i-use">Which Registration Method Should I Use?</h3>
+<p>Choose based on your use case:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>Recommended Method</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>🏠 Local development</td>
+<td>Environment variable (filesystem)</td>
+</tr>
+<tr>
+<td>📦 Sharing across projects/teams</td>
+<td>Python package (pip install)</td>
+</tr>
+<tr>
+<td>🔧 Programmatic control needed</td>
+<td>Python API</td>
+</tr>
+<tr>
+<td>👥 Team sharing operators</td>
+<td>Python package or environment variable + version control</td>
+</tr>
+<tr>
+<td>☁️ Enterprise cloud deployment</td>
+<td>S3 URIs (see Advanced Topics)</td>
+</tr>
+<tr>
+<td>🚀 Public distribution</td>
+<td>Python package published to PyPI</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>For most users:</strong> Use environment variable for development, Python packages for distribution.</p>
+<h3 id="method-1-environment-variable-recommended">Method 1: Environment Variable (Recommended)</h3>
+<p>Set the <code>DOCPIPE_CUSTOM_OPERATORS</code> environment variable to point to your operators directory:</p>
+<pre><code class="language-bash"># Single directory
+export DOCPIPE_CUSTOM_OPERATORS=&quot;/path/to/custom_operators&quot;
+
+# Multiple directories (colon-separated on Unix, semicolon on Windows)
+export DOCPIPE_CUSTOM_OPERATORS=&quot;/path/to/operators1:/path/to/operators2&quot;
+
+# Run your flow
+docling-pipelines --flow-file flow.json
+</code></pre>
+<p><strong>Make it permanent</strong> (add to <code>~/.bashrc</code> or <code>~/.zshrc</code>):</p>
+<pre><code class="language-bash">echo 'export DOCPIPE_CUSTOM_OPERATORS=&quot;$HOME/my_custom_operators&quot;' &gt;&gt; ~/.bashrc
+source ~/.bashrc
+</code></pre>
+<p><strong>Verify immediately:</strong></p>
+<pre><code class="language-bash">docling-pipelines --list-operators | grep &quot;custom&quot;
+</code></pre>
+<h3 id="method-2-programmatic-api">Method 2: Programmatic API</h3>
+<p>Register operators programmatically in your Python code:</p>
+<pre><code class="language-python">from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+
+# Create flow manager
+manager = DocpipeFlowManager(flow_file=&quot;flow.json&quot;)
+
+# Register custom operators (using filesystem paths)
+manager.register_custom_operators(package_names=[&quot;/path/to/custom_operators&quot;])
+
+# Execute flow
+result = manager.execute()
+</code></pre>
+<p><strong>Note:</strong> Supports filesystem paths, S3 URIs, and installed Python package names.</p>
+<h3 id="verifying-registration">Verifying Registration</h3>
+<p>After registering, verify your operators are loaded:</p>
+<p><strong>Using CLI:</strong></p>
+<pre><code class="language-bash"># List all operators (custom operators show owner=&quot;custom&quot;)
+docling-pipelines --list-operators
+
+# Detailed view with parameters
+docling-pipelines --list-operators --verbose
+</code></pre>
+<p><strong>Using Python:</strong></p>
+<pre><code class="language-python">from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+
+# List all operators
+print(DocpipeFlowManager.list_operators())
+
+# Detailed view
+print(DocpipeFlowManager.list_operators(verbose=True))
+</code></pre>
+<p><strong>What to look for:</strong><br />
+- ✅ Your operator's <code>short_name</code> appears in the list<br />
+- ✅ <code>owner</code> field shows <code>"custom"</code><br />
+- ✅ Correct <code>category</code> is displayed<br />
+- ⚠️ If a custom operator has the same <code>short_name</code> as a built-in operator, the custom one takes precedence</p>
+<h3 id="using-custom-operators-in-flows">Using Custom Operators in Flows</h3>
+<p>Reference custom operators by their <code>short_name</code> in flow JSON files:</p>
+<pre><code class="language-json">{
+  &quot;flow_name&quot;: &quot;My Flow with Custom Operator&quot;,
+  &quot;description&quot;: &quot;Example flow using custom operator&quot;,
+  &quot;global_config&quot;: {
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;disable_validation&quot;: false
+  },
+  &quot;flow&quot;: [
+    {
+      &quot;name&quot;: &quot;ingest_1&quot;,
+      &quot;type&quot;: &quot;ingest_source&quot;,
+      &quot;config&quot;: {
+        &quot;provider&quot;: &quot;filesystem&quot;,
+        &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./documents&quot;]}
+      }
+    },
+    {
+      &quot;name&quot;: &quot;custom_1&quot;,
+      &quot;type&quot;: &quot;my_custom&quot;,
+      &quot;config&quot;: {
+        &quot;param_name&quot;: &quot;value&quot;
+      },
+      &quot;depends_on&quot;: [&quot;ingest_1&quot;]
+    }
+  ]
+}
+</code></pre>
+<p><strong>Run the flow:</strong></p>
+<pre><code class="language-bash">export DOCPIPE_CUSTOM_OPERATORS=&quot;/path/to/custom_operators&quot;
+docling-pipelines --flow-file flow.json
+</code></pre>
+<hr />
+<h2 id="advanced-topics">Advanced Topics</h2>
+<h3 id="get-metadata---advanced-configuration">get_metadata() - Advanced Configuration</h3>
+<p>Now let's explore the full power of <code>get_metadata()</code> for defining operator parameters and outputs.</p>
+<h4>Understanding Features vs Attributes</h4>
+<p><strong>Key Concept:</strong></p>
+<ul>
+<li><strong>ATTRIBUTES</strong>: INPUT configuration parameters that control how your operator behaves</li>
+<li>Example: <code>batch_size</code>, <code>threshold</code>, <code>mode</code></li>
+<li>Set in the flow JSON configuration</li>
+<li>
+<p>Define what users can configure</p>
+</li>
+<li>
+<p><strong>FEATURES</strong>: OUTPUT columns that your operator adds to the PyArrow table</p>
+</li>
+<li>Example: <code>custom_score</code>, <code>processed_text</code></li>
+<li>Become available for downstream operators</li>
+<li>Define what your operator produces</li>
+</ul>
+<p><strong>Visual Example:</strong></p>
+<pre><code>Flow: Ingest → MyOperator → VectorDB
+
+MyOperator ATTRIBUTES (inputs):     MyOperator FEATURES (outputs):
+├─ mode: &quot;advanced&quot;                 ├─ custom_score (added to table)
+├─ threshold: 0.8                   └─ processed_text (added to table)
+└─ batch_size: 100                       ↓
+                                    Available for VectorDB operator
+</code></pre>
+<h4>Defining Features (Output Columns)</h4>
+<p>Features define the new columns your operator adds to the PyArrow table:</p>
+<pre><code class="language-python">OperatorConstants.Config.FEATURES: {
+    &quot;custom_score&quot;: {
+        OperatorConstants.Misc.NAME: &quot;Custom Score&quot;,
+        OperatorConstants.Config.DESCRIPTION: &quot;Computed quality score for the document&quot;,
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
+        OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY],
+        OperatorConstants.Config.AVAILABLE_FOR_VECTOR_DB: True,
+    },
+    &quot;processed_text&quot;: {
+        OperatorConstants.Misc.NAME: &quot;Processed Text&quot;,
+        OperatorConstants.Config.DESCRIPTION: &quot;Text after custom processing&quot;,
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+        OperatorConstants.Misc.TAGS: [OperatorConstants.Misc.MANDATORY],
+    },
+}
+</code></pre>
+<p><strong>Feature Fields:</strong><br />
+- <code>name</code>: Display name for UI<br />
+- <code>description</code>: Clear explanation of what the feature contains<br />
+- <code>type</code>: Data type (string, integer, float, list, etc.)<br />
+- <code>tags</code>: List of tags (<code>MANDATORY</code> for required features, <code>INTERNAL_FEATURE</code> for system fields)<br />
+- <code>available_for_vector_db</code>: (Optional) Boolean for vector database compatibility</p>
+<h4>Defining Attributes (Input Parameters)</h4>
+<p>Attributes define the configuration parameters users can set:</p>
+<p><strong>Required fields for all attributes:</strong><br />
+- <code>name</code>: Display name for UI<br />
+- <code>description</code>: Clear explanation of the parameter's purpose<br />
+- <code>type</code>: Data type (string, integer, float, boolean, json, list)<br />
+- <code>required</code>: Whether parameter is mandatory (True/False)<br />
+- <code>default</code>: Default value if not provided</p>
+<p><strong>Optional fields for validation:</strong><br />
+- <code>valid_values</code>: List of allowed values (enum-like parameters)<br />
+- <code>min_value</code>/<code>max_value</code>: Numeric range constraints</p>
+<p><strong>Complete Example with All Parameter Types:</strong></p>
+<pre><code class="language-python">OperatorConstants.Config.ATTRIBUTES: {
+    # String parameter with valid values (enum-like)
+    &quot;mode&quot;: {
+        OperatorConstants.Misc.NAME: &quot;Processing Mode&quot;,
+        OperatorConstants.Config.DESCRIPTION: &quot;Mode for processing documents&quot;,
+        OperatorConstants.Config.REQUIRED: True,
+        OperatorConstants.Config.DEFAULT: &quot;standard&quot;,
+        OperatorConstants.Config.VALID_VALUES: [&quot;standard&quot;, &quot;advanced&quot;, &quot;custom&quot;],
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.STRING,
+    },
+
+    # Integer parameter with range validation
+    &quot;batch_size&quot;: {
+        OperatorConstants.Misc.NAME: &quot;Batch Size&quot;,
+        OperatorConstants.Config.DESCRIPTION: &quot;Number of documents to process in each batch&quot;,
+        OperatorConstants.Config.REQUIRED: False,
+        OperatorConstants.Config.DEFAULT: 100,
+        OperatorConstants.Filtering.MIN_VALUE: 1,
+        OperatorConstants.Filtering.MAX_VALUE: 1000,
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.INTEGER,
+    },
+
+    # Float parameter with range validation
+    &quot;threshold&quot;: {
+        OperatorConstants.Misc.NAME: &quot;Confidence Threshold&quot;,
+        OperatorConstants.Config.DESCRIPTION: &quot;Minimum confidence score (0.0-1.0)&quot;,
+        OperatorConstants.Config.REQUIRED: False,
+        OperatorConstants.Config.DEFAULT: 0.8,
+        OperatorConstants.Filtering.MIN_VALUE: 0.0,
+        OperatorConstants.Filtering.MAX_VALUE: 1.0,
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.FLOAT,
+    },
+
+    # Boolean parameter (no validation needed)
+    &quot;enable_feature&quot;: {
+        OperatorConstants.Misc.NAME: &quot;Enable Feature&quot;,
+        OperatorConstants.Config.DESCRIPTION: &quot;Whether to enable advanced feature processing&quot;,
+        OperatorConstants.Config.REQUIRED: False,
+        OperatorConstants.Config.DEFAULT: False,
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.BOOLEAN,
+    },
+
+    # JSON parameter for complex configuration
+    &quot;custom_config&quot;: {
+        OperatorConstants.Misc.NAME: &quot;Custom Configuration&quot;,
+        OperatorConstants.Config.DESCRIPTION: &quot;JSON object with custom settings&quot;,
+        OperatorConstants.Config.REQUIRED: False,
+        OperatorConstants.Config.DEFAULT: None,
+        OperatorConstants.Misc.TYPE: AttributeDataTypes.JSON,
+    },
+}
+</code></pre>
+<p><strong>Accessing Parameters in transform():</strong></p>
+<p>Parameters defined in <code>ATTRIBUTES</code> are injected as instance variables at runtime. Access them using <code>getattr()</code> with a default value — direct attribute access (e.g. <code>self.batch_size</code>) will raise an <code>AttributeError</code> if the attribute is not present.</p>
+<pre><code class="language-python">def transform(self, table: pa.Table, file_name: str | None = None):
+    mode = getattr(self, &quot;mode&quot;, &quot;standard&quot;)
+    enable_feature = getattr(self, &quot;enable_feature&quot;, False)
+    batch_size = getattr(self, &quot;batch_size&quot;, 100)
+
+    if mode == &quot;advanced&quot;:
+        # Use advanced processing
+        pass
+
+    if enable_feature:
+        # Feature is enabled
+        pass
+
+    # Use numeric parameters
+    for i in range(0, table.num_rows, batch_size):
+        batch = table.slice(i, batch_size)
+        # Process batch
+</code></pre>
+<h3 id="validate---runtime-validation">validate() - Runtime Validation</h3>
+<p>The <code>validate()</code> method performs runtime validation before operator execution. This is <strong>optional</strong> but recommended for robust operators.</p>
+<p><strong>Method Signature:</strong></p>
+<pre><code class="language-python">def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -&gt; None:
+    &quot;&quot;&quot;
+    Validate operator configuration at runtime.
+
+    Args:
+        errors: List to append blocking errors (prevent execution)
+        warnings: List to append non-critical warnings (allow execution)
+        available_features: List of columns available from upstream operators
+    &quot;&quot;&quot;
+</code></pre>
+<p><strong>When to Use:</strong><br />
+- Validate actual configuration values (not just schema)<br />
+- Check that required features are available from upstream operators<br />
+- Verify parameter combinations and logical consistency<br />
+- Validate external dependencies (services, models, etc.)</p>
+<p><strong>Basic Pattern:</strong></p>
+<pre><code class="language-python">def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -&gt; None:
+    # 1. ALWAYS call parent first to validate required features
+    super().validate(errors, warnings, available_features)
+
+    # 2. Validate required fields
+    if not self.mode:
+        errors.append(&quot;mode is required for MyCustomOperator&quot;)
+
+    # 3. Validate value ranges
+    if self.batch_size &lt; 1 or self.batch_size &gt; 1000:
+        errors.append(&quot;batch_size must be between 1 and 1000&quot;)
+
+    # 4. Check feature availability
+    if &quot;content&quot; not in available_features:
+        errors.append(&quot;'content' column must be available from upstream operators&quot;)
+
+    # 5. Warn about potential conflicts
+    if &quot;custom_score&quot; in available_features:
+        warnings.append(&quot;'custom_score' column already exists and will be overwritten&quot;)
+</code></pre>
+<p><strong>Common Validation Patterns:</strong></p>
+<ol>
+<li><strong>Conditional validation</strong> (skip expensive checks during flow validation):</li>
+</ol>
+<pre><code class="language-python">if self.should_validate_field(field_value=self.mode):
+    if self.mode not in [&quot;standard&quot;, &quot;advanced&quot;, &quot;custom&quot;]:
+        errors.append(&quot;mode must be one of: standard, advanced, custom&quot;)
+</code></pre>
+<ol>
+<li><strong>Parameter combination validation</strong>:</li>
+</ol>
+<pre><code class="language-python">if self.enable_advanced and not self.custom_config:
+    errors.append(&quot;custom_config is required when enable_advanced is True&quot;)
+</code></pre>
+<ol>
+<li><strong>External service validation</strong>:</li>
+</ol>
+<pre><code class="language-python">if self.should_validate_field(field_value=self.api_endpoint):
+    try:
+        response = requests.get(self.api_endpoint, timeout=5)
+        if response.status_code != 200:
+            errors.append(f&quot;API endpoint {self.api_endpoint} is not accessible&quot;)
+    except Exception as e:
+        errors.append(f&quot;Failed to connect to API: {str(e)}&quot;)
+</code></pre>
+<p><strong>Key Differences: validate() vs get_metadata()</strong></p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Aspect</th>
+<th><code>validate()</code></th>
+<th><code>get_metadata()</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>When Called</strong></td>
+<td>Runtime (before execution)</td>
+<td>Design-time (flow authoring)</td>
+</tr>
+<tr>
+<td><strong>Purpose</strong></td>
+<td>Validate actual values</td>
+<td>Declare parameter schemas</td>
+</tr>
+<tr>
+<td><strong>Context</strong></td>
+<td>Has <code>available_features</code></td>
+<td>No execution context</td>
+</tr>
+<tr>
+<td><strong>Validation Type</strong></td>
+<td>Instance-specific</td>
+<td>Schema-level (types, ranges)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Best Practices:</strong><br />
+- ✅ Always call <code>super().validate()</code> first<br />
+- ✅ Use <code>should_validate_field()</code> for expensive validation checks<br />
+- ✅ Append to error/warning lists, don't raise exceptions<br />
+- ✅ Provide clear, actionable error messages<br />
+- ✅ Use errors for blocking issues, warnings for non-critical ones<br />
+- ✅ Check feature availability before assuming columns exist</p>
+<h3 id="package-based-operators-for-distribution">Package-Based Operators for Distribution</h3>
+<p>Package-based operators allow you to distribute custom operators as standard Python packages that can be installed via pip. This is the <strong>recommended approach</strong> for sharing operators across teams or projects.</p>
+<h4>When to Use Package-Based Operators</h4>
+<ul>
+<li>📦 Distributing operators to multiple teams or projects</li>
+<li>🔄 Version-controlled operator releases</li>
+<li>🚀 Publishing operators to PyPI or private package repositories</li>
+<li>👥 Sharing operators without requiring file system access</li>
+<li>✅ Standard Python packaging workflow</li>
+</ul>
+<h4>Package Structure</h4>
+<p>A custom operator package follows standard Python package structure:</p>
+<pre><code>my_custom_operators/
+├── pyproject.toml          # Package configuration with entry points
+├── README.md               # Package documentation
+└── my_custom_operators/    # Package source
+    ├── __init__.py
+    └── operators/          # Operators module
+        ├── __init__.py
+        ├── operator1.py
+        └── operator2.py
+</code></pre>
+<p><strong>Complete example available at:</strong> <code>examples/custom_operators/package_example/</code></p>
+<h4>Creating a Package</h4>
+<p><strong>Step 1: Create pyproject.toml</strong></p>
+<pre><code class="language-toml">[project]
+name = &quot;my-custom-operators&quot;
+version = &quot;0.1.0&quot;
+description = &quot;Custom operators for Docling Pipelines&quot;
+requires-python = &quot;&gt;=3.12&quot;
+dependencies = [
+    &quot;docling-pipelines&gt;=1.0.0&quot;,
+]
+
+# Register operators via entry points
+[project.entry-points.&quot;docpipe.operators&quot;]
+my_operator = &quot;my_custom_operators.operators.my_operator:MyOperator&quot;
+another_operator = &quot;my_custom_operators.operators.another:AnotherOperator&quot;
+
+[build-system]
+requires = [&quot;hatchling&quot;]
+build-backend = &quot;hatchling.build&quot;
+
+[tool.hatch.build.targets.wheel]
+packages = [&quot;my_custom_operators&quot;]
+</code></pre>
+<p><strong>Key Points:</strong><br />
+- Entry points under <code>"docpipe.operators"</code> group enable automatic discovery<br />
+- Format: <code>operator_name = "package.module:ClassName"</code><br />
+- Entry points are optional; operators can also be discovered by module inspection</p>
+<p><strong>Step 2: Create Operator Files</strong></p>
+<p>Place your operators in the <code>operators/</code> subdirectory:</p>
+<pre><code class="language-python"># my_custom_operators/operators/my_operator.py
+from typing import Any
+import pyarrow as pa
+from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.constants.constants import DocpipeConstants
+
+class MyOperator(AbstractOperator):
+    short_name: str = &quot;my_operator&quot;
+    category: OperatorCategory = OperatorCategory.Functional
+    owner: str | None = DocpipeConstants.OWNER_CUSTOM
+
+    def __init__(self, config: dict[str, Any]):
+        super().__init__(config)
+        # Your initialization
+
+    def transform(self, table: pa.Table, file_name: str | None = None):
+        # Your transformation logic
+        return [table], self.create_base_metadata(total_docs_count=table.num_rows)
+
+    @staticmethod
+    def get_metadata() -&gt; dict[str, Any]:
+        return {
+            &quot;short_name&quot;: MyOperator.short_name,
+            &quot;category&quot;: MyOperator.category.value,
+            &quot;description&quot;: &quot;My custom operator&quot;,
+        }
+</code></pre>
+<p><strong>Step 3: Build and Install</strong></p>
+<pre><code class="language-bash"># Install in development mode (editable)
+pip install -e .
+
+# Or build and install
+pip install .
+
+# Or build for distribution
+pip install build
+python -m build
+# Creates dist/my_custom_operators-0.1.0.tar.gz and .whl
+</code></pre>
+<h4>Using Package-Based Operators</h4>
+<p><strong>Method 1: Automatic Discovery (Recommended)</strong></p>
+<p>Once installed, operators are automatically discovered:</p>
+<pre><code class="language-bash"># Install the package
+pip install my-custom-operators
+
+# Operators are automatically available
+docling-pipelines --list-operators | grep &quot;my_operator&quot;
+
+# Use in flows without any registration
+docling-pipelines --flow-file flow.json
+</code></pre>
+<p><strong>Method 2: Explicit Registration in Flow</strong></p>
+<p>You can also explicitly register packages in flow configuration:</p>
+<pre><code class="language-json">{
+  &quot;flow_name&quot;: &quot;My Flow&quot;,
+  &quot;custom_operators&quot;: {
+    &quot;adapters&quot;: [
+      {
+        &quot;type&quot;: &quot;package&quot;,
+        &quot;package_name&quot;: &quot;my_custom_operators&quot;,
+        &quot;operator_module&quot;: &quot;operators&quot;
+      }
+    ]
+  },
+  &quot;flow&quot;: [...]
+}
+</code></pre>
+<p><strong>Method 3: Programmatic Registration</strong></p>
+<pre><code class="language-python">from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+
+manager = DocpipeFlowManager(flow_file=&quot;flow.json&quot;)
+manager.register_custom_operators(paths=[&quot;my_custom_operators&quot;])
+result = manager.execute()
+</code></pre>
+<h4>Entry Points vs Module Inspection</h4>
+<p>The package adapter discovers operators through two methods:</p>
+<ol>
+<li><strong>Entry Points</strong> (Recommended): Explicitly registered in <code>pyproject.toml</code></li>
+<li>Faster discovery</li>
+<li>Clear operator registration</li>
+<li>
+<p>Better for packages with many files</p>
+</li>
+<li>
+<p><strong>Module Inspection</strong>: Automatic scanning of operator module</p>
+</li>
+<li>No entry points needed</li>
+<li>Discovers all operators in the module</li>
+<li>Fallback if entry points not configured</li>
+</ol>
+<p><strong>Both methods work together</strong> - operators found via either method are loaded.</p>
+<h4>Publishing to PyPI</h4>
+<p>To share your operators publicly:</p>
+<pre><code class="language-bash"># Install twine
+pip install twine
+
+# Build the package
+python -m build
+
+# Upload to PyPI
+twine upload dist/*
+
+# Others can now install
+pip install my-custom-operators
+
+---
+
+### Common Issues and Solutions
+
+This section documents key learnings and gotchas discovered during package adapter implementation.
+
+#### 1. Adapter Registration
+
+**Issue**: PackageAdapter not discovering operators even though entry points are configured correctly.
+
+**Root Cause**: The `PackageAdapter` class must be imported in `src/docpipe/core/orchestration/operator_loader/adapters/__init__.py` for the `@register_operator_source` decorator to work.
+
+**Solution**: Ensure the adapter is imported in the adapters module:
+
+```python
+# src/docpipe/core/orchestration/operator_loader/adapters/__init__.py
+from .package_adapter import PackageAdapter  # Required for registration
+from .filesystem_adapter import FilesystemAdapter
+</code></pre>
+<p>Without this import, the decorator won't execute during module initialization, and the adapter won't be registered with the loader service.</p>
+<h4>2. Operator Metadata Requirements</h4>
+<p><strong>Issue</strong>: Custom operators not appearing in <code>docling-pipelines --list-operators</code> output, or appearing without proper identification.</p>
+<p><strong>Root Cause</strong>: Custom operators must include the <code>"owner"</code> field in their metadata to distinguish them from built-in docpipe operators.</p>
+<p><strong>Solution</strong>: Always include the <code>owner</code> field in your operator's <code>get_metadata()</code> method:</p>
+<pre><code class="language-python">@classmethod
+def get_metadata(cls) -&gt; dict:
+    return {
+        &quot;operator_id&quot;: &quot;my_custom_operator&quot;,
+        &quot;name&quot;: &quot;My Custom Operator&quot;,
+        &quot;owner&quot;: &quot;my_company&quot;,  # Required for custom operators
+        &quot;version&quot;: &quot;1.0.0&quot;,
+        &quot;description&quot;: &quot;Does something useful&quot;,
+        # ... other metadata
+    }
+</code></pre>
+<p>The operator listing uses this field to categorize operators by owner in the output.</p>
+<h4>3. Entry Points Group Name</h4>
+<p><strong>Issue</strong>: Entry points configured but operators not discovered by PackageAdapter.</p>
+<p><strong>Root Cause</strong>: The entry points must use the exact group name <code>"docpipe.operators"</code> in <code>pyproject.toml</code>.</p>
+<p><strong>Solution</strong>: Use the correct group name in your package configuration:</p>
+<pre><code class="language-toml">[project.entry-points.&quot;docpipe.operators&quot;]
+uppercase_operator = &quot;my_custom_operators.operators.uppercase_operator:UppercaseOperator&quot;
+reverse_operator = &quot;my_custom_operators.operators.reverse_operator:ReverseOperator&quot;
+</code></pre>
+<p><strong>Incorrect examples that won't work:</strong><br />
+- <code>[project.entry-points."docpipe.operator"]</code> (missing 's')<br />
+- <code>[project.entry-points."docpipe_operators"]</code> (underscore instead of dot)<br />
+- <code>[project.entry-points."custom.operators"]</code> (wrong prefix)</p>
+<h4>4. Package Name Filtering</h4>
+<p><strong>Issue</strong>: Entry points registered but not discovered for a specific package.</p>
+<p><strong>Root Cause</strong>: PackageAdapter filters entry points by checking if <code>entry_point.value.startswith(package_name)</code>. The entry point value must start with the package name to be discovered.</p>
+<p><strong>Example</strong>:</p>
+<pre><code class="language-toml"># Package name: my_custom_operators
+[project.entry-points.&quot;docpipe.operators&quot;]
+# ✅ Correct - value starts with package name
+uppercase_operator = &quot;my_custom_operators.operators.uppercase_operator:UppercaseOperator&quot;
+
+# ❌ Wrong - value doesn't start with package name
+uppercase_operator = &quot;operators.uppercase_operator:UppercaseOperator&quot;
+</code></pre>
+<p><strong>Solution</strong>: Ensure entry point values use the full module path starting with your package name:</p>
+<pre><code class="language-python"># When registering with DocpipeFlowManager
+manager.register_custom_operators(packages=[&quot;my_custom_operators&quot;])
+
+# Entry point value must start with &quot;my_custom_operators&quot;
+</code></pre>
+<h4>5. Python 3.12 Compatibility</h4>
+<p><strong>Issue</strong>: <code>TypeError: 'EntryPoints' object is not subscriptable</code> when running on Python 3.12+.</p>
+<p><strong>Root Cause</strong>: The older <code>entry_points()["group_name"]</code> syntax is deprecated in Python 3.12+.</p>
+<p><strong>Solution</strong>: Use the <code>group</code> parameter instead:</p>
+<pre><code class="language-python"># ❌ Old syntax (Python &lt; 3.12)
+from importlib.metadata import entry_points
+eps = entry_points()[&quot;docpipe.operators&quot;]
+
+# ✅ New syntax (Python 3.12+)
+from importlib.metadata import entry_points
+eps = entry_points(group=&quot;docpipe.operators&quot;)
+</code></pre>
+<p>The PackageAdapter implementation uses the new syntax for compatibility.</p>
+<h4>6. Module Import Errors</h4>
+<p><strong>Issue</strong>: <code>ModuleNotFoundError</code> when loading operators from installed package.</p>
+<p><strong>Common Causes</strong>:<br />
+- Package not installed in the current environment<br />
+- Package installed in editable mode but source moved<br />
+- PYTHONPATH not including package location</p>
+<p><strong>Solutions</strong>:</p>
+<pre><code class="language-bash"># Verify package is installed
+pip list | grep my-custom-operators
+
+# Install in editable mode for development
+pip install -e /path/to/package
+
+# Or install from PyPI
+pip install my-custom-operators
+
+# Check if operators are discoverable
+docling-pipelines --list-operators
+</code></pre>
+<h4>7. Operator Discovery Debugging</h4>
+<p><strong>Issue</strong>: Operators not appearing in listing or not being loaded.</p>
+<p><strong>Debugging Steps</strong>:</p>
+<ol>
+<li>
+<p><strong>Verify entry points are registered</strong>:<br />
+<code>python
+   from importlib.metadata import entry_points
+   eps = entry_points(group="docpipe.operators")
+   for ep in eps:
+       print(f"{ep.name}: {ep.value}")</code></p>
+</li>
+<li>
+<p><strong>Check operator metadata</strong>:<br />
+<code>python
+   from my_custom_operators.operators.my_operator import MyOperator
+   print(MyOperator.get_metadata())
+   # Should include "owner" field</code></p>
+</li>
+<li>
+<p><strong>Test operator loading directly</strong>:<br />
+   ```python<br />
+   from docpipe.core.orchestration.operator_factory import OperatorFactory<br />
+   factory = OperatorFactory()<br />
+   factory.register_custom_operators(packages=["my_custom_operators"])</p>
+</li>
+</ol>
+<p># Try to get your operator<br />
+   operator = factory.get_operator("my_operator_id")<br />
+   ```</p>
+<ol>
+<li><strong>Enable debug logging</strong>:<br />
+<code>bash
+   DS_LOG_LEVEL=DEBUG docling-pipelines --list-operators</code></li>
+</ol>
+<h4>Best Practices Summary</h4>
+<ol>
+<li><strong>Always import adapters</strong> in <code>__init__.py</code> for decorator registration</li>
+<li><strong>Include owner field</strong> in all custom operator metadata</li>
+<li><strong>Use exact group name</strong> <code>"docpipe.operators"</code> in entry points</li>
+<li><strong>Match package names</strong> between entry point values and registration calls</li>
+<li><strong>Use Python 3.12+ syntax</strong> for entry points API</li>
+<li><strong>Test operator discovery</strong> before publishing packages</li>
+<li><strong>Provide clear metadata</strong> including version, description, and parameters</li>
+</ol>
+<pre><code>
+**For private repositories:**
+```bash
+# Upload to private PyPI server
+twine upload --repository-url https://your-pypi-server.com dist/*
+
+# Install from private repository
+pip install my-custom-operators --index-url https://your-pypi-server.com
+</code></pre>
+<h4>Version Management</h4>
+<p>Use semantic versioning in <code>pyproject.toml</code>:</p>
+<pre><code class="language-toml">[project]
+version = &quot;1.2.3&quot;  # MAJOR.MINOR.PATCH
+</code></pre>
+<p>Users can install specific versions:</p>
+<pre><code class="language-bash">pip install my-custom-operators==1.2.3
+pip install my-custom-operators&gt;=1.0.0,&lt;2.0.0
+</code></pre>
+<h4>Best Practices for Packages</h4>
+<ol>
+<li><strong>Clear Documentation</strong>: Include comprehensive README with usage examples</li>
+<li><strong>Version Dependencies</strong>: Specify compatible Docling Pipelines versions in dependencies</li>
+<li><strong>Entry Points</strong>: Register operators via entry points for better discovery</li>
+<li><strong>Testing</strong>: Include tests in your package</li>
+<li><strong>Changelog</strong>: Maintain a CHANGELOG.md for version history</li>
+<li><strong>Semantic Versioning</strong>: Follow semver for version numbers</li>
+<li><strong>Type Hints</strong>: Use proper type hints for better IDE support</li>
+</ol>
+<h4>Troubleshooting Package-Based Operators</h4>
+<p><strong>Package not found:</strong></p>
+<pre><code class="language-bash"># Verify package is installed
+pip show my-custom-operators
+
+# Check installed location
+pip show -f my-custom-operators
+</code></pre>
+<p><strong>Operators not discovered:</strong></p>
+<pre><code class="language-bash"># Verify entry points are registered
+python -c &quot;import importlib.metadata; print(list(importlib.metadata.entry_points(group='docpipe.operators')))&quot;
+
+# Check operator module can be imported
+python -c &quot;from my_custom_operators.operators import MyOperator; print(MyOperator.short_name)&quot;
+</code></pre>
+<p><strong>Import errors:</strong><br />
+- Ensure docpipe is installed in the same environment<br />
+- Check that all dependencies are listed in <code>pyproject.toml</code><br />
+- Verify Python version compatibility</p>
+<h3 id="s3-configuration-for-enterprise-deployments">S3 Configuration for Enterprise Deployments</h3>
+<p>S3 support is an <strong>optional advanced feature</strong> for enterprise deployments that need centralized operator management.</p>
+<h4>When to Use S3</h4>
+<ul>
+<li>☁️ Centralized operator distribution across multiple environments</li>
+<li>🚀 Cloud-native deployments (AWS ECS, Lambda, etc.)</li>
+<li>📦 Version-controlled operator releases in S3 buckets</li>
+<li>👥 Teams that already use S3 for artifact management</li>
+</ul>
+<h4>Prerequisites</h4>
+<ol>
+<li><strong>Install boto3:</strong></li>
+</ol>
+<pre><code class="language-bash"># Using uv
+uv pip install boto3
+</code></pre>
+<ol>
+<li><strong>Configure AWS credentials</strong> (boto3 uses standard AWS credential chain):</li>
+</ol>
+<p><strong>Option 1: Environment variables</strong></p>
+<pre><code class="language-bash">export AWS_ACCESS_KEY_ID=&quot;your-access-key&quot;
+export AWS_SECRET_ACCESS_KEY=&quot;your-secret-key&quot;  # pragma: allowlist secret
+export AWS_DEFAULT_REGION=&quot;us-east-1&quot;  # Optional
+</code></pre>
+<p><strong>Option 2: Credentials file</strong> (<code>~/.aws/credentials</code>)</p>
+<pre><code class="language-ini">[default]
+aws_access_key_id = your-access-key
+aws_secret_access_key = your-secret-key
+</code></pre>
+<p><strong>Option 3: IAM roles</strong> (automatic for EC2/ECS/Lambda instances)</p>
+<h4>S3 URI Format</h4>
+<pre><code>s3://bucket-name/path/to/operators/
+</code></pre>
+<p>Operators are downloaded to <code>~/.docpipe/custom_operators_cache/</code> and loaded from cache.</p>
+<h4>Usage Examples</h4>
+<p><strong>Environment variable:</strong></p>
+<pre><code class="language-bash">export DOCPIPE_CUSTOM_OPERATORS=&quot;s3://my-company-operators/production/&quot;
+docling-pipelines --flow-file flow.json
+</code></pre>
+<p><strong>Programmatic:</strong></p>
+<pre><code class="language-python">from docpipe.lib.docpipe_flow_manager import DocpipeFlowManager
+
+manager = DocpipeFlowManager(flow_file=&quot;flow.json&quot;)
+manager.register_custom_operators(package_names=[&quot;s3://my-company-operators/production/&quot;])
+result = manager.execute()
+</code></pre>
+<p><strong>Mixed sources</strong> (filesystem + S3):</p>
+<pre><code class="language-bash">export DOCPIPE_CUSTOM_OPERATORS=&quot;/local/path:s3://bucket/path&quot;
+</code></pre>
+<hr />
+<h2 id="best-practices">Best Practices</h2>
+<ol>
+<li>
+<p><strong>Unique short_name</strong>: Ensure your operator's <code>short_name</code> doesn't conflict with built-in operators unless you intend to override them</p>
+</li>
+<li>
+<p><strong>Proper validation</strong>: Implement <code>get_required_features()</code> to validate input columns and <code>validate()</code> for runtime checks</p>
+</li>
+<li>
+<p><strong>Comprehensive metadata</strong>: Provide complete metadata with clear descriptions for all parameters</p>
+</li>
+<li>
+<p><strong>Error handling</strong>: Use <code>record_failed_document()</code> and <code>record_skipped_document()</code> for tracking processing issues</p>
+</li>
+<li>
+<p><strong>Testing</strong>: Test operators independently before integrating into flows</p>
+</li>
+<li>
+<p><strong>Documentation</strong>: Include docstrings and comments explaining your operator's purpose and usage</p>
+</li>
+<li>
+<p><strong>Type hints</strong>: Use proper type hints for better IDE support and code clarity</p>
+</li>
+<li>
+<p><strong>Logging</strong>: Use the logging module for debugging and monitoring</p>
+</li>
+<li>
+<p><strong>Safe attribute access</strong>: Always use <code>getattr(self, "param_name", default)</code> to access configuration attributes in <code>transform()</code> — direct attribute access will raise <code>AttributeError</code> at runtime</p>
+</li>
+</ol>
+<hr />
+<h2 id="troubleshooting">Troubleshooting</h2>
+<p><strong>Operator not found:</strong><br />
+- ✅ Verify <code>DOCPIPE_CUSTOM_OPERATORS</code> is set correctly<br />
+- ✅ Check that the directory path exists and contains <code>.py</code> files<br />
+- ✅ Ensure the operator class inherits from <code>AbstractOperator</code><br />
+- ✅ Verify <code>short_name</code> matches what you're using in the flow</p>
+<p><strong>Import errors:</strong><br />
+- ✅ Ensure all dependencies are installed in the same environment<br />
+- ✅ Check that docpipe is installed: <code>pip show docling-pipelines</code><br />
+- ✅ Verify Python version compatibility (Python 3.12+ recommended)</p>
+<p><strong>S3 access denied:</strong><br />
+- ✅ Check AWS credentials are configured correctly<br />
+- ✅ Verify bucket permissions (s3:GetObject, s3:ListBucket)<br />
+- ✅ Ensure boto3 is installed: <code>pip show boto3</code></p>
+<p><strong>Duplicate operator warning:</strong><br />
+- ⚠️ Custom operators with same <code>short_name</code> as built-in operators will override them<br />
+- ⚠️ First discovered operator wins (check registration order)</p>
+<p><strong>Validation errors:</strong><br />
+- ✅ Check that required features are available from upstream operators<br />
+- ✅ Verify parameter values are within valid ranges<br />
+- ✅ Review error messages for specific issues</p>
+<p><strong>Operator not appearing in list:</strong><br />
+- ✅ Run <code>docling-pipelines --list-operators</code> to verify registration<br />
+- ✅ Check for Python syntax errors in your operator file<br />
+- ✅ Ensure class attributes (<code>short_name</code>, <code>category</code>, <code>owner</code>) are defined</p>
+<p><strong><code>AttributeError: 'MyOperator' object has no attribute '...'</code>:</strong><br />
+- ✅ Replace direct attribute access (e.g. <code>self.param</code>) with <code>getattr(self, "param", default_value)</code><br />
+- ✅ Configuration attributes are injected at runtime and may not always be present on <code>self</code> — <code>getattr()</code> provides a safe fallback</p>
+<hr />
+<h2 id="complete-reference-example">Complete Reference Example</h2>
+<p>A complete working example is available in the Docling Pipelines repository at:<br />
+- <strong>File</strong>: <code>examples/custom_operators/example_custom_operator.py</code><br />
+- <strong>Purpose</strong>: Demonstrates adding a custom field to documents<br />
+- <strong>Features</strong>: Shows all required methods with proper implementation</p>
+<p><strong>To use the example:</strong></p>
+<pre><code class="language-bash"># Clone the Docling Pipelines repository
+git clone https://github.com/your-org/docling-pipelines.git
+
+# Navigate to examples
+cd docling-pipelines/examples/custom_operators
+
+# Register and use
+export DOCPIPE_CUSTOM_OPERATORS=&quot;$(pwd)&quot;
+docling-pipelines --list-operators | grep example
+</code></pre>
+<p>For more details on the base class implementation and loading mechanism, refer to:<br />
+- <code>src/docpipe/core/operators/abstract_operator.py</code> - Base operator class<br />
+- <code>src/docpipe/core/operators/operator_registry.py</code> - Operator registration system<br />
+- Built-in operators in <code>src/docpipe/core/operators/</code> - Real-world examples</p>
+<hr />
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#prerequisites">Prerequisites</a>
+      <a href="#quick-start-your-first-custom-operator">Quick Start: Your First Custom Operator</a>
+      <a href="#understanding-custom-operators">Understanding Custom Operators</a>
+      <a href="#core-methods-basic-implementation">Core Methods: Basic Implementation</a>
+      <a href="#registration-and-usage">Registration and Usage</a>
+      <a href="#advanced-topics">Advanced Topics</a>
+      <a href="#best-practices">Best Practices</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#complete-reference-example">Complete Reference Example</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

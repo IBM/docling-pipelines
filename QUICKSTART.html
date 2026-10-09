@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Quick Start Guide — Docling Pipelines</title>
+  <meta name="description" content="Get your first Docling Pipelines pipeline running in under 5 minutes.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="docs/assets/docs.css">
+  <style>
+    /* ── Page-specific additions ── */
+
+    /* Breadcrumb bar */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a   { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+
+    /* Page hero (slimmer than landing page) */
+    .page-hero {
+      background: linear-gradient(135deg, var(--bg-alt) 0%, var(--bg-card) 100%);
+      border: 1px solid var(--border); border-radius: 12px;
+      padding: 36px 40px; margin-bottom: 40px;
+      position: relative; overflow: hidden;
+    }
+    .page-hero::before {
+      content: '';
+      position: absolute; top: -30px; right: -30px;
+      width: 220px; height: 220px;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .page-hero h1 {
+      font-size: 2rem; font-weight: 700; line-height: 1.2; margin-bottom: .3em;
+      background: linear-gradient(135deg, var(--text-head) 0%, var(--accent) 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .page-hero .tagline { font-size: 1rem; color: var(--text-dim); max-width: 520px; }
+    .page-hero .time-chips { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+    .time-chip {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: var(--accent-glow); border: 1px solid var(--accent-dim);
+      color: var(--accent); border-radius: 20px; padding: 3px 11px;
+      font-size: 11px; font-weight: 600; letter-spacing: .4px;
+    }
+
+    /* Step callout boxes */
+    .step-box {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-left: 4px solid var(--accent);
+      border-radius: var(--radius); padding: 18px 20px;
+      margin: 20px 0;
+    }
+    .step-box .step-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 1.2px;
+      text-transform: uppercase; color: var(--accent); margin-bottom: 6px;
+    }
+    .step-box .step-title { font-size: 1rem; font-weight: 700; color: var(--text-head); margin-bottom: 4px; }
+    .step-box p { color: var(--text-dim); font-size: 13.5px; margin: 0; }
+
+    /* Note / tip / warning admonitions */
+    .admon {
+      border-radius: var(--radius); padding: 14px 18px;
+      margin: 16px 0; border-left: 4px solid;
+      font-size: 13.5px;
+    }
+    .admon .admon-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; margin-bottom: 4px;
+    }
+    .admon p  { margin: 0; color: var(--text-dim); }
+    .admon.note    { background: rgba(51,177,255,.08); border-color: var(--accent); }
+    .admon.note    .admon-label { color: var(--accent); }
+    .admon.tip     { background: rgba(52,211,153,.08); border-color: #34d399; }
+    .admon.tip     .admon-label { color: #34d399; }
+    .admon.warning { background: rgba(245,158,11,.08);  border-color: #f59e0b; }
+    .admon.warning .admon-label { color: #f59e0b; }
+    .admon.success { background: rgba(52,211,153,.08); border-color: #34d399; }
+    .admon.success .admon-label { color: #34d399; }
+
+    /* Code blocks */
+    .code-wrap {
+      position: relative; margin: 16px 0;
+    }
+    pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+    }
+    html.light pre { color: var(--text); }
+
+    /* Copy button */
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 4px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s;
+    }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; }
+
+    /* Pipeline flow diagram */
+    .pipeline-flow {
+      display: flex; align-items: center; flex-wrap: wrap;
+      gap: 0; margin: 20px 0 28px;
+    }
+    .pipe-step {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 16px;
+      text-align: center; font-size: 12px;
+      transition: border-color .15s;
+    }
+    .pipe-step:hover { border-color: var(--accent); }
+    .pipe-step .pipe-icon { font-size: 18px; display: block; margin-bottom: 3px; }
+    .pipe-step .pipe-name { color: var(--text-head); font-weight: 600; font-size: 11px; }
+    .pipe-step .pipe-op   { color: var(--accent); font-size: 10px; font-family: var(--mono); }
+    .pipe-arrow {
+      color: var(--accent); font-size: 18px; padding: 0 4px;
+      flex-shrink: 0;
+    }
+
+    /* Checklist */
+    .checklist { list-style: none; margin: 10px 0 24px; }
+    .checklist li {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 6px 0; font-size: 14px; color: var(--text);
+      border-bottom: 1px solid var(--border);
+    }
+    .checklist li:last-child { border-bottom: none; }
+    .checklist .ck { color: #34d399; font-weight: 700; flex-shrink: 0; margin-top: 1px; }
+
+    /* Quick reference table */
+    .ref-table { width: 100%; border-collapse: collapse; margin: 14px 0 28px; font-size: 13px; }
+    .ref-table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .ref-table td { padding: 7px 14px; border: 1px solid var(--border); vertical-align: top; }
+    .ref-table tr:nth-child(even) td { background: var(--bg-card); }
+    .ref-table tr:hover td { background: var(--surface); }
+    .ref-table code { font-size: .8em; }
+
+    /* Inline paragraph styles */
+    .main p { margin: 0 0 .9em; color: var(--text); font-size: 14px; }
+    .main ul { padding-left: 1.4em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+
+    /* Troubleshooting accordion look */
+    .trouble-item {
+      border: 1px solid var(--border); border-radius: var(--radius);
+      margin-bottom: 10px; overflow: hidden;
+    }
+    .trouble-q {
+      background: var(--bg-card); padding: 12px 16px;
+      font-weight: 600; font-size: 14px; color: var(--text-head);
+      border-bottom: 1px solid var(--border);
+    }
+    .trouble-a { padding: 14px 16px; font-size: 13.5px; }
+    .trouble-a p { margin: 0 0 .6em; color: var(--text-dim); }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ── Header ── -->
+  <header class="hdr">
+    <a href="docs/index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483
+                   0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466
+                   -.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832
+                   .092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688
+                   -.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844
+                   c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651
+                   .64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855
+                   0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
+        </svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <!-- ── Left sidebar (full site nav) ── -->
+    <nav class="nav" aria-label="Documentation navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="docs/index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+          <a class="nav-link active" href="QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+          <a class="nav-link" href="USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+          <a class="nav-link" href="TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+          <a class="nav-link" href="docs/book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+          <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+          <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+          <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+          <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+          <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+          <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+          <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+          <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+          <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+          <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+          <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+          <a class="nav-link chapter" href="docs/book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides"><span>Guides</span><span class="chev">&#x276F;</span></button>
+        <div class="nav-group-body">
+          <span class="nav-sublabel">Core</span>
+          <a class="nav-link chapter" href="docs/guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+          <a class="nav-link chapter" href="docs/guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+          <a class="nav-link chapter" href="docs/guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+          <span class="nav-sublabel">Developer</span>
+          <a class="nav-link chapter" href="docs/guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+          <a class="nav-link chapter" href="docs/guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+          <a class="nav-link chapter" href="docs/guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+          <a class="nav-link chapter" href="docs/guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+          <span class="nav-sublabel">Advanced</span>
+          <a class="nav-link chapter" href="docs/guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+          <a class="nav-link chapter" href="docs/guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+          <a class="nav-link chapter" href="docs/guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+          <a class="nav-link chapter" href="docs/guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+          <a class="nav-link chapter" href="docs/guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+          <a class="nav-link chapter" href="docs/guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+          <a class="nav-link chapter" href="docs/guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+          <a class="nav-link chapter" href="docs/guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+          <span class="nav-sublabel">Best Practices</span>
+          <a class="nav-link chapter" href="docs/guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+          <a class="nav-link chapter" href="docs/guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+          <a class="nav-link chapter" href="docs/guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators"><span>Operators</span><span class="chev">&#x276F;</span></button>
+        <div class="nav-group-body">
+          <span class="nav-sublabel">Ingest</span>
+          <a class="nav-link chapter" href="docs/operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+          <span class="nav-sublabel">Extract</span>
+          <a class="nav-link chapter" href="docs/operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+          <a class="nav-link chapter" href="docs/operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+          <span class="nav-sublabel">Functional</span>
+          <a class="nav-link chapter" href="docs/operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+          <a class="nav-link chapter" href="docs/operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+          <a class="nav-link chapter" href="docs/operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+          <a class="nav-link chapter" href="docs/operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+          <a class="nav-link chapter" href="docs/operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+          <a class="nav-link chapter" href="docs/operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+          <a class="nav-link chapter" href="docs/operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+          <span class="nav-sublabel">Quality</span>
+          <a class="nav-link chapter" href="docs/operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+          <a class="nav-link chapter" href="docs/operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+          <a class="nav-link chapter" href="docs/operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+          <a class="nav-link chapter" href="docs/operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+          <a class="nav-link chapter" href="docs/operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+          <a class="nav-link chapter" href="docs/operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+          <a class="nav-link chapter" href="docs/operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+          <a class="nav-link chapter" href="docs/operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+          <a class="nav-link chapter" href="docs/operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+          <span class="nav-sublabel">Storage</span>
+          <a class="nav-link chapter" href="docs/operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+          <a class="nav-link chapter" href="docs/operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+          <span class="nav-sublabel">VectorDB</span>
+          <a class="nav-link chapter" href="docs/operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+          <a class="nav-link chapter" href="docs/operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+          <a class="nav-link chapter" href="docs/operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference"><span>Reference</span><span class="chev">&#x276F;</span></button>
+        <div class="nav-group-body">
+          <a class="nav-link" href="docs/reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+          <a class="nav-link" href="docs/reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+          <a class="nav-link" href="docs/reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi"><span>REST API</span><span class="chev">&#x276F;</span></button>
+        <div class="nav-group-body">
+          <a class="nav-link" href="docs/api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+          <a class="nav-link" href="docs/api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+          <a class="nav-link" href="docs/api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations"><span>Integrations</span><span class="chev">&#x276F;</span></button>
+        <div class="nav-group-body">
+          <span class="nav-sublabel">OpenSearch</span>
+          <a class="nav-link chapter" href="docs/integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+          <a class="nav-link chapter" href="docs/integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+          <a class="nav-link chapter" href="docs/integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+          <a class="nav-link chapter" href="docs/integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+          <span class="nav-sublabel">Milvus</span>
+          <a class="nav-link chapter" href="docs/integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+          <span class="nav-sublabel">Prefect</span>
+          <a class="nav-link chapter" href="docs/integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+          <span class="nav-sublabel">Vault</span>
+          <a class="nav-link chapter" href="docs/integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment"><span>Deployment</span><span class="chev">&#x276F;</span></button>
+        <div class="nav-group-body">
+          <a class="nav-link" href="docs/deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals"><span>Internals</span><span class="chev">&#x276F;</span></button>
+        <div class="nav-group-body">
+          <a class="nav-link" href="docs/internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+          <a class="nav-link" href="docs/internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+          <a class="nav-link" href="docs/internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing"><span>Contributing</span><span class="chev">&#x276F;</span></button>
+        <div class="nav-group-body">
+          <a class="nav-link" href="ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+          <a class="nav-link" href="CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+          <a class="nav-link" href="CHANGELOG.html"><span class="dot"></span>Changelog</a>
+          <a class="nav-link" href="COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ── Main ── -->
+    <main class="main" id="top">
+
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="docs/index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Quick Start Guide</span>
+      </nav>
+
+      <!-- Hero -->
+      <div class="page-hero">
+        <h1>Quick Start Guide</h1>
+        <p class="tagline">Get your first pipeline running in under 5 minutes.</p>
+        <div class="time-chips">
+          <span class="time-chip">&#x23F1; ~5 min total</span>
+          <span class="time-chip">&#x2699;&#xFE0F; Prerequisites 30s</span>
+          <span class="time-chip">&#x1F4E6; Setup 2 min</span>
+          <span class="time-chip">&#x1F680; First run 2 min</span>
+        </div>
+      </div>
+
+      <p>This guide provides the fastest path from installation to a working document processing
+         pipeline. For detailed setup and advanced features, see
+         <a href="USER_GUIDE_PIPELINE_SETUP.md">USER_GUIDE_PIPELINE_SETUP.md</a>.</p>
+
+      <!-- ─────────────────────────────────────────────────────
+           PREREQUISITES
+      ───────────────────────────────────────────────────── -->
+      <h2 id="prerequisites">Prerequisites Check <small style="font-size:.7em;font-weight:400;color:var(--text-dim)">(30 seconds)</small></h2>
+      <p>Before starting, verify you have Python 3.12 and ~5 GB of free disk space:</p>
+
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code><span style="color:#5c6370"># Check Python 3.12</span>
+python3.12 --version
+<span style="color:#5c6370"># Expected: Python 3.12.x</span>
+
+<span style="color:#5c6370"># Check available disk space (need ~5GB)</span>
+df -h .</code></pre>
+      </div>
+
+      <p><strong>Don't have Python 3.12?</strong></p>
+      <ul>
+        <li><strong>macOS:</strong> <code>brew install python@3.12</code></li>
+        <li><strong>Ubuntu/Debian:</strong> <code>sudo apt install python3.12 python3.12-venv</code></li>
+        <li><strong>Fedora/RHEL:</strong> <code>sudo dnf install python3.12</code></li>
+      </ul>
+
+      <!-- ─────────────────────────────────────────────────────
+           AUTOMATED SETUP
+      ───────────────────────────────────────────────────── -->
+      <h2 id="setup">Automated Setup <small style="font-size:.7em;font-weight:400;color:var(--text-dim)">(2 minutes)</small></h2>
+      <p>Run the automated setup script to install everything:</p>
+
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code><span style="color:#5c6370"># Clone the repository</span>
+<span style="color:#61afef">git</span> clone https://github.com/IBM/docling-pipelines.git
+<span style="color:#61afef">cd</span> docling-pipelines
+
+<span style="color:#5c6370"># Make setup script executable</span>
+<span style="color:#61afef">chmod</span> +x scripts/setup_docling_pipelines_environment.sh
+
+<span style="color:#5c6370"># Run automated setup (installs only required model for quick start)</span>
+./scripts/setup_docling_pipelines_environment.sh --models nomic-embed-text</code></pre>
+      </div>
+
+      <p><strong>What this installs:</strong></p>
+      <ul class="checklist">
+        <li><span class="ck">✅</span> uv package manager</li>
+        <li><span class="ck">✅</span> Ollama server + nomic-embed-text model (~274 MB)</li>
+        <li><span class="ck">✅</span> OpenSearch + Dashboards (for vector storage)</li>
+        <li><span class="ck">✅</span> Python virtual environment + dependencies</li>
+      </ul>
+
+      <div class="admon note">
+        <div class="admon-label">Note</div>
+        <p>Setup takes <strong>5–10 minutes</strong> depending on your internet connection.</p>
+      </div>
+
+      <h3>Configure Environment</h3>
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code><span style="color:#5c6370"># Copy environment template</span>
+cp .env.example .env
+
+<span style="color:#5c6370"># The default values work for local development</span>
+<span style="color:#5c6370"># Edit .env if you need to customize settings</span></code></pre>
+      </div>
+
+      <h3>Verify Services</h3>
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code><span style="color:#5c6370"># Check Ollama (should return list of models)</span>
+curl http://localhost:11434/api/tags
+
+<span style="color:#5c6370"># Check OpenSearch (should return cluster info)</span>
+curl -u admin:MyStrongPass123! http://localhost:9200</code></pre>
+      </div>
+
+      <div class="admon success">
+        <div class="admon-label">Success</div>
+        <p>Both commands return JSON responses — you're ready to run your first pipeline.</p>
+      </div>
+      <div class="admon warning">
+        <div class="admon-label">Failed?</div>
+        <p>Jump to the <a href="#troubleshooting">Troubleshooting</a> section below.</p>
+      </div>
+
+      <!-- ─────────────────────────────────────────────────────
+           FIRST PIPELINE
+      ───────────────────────────────────────────────────── -->
+      <h2 id="first-pipeline">Your First Pipeline <small style="font-size:.7em;font-weight:400;color:var(--text-dim)">(2 minutes)</small></h2>
+
+      <div class="step-box">
+        <div class="step-label">Step 1</div>
+        <div class="step-title">Verify Sample Documents</div>
+        <p>The repository includes sample text files ready to process.</p>
+      </div>
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code>ls -la sample_documents/
+<span style="color:#5c6370"># Output includes: hello.txt, 1kb_file.txt samples</span></code></pre>
+      </div>
+
+      <div class="step-box">
+        <div class="step-label">Step 2</div>
+        <div class="step-title">Activate Environment</div>
+        <p>Set PYTHONPATH and activate the virtual environment.</p>
+      </div>
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code><span style="color:#5c6370"># Set PYTHONPATH (from project root)</span>
+<span style="color:#61afef">export</span> PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
+
+<span style="color:#5c6370"># Activate virtual environment</span>
+<span style="color:#61afef">source</span> .venv/bin/activate</code></pre>
+      </div>
+
+      <div class="step-box">
+        <div class="step-label">Step 3</div>
+        <div class="step-title">Run the Pipeline</div>
+        <p>Execute the complete document processing pipeline.</p>
+      </div>
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code>docling-pipelines --flow-file sample_flows/quickstart/complete_pipeline_ollama.json</code></pre>
+      </div>
+
+      <h3>Expected Output</h3>
+      <div class="code-wrap">
+<pre><code>================================================================================
+ FLOW: complete-document-pipeline
+ Operators: 5
+ Started: 2024-01-15 10:30:00
+================================================================================
+
+[ingest] Starting ingest_source...
+================================================================================
+ ingest (COMPLETED)
+================================================================================
+ Duration: 0.50s | Documents: 1 processed, 0 failed, 0 skipped
+ Data Columns: 8 total (8 added by this operator)
+   Added (8): id, name, path, size, created_time, modified_time, content, extension
+================================================================================
+
+[extract] Starting extract_operator...
+[chunk]   Starting chunker...
+[embed]   Starting embeddings...
+[store]   Starting vectordb...
+
+================================================================================
+ FLOW EXECUTION SUMMARY
+================================================================================
+ Status: COMPLETED  |  Total Duration: 15.30s
+ Documents: 1 completed, 0 failed, 0 skipped
+
+ Operator                       Status     Duration  Docs
+ ──────────────────────────────────────────────────────────
+ ingest_source_filesystem       Completed  &lt; 1s      2/2
+ extract_with_docling           Completed  &lt; 1s      2/2
+ simple_chunker                 Completed  1.00s     2/2
+ ollama_embeddings              Completed  1.00s     2/2
+ opensearch_vector_store        Completed  1.00s     2/2
+================================================================================</code></pre>
+      </div>
+
+      <div class="step-box">
+        <div class="step-label">Step 4</div>
+        <div class="step-title">Verify Success</div>
+        <p>Check that your document was stored in OpenSearch.</p>
+      </div>
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code>curl -u admin:MyStrongPass123! \
+  "http://localhost:9200/sample-documents-index/_search?pretty" \
+  -H 'Content-Type: application/json' \
+  -d '{"query": {"match_all": {}}, "size": 1}'</code></pre>
+      </div>
+
+      <div class="admon success">
+        <div class="admon-label">&#x1F389; Congratulations!</div>
+        <p>You've successfully installed Docling Pipelines, processed a document through the
+           complete pipeline, and stored vector embeddings in OpenSearch.</p>
+      </div>
+
+      <!-- ─────────────────────────────────────────────────────
+           WHAT HAPPENED
+      ───────────────────────────────────────────────────── -->
+      <h2 id="what-happened">Understanding What Just Happened</h2>
+      <p>Your document went through this pipeline:</p>
+
+      <div class="pipeline-flow">
+        <div class="pipe-step">
+          <span class="pipe-icon">&#x1F4C4;</span>
+          <span class="pipe-name">Text File</span>
+          <span class="pipe-op">input</span>
+        </div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step">
+          <span class="pipe-icon">&#x1F4E5;</span>
+          <span class="pipe-name">Ingest</span>
+          <span class="pipe-op">ingest_source</span>
+        </div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step">
+          <span class="pipe-icon">&#x1F4DD;</span>
+          <span class="pipe-name">Extract</span>
+          <span class="pipe-op">extract_operator</span>
+        </div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step">
+          <span class="pipe-icon">&#x2702;&#xFE0F;</span>
+          <span class="pipe-name">Chunk</span>
+          <span class="pipe-op">chunker</span>
+        </div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step">
+          <span class="pipe-icon">&#x1F9EE;</span>
+          <span class="pipe-name">Embed</span>
+          <span class="pipe-op">embeddings</span>
+        </div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step">
+          <span class="pipe-icon">&#x1F4BE;</span>
+          <span class="pipe-name">Store</span>
+          <span class="pipe-op">vectordb</span>
+        </div>
+      </div>
+
+      <table class="ref-table">
+        <thead>
+          <tr><th>Operator</th><th>What it did</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>ingest_source</code></td><td>Read <code>hello.txt</code> from disk via the filesystem provider</td></tr>
+          <tr><td><code>extract_operator</code></td><td>Extracted structured content using <code>docling_library</code> mode</td></tr>
+          <tr><td><code>chunker</code></td><td>Split into simple chunks (~512 chars each)</td></tr>
+          <tr><td><code>embeddings</code></td><td>Generated vector embeddings using Ollama + nomic-embed-text</td></tr>
+          <tr><td><code>vectordb</code></td><td>Stored in OpenSearch for similarity search</td></tr>
+        </tbody>
+      </table>
+
+      <!-- ─────────────────────────────────────────────────────
+           WHAT'S NEXT
+      ───────────────────────────────────────────────────── -->
+      <h2 id="whats-next">What's Next?</h2>
+
+      <h3>Explore More Flows</h3>
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code>ls -la sample_flows/</code></pre>
+      </div>
+
+      <h3>Invoice Processing Example</h3>
+      <p>This flow uses entity extraction (NuExtract) and an LLM-based document classifier.
+         Install the required dependency and pull the model first:</p>
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code><span style="color:#5c6370"># Required for entity extraction with NuExtract</span>
+uv pip install qwen-vl-utils
+
+<span style="color:#5c6370"># Required for the document classifier node</span>
+ollama pull llama3.2
+
+docling-pipelines --flow-file sample_flows/use_cases/invoice_processing.json</code></pre>
+      </div>
+
+      <h3>View Data in OpenSearch Dashboards</h3>
+      <p>Open <strong><a href="http://localhost:5601" target="_blank" rel="noopener">http://localhost:5601</a></strong>
+         — Username: <code>admin</code> · Password: <code>MyStrongPass123!</code></p>
+
+      <h3>Create Your Own Pipeline</h3>
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code><span style="color:#5c6370"># Copy sample flow as starting point</span>
+cp sample_flows/quickstart/complete_pipeline_ollama.json my_flow.json
+
+<span style="color:#5c6370"># Edit paths, chunk_size, models …</span>
+<span style="color:#61afef">open</span> my_flow.json
+
+<span style="color:#5c6370"># Run your custom flow</span>
+docling-pipelines --flow-file my_flow.json</code></pre>
+      </div>
+
+      <h3>Deep Dive Documentation</h3>
+      <ul class="link-list">
+        <li><a href="docs/guides/FLOW_AUTHORING_FORMAT.md">Flow Authoring Format Guide</a><span>— Complete guide to creating flows</span></li>
+        <li><a href="USER_GUIDE_PIPELINE_SETUP.md">Complete Setup Guide</a><span>— Detailed installation and configuration</span></li>
+        <li><a href="ARCHITECTURE.md">Architecture Overview</a><span>— System design and operator details</span></li>
+        <li><a href="sample_flows/README.md">Sample Flows Directory</a><span>— More pipeline examples by category</span></li>
+        <li><a href="docs/book/site/docling-pipelines/1.0/index.html">Documentation Book</a><span>— The definitive 12-chapter guide</span></li>
+      </ul>
+
+      <!-- ─────────────────────────────────────────────────────
+           WEB UI
+      ───────────────────────────────────────────────────── -->
+      <h2 id="web-ui">Run the Web UI</h2>
+      <p>The frontend requires Node.js 22 and the FastAPI backend already running.</p>
+
+      <div class="step-box">
+        <div class="step-label">Step 1</div>
+        <div class="step-title">Install Node.js 22.15.1</div>
+        <p>Use nvm (recommended) or download from nodejs.org.</p>
+      </div>
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code>nvm install 22.15.1
+nvm use 22.15.1
+node --version   <span style="color:#5c6370"># v22.15.1</span></code></pre>
+      </div>
+
+      <div class="step-box">
+        <div class="step-label">Step 2</div>
+        <div class="step-title">Start the FastAPI Backend</div>
+        <p>In one terminal, from the project root:</p>
+      </div>
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code>source .venv/bin/activate
+uvicorn docpipe.api.main:app --host 0.0.0.0 --port 8080</code></pre>
+      </div>
+      <div class="admon warning">
+        <div class="admon-label">Warning</div>
+        <p>Do <strong>not</strong> use <code>python src/docpipe/api/main.py</code> when running the UI in dev mode —
+           it starts a BFF sidecar on port 3001 that conflicts with <code>npm run dev</code>.</p>
+      </div>
+
+      <div class="step-box">
+        <div class="step-label">Step 3</div>
+        <div class="step-title">Start the UI</div>
+        <p>In a second terminal, from the project root:</p>
+      </div>
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code>cd frontend
+npm install          <span style="color:#5c6370"># once</span>
+cp .env.example .env <span style="color:#5c6370"># once</span>
+npm run dev</code></pre>
+      </div>
+      <p>Open <strong><a href="http://localhost:3000/ui/" target="_blank" rel="noopener">http://localhost:3000/ui/</a></strong></p>
+
+      <!-- ─────────────────────────────────────────────────────
+           TROUBLESHOOTING
+      ───────────────────────────────────────────────────── -->
+      <h2 id="troubleshooting">Troubleshooting Quick Fixes</h2>
+
+      <div class="trouble-item">
+        <div class="trouble-q">Setup script failed — Python 3.12 not found</div>
+        <div class="trouble-a">
+          <p>Install Python 3.12 first, then re-run the setup script.</p>
+          <div class="code-wrap"><pre><code>./scripts/setup_docling_pipelines_environment.sh</code></pre></div>
+        </div>
+      </div>
+
+      <div class="trouble-item">
+        <div class="trouble-q">Ollama not responding</div>
+        <div class="trouble-a">
+          <div class="code-wrap">
+            <button class="copy-btn" data-copy>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Copy
+            </button>
+<pre><code>ollama serve &amp;
+sleep 5
+curl http://localhost:11434/api/tags</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="trouble-item">
+        <div class="trouble-q">OpenSearch not responding</div>
+        <div class="trouble-a">
+          <div class="code-wrap">
+            <button class="copy-btn" data-copy>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Copy
+            </button>
+<pre><code>podman-compose -f docker/docker-compose.opensearch.yml up -d
+sleep 30
+curl -u admin:MyStrongPass123! http://localhost:9200</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="trouble-item">
+        <div class="trouble-q">ModuleNotFoundError / import errors</div>
+        <div class="trouble-a">
+          <div class="code-wrap">
+            <button class="copy-btn" data-copy>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Copy
+            </button>
+<pre><code>export PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
+pwd  <span style="color:#5c6370"># Should end with /docling-pipelines</span></code></pre>
+          </div>
+        </div>
+      </div>
+
+      <div class="trouble-item">
+        <div class="trouble-q">Still having issues? Start fresh</div>
+        <div class="trouble-a">
+          <div class="code-wrap">
+            <button class="copy-btn" data-copy>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+              Copy
+            </button>
+<pre><code>podman-compose -f docker/docker-compose.opensearch.yml down
+pkill -f "ollama serve"
+rm .docpipe_setup_config docpipe_setup.log
+./scripts/setup_docling_pipelines_environment.sh</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────────────
+           QUICK REFERENCE
+      ───────────────────────────────────────────────────── -->
+      <h2 id="reference">Quick Reference Commands</h2>
+      <div class="code-wrap">
+        <button class="copy-btn" data-copy>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy
+        </button>
+<pre><code><span style="color:#5c6370"># Activate environment (from project root)</span>
+<span style="color:#61afef">export</span> PYTHONPATH="$(pwd)/src:${PYTHONPATH}"
+<span style="color:#61afef">source</span> .venv/bin/activate
+
+<span style="color:#5c6370"># Run a flow</span>
+docling-pipelines --flow-file path/to/flow.json
+
+<span style="color:#5c6370"># List operators (summary)</span>
+docling-pipelines --list-operators
+
+<span style="color:#5c6370"># List operators (verbose)</span>
+docling-pipelines --list-operators --verbose
+
+<span style="color:#5c6370"># Check Ollama</span>
+curl http://localhost:11434/api/tags
+
+<span style="color:#5c6370"># Check OpenSearch</span>
+curl -u admin:MyStrongPass123! http://localhost:9200
+
+<span style="color:#5c6370"># Stop services</span>
+podman-compose -f docker/docker-compose.opensearch.yml down
+pkill -f "ollama serve"</code></pre>
+      </div>
+
+    </main><!-- /.main -->
+
+    <!-- ── Right TOC ── -->
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#prerequisites">Prerequisites</a>
+      <a href="#setup">Automated Setup</a>
+      <a href="#first-pipeline">First Pipeline</a>
+      <a href="#what-happened">What Happened</a>
+      <a href="#whats-next">What's Next</a>
+      <a href="#web-ui">Web UI</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#reference">Quick Reference</a>
+    </aside>
+
+  </div><!-- /.body -->
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="docs/index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div><!-- /.shell -->
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── Theme toggle (shared with docs/index.html via same localStorage key) ── */
+  var html = document.getElementById('html-root');
+  var btn  = document.getElementById('theme-btn');
+  var KEY  = 'dp-theme';
+
+  function applyTheme(t) {
+    if (t === 'light') html.classList.add('light');
+    else               html.classList.remove('light');
+    try { localStorage.setItem(KEY, t); } catch (e) {}
+  }
+
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) {}
+  if (saved) {
+    applyTheme(saved);
+  } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+    applyTheme('light');
+  }
+
+  btn.addEventListener('click', function () {
+    applyTheme(html.classList.contains('light') ? 'dark' : 'light');
+  });
+
+  /* ── Right TOC scroll spy ── */
+  var sections = document.querySelectorAll('h2[id]');
+  var tocLinks = document.querySelectorAll('.toc a');
+
+  if (sections.length && tocLinks.length) {
+    var obs = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) {
+          var id = e.target.id;
+          tocLinks.forEach(function (a) {
+            a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+          });
+        }
+      });
+    }, { rootMargin: '-60px 0px -70% 0px' });
+    sections.forEach(function (s) { obs.observe(s); });
+  }
+
+  /* ── Nav group toggles ── */
+  document.querySelectorAll('.nav-group-toggle').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var g = btn.closest('.nav-group');
+      if (g) g.classList.toggle('open');
+    });
+  });
+
+  /* ── Copy buttons ── */
+  document.querySelectorAll('.copy-btn[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var pre = btn.closest('.code-wrap').querySelector('pre');
+      if (!pre) return;
+      /* Strip HTML tags to get plain text */
+      var text = pre.innerText || pre.textContent;
+      navigator.clipboard.writeText(text).then(function () {
+        btn.classList.add('copied');
+        btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> Copied!';
+        setTimeout(function () {
+          btn.classList.remove('copied');
+          btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+        }, 2000);
+      });
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

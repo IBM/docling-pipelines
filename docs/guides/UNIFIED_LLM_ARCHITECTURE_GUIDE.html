@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Unified LLM Architecture — Docling Pipelines</title>
+  <meta name="description" content="Unified LLM Architecture — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter active" href="UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Unified LLM Architecture</span>
+      </nav>
+      <!-- sonar.exclusions=**/*.md -->
+<h1>Unified LLM Architecture</h1>
+<p>This document describes the current LLM adapter architecture used across all operators in docpipe.</p>
+<hr />
+<h1>Overview</h1>
+<p>All LLM integrations in Docling Pipelines share a common set of provider adapters, ports, and a single factory.<br />
+The goals are:</p>
+<ul>
+<li>Standardize all LLM integrations across operators</li>
+<li>Eliminate duplicated provider-specific logic</li>
+<li>Reuse common interfaces and factories</li>
+<li>Support multiple providers consistently</li>
+<li>Simplify future provider onboarding</li>
+</ul>
+<hr />
+<h1>Core Architecture</h1>
+<h2 id="two-patterns">Two Patterns</h2>
+<p>Most operators follow the <strong>direct port</strong> pattern. Entity extraction is the one exception and uses an<br />
+<strong>operator-specific adapter layer</strong> on top of the shared infrastructure — see<br />
+<a href="#2-entity-extraction-operator">Section 2: Entity Extraction</a> for the rationale.</p>
+<h3 id="pattern-a-direct-port-classification-piihap-summarization-embeddings">Pattern A — Direct Port (Classification, PII/HAP, Summarization, Embeddings)</h3>
+<pre><code class="language-text">Operator
+   ↓
+Service Layer (business logic, optional for simple operators)
+   ↓ calls
+LLMAdapterFactory
+   ↓ returns
+Common Port Interface  (LLMInferencePort / LLMEmbeddingPort / TextDetectionPort)
+   ↑ implemented by
+Consolidated Provider Adapters (WatsonXAdapter, LiteLLMAdapter)
+</code></pre>
+<p><code>provider_config</code> from the flow JSON is passed <strong>directly and unchanged</strong> to <code>LLMAdapterFactory</code>.<br />
+It only ever contains connection-level fields (<code>api_key</code>, <code>api_base</code>, <code>url</code>, <code>container_kind</code>, etc.).</p>
+<h3 id="pattern-b-operator-specific-adapter-layer-entity-extraction-only">Pattern B — Operator-Specific Adapter Layer (Entity Extraction only)</h3>
+<pre><code class="language-text">ExtractOperator
+   ↓
+EntityExtractionAdapterFactory  (operator-specific factory)
+   ↓ creates via registry
+LiteLLMEntityAdapter / WatsonxEntityAdapter  (thin registered subclasses)
+   ↓ extends
+LLMEntityAdapter  (shared base: parallelism, schema building, response normalisation)
+   ↓ calls
+LLMAdapterFactory.create_inference_adapter()
+   ↓ returns
+LLMInferencePort  (LiteLLMAdapter or WatsonXAdapter)
+</code></pre>
+<p>This extra layer exists because entity extraction's <code>transform()</code> contract operates on a full<br />
+<code>pa.Table</code> with per-document parallelism — it cannot be expressed as a plain <code>chat()</code> call.<br />
+See <a href="#2-entity-extraction-operator">Section 2</a> for full details.</p>
+<hr />
+<h1>Key Decisions</h1>
+<h2 id="1-ollama-via-litellm">1. Ollama via LiteLLM</h2>
+<p>Ollama is accessed through LiteLLM using the OpenAI-compatible API:</p>
+<pre><code class="language-yaml">api_base: http://localhost:11434/v1
+model_id: openai/&lt;model_name&gt;
+</code></pre>
+<h3 id="benefits">Benefits</h3>
+<ul>
+<li>Removes duplicate Ollama implementations</li>
+<li>Reuses LiteLLM infrastructure</li>
+<li>Consistent provider handling</li>
+<li>Easier maintenance</li>
+</ul>
+<hr />
+<h2 id="2-common-ports">2. Common Ports</h2>
+<p>Three shared interfaces cover all LLM capabilities:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Port</th>
+<th>Purpose</th>
+<th>Used by</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LLMInferencePort</code></td>
+<td>Chat/generation APIs</td>
+<td>Classification, Entity Extraction, Summarization, PII/HAP (LLM mode)</td>
+</tr>
+<tr>
+<td><code>LLMEmbeddingPort</code></td>
+<td>Embedding generation</td>
+<td>Embeddings Operator</td>
+</tr>
+<tr>
+<td><code>TextDetectionPort</code></td>
+<td>Specialized detection APIs</td>
+<td>PII/HAP (WatsonX mode)</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="3-unified-factory">3. Unified Factory</h2>
+<p>A single factory handles all adapter creation:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Factory</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LLMAdapterFactory</code></td>
+<td>Inference, Embeddings, and Text Detection APIs</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h1>Common Infrastructure (Foundation Layer)</h1>
+<h2 id="port-interfaces">Port Interfaces</h2>
+<h3 id="1-llm-inference-port">1. LLM Inference Port</h3>
+<p><strong>File</strong></p>
+<pre><code class="language-text">src/docpipe/core/ports/llm_inference_port.py
+</code></pre>
+<p><strong>Purpose</strong>: Common interface for <code>chat()</code> and <code>generate()</code> calls.</p>
+<p><strong>Used by</strong>: Classification, Entity Extraction, Summarization, PII/HAP (LLM mode)</p>
+<hr />
+<h3 id="2-llm-embedding-port">2. LLM Embedding Port</h3>
+<p><strong>File</strong></p>
+<pre><code class="language-text">src/docpipe/core/ports/llm_embedding_port.py
+</code></pre>
+<p><strong>Purpose</strong>: Common interface for <code>generate_embeddings()</code>, <code>generate_embeddings_batch()</code>, <code>get_embedding_dimension()</code>.</p>
+<p><strong>Used by</strong>: Embeddings Operator</p>
+<hr />
+<h3 id="3-text-detection-port">3. Text Detection Port</h3>
+<p><strong>File</strong></p>
+<pre><code class="language-text">src/docpipe/core/ports/text_detection_port.py
+</code></pre>
+<p><strong>Purpose</strong>: Specialized interface for PII/HAP detection via WatsonX detection APIs.</p>
+<p><strong>Used by</strong>: PII/HAP Operator (WatsonX path only)</p>
+<hr />
+<h1>Provider Adapters (Consolidated Architecture)</h1>
+<p>Each provider has a <strong>single consolidated adapter</strong> that implements one or more port interfaces.</p>
+<hr />
+<h2 id="watsonx-adapter">WatsonX Adapter</h2>
+<p><strong>File</strong></p>
+<pre><code class="language-text">src/docpipe/core/adapters/watsonx/watsonx_adapter.py
+</code></pre>
+<h3 id="implements-three-ports">Implements Three Ports</h3>
+<pre><code class="language-text">LLMInferencePort      (chat, generate)
+LLMEmbeddingPort      (generate_embeddings, generate_embeddings_batch, get_embedding_dimension)
+TextDetectionPort     (detect, detect_entities, detect_entities_batch)
+</code></pre>
+<h3 id="key-features">Key Features</h3>
+<ul>
+<li><strong>Single adapter</strong> for all WatsonX capabilities</li>
+<li><strong>Model override</strong>: All methods accept optional <code>model_name</code> parameter</li>
+<li><strong>Flexible response format</strong>: <code>response_format</code> passed as method parameter, not in <code>__init__</code></li>
+<li><strong>Specialized detection</strong>: Uses WatsonX <code>/ml/v1/text/detection</code> API for PII/HAP</li>
+</ul>
+<h3 id="usage-example">Usage Example</h3>
+<pre><code class="language-python">from docpipe.core.adapters import WatsonXAdapter
+
+adapter = WatsonXAdapter(
+    api_key=&quot;&lt;your-watsonx-api-key&gt;&quot;,  # pragma: allowlist secret
+    container_id=&quot;&lt;your-project-id&gt;&quot;,
+    api_base=&quot;https://us-south.ml.cloud.ibm.com&quot;,
+    model_name=&quot;ibm/granite-13b-chat-v2&quot;
+)
+
+# Inference with JSON response
+response = adapter.chat(
+    messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Classify this&quot;}],
+    response_format={&quot;type&quot;: &quot;json_object&quot;}
+)
+
+# Embeddings (model override)
+embeddings = adapter.generate_embeddings(
+    model_name=&quot;ibm/slate-125m-english-rtrvr&quot;,
+    text=&quot;Sample text&quot;
+)
+
+# Text detection
+result = adapter.detect(text=&quot;Check for PII&quot;)
+</code></pre>
+<hr />
+<h2 id="litellm-adapter">LiteLLM Adapter</h2>
+<p><strong>File</strong></p>
+<pre><code class="language-text">src/docpipe/core/adapters/litellm/litellm_adapter.py
+</code></pre>
+<h3 id="implements-two-ports">Implements Two Ports</h3>
+<pre><code class="language-text">LLMInferencePort      (chat, generate)
+LLMEmbeddingPort      (generate_embeddings, generate_embeddings_batch, get_embedding_dimension)
+</code></pre>
+<h3 id="supports-100-providers">Supports 100+ Providers</h3>
+<ul>
+<li><strong>OpenAI</strong>: <code>gpt-4</code>, <code>text-embedding-3-small</code></li>
+<li><strong>Anthropic</strong>: <code>claude-3-opus-20240229</code></li>
+<li><strong>Ollama</strong>: <code>openai/llama2</code>, <code>openai/nomic-embed-text</code> (via OpenAI-compatible API)</li>
+<li><strong>HuggingFace</strong>: <code>huggingface/sentence-transformers/all-MiniLM-L6-v2</code></li>
+<li><strong>And 90+ more providers</strong></li>
+</ul>
+<h3 id="key-features">Key Features</h3>
+<ul>
+<li><strong>Single adapter</strong> for all LiteLLM capabilities</li>
+<li><strong>Model override</strong>: All methods accept optional <code>model_name</code> parameter</li>
+<li><strong>Flexible response format</strong>: <code>response_format</code> passed as method parameter (not hardcoded)</li>
+<li><strong>No default JSON format</strong>: Callers explicitly specify when needed</li>
+</ul>
+<h3 id="usage-example">Usage Example</h3>
+<pre><code class="language-python">from docpipe.core.adapters import LiteLLMAdapter
+
+adapter = LiteLLMAdapter(
+    model_name=&quot;openai/llama2&quot;,
+    api_key=&quot;ollama&quot;,  # pragma: allowlist secret
+    api_base=&quot;http://localhost:11434/v1&quot;
+)
+
+response = adapter.chat(
+    messages=[{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Classify this&quot;}],
+    response_format={&quot;type&quot;: &quot;json_object&quot;}
+)
+
+embeddings = adapter.generate_embeddings(
+    model_name=&quot;openai/nomic-embed-text&quot;,
+    text=&quot;Sample text&quot;
+)
+</code></pre>
+<hr />
+<h1>LLM Adapter Factory</h1>
+<p><strong>File</strong></p>
+<pre><code class="language-text">src/docpipe/core/adapters/llm_adapter_factory.py
+</code></pre>
+<p>Single unified factory for creating all types of LLM adapters across all providers.</p>
+<h3 id="methods">Methods</h3>
+<pre><code class="language-python"># Create inference adapter (LLMInferencePort)
+create_inference_adapter(provider, model_id, provider_config)
+
+# Create embedding adapter (LLMEmbeddingPort)
+create_embedding_adapter(provider, model_id, provider_config)
+
+# Create text detection adapter (TextDetectionPort)
+create_text_detection_adapter(provider, model_id, provider_config)
+
+# Query supported providers for a capability
+get_supported_providers(capability=&quot;inference&quot;)
+</code></pre>
+<h3 id="provider-support-matrix">Provider Support Matrix</h3>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Inference</th>
+<th>Embeddings</th>
+<th>Text Detection</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>watsonx</code></td>
+<td>✅</td>
+<td>✅</td>
+<td>✅</td>
+<td>IBM watsonx.ai — single consolidated adapter</td>
+</tr>
+<tr>
+<td><code>litellm</code></td>
+<td>✅</td>
+<td>✅</td>
+<td>❌</td>
+<td>100+ providers (Ollama, OpenAI, Anthropic, etc.)</td>
+</tr>
+<tr>
+<td><code>huggingface</code></td>
+<td>❌</td>
+<td>✅</td>
+<td>❌</td>
+<td>Local or API-based HuggingFace models</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="usage-examples">Usage Examples</h3>
+<pre><code class="language-python">from docpipe.core.adapters import LLMAdapterFactory
+
+# WatsonX inference
+adapter = LLMAdapterFactory.create_inference_adapter(
+    provider=&quot;watsonx&quot;,
+    model_id=&quot;ibm/granite-13b-chat-v2&quot;,
+    provider_config={
+        &quot;api_key&quot;: &quot;&lt;your-watsonx-api-key&gt;&quot;,  # pragma: allowlist secret
+        &quot;url&quot;: &quot;https://us-south.ml.cloud.ibm.com&quot;,
+        &quot;container_id&quot;: &quot;&lt;your-project-id&gt;&quot;,
+        &quot;container_kind&quot;: &quot;project&quot;
+    }
+)
+
+# LiteLLM embedding (Ollama)
+adapter = LLMAdapterFactory.create_embedding_adapter(
+    provider=&quot;litellm&quot;,
+    model_id=&quot;openai/nomic-embed-text&quot;,
+    provider_config={
+        &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+        &quot;api_key&quot;: &quot;ollama&quot;  # pragma: allowlist secret
+    }
+)
+
+# HuggingFace embedding (local)
+adapter = LLMAdapterFactory.create_embedding_adapter(
+    provider=&quot;huggingface&quot;,
+    model_id=&quot;sentence-transformers/all-MiniLM-L6-v2&quot;,
+    provider_config={&quot;use_local&quot;: True, &quot;device&quot;: &quot;cpu&quot;}
+)
+
+# WatsonX text detection
+adapter = LLMAdapterFactory.create_text_detection_adapter(
+    provider=&quot;watsonx&quot;,
+    model_id=&quot;ibm/granite-13b-chat-v2&quot;,
+    provider_config={
+        &quot;api_key&quot;: &quot;&lt;your-watsonx-api-key&gt;&quot;,  # pragma: allowlist secret
+        &quot;url&quot;: &quot;https://us-south.ml.cloud.ibm.com&quot;,
+        &quot;container_id&quot;: &quot;&lt;your-project-id&gt;&quot;,
+        &quot;container_kind&quot;: &quot;project&quot;
+    }
+)
+</code></pre>
+<h3 id="litellm-provider-examples">LiteLLM Provider Examples</h3>
+<p>LiteLLM provides unified access to multiple providers via model ID prefixes:</p>
+<ul>
+<li><strong>Ollama</strong>: <code>openai/&lt;model&gt;</code> with <code>api_base: http://localhost:11434/v1</code></li>
+<li><strong>HuggingFace API</strong>: <code>huggingface/&lt;model&gt;</code> with HuggingFace API key</li>
+<li><strong>OpenAI</strong>: <code>gpt-4</code>, <code>text-embedding-3-small</code>, etc.</li>
+<li><strong>Anthropic</strong>: <code>claude-3-opus-20240229</code>, etc.</li>
+<li><strong>And 90+ more providers</strong></li>
+</ul>
+<hr />
+<h1><code>provider_config</code> Reference</h1>
+<p><code>provider_config</code> fields are <strong>scoped by operator</strong>, not global. Operators that pass <code>provider_config</code><br />
+directly to <code>LLMAdapterFactory</code> (classification, PII/HAP, summarization, embeddings) only need<br />
+connection-level fields. Entity extraction is the exception — see the note below.</p>
+<h2 id="shared-config-models-connection-level-fields">Shared config models (connection-level fields)</h2>
+<p>Used by: <strong>Classification</strong>, <strong>PII/HAP</strong>, <strong>Summarization</strong>, <strong>Embeddings</strong></p>
+<p>These operators pass <code>provider_config</code> unchanged to <code>LLMAdapterFactory</code>.<br />
+The Pydantic models live in <code>src/docpipe/core/operators/shared/llm_provider_config.py</code>.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Model</th>
+<th>Key fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>litellm</code></td>
+<td><code>LLMProviderConfig</code></td>
+<td><code>model_id</code>, <code>api_base</code>, <code>api_key</code></td>
+</tr>
+<tr>
+<td><code>watsonx</code></td>
+<td><code>WatsonxProviderConfig</code></td>
+<td><code>model_id</code>, <code>url</code>, <code>api_key</code>, <code>container_kind</code>, <code>container_id</code></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="entity-extraction-config-models">Entity extraction config models</h2>
+<p>Used by: <strong>ExtractOperator</strong> (<code>entity_extraction</code> block only)</p>
+<p>Entity extraction puts <code>temperature</code> and <code>max_tokens</code> <strong>inside</strong> <code>provider_config</code> rather than as<br />
+separate operator-level fields. The Pydantic models live in<br />
+<code>src/docpipe/core/operators/extract/adapters/outbound/entity_extraction/llm_entity_config.py</code>.</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Model</th>
+<th>Key fields</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>litellm</code></td>
+<td><code>LLMEntityConfig</code></td>
+<td><code>model_id</code>, <code>api_base</code>, <code>api_key</code>, <code>temperature</code>, <code>max_tokens</code></td>
+</tr>
+<tr>
+<td><code>watsonx</code></td>
+<td><code>WatsonxEntityConfig</code></td>
+<td>above + <code>url</code>, <code>container_kind</code>, <code>project_id</code></td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h1>Operator Reference</h1>
+<hr />
+<h1>1. Classification Operator</h1>
+<p><strong>File</strong></p>
+<pre><code class="language-text">src/docpipe/core/operators/quality/classification/document_classifier.py
+</code></pre>
+<h2 id="architecture">Architecture</h2>
+<pre><code class="language-text">DocumentClassifierOperator
+    ↓
+ClassificationService  (src/docpipe/core/operators/quality/classification/classification_service.py)
+    ↓ calls LLMAdapterFactory.create_inference_adapter()
+    ↓ holds
+LLMInferencePort
+    ↑ implemented by
+WatsonXAdapter / LiteLLMAdapter
+</code></pre>
+<h2 id="classificationservice">ClassificationService</h2>
+<p><strong>File</strong></p>
+<pre><code class="language-text">src/docpipe/core/operators/quality/classification/classification_service.py
+</code></pre>
+<p><strong>Responsibilities</strong>: prompt building, LLM call, response parsing, validation.</p>
+<p><strong>Actual constructor signature</strong>:</p>
+<pre><code class="language-python">ClassificationService(
+    *,
+    model_id: str,
+    provider_name: str,
+    provider_config: dict[str, Any] | None = None,
+    temperature: float = 0.0,
+    max_tokens: int = 500,
+)
+</code></pre>
+<p><code>provider_config</code> is passed directly to <code>LLMAdapterFactory</code>. <code>temperature</code> and <code>max_tokens</code><br />
+are separate parameters, not fields inside <code>provider_config</code>.</p>
+<h2 id="flow-json-example">Flow JSON example</h2>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;document_classifier&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;litellm&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;openai/granite4:latest&quot;,
+      &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+      &quot;api_key&quot;: &quot;${OLLAMA_API_KEY}&quot;
+    },
+    &quot;confidence_threshold&quot;: 7.0,
+    &quot;doc_column&quot;: &quot;content&quot;,
+    &quot;output_column&quot;: &quot;document_type&quot;
+  }
+}
+</code></pre>
+<hr />
+<h1>2. Entity Extraction Operator</h1>
+<p><strong>File</strong></p>
+<pre><code class="language-text">src/docpipe/core/operators/extract/extract_operator.py
+</code></pre>
+<h2 id="why-entity-extraction-has-its-own-adapter-layer">Why entity extraction has its own adapter layer</h2>
+<p>Entity extraction cannot follow Pattern A (direct port) for two reasons:</p>
+<ol>
+<li>
+<p><strong>Unit of work</strong>: The <code>EntityExtractionPort.transform()</code> contract takes a full <code>pa.Table</code> and<br />
+   returns <code>tuple[list[pa.Table], dict]</code>. This is the operator contract — it involves per-document<br />
+   parallelism, <code>expand_extracted_data</code> flag handling, and <code>output_column</code> routing. None of that<br />
+   can be expressed as a plain <code>LLMInferencePort.chat()</code> call.</p>
+</li>
+<li>
+<p><strong>Per-provider config schemas</strong>: The <code>EntityExtractionAdapterFactory</code> advertises a different<br />
+   Pydantic config schema per provider for UI/metadata generation (<code>get_metadata()</code>). Each<br />
+   registered adapter class owns its <code>get_config_schema()</code> method. A single adapter class cannot<br />
+   own two different schemas simultaneously.</p>
+</li>
+</ol>
+<h2 id="architecture">Architecture</h2>
+<pre><code class="language-text">ExtractOperator
+    ↓
+EntityExtractionAdapterFactory
+    ↓ routes through registry (@register_entity_extraction_adapter)
+LiteLLMEntityAdapter / WatsonxEntityAdapter  (thin subclasses — own ADAPTER_NAME + get_config_schema())
+    ↓ extends
+LLMEntityAdapter  (shared base — parallelism, schema building, JSON normalisation, truncation)
+    ↓ calls
+LLMAdapterFactory.create_inference_adapter()
+    ↓ returns
+LLMInferencePort  (LiteLLMAdapter or WatsonXAdapter)
+</code></pre>
+<p>For the <code>docling</code> mode, <code>DoclingEntityAdapter</code> is registered directly without going through<br />
+<code>LLMAdapterFactory</code> — it uses Docling's own template extraction pipeline.</p>
+<h2 id="adding-a-new-llm-based-entity-extraction-provider">Adding a new LLM-based entity extraction provider</h2>
+<ol>
+<li>Create a subclass of <code>LLMEntityAdapter</code> with <code>ADAPTER_NAME</code>, <code>get_config_schema()</code>, and the<br />
+<code>@register_entity_extraction_adapter</code> decorator.</li>
+<li>Create a Pydantic config model for the new provider's <code>provider_config</code> fields.</li>
+<li>Import the subclass in <code>entity_extraction/__init__.py</code> so the decorator fires on package import.</li>
+<li>Ensure the new provider string is also in <code>LLMAdapterFactory.INFERENCE_PROVIDERS</code> — the<br />
+   two registries are independent and both must know about the provider.</li>
+</ol>
+<h2 id="provider-config-convention-note"><code>provider_config</code> convention note</h2>
+<p>Entity extraction puts <code>temperature</code> and <code>max_tokens</code> <strong>inside</strong> <code>provider_config</code>. This differs<br />
+from classification and summarization, where these are top-level operator config fields. This is<br />
+a historical inconsistency, not an intentional design difference.</p>
+<h2 id="flow-json-example">Flow JSON example</h2>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;extract_operator&quot;,
+  &quot;config&quot;: {
+    &quot;entity_extraction&quot;: {
+      &quot;provider&quot;: &quot;litellm&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;openai/granite4:latest&quot;,
+        &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+        &quot;api_key&quot;: &quot;${OLLAMA_API_KEY}&quot;,
+        &quot;temperature&quot;: 0.0,
+        &quot;max_tokens&quot;: 2000
+      },
+      &quot;max_doc_chars&quot;: 8000,
+      &quot;expand_extracted_data&quot;: false
+    }
+  }
+}
+</code></pre>
+<hr />
+<h1>3. PII/HAP Operator</h1>
+<p><strong>File</strong></p>
+<pre><code class="language-text">src/docpipe/core/operators/quality/pii_and_hap/pii_and_hap_annotator.py
+</code></pre>
+<h2 id="architecture-decorator-based-adapter-registry">Architecture — Decorator-Based Adapter Registry</h2>
+<p>Each provider adapter self-registers with <code>PIIAndHAPDetectionFactory</code> via<br />
+<code>@register_pii_and_hap_detection_adapter</code> and encapsulates its own detection path behind<br />
+the unified <code>PIIAndHAPDetectionPort</code> interface:</p>
+<pre><code class="language-text">PIIAndHAPAnnotator._initialize_pii_hap_service()
+    ↓
+PIIAndHAPDetectionFactory.create(provider)
+    ↓
+WatsonxPIIAndHAPAdapter  |  LiteLLMPIIAndHAPAdapter
+(each implements PIIAndHAPDetectionPort.detect() + validate())
+    ↓ injected
+PIIHAPService (thin wrapper — no if/elif, no factory calls)
+</code></pre>
+<p>The two adapters use different underlying ports because of provider API differences:<br />
+- <strong><code>WatsonxPIIAndHAPAdapter</code></strong>: WatsonX exposes a specialized <code>/ml/v1/text/detection</code> API<br />
+  (not a standard chat API), so it wraps <code>TextDetectionPort</code>.<br />
+- <strong><code>LiteLLMPIIAndHAPAdapter</code></strong>: LiteLLM uses standard prompt-based inference, so it wraps<br />
+<code>LLMInferencePort</code>.</p>
+<h2 id="piihapservice">PIIHAPService</h2>
+<p><strong>File</strong></p>
+<pre><code class="language-text">src/docpipe/core/operators/quality/pii_and_hap/services/pii_hap_service.py
+</code></pre>
+<p><strong>Actual constructor signature</strong>:</p>
+<pre><code class="language-python">PIIHAPService(*, adapter: PIIAndHAPDetectionPort)
+</code></pre>
+<p>Receives a pre-built <code>PIIAndHAPDetectionPort</code> instance via constructor injection. Calls<br />
+<code>adapter.validate()</code> at construction time (fail-fast) then delegates all detection to<br />
+<code>adapter.detect()</code>. Contains no provider branching.</p>
+<h2 id="flow-json-example">Flow JSON example</h2>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;pii_and_hap&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;watsonx&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;ibm/granite-13b-chat-v2&quot;,
+      &quot;url&quot;: &quot;https://us-south.ml.cloud.ibm.com&quot;,
+      &quot;api_key&quot;: &quot;${WATSONX_API_KEY}&quot;,
+      &quot;container_kind&quot;: &quot;project&quot;,
+      &quot;container_id&quot;: &quot;${WATSONX_CONTAINER_ID}&quot;
+    }
+  }
+}
+</code></pre>
+<hr />
+<h1>4. Embeddings Operator</h1>
+<p><strong>File</strong></p>
+<pre><code class="language-text">src/docpipe/core/operators/functional/embeddings/embeddings_operator.py
+</code></pre>
+<h2 id="architecture">Architecture</h2>
+<pre><code class="language-text">EmbeddingsOperator
+    ↓ calls LLMAdapterFactory.create_embedding_adapter()
+    ↓ holds
+LLMEmbeddingPort
+    ↑ implemented by
+WatsonXAdapter / LiteLLMAdapter / HuggingFaceAdapter
+</code></pre>
+<p>No service layer — the operator calls the port directly. This is appropriate because embeddings<br />
+generation has no business logic beyond calling <code>generate_embeddings_batch()</code>.</p>
+<h2 id="flow-json-example">Flow JSON example</h2>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;embeddings&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;litellm&quot;,
+    &quot;provider_config&quot;: {
+      &quot;model_id&quot;: &quot;openai/nomic-embed-text&quot;,
+      &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+      &quot;api_key&quot;: &quot;${OLLAMA_API_KEY}&quot;
+    }
+  }
+}
+</code></pre>
+<hr />
+<h1>5. Chunker / Summarization</h1>
+<p><strong>File</strong></p>
+<pre><code class="language-text">src/docpipe/core/operators/functional/chunker.py
+src/docpipe/core/operators/functional/summarization_service.py
+</code></pre>
+<h2 id="architecture">Architecture</h2>
+<pre><code class="language-text">ChunkerOperator
+    ↓ (when summarization is enabled)
+SummarizationService  (src/docpipe/core/operators/functional/summarization_service.py)
+    ↓ calls LLMAdapterFactory.create_inference_adapter()
+    ↓ holds
+LLMInferencePort
+    ↑ implemented by
+WatsonXAdapter / LiteLLMAdapter
+</code></pre>
+<p>Summarization is opt-in. When the <code>summarization</code> config block is absent, no LLM adapter is<br />
+created and the operator runs as a pure text chunker.</p>
+<h2 id="summarizationservice">SummarizationService</h2>
+<p><strong>Actual constructor signature</strong>:</p>
+<pre><code class="language-python">SummarizationService(
+    *,
+    llm_adapter: LLMInferencePort,
+    summary_sentences: int = 3,
+    summary_max_words: int = 100,
+    overlap_ratio: float = 0.1,
+    max_length: int = 8192,
+)
+</code></pre>
+<h2 id="flow-json-example">Flow JSON example</h2>
+<p>Summarization config lives inside the <code>summarization</code> sub-key, not at the operator root:</p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;chunker&quot;,
+  &quot;config&quot;: {
+    &quot;chunk_size&quot;: 512,
+    &quot;summarization&quot;: {
+      &quot;provider&quot;: &quot;litellm&quot;,
+      &quot;provider_config&quot;: {
+        &quot;model_id&quot;: &quot;openai/granite4:latest&quot;,
+        &quot;api_base&quot;: &quot;http://localhost:11434/v1&quot;,
+        &quot;api_key&quot;: &quot;${OLLAMA_API_KEY}&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<hr />
+<h1>Benefits of the Architecture</h1>
+<h2 id="reduced-duplication">Reduced Duplication</h2>
+<p>One consolidated adapter per provider instead of provider-specific adapters in every operator.</p>
+<h2 id="better-separation-of-concerns">Better Separation of Concerns</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Responsibility</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Operator</td>
+<td>Workflow orchestration</td>
+</tr>
+<tr>
+<td>Service</td>
+<td>Business logic (prompts, parsing, etc.)</td>
+</tr>
+<tr>
+<td>Adapter</td>
+<td>Provider protocol translation</td>
+</tr>
+<tr>
+<td>Port</td>
+<td>Interface contract</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="easier-testing">Easier Testing</h2>
+<ul>
+<li>Mock common ports (<code>LLMInferencePort</code>, <code>LLMEmbeddingPort</code>) to test services in isolation</li>
+<li>No need to mock HTTP calls in operator-level tests</li>
+</ul>
+<h2 id="provider-expansion">Provider Expansion</h2>
+<p>Adding a new provider for <strong>classification, PII/HAP, summarization, or embeddings</strong> requires:</p>
+<ol>
+<li>Implement the relevant port interface (<code>LLMInferencePort</code> or <code>LLMEmbeddingPort</code>)</li>
+<li>Register the new adapter in <code>LLMAdapterFactory</code></li>
+</ol>
+<p>No operator changes needed for these operators.</p>
+<p>Adding a new LLM-based provider for <strong>entity extraction</strong> additionally requires a thin subclass<br />
+in the entity extraction adapter package. See<br />
+<a href="#adding-a-new-llm-based-entity-extraction-provider">Section 2 — Adding a new LLM-based entity extraction provider</a>.</p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#two-patterns">Two Patterns</a>
+      <a href="#1-ollama-via-litellm">1. Ollama via LiteLLM</a>
+      <a href="#2-common-ports">2. Common Ports</a>
+      <a href="#3-unified-factory">3. Unified Factory</a>
+      <a href="#port-interfaces">Port Interfaces</a>
+      <a href="#watsonx-adapter">WatsonX Adapter</a>
+      <a href="#litellm-adapter">LiteLLM Adapter</a>
+      <a href="#shared-config-models-connection-level-fields">Shared config models (connection-level fields)</a>
+      <a href="#entity-extraction-config-models">Entity extraction config models</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#classificationservice">ClassificationService</a>
+      <a href="#flow-json-example">Flow JSON example</a>
+      <a href="#why-entity-extraction-has-its-own-adapter-layer">Why entity extraction has its own adapter layer</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#adding-a-new-llm-based-entity-extraction-provider">Adding a new LLM-based entity extraction provider</a>
+      <a href="#provider-config-convention-note">provider_config convention note</a>
+      <a href="#flow-json-example">Flow JSON example</a>
+      <a href="#architecture-decorator-based-adapter-registry">Architecture — Decorator-Based Adapter Registry</a>
+      <a href="#piihapservice">PIIHAPService</a>
+      <a href="#flow-json-example">Flow JSON example</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#flow-json-example">Flow JSON example</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#summarizationservice">SummarizationService</a>
+      <a href="#flow-json-example">Flow JSON example</a>
+      <a href="#reduced-duplication">Reduced Duplication</a>
+      <a href="#better-separation-of-concerns">Better Separation of Concerns</a>
+      <a href="#easier-testing">Easier Testing</a>
+      <a href="#provider-expansion">Provider Expansion</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

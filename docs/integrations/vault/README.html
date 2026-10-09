@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>HashiCorp Vault Integration — Docling Pipelines</title>
+  <meta name="description" content="HashiCorp Vault Integration — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter active" href="README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">HashiCorp Vault Integration</span>
+      </nav>
+      <h1>HashiCorp Vault Integration</h1>
+<p>HashiCorp Vault enables secure credential resolution for Docling Pipelines without storing sensitive credentials in flow JSON files, source control, or database storage.</p>
+<hr />
+
+<hr />
+<h2 id="overview">Overview</h2>
+<p>In standard flow execution, operators often require sensitive configuration parameters such as database passwords, API tokens, and cloud storage access keys. Hardcoding these credentials inside flow definitions presents security risks.</p>
+<p>The Vault integration replaces cleartext credentials in flow definitions with immutable <code>vault://</code> URIs. When a pipeline runs:<br />
+1. Flow JSON stores only reference pointers (e.g., <code>vault://hashicorp/docpipe/embeddings#api_key</code>).<br />
+2. Flow validation sanitizes and verifies reference formats without exposing or leaking credentials.<br />
+3. The orchestrator resolves references dynamically from Vault just prior to operator initialization in memory.<br />
+4. Resolved values remain strictly transient and are never written back to disk, database, or API response payloads.</p>
+<hr />
+<h2 id="architecture">Architecture</h2>
+<p>The following diagram illustrates the lifecycle of a <code>vault://</code> reference from authoring to operator execution:</p>
+<pre><code class="language-mermaid">graph TD
+    UI[Web UI Canvas / Flow JSON] --&gt;|vault:// URI| API[REST API / Storage]
+    API --&gt;|Authoring Flow intact| Val[Flow Validator]
+    Val --&gt;|Dry-run sanitization| Orch[Python Orchestrator]
+    Orch --&gt;|Resolve URIs| SecProv[SecretProvider / HashiCorpVault]
+    SecProv --&gt;|AppRole or Token Auth| Vault[(HashiCorp Vault)]
+    Vault --&gt;|Decrypted Secret| SecProv
+    SecProv --&gt;|In-memory Config| Op[Operator Instance]
+    Op --&gt;|Execute transform| Svc[External Service / DB]
+</code></pre>
+<h3 id="key-components">Key Components</h3>
+<ul>
+<li><strong><code>SecretProvider</code> / <code>HashiCorpVault</code></strong> (<code>src/docpipe/integrations/secrets/</code>): Interacts with Vault's KV v2 engine, handles authentication (Token or AppRole), auto-refreshes tokens, and auto-deserializes JSON strings into dictionaries.</li>
+<li><strong><code>VaultInitializer</code></strong> (<code>src/docpipe/integrations/secrets/vault_initializer.py</code>): Initializes configured secret providers on server and CLI startup.</li>
+<li><strong><code>FlowValidator</code></strong> (<code>src/docpipe/core/orchestration/flow_validator.py</code>): Sanitizes <code>vault://</code> placeholders during schema validation so schema type-check rules pass without network dependency on Vault.</li>
+<li><strong><code>PythonOperatorExecutor</code></strong> (<code>src/docpipe/core/orchestration/python/python_operator_executor.py</code>): Recursively walks operator configuration trees and replaces all <code>vault://</code> paths with resolved values before instantiating operator classes.</li>
+<li><strong><code>FlowMapper</code></strong> (<code>src/docpipe/api/dto/mappers/flow_mapper.py</code>): Preserves <code>vault://</code> strings unchanged in API responses so authoring workflows round-trip cleanly without masking them as <code>********</code>.</li>
+</ul>
+<hr />
+<h2 id="uri-format-and-patterns">URI Format and Patterns</h2>
+<h3 id="uri-syntax">URI syntax</h3>
+<p>Every Vault secret reference follows the standard format:</p>
+<pre><code>vault://&lt;provider&gt;/&lt;secret_path&gt;#&lt;field_key&gt;
+</code></pre>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Description</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>vault://</code></td>
+<td>Protocol scheme identifier</td>
+<td><code>vault://</code></td>
+</tr>
+<tr>
+<td><code>&lt;provider&gt;</code></td>
+<td>Registered provider name in config</td>
+<td><code>hashicorp</code></td>
+</tr>
+<tr>
+<td><code>&lt;secret_path&gt;</code></td>
+<td>Path to the secret in Vault KV v2 mount</td>
+<td><code>docpipe/s3</code> or <code>secret/data/docpipe/s3</code></td>
+</tr>
+<tr>
+<td><code>#&lt;field_key&gt;</code></td>
+<td>Specific key within the secret's data map</td>
+<td><code>#access_key</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="pattern-a-individual-field-references">Pattern A — individual field references</h3>
+<p>Use this pattern to store secrets as distinct key-value pairs in Vault. Recommended for granular access control and standard credential fields:</p>
+<p><strong>Vault Secret Data (<code>docpipe/s3</code>):</strong></p>
+<pre><code class="language-json">{
+  &quot;auth_token&quot;: &quot;placeholder-token-value&quot;
+}
+</code></pre>
+<p><strong>Flow Configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;embeddings&quot;,
+  &quot;name&quot;: &quot;embed&quot;,
+  &quot;config&quot;: {
+    &quot;provider&quot;: &quot;openai&quot;,
+    &quot;provider_config&quot;: {
+      &quot;api_key&quot;: &quot;vault://hashicorp/docpipe/openai#api_key&quot;  # pragma: allowlist secret
+    }
+  }
+}
+</code></pre>
+<h3 id="pattern-b-whole-credential-json-blobs">Pattern B — whole credential JSON blobs</h3>
+<p>For connectors requiring complex or multiline credentials (such as Google Cloud Service Account keys, complete cloud credential sets, or SharePoint configuration), store the whole credential JSON as a single field value in Vault.</p>
+<p>Docpipe automatically parses the resolved string into a dictionary if the target field expects an object or dictionary:</p>
+<p><strong>Vault Secret Data (<code>docpipe/s3_full</code>):</strong></p>
+<pre><code class="language-json">{
+  &quot;connection_creds&quot;: &quot;{\&quot;key_id\&quot;: \&quot;sample-id\&quot;, \&quot;region\&quot;: \&quot;us-east-1\&quot;}&quot;
+}
+</code></pre>
+<p><strong>Flow Configuration:</strong></p>
+<pre><code class="language-json">{
+  &quot;type&quot;: &quot;storage_output&quot;,
+  &quot;name&quot;: &quot;export_s3&quot;,
+  &quot;config&quot;: {
+    &quot;destination_type&quot;: &quot;s3&quot;,
+    &quot;destination_config&quot;: {
+      &quot;bucket_name&quot;: &quot;processed-output&quot;,
+      &quot;credentials&quot;: &quot;vault://hashicorp/docpipe/s3_full#connection_creds&quot;
+    }
+  }
+}
+</code></pre>
+<hr />
+<h2 id="supported-operators-and-fields">Supported Operators and Fields</h2>
+<p>All sensitive credential fields across docpipe operators support <code>vault://</code> URIs:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Operator</th>
+<th>Parameter Path</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong><code>ingest_source</code></strong></td>
+<td><code>connection_params.access_key</code></td>
+<td>S3 / Cloud access key</td>
+</tr>
+<tr>
+<td></td>
+<td><code>connection_params.secret_key</code></td>
+<td>S3 / Cloud secret key</td>
+</tr>
+<tr>
+<td></td>
+<td><code>connection_params.credentials</code></td>
+<td>JSON credential string or dictionary reference</td>
+</tr>
+<tr>
+<td></td>
+<td><code>connection_params.client_secret</code></td>
+<td>SharePoint / OAuth client secret</td>
+</tr>
+<tr>
+<td><strong><code>embeddings</code></strong></td>
+<td><code>provider_config.api_key</code></td>
+<td>LLM API key (OpenAI, WatsonX, Ollama)</td>
+</tr>
+<tr>
+<td><strong><code>extract_operator</code></strong></td>
+<td><code>llm_config.api_key</code></td>
+<td>Extraction LLM provider API key</td>
+</tr>
+<tr>
+<td></td>
+<td><code>entity_extraction.api_key</code></td>
+<td>Named entity recognition LLM API key</td>
+</tr>
+<tr>
+<td><strong><code>document_classifier</code></strong></td>
+<td><code>provider_config.api_key</code></td>
+<td>Classification LLM provider API key</td>
+</tr>
+<tr>
+<td><strong><code>vectordb</code></strong></td>
+<td><code>provider_config.username</code></td>
+<td>OpenSearch / Milvus username</td>
+</tr>
+<tr>
+<td></td>
+<td><code>provider_config.password</code></td>
+<td>OpenSearch / Milvus password</td>
+</tr>
+<tr>
+<td></td>
+<td><code>provider_config.api_key</code></td>
+<td>Vector DB API key / token</td>
+</tr>
+<tr>
+<td><strong><code>storage_output</code></strong></td>
+<td><code>destination_config.credentials</code></td>
+<td>Full credential dictionary or string</td>
+</tr>
+<tr>
+<td></td>
+<td><code>destination_config.provider_config.access_key</code></td>
+<td>Destination S3 access key</td>
+</tr>
+<tr>
+<td></td>
+<td><code>destination_config.provider_config.secret_key</code></td>
+<td>Destination S3 secret key</td>
+</tr>
+<tr>
+<td></td>
+<td><code>destination_config.provider_config.client_secret</code></td>
+<td>Destination SharePoint secret</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="configuration">Configuration</h2>
+<h3 id="configuration-file-docling-pipelines-configyaml">Configuration file (<code>docling-pipelines-config.yaml</code>)</h3>
+<p>Enable Vault in <code>docling-pipelines-config.yaml</code> under the <code>secrets</code> block:</p>
+<pre><code class="language-yaml">secrets:
+  vault:
+    enabled: true
+    provider: hashicorp
+    url: &quot;http://127.0.0.1:8200&quot;
+    mount_point: &quot;secret&quot;
+    auth_method: &quot;approle&quot;      # &quot;approle&quot; (production) or &quot;token&quot; (dev/testing)
+    role_id: &quot;&quot;                 # set via VAULT_ROLE_ID environment variable
+    secret_id: &quot;&quot;               # set via VAULT_SECRET_ID environment variable
+    token: &quot;&quot;                   # set via VAULT_TOKEN environment variable (if auth_method is token)
+    timeout: 30
+</code></pre>
+<h3 id="authentication-methods">Authentication methods</h3>
+<h4>1. AppRole Authentication (Production Recommended)</h4>
+<p>AppRole authentication is intended for automated services. Docpipe uses a <code>role_id</code> and <code>secret_id</code> to authenticate against Vault, obtain a transient client token, and automatically manage token renewal.</p>
+<ol>
+<li>Enable AppRole in Vault:<br />
+<code>bash
+   vault auth enable approle</code></li>
+<li>Create a policy (<code>docpipe-read-policy.hcl</code>):<br />
+<code>hcl
+   path "secret/data/docpipe/*" {
+     capabilities = ["read"]
+   }</code><br />
+<code>bash
+   vault policy write docpipe-read docpipe-read-policy.hcl</code></li>
+<li>Create AppRole binding:<br />
+<code>bash
+   vault write auth/approle/role/docpipe-role \
+     secret_id_ttl=0 \
+     token_num_uses=0 \
+     token_ttl=1h \
+     token_max_ttl=24h \
+     token_policies="docpipe-read"</code></li>
+<li>Fetch Role ID and generate Secret ID:<br />
+<code>bash
+   vault read auth/approle/role/docpipe-role/role-id
+   vault write -f auth/approle/role/docpipe-role/secret-id</code></li>
+</ol>
+<h4>2. Token Authentication (Development / Local Testing)</h4>
+<p>For local testing or development, pass a static developer or root token directly:</p>
+<pre><code class="language-bash">export VAULT_AUTH_METHOD=token
+export VAULT_TOKEN=&quot;root-dev-token&quot;
+</code></pre>
+<h3 id="environment-variables">Environment variables</h3>
+<p>Environment variables override values configured in <code>docling-pipelines-config.yaml</code>:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VAULT_ENABLED</code></td>
+<td>Set <code>true</code> to enable Vault secret provider</td>
+<td><code>false</code></td>
+</tr>
+<tr>
+<td><code>VAULT_PROVIDER</code></td>
+<td>Provider identifier used in URIs</td>
+<td><code>hashicorp</code></td>
+</tr>
+<tr>
+<td><code>VAULT_ADDR</code> or <code>VAULT_URL</code></td>
+<td>HashiCorp Vault server address</td>
+<td><code>http://127.0.0.1:8200</code></td>
+</tr>
+<tr>
+<td><code>VAULT_MOUNT_POINT</code></td>
+<td>KV v2 secrets engine mount point</td>
+<td><code>secret</code></td>
+</tr>
+<tr>
+<td><code>VAULT_AUTH_METHOD</code></td>
+<td>Auth mechanism: <code>approle</code> or <code>token</code></td>
+<td><code>approle</code></td>
+</tr>
+<tr>
+<td><code>VAULT_ROLE_ID</code></td>
+<td>AppRole Role ID</td>
+<td><code>""</code></td>
+</tr>
+<tr>
+<td><code>VAULT_SECRET_ID</code></td>
+<td>AppRole Secret ID</td>
+<td><code>""</code></td>
+</tr>
+<tr>
+<td><code>VAULT_TOKEN</code></td>
+<td>Vault token (when <code>VAULT_AUTH_METHOD=token</code>)</td>
+<td><code>""</code></td>
+</tr>
+<tr>
+<td><code>VAULT_TIMEOUT</code></td>
+<td>Connection timeout in seconds</td>
+<td><code>30</code></td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<h2 id="web-ui-and-properties-panel-usage">Web UI and Properties Panel Usage</h2>
+<p>The Docling Pipelines web canvas provides integrated support for Vault credential references via the shared <code>VaultInput</code> component.</p>
+<h3 id="interactive-properties-panel-controls">Interactive properties panel controls</h3>
+<p>When editing any sensitive parameter in an operator's properties panel:</p>
+<ol>
+<li><strong>Direct Entry vs Vault Reference Toggle</strong>:</li>
+<li>Click the <strong>Vault</strong> icon or mode toggle next to the input field to switch from direct text entry to Vault reference mode.</li>
+<li><strong>Simplified Reference Input</strong>:</li>
+<li>In Vault mode, the prefix <code>vault://hashicorp/</code> is managed automatically. You only type the path and key: <code>docpipe/opensearch#password</code>.</li>
+<li><strong>Round-Trip Safety</strong>:</li>
+<li>Existing <code>vault://</code> URIs in loaded flows are automatically detected and displayed in Vault mode.</li>
+<li>Saving the flow preserves the exact <code>vault://...</code> URI in the flow definition without converting it into a plaintext masked password.</li>
+</ol>
+<hr />
+<h2 id="validation-and-masking-lifecycle">Validation and Masking Lifecycle</h2>
+<p>To prevent credential leakage while maintaining robust flow authoring and execution:</p>
+<ol>
+<li><strong>Schema Validation (<code>FlowValidator</code>)</strong>:</li>
+<li>When validating flow JSON, fields marked as <code>sensitive</code> that contain <code>vault://</code> strings are replaced in-memory with dummy mock values matching the required schema type (e.g. valid dummy strings).</li>
+<li>If Vault is not configured in the active environment, the validator issues a clear warning (<code>Config key '...' references unregistered vault provider '...'</code>) instead of failing execution unconditionally.</li>
+<li><strong>REST API Masking (<code>FlowMapper</code>)</strong>:</li>
+<li>Direct cleartext credentials stored in flows are masked as <code>********</code> when retrieved through REST endpoints (<code>GET /api/v1/flows</code>).</li>
+<li><code>vault://</code> URI references are recognized as safe pointer strings and are returned unmasked, enabling UI canvas editors to load and edit the flow without corrupting the reference.</li>
+<li><strong>Logging Hygiene</strong>:</li>
+<li>Resolved secret values are never printed in application logs. Operator executor logs record only the configuration path names being resolved (e.g. <code>['provider_config.username', 'provider_config.password']</code>), never the resolved values.</li>
+</ol>
+<hr />
+<h2 id="integration-guide">Integration Guide</h2>
+<p>For end-to-end setup instructions, AppRole configuration walkthroughs, and security details, see the <a href="../../guides/VAULT_INTEGRATION_GUIDE.html">Vault Integration Guide</a>.</p>
+<hr />
+<h2 id="troubleshooting">Troubleshooting</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Cannot connect to Vault at http://127.0.0.1:8200</code></td>
+<td>Vault service is stopped or unreachable</td>
+<td>Check if Vault is running (<code>curl $VAULT_ADDR/v1/sys/health</code>)</td>
+</tr>
+<tr>
+<td><code>Key 'api_key' not found at vault path 'docpipe/embeddings'</code></td>
+<td>Secret key mismatch or secret not written</td>
+<td>Check secret path in Vault: <code>vault kv get secret/docpipe/embeddings</code></td>
+</tr>
+<tr>
+<td><code>VAULT_URI_MALFORMED</code></td>
+<td>URI does not follow <code>vault://&lt;provider&gt;/&lt;path&gt;#&lt;key&gt;</code></td>
+<td>Ensure URI has valid provider and includes <code>#field_key</code> suffix</td>
+</tr>
+<tr>
+<td><code>Unregistered vault provider 'hashicorp'</code></td>
+<td>Vault provider is not initialized</td>
+<td>Ensure <code>VAULT_ENABLED=true</code> or configure <code>secrets.vault</code> in config YAML</td>
+</tr>
+<tr>
+<td><code>'str' object is not a mapping</code></td>
+<td>Complex credential field expected dictionary</td>
+<td>Use Pattern B: ensure Vault contains valid JSON string or dictionary</td>
+</tr>
+</tbody>
+</table></div>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#architecture">Architecture</a>
+      <a href="#uri-format-and-patterns">URI Format and Patterns</a>
+      <a href="#supported-operators-and-fields">Supported Operators and Fields</a>
+      <a href="#configuration">Configuration</a>
+      <a href="#web-ui-and-properties-panel-usage">Web UI and Properties Panel Usage</a>
+      <a href="#validation-and-masking-lifecycle">Validation and Masking Lifecycle</a>
+      <a href="#integration-guide">Integration Guide</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

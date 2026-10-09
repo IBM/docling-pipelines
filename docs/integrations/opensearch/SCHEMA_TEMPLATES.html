@@ -1,0 +1,1134 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>OpenSearch Schema Templates Guide — Docling Pipelines</title>
+  <meta name="description" content="OpenSearch Schema Templates Guide — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="../../guides/FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="../../guides/FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="../../guides/PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="../../guides/CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="../../guides/CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="../../guides/EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="../../guides/TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="../../guides/ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="../../guides/SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="../../guides/USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="../../guides/VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="../../guides/UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="../../guides/TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="../../guides/SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="../../guides/LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter" href="../../guides/DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="../../guides/DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group open" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter active" href="SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">OpenSearch Schema Templates Guide</span>
+      </nav>
+      <h1>OpenSearch Schema Templates Guide</h1>
+<h2 id="overview">Overview</h2>
+<p>Schema templates provide a flexible, reusable way to define OpenSearch index configurations for Docling Pipelines pipelines. Instead of manually configuring index schemas for each flow, you can use pre-built templates or create custom ones that automatically adapt to your pipeline's requirements.</p>
+
+<h2 id="what-are-schema-templates">What are Schema Templates?</h2>
+<p>Schema templates are JSON files that define OpenSearch index configurations with placeholder values that are replaced at runtime. They provide:</p>
+<ul>
+<li><strong>Reusable index structures</strong> across different pipelines</li>
+<li><strong>Consistent field mappings</strong> and analyzers</li>
+<li><strong>Dynamic configuration</strong> through placeholder replacement</li>
+<li><strong>Validation</strong> to catch errors before index creation</li>
+</ul>
+<p>Templates are stored in <code>src/docpipe/core/operators/vectordb/schemas/</code> and referenced by path in the VectorDBOperator configuration.</p>
+<h2 id="benefits">Benefits</h2>
+<h3 id="consistency">Consistency</h3>
+<ul>
+<li>Same index structure across development, testing, and production</li>
+<li>Standardized field types and analyzers</li>
+<li>Reduced configuration errors</li>
+</ul>
+<h3 id="maintainability">Maintainability</h3>
+<ul>
+<li>Update schema in one place, apply to all flows</li>
+<li>Version control for schema changes</li>
+<li>Clear separation between schema definition and runtime configuration</li>
+</ul>
+<h3 id="flexibility">Flexibility</h3>
+<ul>
+<li>Placeholders adapt to different vector dimensions, engines, and algorithms</li>
+<li>Custom analyzers for specific use cases</li>
+<li>Easy to create domain-specific templates</li>
+</ul>
+<h3 id="validation">Validation</h3>
+<ul>
+<li>Schema structure validated before index creation</li>
+<li>Parameter ranges checked automatically</li>
+<li>Clear error messages for configuration issues</li>
+</ul>
+<h2 id="available-templates">Available Templates</h2>
+<h3 id="1-default-schemav1json">1. default_schema.v1.json</h3>
+<p><strong>Purpose</strong>: General-purpose schema for document storage with standard field types.</p>
+<p><strong>Use Cases</strong>:</p>
+<ul>
+<li>Basic document indexing</li>
+<li>General text search</li>
+<li>Standard vector similarity search</li>
+</ul>
+<p><strong>Features</strong>:</p>
+<ul>
+<li>Standard text fields with keyword sub-fields</li>
+<li>Numeric types (int64, float)</li>
+<li>Boolean fields</li>
+<li>Object and nested types</li>
+<li>KNN vector configuration</li>
+</ul>
+<p><strong>Location</strong>: <code>src/docpipe/core/operators/vectordb/schemas/default_schema.v1.json</code></p>
+<h3 id="2-template-with-content-analyzerv1json">2. template_with_content_analyzer.v1.json</h3>
+<p><strong>Purpose</strong>: Template schema with custom content analyzer for text processing workflows.</p>
+<p><strong>Use Cases</strong>:</p>
+<ul>
+<li>Semantic search on document chunks</li>
+<li>RAG (Retrieval-Augmented Generation) pipelines</li>
+<li>Content-heavy document processing</li>
+</ul>
+<p><strong>Features</strong>:</p>
+<ul>
+<li>Custom content analyzer with stemming and stop words</li>
+<li>Demonstrates <code>indexing_rules</code> for declarative field-specific type mapping</li>
+<li>Optimized for text-heavy content</li>
+<li>Enhanced text analysis for better search relevance</li>
+</ul>
+<p><strong>Key Feature</strong>: Shows how <code>indexing_rules</code> maps fields (e.g., <code>content</code>) to custom field types (<code>content_text</code>) with specialized analyzers, eliminating the need for manual <code>feature_mappings</code> configuration.</p>
+<p><strong>Location</strong>: <code>src/docpipe/core/operators/vectordb/schemas/template_with_content_analyzer.v1.json</code></p>
+<h2 id="using-schema-templates">Using Schema Templates</h2>
+<h3 id="basic-usage">Basic Usage</h3>
+<p>Add <code>schema_template_path</code> to your VectorDBOperator's <code>provider_config</code>:</p>
+<pre><code class="language-json">{
+  &quot;operator_type&quot;: &quot;docpipe.core.operators.vectordb.vectordb_operator.VectorDBOperator&quot;,
+  &quot;operator_params&quot;: {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;index_name&quot;: &quot;my_documents&quot;,
+    &quot;provider_config&quot;: {
+      &quot;schema_template_path&quot;: &quot;schemas/default_schema.v1.json&quot;,
+      &quot;host&quot;: &quot;localhost&quot;,
+      &quot;port&quot;: 9200,
+      &quot;engine&quot;: &quot;faiss&quot;,
+      &quot;algorithm&quot;: &quot;hnsw&quot;,
+      &quot;vector_dimension&quot;: 384
+    }
+  }
+}
+</code></pre>
+<h3 id="with-content-analyzer-template">With Content Analyzer Template</h3>
+<pre><code class="language-json">{
+  &quot;provider_config&quot;: {
+    &quot;schema_template_path&quot;: &quot;schemas/template_with_content_analyzer.v1.json&quot;,
+    &quot;host&quot;: &quot;localhost&quot;,
+    &quot;port&quot;: 9200,
+    &quot;engine&quot;: &quot;faiss&quot;,
+    &quot;algorithm&quot;: &quot;hnsw&quot;,
+    &quot;vector_dimension&quot;: 768
+  }
+}
+</code></pre>
+<h3 id="fallback-behavior">Fallback Behavior</h3>
+<p>If <code>schema_template_path</code> is not specified or the template cannot be loaded:</p>
+<ul>
+<li>System falls back to dynamic schema generation</li>
+<li>Warning logged but execution continues</li>
+<li>Schema generated from <code>available_features</code> configuration</li>
+</ul>
+<h2 id="placeholder-reference">Placeholder Reference</h2>
+<p>Templates support the following placeholders that are replaced at runtime:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Placeholder</th>
+<th>Description</th>
+<th>Example Values</th>
+<th>Required</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>__VECTOR_DIMENSION__</code></td>
+<td>Vector embedding dimension</td>
+<td><code>384</code>, <code>768</code>, <code>1536</code></td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>__ENGINE__</code></td>
+<td>KNN engine name</td>
+<td><code>faiss</code>, <code>lucene</code>, <code>nmslib</code>, <code>jvector</code></td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>__ALGORITHM__</code></td>
+<td>KNN algorithm</td>
+<td><code>hnsw</code>, <code>ivf</code></td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>__SPACE_TYPE__</code></td>
+<td>Similarity metric</td>
+<td><code>l2</code>, <code>cosine</code>, <code>inner_product</code></td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>__ENGINE_PARAMETERS__</code></td>
+<td>Engine-specific parameters</td>
+<td><code>{"ef_construction": 128, "m": 24}</code></td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="placeholder-usage-in-templates">Placeholder Usage in Templates</h3>
+<pre><code class="language-json">{
+  &quot;field_types&quot;: {
+    &quot;vector&quot;: {
+      &quot;type&quot;: &quot;knn_vector&quot;,
+      &quot;dimension&quot;: &quot;__VECTOR_DIMENSION__&quot;,
+      &quot;method&quot;: {
+        &quot;name&quot;: &quot;__ALGORITHM__&quot;,
+        &quot;space_type&quot;: &quot;__SPACE_TYPE__&quot;,
+        &quot;engine&quot;: &quot;__ENGINE__&quot;,
+        &quot;parameters&quot;: &quot;__ENGINE_PARAMETERS__&quot;
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="runtime-replacement">Runtime Replacement</h3>
+<p>When the template is loaded, placeholders are replaced with actual values from your configuration:</p>
+<pre><code class="language-json">{
+  &quot;field_types&quot;: {
+    &quot;vector&quot;: {
+      &quot;type&quot;: &quot;knn_vector&quot;,
+      &quot;dimension&quot;: 768,
+      &quot;method&quot;: {
+        &quot;name&quot;: &quot;hnsw&quot;,
+        &quot;space_type&quot;: &quot;l2&quot;,
+        &quot;engine&quot;: &quot;faiss&quot;,
+        &quot;parameters&quot;: {
+          &quot;ef_construction&quot;: 128,
+          &quot;m&quot;: 24
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<h2 id="indexing-rules-system">Indexing Rules System</h2>
+<h3 id="overview">Overview</h3>
+<p>The indexing rules system enables flexible field-level customization without requiring full schema definitions. It allows you to override field types and properties for specific fields while using template-based field type definitions for the rest.</p>
+<h3 id="key-features">Key Features</h3>
+<ol>
+<li><strong>Field Type Override</strong>: Map specific fields to custom field types defined in <code>field_types</code></li>
+<li><strong>Property Overrides</strong>: Add or override OpenSearch mapping properties (boost, copy_to, analyzer, etc.)</li>
+<li><strong>Dual Lookup Resolution</strong>: Supports both feature names and mapped names for field resolution</li>
+<li><strong>Allowlist Protection</strong>: Only safe properties can be overridden to prevent schema corruption</li>
+<li><strong>Deep Merging</strong>: Nested properties are recursively merged with field type definitions</li>
+</ol>
+<h3 id="supported-property-overrides">Supported Property Overrides</h3>
+<p>Allowlisted OpenSearch mapping properties that can be overridden:</p>
+<ul>
+<li><code>analyzer</code>, <code>search_analyzer</code>, <code>normalizer</code>: Text analysis configuration</li>
+<li><code>boost</code>, <code>copy_to</code>: Relevance and field copying</li>
+<li><code>index</code>, <code>store</code>, <code>fields</code>: Indexing behavior and sub-fields</li>
+<li><code>similarity</code>: Scoring algorithm selection</li>
+</ul>
+<h3 id="basic-usage">Basic Usage</h3>
+<p>Add an <code>indexing_rules</code> section to your schema template:</p>
+<pre><code class="language-json">{
+  &quot;schema_name&quot;: &quot;my_schema&quot;,
+  &quot;schema_version&quot;: 1,
+  &quot;settings&quot;: { ... },
+  &quot;field_types&quot;: {
+    &quot;string&quot;: {
+      &quot;type&quot;: &quot;text&quot;,
+      &quot;fields&quot;: {
+        &quot;keyword&quot;: {
+          &quot;type&quot;: &quot;keyword&quot;,
+          &quot;ignore_above&quot;: 256
+        }
+      }
+    },
+    &quot;content_text&quot;: {
+      &quot;type&quot;: &quot;text&quot;,
+      &quot;analyzer&quot;: &quot;content_analyzer&quot;,
+      &quot;fields&quot;: {
+        &quot;keyword&quot;: {
+          &quot;type&quot;: &quot;keyword&quot;,
+          &quot;ignore_above&quot;: 256
+        }
+      }
+    }
+  },
+  &quot;indexing_rules&quot;: {
+    &quot;content&quot;: {
+      &quot;field_type&quot;: &quot;content_text&quot;
+    }
+  }
+}
+</code></pre>
+<p>In this example, the <code>content</code> field uses the <code>content_text</code> field type instead of the default <code>string</code> type.</p>
+<h3 id="field-type-override">Field Type Override</h3>
+<p>Override the field type for specific fields:</p>
+<pre><code class="language-json">{
+  &quot;indexing_rules&quot;: {
+    &quot;title&quot;: {
+      &quot;field_type&quot;: &quot;string&quot;
+    },
+    &quot;content&quot;: {
+      &quot;field_type&quot;: &quot;content_text&quot;
+    },
+    &quot;summary&quot;: {
+      &quot;field_type&quot;: &quot;content_text&quot;
+    }
+  }
+}
+</code></pre>
+<h3 id="property-overrides">Property Overrides</h3>
+<p>Add or override specific properties:</p>
+<pre><code class="language-json">{
+  &quot;indexing_rules&quot;: {
+    &quot;title&quot;: {
+      &quot;field_type&quot;: &quot;string&quot;,
+      &quot;boost&quot;: 3.0,
+      &quot;copy_to&quot;: [&quot;all_text&quot;]
+    },
+    &quot;content&quot;: {
+      &quot;field_type&quot;: &quot;content_text&quot;,
+      &quot;boost&quot;: 2.0,
+      &quot;copy_to&quot;: [&quot;all_text&quot;]
+    }
+  }
+}
+</code></pre>
+<h3 id="multiple-overrides">Multiple Overrides</h3>
+<p>Combine field type and property overrides:</p>
+<pre><code class="language-json">{
+  &quot;indexing_rules&quot;: {
+    &quot;content&quot;: {
+      &quot;field_type&quot;: &quot;content_text&quot;,
+      &quot;boost&quot;: 2.0,
+      &quot;copy_to&quot;: [&quot;all_text&quot;],
+      &quot;fields&quot;: {
+        &quot;exact&quot;: {
+          &quot;type&quot;: &quot;keyword&quot;,
+          &quot;normalizer&quot;: &quot;lowercase&quot;
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="lookup-priority">Lookup Priority</h3>
+<p>When resolving field configurations, the system follows this priority:</p>
+<ol>
+<li>Check <code>indexing_rules</code> for the feature name (e.g., <code>content</code>)</li>
+<li>Check <code>indexing_rules</code> for the mapped name (e.g., <code>doc_content</code>)</li>
+<li>Fall back to <code>system_type</code> from <code>available_features</code> configuration</li>
+<li>Use default field type if no match found</li>
+</ol>
+<h3 id="reserved-fields-protection">Reserved Fields Protection</h3>
+<p>System fields cannot be overridden via indexing rules:</p>
+<ul>
+<li><code>_id</code></li>
+<li><code>_index</code></li>
+<li><code>_source</code></li>
+<li><code>_type</code></li>
+<li><code>_meta</code></li>
+</ul>
+<h3 id="validation-and-safety">Validation and Safety</h3>
+<ul>
+<li>Property overrides are validated against an allowlist to prevent invalid configurations</li>
+<li>Invalid field types in indexing rules raise clear error messages</li>
+<li>Empty analysis blocks are automatically removed to prevent OpenSearch errors</li>
+<li>Mapping explosion protection limits total fields to 2000 by default</li>
+</ul>
+<h3 id="complete-example">Complete Example</h3>
+<pre><code class="language-json">{
+  &quot;schema_name&quot;: &quot;document_chunks&quot;,
+  &quot;schema_version&quot;: 1,
+  &quot;settings&quot;: {
+    &quot;index&quot;: {
+      &quot;number_of_shards&quot;: 3,
+      &quot;number_of_replicas&quot;: 1,
+      &quot;knn&quot;: true
+    },
+    &quot;analysis&quot;: {
+      &quot;analyzer&quot;: {
+        &quot;content_analyzer&quot;: {
+          &quot;type&quot;: &quot;custom&quot;,
+          &quot;tokenizer&quot;: &quot;standard&quot;,
+          &quot;filter&quot;: [&quot;lowercase&quot;, &quot;stop&quot;, &quot;snowball&quot;]
+        }
+      }
+    }
+  },
+  &quot;field_types&quot;: {
+    &quot;vector&quot;: {
+      &quot;type&quot;: &quot;knn_vector&quot;,
+      &quot;dimension&quot;: &quot;__VECTOR_DIMENSION__&quot;,
+      &quot;method&quot;: {
+        &quot;name&quot;: &quot;__ALGORITHM__&quot;,
+        &quot;space_type&quot;: &quot;__SPACE_TYPE__&quot;,
+        &quot;engine&quot;: &quot;__ENGINE__&quot;,
+        &quot;parameters&quot;: &quot;__ENGINE_PARAMETERS__&quot;
+      }
+    },
+    &quot;string&quot;: {
+      &quot;type&quot;: &quot;text&quot;,
+      &quot;fields&quot;: {
+        &quot;keyword&quot;: {
+          &quot;type&quot;: &quot;keyword&quot;,
+          &quot;ignore_above&quot;: 256
+        }
+      }
+    },
+    &quot;content_text&quot;: {
+      &quot;type&quot;: &quot;text&quot;,
+      &quot;analyzer&quot;: &quot;content_analyzer&quot;,
+      &quot;fields&quot;: {
+        &quot;keyword&quot;: {
+          &quot;type&quot;: &quot;keyword&quot;,
+          &quot;ignore_above&quot;: 256
+        }
+      }
+    }
+  },
+  &quot;indexing_rules&quot;: {
+    &quot;content&quot;: {
+      &quot;field_type&quot;: &quot;content_text&quot;,
+      &quot;boost&quot;: 2.0
+    }
+  }
+}
+</code></pre>
+<h2 id="creating-custom-templates">Creating Custom Templates</h2>
+<h3 id="template-structure">Template Structure</h3>
+<p>A schema template must include:</p>
+<ol>
+<li><strong>schema_name</strong>: Unique identifier for the template</li>
+<li><strong>schema_version</strong>: Version number (integer)</li>
+<li><strong>settings</strong>: OpenSearch index settings</li>
+<li><strong>field_types</strong>: Field type definitions</li>
+</ol>
+<h3 id="minimal-template-example">Minimal Template Example</h3>
+<pre><code class="language-json">{
+  &quot;schema_name&quot;: &quot;my_custom_schema&quot;,
+  &quot;schema_version&quot;: 1,
+  &quot;settings&quot;: {
+    &quot;index&quot;: {
+      &quot;knn&quot;: true,
+      &quot;number_of_shards&quot;: 2,
+      &quot;number_of_replicas&quot;: 1
+    }
+  },
+  &quot;field_types&quot;: {
+    &quot;vector&quot;: {
+      &quot;type&quot;: &quot;knn_vector&quot;,
+      &quot;dimension&quot;: &quot;__VECTOR_DIMENSION__&quot;,
+      &quot;method&quot;: {
+        &quot;name&quot;: &quot;__ALGORITHM__&quot;,
+        &quot;space_type&quot;: &quot;__SPACE_TYPE__&quot;,
+        &quot;engine&quot;: &quot;__ENGINE__&quot;,
+        &quot;parameters&quot;: &quot;__ENGINE_PARAMETERS__&quot;
+      }
+    },
+    &quot;string&quot;: {
+      &quot;type&quot;: &quot;text&quot;,
+      &quot;fields&quot;: {
+        &quot;keyword&quot;: {
+          &quot;type&quot;: &quot;keyword&quot;,
+          &quot;ignore_above&quot;: 256
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="custom-analyzer-example">Custom Analyzer Example</h3>
+<pre><code class="language-json">{
+  &quot;schema_name&quot;: &quot;custom_analyzer_schema&quot;,
+  &quot;schema_version&quot;: 1,
+  &quot;settings&quot;: {
+    &quot;index&quot;: {
+      &quot;knn&quot;: true,
+      &quot;number_of_shards&quot;: 3,
+      &quot;number_of_replicas&quot;: 1
+    },
+    &quot;analysis&quot;: {
+      &quot;analyzer&quot;: {
+        &quot;my_custom_analyzer&quot;: {
+          &quot;type&quot;: &quot;custom&quot;,
+          &quot;tokenizer&quot;: &quot;standard&quot;,
+          &quot;filter&quot;: [&quot;lowercase&quot;, &quot;stop&quot;, &quot;snowball&quot;, &quot;asciifolding&quot;]
+        }
+      }
+    }
+  },
+  &quot;field_types&quot;: {
+    &quot;vector&quot;: {
+      &quot;type&quot;: &quot;knn_vector&quot;,
+      &quot;dimension&quot;: &quot;__VECTOR_DIMENSION__&quot;,
+      &quot;method&quot;: {
+        &quot;name&quot;: &quot;__ALGORITHM__&quot;,
+        &quot;space_type&quot;: &quot;__SPACE_TYPE__&quot;,
+        &quot;engine&quot;: &quot;__ENGINE__&quot;,
+        &quot;parameters&quot;: &quot;__ENGINE_PARAMETERS__&quot;
+      }
+    },
+    &quot;analyzed_text&quot;: {
+      &quot;type&quot;: &quot;text&quot;,
+      &quot;analyzer&quot;: &quot;my_custom_analyzer&quot;,
+      &quot;fields&quot;: {
+        &quot;keyword&quot;: {
+          &quot;type&quot;: &quot;keyword&quot;,
+          &quot;ignore_above&quot;: 256
+        }
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="saving-custom-templates">Saving Custom Templates</h3>
+<ol>
+<li>Create your template JSON file</li>
+<li>Save to <code>src/docpipe/core/operators/vectordb/schemas/</code></li>
+<li>Name with version: <code>my_schema.v1.json</code></li>
+<li>Reference in flow configuration: <code>"schema_template_path": "schemas/my_schema.v1.json"</code></li>
+</ol>
+<h2 id="validation-rules">Validation Rules</h2>
+<p>Templates are validated before use. The following rules apply:</p>
+<h3 id="required-fields">Required Fields</h3>
+<ul>
+<li><code>schema_name</code> (string)</li>
+<li><code>schema_version</code> (integer)</li>
+<li><code>settings</code> (object)</li>
+<li><code>field_types</code> (object)</li>
+</ul>
+<h3 id="vector-field-validation">Vector Field Validation</h3>
+<ul>
+<li>Must have <code>type: "knn_vector"</code></li>
+<li><code>dimension</code> must be positive integer</li>
+<li><code>method</code> must include <code>name</code>, <code>space_type</code>, <code>engine</code></li>
+<li>Engine must be one of: <code>faiss</code>, <code>lucene</code>, <code>nmslib</code>, <code>jvector</code></li>
+<li>Algorithm must be one of: <code>hnsw</code>, <code>ivf</code></li>
+<li>Space type must be one of: <code>l2</code>, <code>cosine</code>, <code>inner_product</code></li>
+</ul>
+<h3 id="parameter-range-validation">Parameter Range Validation</h3>
+<p><strong>HNSW Parameters</strong>:</p>
+<ul>
+<li><code>ef_construction</code>: 1-1000 (recommended: 100-512)</li>
+<li><code>m</code>: 2-100 (recommended: 16-48)</li>
+</ul>
+<p><strong>IVF Parameters</strong>:</p>
+<ul>
+<li><code>nlist</code>: 1-10000 (recommended: 100-1000)</li>
+<li><code>nprobe</code>: 1-nlist (recommended: 8-128)</li>
+</ul>
+<h3 id="analyzer-validation">Analyzer Validation</h3>
+<ul>
+<li>Analyzer names must be unique</li>
+<li>Tokenizer must be valid OpenSearch tokenizer</li>
+<li>Filters must be valid OpenSearch token filters</li>
+</ul>
+<h2 id="metadata-normalization">Metadata Normalization</h2>
+<p>The VectorDBOperator automatically normalizes and aggregates metadata columns.</p>
+<h3 id="column-name-aliases">Column Name Aliases</h3>
+<p>Common column name variations are automatically mapped:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Target Field</th>
+<th>Source Aliases</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>source</code></td>
+<td><code>source</code>, <code>path</code></td>
+<td>Document source path</td>
+</tr>
+<tr>
+<td><code>page_count</code></td>
+<td><code>page_count</code>, <code>pages_processed</code></td>
+<td>Number of pages</td>
+</tr>
+<tr>
+<td><code>mimetype</code></td>
+<td><code>mimetype</code>, <code>mime_type</code>, <code>content_type</code></td>
+<td>MIME type</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="field-derivation">Field Derivation</h3>
+<p>Missing metadata fields are automatically derived:</p>
+<ul>
+<li><strong>extension</strong>: Extracted from <code>name</code> or <code>source</code> filename</li>
+<li><strong>mimetype</strong>: Derived from <code>extension</code> using standard mappings</li>
+</ul>
+<h3 id="predefined-metadata-fields">Predefined Metadata Fields</h3>
+<p>These fields are automatically collected into a <code>metadata</code> object:</p>
+<ul>
+<li><code>name</code>: Document filename</li>
+<li><code>size</code>: File size in bytes</li>
+<li><code>created_time</code>: Creation timestamp</li>
+<li><code>modified_time</code>: Modification timestamp</li>
+<li><code>source</code>: Document source path</li>
+<li><code>mimetype</code>: MIME type</li>
+<li><code>extension</code>: File extension</li>
+<li><code>page_count</code>: Number of pages</li>
+</ul>
+<h3 id="example-transformation">Example Transformation</h3>
+<p><strong>Input</strong>:</p>
+<pre><code class="language-python">{
+  &quot;path&quot;: &quot;/docs/report.pdf&quot;,
+  &quot;name&quot;: &quot;report.pdf&quot;,
+  &quot;pages_processed&quot;: 10,
+  &quot;content&quot;: &quot;Document content...&quot;
+}
+</code></pre>
+<p><strong>Output</strong> (automatically normalized):</p>
+<pre><code class="language-python">{
+  &quot;content&quot;: &quot;Document content...&quot;,
+  &quot;metadata&quot;: {
+    &quot;source&quot;: &quot;/docs/report.pdf&quot;,
+    &quot;name&quot;: &quot;report.pdf&quot;,
+    &quot;page_count&quot;: 10,
+    &quot;extension&quot;: &quot;pdf&quot;,
+    &quot;mimetype&quot;: &quot;application/pdf&quot;
+  }
+}
+</code></pre>
+<h2 id="best-practices">Best Practices</h2>
+<h3 id="template-design">Template Design</h3>
+<ol>
+<li><strong>Use Semantic Names</strong>: Name templates based on use case (e.g., <code>document_chunks</code>, <code>product_catalog</code>)</li>
+<li><strong>Version Templates</strong>: Include version in filename (<code>my_schema.v1.json</code>)</li>
+<li><strong>Document Purpose</strong>: Add comments in template describing intended use</li>
+<li><strong>Test Thoroughly</strong>: Validate templates with sample data before production use</li>
+</ol>
+<h3 id="configuration">Configuration</h3>
+<ol>
+<li><strong>Match Vector Dimensions</strong>: Ensure <code>vector_dimension</code> matches your embedding model</li>
+<li><strong>Choose Appropriate Engine</strong>:</li>
+<li><code>faiss</code>: Best for large-scale similarity search</li>
+<li><code>lucene</code>: Good for smaller datasets, native to OpenSearch</li>
+<li><code>nmslib</code>: Fast approximate search</li>
+<li><strong>Tune Parameters</strong>: Adjust <code>ef_construction</code> and <code>m</code> based on accuracy/speed tradeoff</li>
+<li><strong>Use Appropriate Space Type</strong>:</li>
+<li><code>l2</code>: Euclidean distance</li>
+<li><code>cosine</code>: Cosine similarity (normalized vectors)</li>
+<li><code>inner_product</code>: Dot product similarity</li>
+</ol>
+<h3 id="performance">Performance</h3>
+<ol>
+<li><strong>Shard Count</strong>: Use 2-5 shards for most use cases</li>
+<li><strong>Replica Count</strong>: Use 0 replica for development, 1+ for production</li>
+<li><strong>Batch Size</strong>: Adjust based on document size and available memory</li>
+<li><strong>Analyzer Complexity</strong>: Balance search quality with indexing performance</li>
+</ol>
+<h2 id="examples">Examples</h2>
+<h3 id="example-1-basic-document-storage">Example 1: Basic Document Storage</h3>
+<pre><code class="language-json">{
+  &quot;operator_params&quot;: {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;index_name&quot;: &quot;documents&quot;,
+    &quot;provider_config&quot;: {
+      &quot;schema_template_path&quot;: &quot;schemas/default_schema.v1.json&quot;,
+      &quot;host&quot;: &quot;localhost&quot;,
+      &quot;port&quot;: 9200,
+      &quot;engine&quot;: &quot;faiss&quot;,
+      &quot;algorithm&quot;: &quot;hnsw&quot;,
+      &quot;vector_dimension&quot;: 384
+    },
+    &quot;feature_mappings&quot;: {
+      &quot;doc_id_hash&quot;: &quot;id&quot;,
+      &quot;content&quot;: &quot;content&quot;,
+      &quot;embeddings&quot;: &quot;embeddings&quot;
+    },
+    &quot;available_features&quot;: {
+      &quot;embeddings&quot;: {
+        &quot;type&quot;: &quot;vector&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;content&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;doc_id_hash&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;available_for_vector_db&quot;: true
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="example-2-document-chunks-with-custom-analyzer">Example 2: Document Chunks with Custom Analyzer</h3>
+<pre><code class="language-json">{
+  &quot;operator_params&quot;: {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;index_name&quot;: &quot;document_chunks&quot;,
+    &quot;provider_config&quot;: {
+      &quot;schema_template_path&quot;: &quot;schemas/template_with_content_analyzer.v1.json&quot;,
+      &quot;host&quot;: &quot;localhost&quot;,
+      &quot;port&quot;: 9200,
+      &quot;engine&quot;: &quot;faiss&quot;,
+      &quot;algorithm&quot;: &quot;hnsw&quot;,
+      &quot;vector_dimension&quot;: 768,
+      &quot;engine_parameters&quot;: {
+        &quot;ef_construction&quot;: 256,
+        &quot;m&quot;: 32
+      }
+    },
+    &quot;feature_mappings&quot;: {
+      &quot;chunk_id&quot;: &quot;id&quot;,
+      &quot;content&quot;: &quot;content&quot;,
+      &quot;embeddings&quot;: &quot;embeddings&quot;,
+      &quot;doc_name&quot;: &quot;doc_name&quot;,
+      &quot;chunk_index&quot;: &quot;chunk_index&quot;
+    },
+    &quot;available_features&quot;: {
+      &quot;embeddings&quot;: {
+        &quot;type&quot;: &quot;vector&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;content&quot;: {
+        &quot;type&quot;: &quot;content_text&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;chunk_id&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;doc_name&quot;: {
+        &quot;type&quot;: &quot;string&quot;,
+        &quot;available_for_vector_db&quot;: true
+      },
+      &quot;chunk_index&quot;: {
+        &quot;type&quot;: &quot;integer&quot;,
+        &quot;available_for_vector_db&quot;: true
+      }
+    }
+  }
+}
+</code></pre>
+<h3 id="example-3-high-dimensional-embeddings">Example 3: High-Dimensional Embeddings</h3>
+<pre><code class="language-json">{
+  &quot;operator_params&quot;: {
+    &quot;provider&quot;: &quot;opensearch&quot;,
+    &quot;index_name&quot;: &quot;high_dim_vectors&quot;,
+    &quot;provider_config&quot;: {
+      &quot;schema_template_path&quot;: &quot;schemas/default_schema.v1.json&quot;,
+      &quot;host&quot;: &quot;localhost&quot;,
+      &quot;port&quot;: 9200,
+      &quot;engine&quot;: &quot;faiss&quot;,
+      &quot;algorithm&quot;: &quot;hnsw&quot;,
+      &quot;vector_dimension&quot;: 1536,
+      &quot;space_type&quot;: &quot;cosine&quot;,
+      &quot;engine_parameters&quot;: {
+        &quot;ef_construction&quot;: 512,
+        &quot;m&quot;: 48
+      }
+    }
+  }
+}
+</code></pre>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<h3 id="template-not-found">Template Not Found</h3>
+<p><strong>Error</strong>: <code>Schema template not found: schemas/my_schema.v1.json</code></p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Verify file exists in <code>src/docpipe/core/operators/vectordb/schemas/</code></li>
+<li>Check path is relative to <code>src/docpipe/core/operators/vectordb/</code></li>
+<li>Ensure filename matches exactly (case-sensitive)</li>
+</ol>
+<h3 id="invalid-template-structure">Invalid Template Structure</h3>
+<p><strong>Error</strong>: <code>Schema validation failed: missing required field 'schema_name'</code></p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Ensure all required fields are present</li>
+<li>Check JSON syntax is valid</li>
+<li>Verify field types match expected types</li>
+</ol>
+<h3 id="placeholder-not-replaced">Placeholder Not Replaced</h3>
+<p><strong>Error</strong>: <code>Invalid vector dimension: __VECTOR_DIMENSION__</code></p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Ensure placeholder syntax is exact: <code>__PLACEHOLDER__</code></li>
+<li>Verify configuration provides values for all placeholders</li>
+<li>Check template uses supported placeholders only</li>
+</ol>
+<h3 id="vector-dimension-mismatch">Vector Dimension Mismatch</h3>
+<p><strong>Error</strong>: <code>Vector dimension mismatch: expected 768, got 384</code></p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Match <code>vector_dimension</code> in config to embedding model output</li>
+<li>Common dimensions:</li>
+<li><code>nomic-embed-text</code>: 768</li>
+<li><code>text-embedding-ada-002</code>: 1536</li>
+<li><code>all-MiniLM-L6-v2</code>: 384</li>
+</ol>
+<h3 id="engine-parameter-out-of-range">Engine Parameter Out of Range</h3>
+<p><strong>Error</strong>: <code>Parameter 'ef_construction' out of valid range: 2000</code></p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Check parameter ranges in validation rules</li>
+<li>Use recommended values:</li>
+<li><code>ef_construction</code>: 100-512</li>
+<li><code>m</code>: 16-48</li>
+<li>Adjust based on accuracy/performance tradeoff</li>
+</ol>
+<h3 id="analyzer-not-found">Analyzer Not Found</h3>
+<p><strong>Error</strong>: <code>Unknown analyzer: my_custom_analyzer</code></p>
+<p><strong>Solutions</strong>:</p>
+<ol>
+<li>Define analyzer in template's <code>settings.analysis</code> section</li>
+<li>Verify analyzer name matches exactly</li>
+<li>Check analyzer configuration is valid OpenSearch syntax</li>
+</ol>
+<h2 id="additional-resources">Additional Resources</h2>
+<ul>
+<li><a href="../../../ARCHITECTURE.html">ARCHITECTURE.md</a> - System architecture and design patterns</li>
+<li><a href="../../reference/OPERATORS.html">OPERATOR_REFERENCE.md</a> - VectorDBOperator documentation</li>
+<li><a href="../../../USER_GUIDE_PIPELINE_SETUP.html">USER_GUIDE_PIPELINE_SETUP.md</a> - Complete pipeline setup guide</li>
+<li><a href="https://opensearch.org/docs/latest/search-plugins/knn/index/">OpenSearch KNN Documentation</a> - Official OpenSearch KNN guide</li>
+</ul>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#overview">Overview</a>
+      <a href="#what-are-schema-templates">What are Schema Templates?</a>
+      <a href="#benefits">Benefits</a>
+      <a href="#available-templates">Available Templates</a>
+      <a href="#using-schema-templates">Using Schema Templates</a>
+      <a href="#placeholder-reference">Placeholder Reference</a>
+      <a href="#indexing-rules-system">Indexing Rules System</a>
+      <a href="#creating-custom-templates">Creating Custom Templates</a>
+      <a href="#validation-rules">Validation Rules</a>
+      <a href="#metadata-normalization">Metadata Normalization</a>
+      <a href="#best-practices">Best Practices</a>
+      <a href="#examples">Examples</a>
+      <a href="#troubleshooting">Troubleshooting</a>
+      <a href="#additional-resources">Additional Resources</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>

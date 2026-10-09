@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en" id="html-root">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Documentation Style Guide — Docling Pipelines</title>
+  <meta name="description" content="Documentation Style Guide — Docling Pipelines documentation.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%2333b1ff'/><text x='16' y='22' font-family='IBM Plex Sans,system-ui,sans-serif' font-size='14' font-weight='700' fill='%230f1117' text-anchor='middle'>DP</text></svg>">
+  <link rel="stylesheet" href="../assets/docs.css">
+  <style>
+    /* ── Markdown content overrides ── */
+    .main p  { margin: 0 0 .9em; font-size: 14px; }
+    .main ul, .main ol { padding-left: 1.5em; margin: 0 0 1em; }
+    .main li { margin: .35em 0; font-size: 14px; }
+    .main strong { color: var(--text-head); }
+    .main em { color: var(--text-dim); font-style: italic; }
+    .main blockquote {
+      border-left: 4px solid var(--accent-dim);
+      background: var(--bg-card); border-radius: 0 var(--radius) var(--radius) 0;
+      padding: 12px 18px; margin: 16px 0; color: var(--text-dim); font-size: 13.5px;
+    }
+    .main pre {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px 20px;
+      overflow-x: auto; font-family: var(--mono);
+      font-size: .85rem; line-height: 1.6; color: #e2e8f0;
+      margin: 16px 0; position: relative;
+    }
+    html.light .main pre { color: var(--text); }
+    .main code {
+      font-family: var(--mono); font-size: .85em;
+      background: var(--code-bg); color: var(--accent);
+      padding: 1px 5px; border-radius: 4px;
+      border: 1px solid var(--border);
+    }
+    .main pre code {
+      background: none; border: none; color: inherit;
+      padding: 0; font-size: inherit;
+    }
+    .main table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0 28px; font-size: 13.5px;
+    }
+    .main table th {
+      background: var(--surface); color: var(--text-head); font-weight: 600;
+      padding: 8px 14px; text-align: left; border: 1px solid var(--border);
+      font-size: 11px; text-transform: uppercase; letter-spacing: .4px;
+    }
+    .main table td {
+      padding: 8px 14px; border: 1px solid var(--border); vertical-align: top;
+    }
+    .main table tr:nth-child(even) td { background: var(--bg-card); }
+    .main table tr:hover td { background: var(--surface); }
+    .main hr {
+      border: none; border-top: 1px solid var(--border); margin: 2em 0;
+    }
+    /* breadcrumb */
+    .breadcrumb {
+      font-size: 12px; color: var(--text-dim);
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 28px; flex-wrap: wrap;
+    }
+    .breadcrumb a { color: var(--text-dim); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--accent); }
+    .breadcrumb .sep { color: var(--border); }
+    .breadcrumb .cur { color: var(--text); }
+    /* copy button */
+    .main pre { position: relative; }
+    .copy-btn {
+      position: absolute; top: 10px; right: 10px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-dim); border-radius: 4px; cursor: pointer;
+      padding: 3px 8px; font-size: 11px; font-family: var(--font);
+      display: flex; align-items: center; gap: 4px;
+      transition: color .15s, border-color .15s; opacity: 0;
+    }
+    .main pre:hover .copy-btn { opacity: 1; }
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+    .copy-btn.copied { color: #34d399; border-color: #34d399; opacity: 1; }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <header class="hdr">
+    <a href="../index.html" class="logo">
+      <div class="logo-mark">DP</div>
+      <div>
+        <div class="logo-text">Docling Pipelines</div>
+        <div class="logo-sub">Documentation</div>
+      </div>
+    </a>
+    <div class="hdr-right">
+      <span class="badge-ver">v1.0</span>
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="gh-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/></svg>
+        IBM/docling-pipelines
+      </a>
+      <button class="theme-btn" id="theme-btn" title="Toggle light/dark mode" aria-label="Toggle theme">
+        <svg class="icon-moon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        <svg class="icon-sun"  width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <nav class="nav" aria-label="Site navigation">
+      <span class="nav-label">Overview</span>
+      <a class="nav-link" href="../index.html"><span class="dot"></span>Docs Home</a>
+      <hr class="nav-divider">
+      <div class="nav-group" id="ng-getting-started">
+        <button class="nav-group-toggle" data-group="ng-getting-started">
+          <span>Getting Started</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link" href="../../USER_GUIDE_PIPELINE_SETUP.html"><span class="dot"></span>Setup Guide</a>
+        <a class="nav-link" href="../../TROUBLESHOOTING.html"><span class="dot"></span>Troubleshooting</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-book">
+        <button class="nav-group-toggle" data-group="ng-book">
+          <span>Documentation Book</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../book/site/docling-pipelines/1.0/index.html"><span class="dot"></span>Book Home</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/01_introduction_and_architecture.html"><span class="dot"></span>1. Introduction &amp; Architecture</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/02_installation_and_quick_start.html"><span class="dot"></span>2. Installation &amp; Quick Start</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/03_authoring_flows.html"><span class="dot"></span>3. Authoring Flows</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/04_ingesting_data.html"><span class="dot"></span>4. Ingesting Data</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/05_extracting_and_processing_documents.html"><span class="dot"></span>5. Extracting &amp; Processing</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/06_data_quality_and_enrichment.html"><span class="dot"></span>6. Data Quality &amp; Enrichment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/07_vector_storage_and_retrieval.html"><span class="dot"></span>7. Vector Storage &amp; Retrieval</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/08_llm_integration.html"><span class="dot"></span>8. LLM Integration</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/09_python_api_and_programmatic_usage.html"><span class="dot"></span>9. Python API</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/10_extending_docling_pipelines.html"><span class="dot"></span>10. Extending</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/11_production_deployment_and_observability.html"><span class="dot"></span>11. Production Deployment</a>
+        <a class="nav-link chapter" href="../book/site/docling-pipelines/1.0/12_troubleshooting_and_contributing.html"><span class="dot"></span>12. Troubleshooting</a>
+        </div>
+      </div>
+      <hr class="nav-divider">
+      <div class="nav-group open" id="ng-guides">
+        <button class="nav-group-toggle" data-group="ng-guides">
+          <span>Guides</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Core</span>
+        <a class="nav-link chapter" href="FLOW_AUTHORING_FORMAT.html"><span class="dot"></span>Flow Authoring Format</a>
+        <a class="nav-link chapter" href="FLOW_CONFIGURATION_GUIDE.html"><span class="dot"></span>Flow Configuration</a>
+        <a class="nav-link chapter" href="PYTHON_API_GUIDE.html"><span class="dot"></span>Python API Guide</a>
+        <span class="nav-sublabel">Developer</span>
+        <a class="nav-link chapter" href="CUSTOM_OPERATORS_GUIDE.html"><span class="dot"></span>Custom Operators</a>
+        <a class="nav-link chapter" href="CREATE_CONNECTOR_GUIDE.html"><span class="dot"></span>Create Connector</a>
+        <a class="nav-link chapter" href="EXTERNAL_OPERATOR_INTEGRATION.html"><span class="dot"></span>External Operators</a>
+        <a class="nav-link chapter" href="TESTING_STANDARDS.html"><span class="dot"></span>Testing Standards</a>
+        <span class="nav-sublabel">Advanced</span>
+        <a class="nav-link chapter" href="ADVANCED_CONFIGURATION.html"><span class="dot"></span>Advanced Configuration</a>
+        <a class="nav-link chapter" href="SECURITY_BEST_PRACTICES.html"><span class="dot"></span>Security Best Practices</a>
+        <a class="nav-link chapter" href="UNIFIED_LLM_ARCHITECTURE_GUIDE.html"><span class="dot"></span>Unified LLM Architecture</a>
+        <a class="nav-link chapter" href="USER_GUIDE_DOCUMENT_LIBRARIES.html"><span class="dot"></span>Document Libraries</a>
+        <a class="nav-link chapter" href="VAULT_INTEGRATION_GUIDE.html"><span class="dot"></span>Vault Integration</a>
+        <a class="nav-link chapter" href="UI_USER_GUIDE.html"><span class="dot"></span>UI User Guide</a>
+        <a class="nav-link chapter" href="TELEMETRY_SETUP.html"><span class="dot"></span>Telemetry Setup</a>
+        <a class="nav-link chapter" href="SLIM_VARIANT.html"><span class="dot"></span>Slim Variant</a>
+        <span class="nav-sublabel">Best Practices</span>
+        <a class="nav-link chapter" href="LOGGING_BEST_PRACTICES.html"><span class="dot"></span>Logging Best Practices</a>
+        <a class="nav-link chapter active" href="DOCUMENTATION_STYLE_GUIDE.html"><span class="dot"></span>Documentation Style</a>
+        <a class="nav-link chapter" href="DEPRECATION_POLICY.html"><span class="dot"></span>Deprecation Policy</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-operators">
+        <button class="nav-group-toggle" data-group="ng-operators">
+          <span>Operators</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">Ingest</span>
+        <a class="nav-link chapter" href="../operators/ingest/ingest_source_readme.html"><span class="dot"></span>IngestSource</a>
+        <span class="nav-sublabel">Extract</span>
+        <a class="nav-link chapter" href="../operators/extract/extract_operator_readme.html"><span class="dot"></span>Extract</a>
+        <a class="nav-link chapter" href="../operators/extract/acl_readme.html"><span class="dot"></span>ACL Operator</a>
+        <span class="nav-sublabel">Functional</span>
+        <a class="nav-link chapter" href="../operators/functional/chunker_readme.html"><span class="dot"></span>Chunker</a>
+        <a class="nav-link chapter" href="../operators/functional/embeddings_readme.html"><span class="dot"></span>Embeddings</a>
+        <a class="nav-link chapter" href="../operators/functional/branching_operator_readme.html"><span class="dot"></span>Branching</a>
+        <a class="nav-link chapter" href="../operators/functional/merge_readme.html"><span class="dot"></span>Merge</a>
+        <a class="nav-link chapter" href="../operators/functional/doc_id_hash_readme.html"><span class="dot"></span>Doc ID Hash</a>
+        <a class="nav-link chapter" href="../operators/functional/entity_curation_readme.html"><span class="dot"></span>Entity Curation</a>
+        <a class="nav-link chapter" href="../operators/functional/noop_readme.html"><span class="dot"></span>NOOP</a>
+        <span class="nav-sublabel">Quality</span>
+        <a class="nav-link chapter" href="../operators/quality/language_detection_readme.html"><span class="dot"></span>Language Detection</a>
+        <a class="nav-link chapter" href="../operators/quality/pii_and_hap_readme.html"><span class="dot"></span>PII &amp; HAP</a>
+        <a class="nav-link chapter" href="../operators/quality/redaction_readme.html"><span class="dot"></span>Redaction</a>
+        <a class="nav-link chapter" href="../operators/quality/doc_quality_readme.html"><span class="dot"></span>Doc Quality</a>
+        <a class="nav-link chapter" href="../operators/quality/ededup_readme.html"><span class="dot"></span>Exact Deduplication</a>
+        <a class="nav-link chapter" href="../operators/quality/sql_filter_readme.html"><span class="dot"></span>SQL Filter</a>
+        <a class="nav-link chapter" href="../operators/quality/ml_enrichment_readme.html"><span class="dot"></span>ML Enrichment</a>
+        <a class="nav-link chapter" href="../operators/quality/document_classifier_readme.html"><span class="dot"></span>Document Classifier</a>
+        <a class="nav-link chapter" href="../operators/quality/readability_readme.html"><span class="dot"></span>Readability</a>
+        <span class="nav-sublabel">Storage</span>
+        <a class="nav-link chapter" href="../operators/storage/document_set_readme.html"><span class="dot"></span>Document Set</a>
+        <a class="nav-link chapter" href="../operators/storage/storage_output_readme.html"><span class="dot"></span>Storage Output</a>
+        <span class="nav-sublabel">VectorDB</span>
+        <a class="nav-link chapter" href="../operators/vectordb/vectordb_readme.html"><span class="dot"></span>VectorDB</a>
+        <a class="nav-link chapter" href="../operators/vectordb/opensearch.html"><span class="dot"></span>OpenSearch adapter</a>
+        <a class="nav-link chapter" href="../operators/vectordb/milvus.html"><span class="dot"></span>Milvus adapter</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-reference">
+        <button class="nav-group-toggle" data-group="ng-reference">
+          <span>Reference</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../reference/GLOBAL_CONFIG.html"><span class="dot"></span>Global Config</a>
+        <a class="nav-link" href="../reference/OPERATORS.html"><span class="dot"></span>Operator Reference</a>
+        <a class="nav-link" href="../reference/DOCUMENT_SCHEMAS.html"><span class="dot"></span>Document Schemas</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-restapi">
+        <button class="nav-group-toggle" data-group="ng-restapi">
+          <span>REST API</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../api/REST_API_SERVER.html"><span class="dot"></span>REST API Server</a>
+        <a class="nav-link" href="../api/ACL_DOCUMENT_RETRIEVAL.html"><span class="dot"></span>Document Retrieval</a>
+        <a class="nav-link" href="../api/OAUTH2_AUTHENTICATION.html"><span class="dot"></span>OAuth2 / OIDC</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-integrations">
+        <button class="nav-group-toggle" data-group="ng-integrations">
+          <span>Integrations</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <span class="nav-sublabel">OpenSearch</span>
+        <a class="nav-link chapter" href="../integrations/opensearch/OPENSEARCH_QUICKSTART.html"><span class="dot"></span>Quick Start</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/ENVIRONMENT_SETUP.html"><span class="dot"></span>Environment Setup</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/SCHEMA_TEMPLATES.html"><span class="dot"></span>Schema Templates</a>
+        <a class="nav-link chapter" href="../integrations/opensearch/README.html"><span class="dot"></span>Overview</a>
+        <span class="nav-sublabel">Milvus</span>
+        <a class="nav-link chapter" href="../integrations/milvus/README.html"><span class="dot"></span>Milvus Overview</a>
+        <span class="nav-sublabel">Prefect</span>
+        <a class="nav-link chapter" href="../integrations/prefect/DISTRIBUTED_EXECUTION_GUIDE.html"><span class="dot"></span>Distributed Execution</a>
+        <span class="nav-sublabel">Vault</span>
+        <a class="nav-link chapter" href="../integrations/vault/README.html"><span class="dot"></span>Vault Overview</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-deployment">
+        <button class="nav-group-toggle" data-group="ng-deployment">
+          <span>Deployment</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../deployment/OPENSHIFT.html"><span class="dot"></span>OpenShift Deployment</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-internals">
+        <button class="nav-group-toggle" data-group="ng-internals">
+          <span>Internals</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../internals/DOCUMENT_LIBRARIES_ARCHITECTURE.html"><span class="dot"></span>Document Libraries Arch</a>
+        <a class="nav-link" href="../internals/NODE_METADATA_AGGREGATION_STRATEGY.html"><span class="dot"></span>Metadata Aggregation</a>
+        <a class="nav-link" href="../internals/UNIFIED_ASSET_ARCHITECTURE.html"><span class="dot"></span>Unified Asset Arch</a>
+        </div>
+      </div>
+      <div class="nav-group" id="ng-contributing">
+        <button class="nav-group-toggle" data-group="ng-contributing">
+          <span>Contributing</span>
+          <span class="chev">&#x276F;</span>
+        </button>
+        <div class="nav-group-body">
+        <a class="nav-link" href="../../ARCHITECTURE.html"><span class="dot"></span>Architecture Overview</a>
+        <a class="nav-link" href="../../CONTRIBUTING.html"><span class="dot"></span>Contributing Guide</a>
+        <a class="nav-link" href="../../CHANGELOG.html"><span class="dot"></span>Changelog</a>
+        <a class="nav-link" href="../../COMMUNITY.html"><span class="dot"></span>Community</a>
+        </div>
+      </div>
+    </nav>
+
+    <main class="main" id="top">
+      <nav class="breadcrumb" aria-label="breadcrumb">
+        <a href="../index.html">Docs</a>
+        <span class="sep">›</span>
+        <span class="cur">Documentation Style Guide</span>
+      </nav>
+      <h1>Documentation Style Guide</h1>
+<p>This guide defines the writing, formatting, and diagram conventions for all documentation in <code>docling-pipelines</code>. Every contributor must follow it. It is the single source of truth when in doubt about formatting — do not invent new conventions.</p>
+
+<hr />
+<h2 id="file-and-directory-conventions">File and directory conventions</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Location</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>README.md</code></td>
+<td>Project overview, setup, quick start</td>
+</tr>
+<tr>
+<td><code>ARCHITECTURE.md</code></td>
+<td>System design, component diagrams, design decisions</td>
+</tr>
+<tr>
+<td><code>QUICKSTART.md</code></td>
+<td>Fastest path to a running pipeline</td>
+</tr>
+<tr>
+<td><code>CONTRIBUTING.md</code></td>
+<td>How to contribute code and docs</td>
+</tr>
+<tr>
+<td><code>CHANGELOG.md</code></td>
+<td>Release notes (Keep a Changelog format)</td>
+</tr>
+<tr>
+<td><code>docs/guides/</code></td>
+<td>How-to guides (authoring, security, custom operators, etc.)</td>
+</tr>
+<tr>
+<td><code>docs/operators/&lt;category&gt;/&lt;operator_name&gt;_readme.md</code></td>
+<td>Per-operator user guide — <strong>one file per operator, no separate config file</strong></td>
+</tr>
+<tr>
+<td><code>docs/reference/</code></td>
+<td>API and schema reference</td>
+</tr>
+<tr>
+<td><code>docs/integrations/&lt;name&gt;/</code></td>
+<td>Integration-specific docs (OpenSearch, Milvus, Prefect)</td>
+</tr>
+<tr>
+<td><code>docs/internals/</code></td>
+<td>Maintainer-facing architectural notes (maintainers only, never linked from user docs)</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Rules</strong></p>
+<ul>
+<li>File names use <code>UPPER_SNAKE_CASE.md</code> for root-level docs and <code>lower_snake_case.md</code> for files inside <code>docs/</code>.</li>
+<li>Every new doc must be linked from at least one parent file (e.g., <code>docs/README.md</code>, <code>CONTRIBUTING.md</code>, or a parent <code>README.md</code>).</li>
+<li>Do not create duplicate documentation for the same topic. Extend an existing file instead.</li>
+<li><strong>Do not create <code>&lt;name&gt;_config.md</code> files alongside operator READMEs.</strong> All parameter and configuration content belongs in <code>README.md</code>. The separate config file pattern is retired.</li>
+</ul>
+<hr />
+<h2 id="markdown-structure">Markdown structure</h2>
+<ul>
+<li>Every file starts with a single <code># Title</code> (H1). There is <strong>exactly one</strong> H1 per file.</li>
+<li>A <code>## Table of Contents</code> section with anchor links is required for any file longer than 80 lines.</li>
+<li>Sections are separated by a single blank line before the heading.</li>
+<li>Use a horizontal rule <code>---</code> to separate major top-level sections when a visual break aids readability.</li>
+<li>Wrap prose lines at <strong>120 characters</strong> or fewer. Code blocks, tables, and URLs are exempt.</li>
+<li>Do not add trailing whitespace.</li>
+</ul>
+<hr />
+<h2 id="headings">Headings</h2>
+<pre><code># H1 — File title only, once per file
+## H2 — Major section
+### H3 — Sub-section
+#### H4 — Detail within a sub-section
+</code></pre>
+<ul>
+<li>Never skip levels (e.g., do not jump from <code>##</code> to <code>####</code>).</li>
+<li>Use sentence case for headings ("Operator configuration" not "Operator Configuration").</li>
+<li>Do not add inline code backticks or bold markers inside headings unless the heading is a code symbol (<code>## \</code>DocpipeFlowManager``).</li>
+</ul>
+<hr />
+<h2 id="prose-style-and-tone">Prose style and tone</h2>
+<ul>
+<li>Write in <strong>present tense</strong>: "The operator returns a PyArrow table." — not "will return".</li>
+<li>Write in <strong>second person</strong> when addressing the reader directly: "You can configure…" — not "One can configure…"</li>
+<li>Avoid first-person plural ("we built", "we recommend") — write for the reader, not for the author.</li>
+<li>Be direct. Omit filler phrases like "Please note that", "It is worth mentioning that", "As you can see".</li>
+<li>Define acronyms on first use: "directed acyclic graph (DAG)".</li>
+<li>Audience is an <strong>intermediate developer</strong> familiar with Python and basic software architecture. Do not explain git, pip, or basic Python.</li>
+</ul>
+<hr />
+<h2 id="code-fences">Code fences</h2>
+<h3 id="opening-and-closing">Opening and closing</h3>
+<p>Always use exactly <strong>three backticks</strong> to open and close a fenced block:</p>
+<pre><code>```python
+# correct
+```
+</code></pre>
+<p>Never use four or more backticks (<code>`mermaid`,</code>python`). Editors and renderers are inconsistent about how they handle 4-backtick fences, and it has caused rendering failures in this repository.</p>
+<h3 id="language-tags">Language tags</h3>
+<p>Always specify a language tag immediately after the opening fence. Use the following tags consistently:</p>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Language / format</th>
+<th>Tag</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Python</td>
+<td><code>python</code></td>
+</tr>
+<tr>
+<td>Bash / shell commands</td>
+<td><code>bash</code></td>
+</tr>
+<tr>
+<td>JSON flow file</td>
+<td><code>json</code></td>
+</tr>
+<tr>
+<td>YAML config</td>
+<td><code>yaml</code></td>
+</tr>
+<tr>
+<td>Mermaid diagram</td>
+<td><code>mermaid</code></td>
+</tr>
+<tr>
+<td>Plain text / output</td>
+<td><code>text</code></td>
+</tr>
+<tr>
+<td>SQL</td>
+<td><code>sql</code></td>
+</tr>
+<tr>
+<td>Dockerfile</td>
+<td><code>dockerfile</code></td>
+</tr>
+</tbody>
+</table></div>
+<pre><code class="language-bash"># correct
+export PYTHONPATH=&quot;$(pwd)/src:${PYTHONPATH}&quot;
+</code></pre>
+<pre><code># wrong — no language tag
+export PYTHONPATH=&quot;$(pwd)/src:${PYTHONPATH}&quot;
+</code></pre>
+<h3 id="nesting">Nesting</h3>
+<p>Never nest fenced blocks. If you need to show a fence inside a fence (e.g., in a style guide like this one), use a surrounding four-backtick block for the outer wrapper only — and document why you are doing so.</p>
+<hr />
+<h2 id="mermaid-diagrams">Mermaid diagrams</h2>
+<p>Mermaid diagrams are the standard for all architecture and flow diagrams in this project. Follow these rules to avoid broken renders.</p>
+<h3 id="fence-syntax">Fence syntax</h3>
+<pre><code>```mermaid
+graph TD
+    A[Start] --&gt; B[End]
+</code></pre>
+<pre><code>
+- Open with ` ```mermaid ` (exactly three backticks + the word `mermaid`).
+- Close with ` ``` ` on its own line.
+- No content after the closing fence on the same line.
+
+### Diagram type selection
+
+| Use case | Diagram type |
+| --- | --- |
+| Component hierarchy, layered architecture | `graph TD` (top-down) |
+| Data flows, pipelines, operator chains | `graph LR` (left-right) |
+| Class relationships, inheritance | `classDiagram` |
+| Sequence of calls between components | `sequenceDiagram` |
+| State machines | `stateDiagram-v2` |
+
+### Node labels
+
+- Keep node labels short (1–5 words).
+- Use `[Label]` for process/component nodes, `([Label])` for rounded (start/end), `{Label}` for decisions.
+- Escape special characters inside labels. Square brackets `[` `]` inside a label must use HTML entities or quotes: `A[&quot;Label [with brackets]&quot;]`.
+- Do not use the `%%` comment syntax inside a node label. Put `%%` comments on their own line before the node.
+
+### Styles
+
+- Only use `style &lt;NodeId&gt; fill:&lt;color&gt;` for a small set of key nodes that need visual distinction. Do not style every node.
+- Use the project colour palette for consistency:
+
+| Layer | Fill colour |
+| --- | --- |
+| Interface / CLI | `#e1f5ff` |
+| Orchestration | `#fff4e1` |
+| Data / PyArrow | `#e8f5e9` |
+| Integration | `#f3e6ff` |
+| Quality operators | `#e6ffe6` |
+
+### Validation
+
+**Test every Mermaid diagram before committing.** Paste the block into [mermaid.live](https://mermaid.live) and confirm it renders without errors. A diagram that does not render is a documentation bug.
+
+### Example — correct diagram
+
+```mermaid
+graph LR
+    A[Ingest] --&gt; B[Extract]
+    B --&gt; C[Chunk]
+    C --&gt; D[Embed]
+    D --&gt; E[VectorDB]
+
+    style A fill:#e1f5ff
+    style E fill:#e8f5e9
+</code></pre>
+<hr />
+<h2 id="tables">Tables</h2>
+<ul>
+<li>Every table must have a header row and a separator row (<code>| --- | --- |</code>).</li>
+<li>Column widths should be consistent. Pad cells with spaces for readability (optional but encouraged).</li>
+<li>Align the content of numeric or status columns: <code>| ---: |</code> for right-align, <code>| :---: |</code> for centre.</li>
+<li>Tables are for reference data. Do not use a table where a list would be clearer.</li>
+</ul>
+<pre><code class="language-markdown">| Parameter | Type | Default | Description |
+| --- | --- | --- | --- |
+| `chunk_size` | `int` | `512` | Maximum characters per chunk. |
+| `overlap` | `int` | `50` | Character overlap between chunks. |
+</code></pre>
+<hr />
+<h2 id="links-and-references">Links and references</h2>
+<ul>
+<li>Use <strong>relative links</strong> for all internal files: <code>[guide](../guides/FOO.md)</code> not <code>https://github.com/…/FOO.md</code>.</li>
+<li>Link text must be descriptive: <code>[Operator reference](../reference/OPERATORS.md)</code> — not <code>[click here]</code> or <code>[here]</code>.</li>
+<li>When linking to a specific section, use the lowercase kebab-case anchor: <code>[Mermaid diagrams](#mermaid-diagrams)</code>.</li>
+<li>For links to source files, link to the file without a line number — line numbers are fragile and break when the file changes: <code>[AbstractOperator](src/docpipe/core/operators/abstract_operator.py)</code>.</li>
+<li>Verify all links resolve in the rendered Markdown before submitting a PR.</li>
+</ul>
+<hr />
+<h2 id="lists">Lists</h2>
+<ul>
+<li>Use <code>-</code> for unordered lists throughout the file — do not mix <code>-</code> and <code>*</code>.</li>
+<li>Use <code>1.</code> <code>2.</code> <code>3.</code> for ordered lists when sequence matters.</li>
+<li>Do not mix ordered and unordered items at the same indentation level.</li>
+<li>Add a blank line before and after a list that is adjacent to a paragraph.</li>
+<li>Nested lists must be indented by <strong>4 spaces</strong> (not 2).</li>
+</ul>
+<hr />
+<h2 id="callouts-and-admonitions">Callouts and admonitions</h2>
+<p>GitHub-flavoured Markdown renders <code>&gt; [!NOTE]</code>, <code>&gt; [!WARNING]</code>, and <code>&gt; [!TIP]</code> as styled callouts. Use them sparingly:</p>
+<pre><code class="language-markdown">&gt; [!NOTE]
+&gt; This behaviour changed in v0.2.0. See the migration guide.
+
+&gt; [!WARNING]
+&gt; Do not set `DS_LOG_JSON=True` in development — it disables human-readable output.
+
+&gt; [!TIP]
+&gt; Run `docling-pipelines --list-operators --verbose` to see all available parameters.
+</code></pre>
+<ul>
+<li>Use <strong>NOTE</strong> for important context that the reader might miss.</li>
+<li>Use <strong>WARNING</strong> for actions that may cause data loss, security issues, or hard-to-debug failures.</li>
+<li>Use <strong>TIP</strong> for shortcuts or time-savers.</li>
+<li>Do not use <code>&gt; **Note:**</code> (plain blockquote bold) — it does not render as a callout.</li>
+</ul>
+<hr />
+<h2 id="changelog-entries">Changelog entries</h2>
+<p>All changes must be recorded in <a href="../../CHANGELOG.html"><code>CHANGELOG.md</code></a> using <a href="https://keepachangelog.com/en/1.1.0/">Keep a Changelog</a> format.</p>
+<pre><code class="language-markdown">## [Unreleased]
+
+### Added
+- `MyNewOperator` — short description of what it does and why. (#123)
+
+### Changed
+- `chunker`: `chunk_type` now defaults to `&quot;simple&quot;` instead of `&quot;semantic&quot;`. (#456)
+
+### Fixed
+- `VectorDBOperator`: fixed index not being created when `auto_create_index=True`. (#789)
+
+### Deprecated
+- `IngestLocalOperator.path` parameter — use `paths` (list) instead. Removed in v2.0.
+
+### Removed
+- `OldOperator` — deprecated since v0.3. Use `NewOperator` instead.
+</code></pre>
+<p>Rules:</p>
+<ul>
+<li>Each entry is a single line starting with the affected component in backticks.</li>
+<li>Include the GitHub issue or PR number in parentheses at the end.</li>
+<li>Entries go under <code>## [Unreleased]</code> until a release is cut.</li>
+<li>Do not edit past release sections.</li>
+</ul>
+<hr />
+<h2 id="operator-documentation-template">Operator documentation template</h2>
+<p>Every operator file lives at <code>docs/operators/&lt;category&gt;/&lt;operator_name&gt;_readme.md</code>. There is no separate <code>*_config.md</code> file. All content lives in this single file, in the section order below.</p>
+<p>Section names are a contract — do not rename them. An agent or developer navigating operator docs must find <code>## Parameters</code> in the same place in every README.</p>
+<pre><code class="language-markdown"># OperatorClassName
+
+One-sentence description. Short name: `operator_type` · Category: Functional | Extract | Ingest | Quality | VectorDB
+
+## Overview
+
+What problem it solves. When to use it vs alternatives. 3–5 sentences. No code blocks.
+
+## Key Features
+
+- Feature one (5–8 bullets max, no sub-bullets)
+- Feature two
+
+## Operator Configuration
+
+The first code block in the file. A complete, copy-pasteable flow node showing all required
+parameters and optional parameters at their default values. Comment each parameter inline.
+
+\```json
+{
+  &quot;name&quot;: &quot;my_op&quot;,
+  &quot;type&quot;: &quot;operator_short_name&quot;,
+  &quot;depends_on&quot;: [&quot;previous_op&quot;],
+  &quot;config&quot;: {
+    &quot;operator_params&quot;: {
+      &quot;param_name&quot;: &quot;value&quot;,        // required — what it controls
+      &quot;optional_param&quot;: 512         // optional, default 512
+    }
+  }
+}
+\```
+
+## Parameters
+
+Flat table. One row per parameter. Add a &quot;Provider&quot; column when a param applies only to
+certain providers. Do not split into sub-sections by provider.
+
+| Parameter | Type | Required | Default | Description |
+| --- | --- | --- | --- | --- |
+| `param_name` | `string` | Yes | — | What the parameter controls. |
+| `optional_param` | `int` | No | `512` | What it controls. |
+
+## Output Columns
+
+Every column this operator adds to the PyArrow table. Required for agent readability —
+downstream operators depend on knowing what columns are available.
+
+| Column | Type | Description |
+| --- | --- | --- |
+| `column_name` | `string` | What this column contains. |
+
+## Examples
+
+2–3 named examples. Each is a self-contained flow node snippet with a one-line title.
+
+### Example 1: \&lt;use case\&gt;
+
+\```json
+{ ... }
+\```
+
+### Example 2: \&lt;use case\&gt;
+
+\```json
+{ ... }
+\```
+
+## Troubleshooting
+
+Format: **Error or symptom** → cause → fix. No prose paragraphs.
+
+**`ConnectionRefusedError` connecting to Ollama** — Ollama is not running. Start it with `ollama serve`.
+
+## Architecture
+
+Optional. Maintainers only. Always the last section.
+Move hexagonal architecture diagrams, adapter patterns, and internal class details here —
+or link to `docs/internals/OPERATOR_ARCHITECTURE_&lt;name&gt;.md` for long content.
+</code></pre>
+<p><strong>What is forbidden in an operator README:</strong></p>
+<ul>
+<li>Architecture diagrams before <code>## Architecture</code> (the last section)</li>
+<li>Migration notes or "Phase N" implementation history — those go in <code>CHANGELOG.md</code></li>
+<li>A separate <code>&lt;name&gt;_config.md</code> file in the same directory</li>
+<li><code>## Contributing</code>, <code>## License</code>, or <code>## Version History</code> sections</li>
+<li>Duplicating content from <code>docs/reference/OPERATORS.md</code> — link instead</li>
+</ul>
+<hr />
+<h2 id="common-mistakes-and-how-to-fix-them">Common mistakes and how to fix them</h2>
+<div class="table-scroll"><table>
+<thead>
+<tr>
+<th>Mistake</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>````mermaid</code> (four backticks)</td>
+<td>Change to <code>```mermaid</code></td>
+</tr>
+<tr>
+<td>Mermaid block never closed</td>
+<td>Add <code>```</code> on its own line after the last diagram line</td>
+</tr>
+<tr>
+<td>Typo in node label (<code>ExtactOperator</code>)</td>
+<td>Verify node labels against actual class names</td>
+</tr>
+<tr>
+<td>Missing language tag on code fence</td>
+<td>Add the appropriate tag (e.g., <code>python</code>, <code>bash</code>, <code>json</code>)</td>
+</tr>
+<tr>
+<td>Skipped heading level (<code>##</code> → <code>####</code>)</td>
+<td>Insert the missing <code>###</code> level</td>
+</tr>
+<tr>
+<td>Bare URL for internal doc (<code>https://github.com/.../FOO.md</code>)</td>
+<td>Replace with relative path (<code>../guides/FOO.md</code>)</td>
+</tr>
+<tr>
+<td>Link text is "here" or "click here"</td>
+<td>Use descriptive text (<code>[Operator reference](…)</code>)</td>
+</tr>
+<tr>
+<td>No header separator in table</td>
+<td>Add <code>\| --- \| --- \|</code> after the header row</td>
+</tr>
+<tr>
+<td>Mixed <code>-</code> and <code>*</code> in the same list</td>
+<td>Standardise on <code>-</code></td>
+</tr>
+<tr>
+<td>Future tense ("will return")</td>
+<td>Change to present tense ("returns")</td>
+</tr>
+<tr>
+<td>Created multiple files in one operator directory</td>
+<td>Merge all content into the single <code>&lt;operator_name&gt;_readme.md</code></td>
+</tr>
+<tr>
+<td>Architecture content above <code>## Troubleshooting</code></td>
+<td>Move to <code>## Architecture</code> (last section) or <code>docs/internals/</code></td>
+</tr>
+<tr>
+<td><code>## Operator Configuration</code> shows partial snippet</td>
+<td>Show a complete flow node JSON with all required params and defaults</td>
+</tr>
+<tr>
+<td>Missing <code>## Output Columns</code> section</td>
+<td>Add a table of every column this operator adds to the PyArrow table</td>
+</tr>
+</tbody>
+</table></div>
+<hr />
+<p><em>Questions about this guide? Open a <a href="https://github.com/IBM/docling-pipelines/discussions">GitHub Discussion</a> or propose a change via pull request.</em></p>
+    </main>
+
+    <aside class="toc" aria-label="On this page">
+      <div class="toc-title">On this page</div>
+      <a href="#file-and-directory-conventions">File and directory conventions</a>
+      <a href="#markdown-structure">Markdown structure</a>
+      <a href="#headings">Headings</a>
+      <a href="#prose-style-and-tone">Prose style and tone</a>
+      <a href="#code-fences">Code fences</a>
+      <a href="#mermaid-diagrams">Mermaid diagrams</a>
+      <a href="#tables">Tables</a>
+      <a href="#links-and-references">Links and references</a>
+      <a href="#lists">Lists</a>
+      <a href="#callouts-and-admonitions">Callouts and admonitions</a>
+      <a href="#changelog-entries">Changelog entries</a>
+      <a href="#operator-documentation-template">Operator documentation template</a>
+      <a href="#common-mistakes-and-how-to-fix-them">Common mistakes and how to fix them</a>
+    </aside>
+
+  </div>
+
+  <footer>
+    <span>Docling Pipelines Documentation</span>
+    <span>&middot;</span>
+    <a href="../index.html">Docs Home</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+  </footer>
+
+</div>
+<script>
+(function(){
+  'use strict';
+  var html=document.getElementById('html-root'),btn=document.getElementById('theme-btn'),KEY='dp-theme';
+  function apply(t){if(t==='light')html.classList.add('light');else html.classList.remove('light');try{localStorage.setItem(KEY,t);}catch(e){}}
+  var s=null;try{s=localStorage.getItem(KEY);}catch(e){}
+  if(s)apply(s);else if(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)apply('light');
+  btn.addEventListener('click',function(){apply(html.classList.contains('light')?'dark':'light');});
+  // TOC scroll spy
+  var secs=document.querySelectorAll('h2[id]'),tl=document.querySelectorAll('.toc a');
+  if(secs.length&&tl.length){
+    var obs=new IntersectionObserver(function(e){e.forEach(function(x){if(x.isIntersecting){var id=x.target.id;tl.forEach(function(a){a.classList.toggle('active',a.getAttribute('href')==='#'+id);});}})},{rootMargin:'-60px 0px -70% 0px'});
+    secs.forEach(function(s){obs.observe(s);});
+  }
+  // Nav group toggles
+  document.querySelectorAll('.nav-group-toggle').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var g=btn.closest('.nav-group');
+      if(g)g.classList.toggle('open');
+    });
+  });
+  // Copy buttons
+  document.querySelectorAll('.main pre').forEach(function(pre){
+    var b=document.createElement('button');b.className='copy-btn';
+    b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';
+    pre.appendChild(b);
+    b.addEventListener('click',function(){
+      navigator.clipboard.writeText(pre.innerText||pre.textContent).then(function(){
+        b.classList.add('copied');b.textContent='Copied!';
+        setTimeout(function(){b.classList.remove('copied');b.innerHTML='<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> Copy';},2000);
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
