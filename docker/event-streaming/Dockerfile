@@ -8,8 +8,8 @@ RUN pip install --no-cache-dir uv
 
 # Cache dependencies separately from backend source changes.
 COPY pyproject.toml uv.lock ./
-ARG COMPUTE_BACKEND=gpu
-# Use GPU dependencies by default, or select CPU-only PyTorch for local runs.
+ARG COMPUTE_BACKEND=cpu
+# Use CPU dependencies by default, or select GPU support with COMPUTE_BACKEND=gpu.
 RUN uv venv --python /usr/bin/python3.12 /opt/docpipe-venv && \
     case "$COMPUTE_BACKEND" in \
         gpu) \

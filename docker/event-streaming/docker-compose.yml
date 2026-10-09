@@ -66,6 +66,30 @@ services:
 #      schema-registry:
 #        condition: service_healthy
 
+  docpipe:
+    build:
+      context: ../..
+      dockerfile: docker/event-streaming/Dockerfile
+      args:
+        COMPUTE_BACKEND: cpu
+    ports:
+      - "8080:8080"
+    environment:
+      FLOW_REPOSITORY_BASE_DIR: /data/flows
+      HF_HOME: /data/models/huggingface
+      OLLAMA_HOST: http://ollama:11434
+      OPENSEARCH_HOST: opensearch
+      OPENSEARCH_USERNAME: admin
+      OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD:?Set OPENSEARCH_PASSWORD}
+    volumes:
+      - docpipe-data:/data
+      - ../../tests/fixtures/invoices:/documents:ro
+    depends_on:
+      ollama:
+        condition: service_started
+      opensearch:
+        condition: service_healthy
+
   ollama:
     image: ollama/ollama:0.34.1
     ports:
@@ -94,29 +118,6 @@ services:
       timeout: 5s
       retries: 12
       start_period: 30s
-
-  docpipe:
-    build:
-      context: ../..
-      dockerfile: docker/event-streaming/Dockerfile
-      args:
-        COMPUTE_BACKEND: cpu
-    ports:
-      - "8080:8080"
-    environment:
-      FLOW_REPOSITORY_BASE_DIR: /data/flows
-      HF_HOME: /data/models/huggingface
-      OLLAMA_HOST: http://ollama:11434
-      OPENSEARCH_HOST: opensearch
-      OPENSEARCH_USERNAME: admin
-      OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD:?Set OPENSEARCH_PASSWORD}
-    volumes:
-      - ../../tests/fixtures/invoices:/documents:ro
-    depends_on:
-      ollama:
-        condition: service_started
-      opensearch:
-        condition: service_healthy
 
 volumes:
   docpipe-data:
