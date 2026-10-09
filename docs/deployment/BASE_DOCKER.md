@@ -17,6 +17,13 @@ docker compose -f docker/docker-compose.yml config --quiet
 docker compose -f docker/docker-compose.yml build
 ```
 
+or, for a GPU build, use:
+
+```bash
+# docker compose -f docker/docker-compose.yml config --quiet
+# time docker compose -f docker/docker-compose.yml build --build-arg COMPUTE_BACKEND=gpu
+```
+
 ## Stage 2: Run the API
 
 ```bash
@@ -89,12 +96,3 @@ docker compose -f docker/docker-compose.yml down
 ```
 
 Named data volumes are retained. Add `-v` to remove them.
-
-## Run with a GPU build
-
-To bring up Docker Compose with a GPU build of Docling Pipelines:
-
-```bash
-docker compose -f docker/docker-compose.yml build --build-arg COMPUTE_BACKEND=gpu docpipe
-docker compose -f docker/docker-compose.yml up -d --no-build
-```
