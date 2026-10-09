@@ -4,7 +4,11 @@ on:
   push:
     branches: [docs/main]
     paths:
-      - 'docs/**'
+      - 'docs/**/*.md'
+      - '*.md'
+      - 'docs/**/*.html'
+      - 'docs/assets/docs.css'
+      - 'docs/assets/md2html.py'
   workflow_dispatch:   # allow manual trigger from the Actions tab
 
 # Only one deployment at a time
@@ -13,13 +17,13 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write   # needed to commit generated HTML back to the branch
   pages: write
   id-token: write
 
 jobs:
-  deploy:
-    name: Deploy to GitHub Pages
+  build-and-deploy:
+    name: Generate HTML & Deploy to GitHub Pages
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -28,6 +32,31 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install markdown
+
+      - name: Regenerate HTML from Markdown
+        run: python3 docs/assets/md2html.py --all
+
+      - name: Commit regenerated HTML (if changed)
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/
+          if git diff --staged --quiet; then
+            echo "No HTML changes to commit."
+          else
+            git commit -m "docs(site): regenerate HTML from updated Markdown [skip ci]"
+            git push
+          fi
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v4
@@ -36,9 +65,9 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           # Deploy the entire docs/ folder.
-          # - docs/index.html        → https://ibm.github.io/docling-pipelines/
-          # - docs/QUICKSTART.html   → https://ibm.github.io/docling-pipelines/QUICKSTART.html
-          # - docs/book/site/…       → Antora book (pre-built, committed to repo)
+          # - docs/index.html      → https://ibm.github.io/docling-pipelines/
+          # - docs/QUICKSTART.html → https://ibm.github.io/docling-pipelines/QUICKSTART.html
+          # - docs/book/site/…     → Antora book (pre-built, committed to repo)
           # - docs/api/, docs/guides/… → generated HTML reference pages
           path: docs
 
