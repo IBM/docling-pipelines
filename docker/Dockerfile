@@ -82,7 +82,6 @@ USER docpipe
 ENV PYTHONPATH=/opt/app-root/src
 ENV VIRTUAL_ENV=/opt/docpipe-venv
 ENV PATH=/opt/docpipe-venv/bin:$PATH
-ENV DOCPIPE_DATA_PATH=/data
 
 EXPOSE 8080
 CMD ["python", "-m", "uvicorn", "docpipe.api.main:app", "--host", "0.0.0.0", "--port", "8080"]

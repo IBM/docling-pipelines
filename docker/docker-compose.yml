@@ -9,6 +9,7 @@ services:
       - "8080:8080"
     environment:
       BFF_URL: http://bff:3001
+      DOCPIPE_DATA_PATH: /data
       FLOW_REPOSITORY_BASE_DIR: /data/flows
       PROJECT_REPOSITORY_BASE_DIR: /data/projects
       HF_HOME: /data/models/huggingface
