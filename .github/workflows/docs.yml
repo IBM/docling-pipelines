@@ -5,7 +5,6 @@ on:
     branches: [docs/main]
     paths:
       - 'docs/**'
-      - '*.html'
   workflow_dispatch:   # allow manual trigger from the Actions tab
 
 # Only one deployment at a time
@@ -19,48 +18,16 @@ permissions:
   id-token: write
 
 jobs:
-  build:
-    name: Build Antora site
+  deploy:
+    name: Deploy to GitHub Pages
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0   # full history required by Antora git source
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install Antora
-        run: npm install -g @antora/cli@3.1 @antora/site-generator@3.1
-
-      - name: Sync chapter files into Antora pages directory
-        run: |
-          mkdir -p docs/book/modules/ROOT/pages
-          for f in docs/book/chapters/*.adoc; do
-            cp "$f" "docs/book/modules/ROOT/pages/$(basename "$f")"
-          done
-
-      - name: Build UI bundle
-        run: bash docs/book/build-ui-bundle.sh
-
-      - name: Build Antora site
-        run: |
-          antora docs/book/antora-playbook-ci.yml
-
-      - name: Copy root-level HTML pages into docs/
-        # QUICKSTART.html, ARCHITECTURE.html, etc. live at repo root but are
-        # linked from docs/index.html. Copy them into docs/ so the entire site
-        # is served from a single docs/ root without any ../ path escapes.
-        run: |
-          for f in QUICKSTART.html ARCHITECTURE.html CHANGELOG.html COMMUNITY.html \
-                   CONTRIBUTING.html README.html TROUBLESHOOTING.html \
-                   USER_GUIDE_PIPELINE_SETUP.html; do
-            [ -f "$f" ] && cp "$f" "docs/$f"
-          done
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v4
@@ -68,19 +35,13 @@ jobs:
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Serve the whole docs/ folder — the HTML site is at docs/index.html
-          # and the Antora book lives at docs/book/site/docling-pipelines/1.0/
+          # Deploy the entire docs/ folder.
+          # - docs/index.html        → https://ibm.github.io/docling-pipelines/
+          # - docs/QUICKSTART.html   → https://ibm.github.io/docling-pipelines/QUICKSTART.html
+          # - docs/book/site/…       → Antora book (pre-built, committed to repo)
+          # - docs/api/, docs/guides/… → generated HTML reference pages
           path: docs
 
-  deploy:
-    name: Deploy to GitHub Pages
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-
-    steps:
       - name: Deploy
         id: deployment
         uses: actions/deploy-pages@v4
