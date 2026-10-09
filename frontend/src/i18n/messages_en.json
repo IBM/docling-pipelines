@@ -207,7 +207,7 @@
   "src.components.common.SharedDataTable.noResultsTitle": "No results found",
   "src.components.common.SharedDataTable.searchPlaceholder": "Search",
   "src.components.common.ToastContainer.ariaLabel": "Notifications",
-  "src.components.common.VaultInput.helperText": "'Format: <provider>/<mount_or_path>[#<secret_key>]'",
+  "src.components.common.VaultInput.helperText": "Format: <provider>/<mount_or_path>[#<secret_key>]",
   "src.components.common.VaultInput.invalidVaultUri": "Enter the vault path, e.g. hashicorp/docpipe/opensearch#password",
   "src.components.common.VaultInput.useVault": "Use Vault",
   "src.components.common.VaultInput.vaultAriaLabel": "Use Vault",

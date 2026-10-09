@@ -15,6 +15,6 @@ export const messages = defineMessages({
   },
   helperText: {
     id: 'src.components.common.VaultInput.helperText',
-    defaultMessage: "'Format: <provider>/<mount_or_path>[#<secret_key>]'",
+    defaultMessage: 'Format: <provider>/<mount_or_path>[#<secret_key>]',
   },
 });
