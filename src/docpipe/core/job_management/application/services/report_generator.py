@@ -23,6 +23,7 @@ from fastapi.responses import StreamingResponse
 from docpipe.core.job_management.domain.models.job_stats import JobStats
 from docpipe.core.job_management.domain.models.node_stats import NodeStats
 from docpipe.exceptions.docpipe_exceptions import JobRunInvalidStateException, JobRunNotFoundException
+from docpipe.utils.infrastructure.filesystem import get_data_path
 from docpipe.utils.infrastructure.logging import get_logger
 from docpipe.utils.orchestration.dag_utils import identify_ingest_and_destination_nodes
 
@@ -787,13 +788,12 @@ class JobReportGenerator:
             # folder name matches what the orchestrator actually wrote
             sanitized_name = re.sub(r"\W+", "_", node_name)
             node_name_with_branch = f"{sanitized_name}_{branch_index}"
+            data_path = Path(get_data_path()) / self.job_id / self.job_run_id / "data" / node_name_with_branch
 
             if batch_num is not None:
-                file_path = (
-                    f"data/{self.job_id}/{self.job_run_id}/data/{node_name_with_branch}/{batch_num}/output.parquet"
-                )
+                file_path = data_path / str(batch_num) / "output.parquet"
             else:
-                file_path = f"data/{self.job_id}/{self.job_run_id}/data/{node_name_with_branch}/output.parquet"
+                file_path = data_path / "output.parquet"
 
             logger.info(
                 "Reading parquet: file=%s (node=%s branch=%s batch=%s)",
