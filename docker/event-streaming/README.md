@@ -1,20 +1,27 @@
 # Run Docling Pipelines with Docker Compose
 
-Run from the repository root with Docker running.
+Run from the repository root.
 
-## Stage 0: Configure the stack
+## Stage 0: Set the OpenSearch password
 
-Compose requires `OPENSEARCH_PASSWORD` and uses `admin` as the username. Run this in each terminal before using Compose:
+Compose requires `OPENSEARCH_PASSWORD`. Run this in each terminal before using Compose:
 
 ```bash
 export OPENSEARCH_PASSWORD='MyStrongPass@123'
 ```
 
-## Stage 1: Build the image
+## Stage 1: Build the images
 
 ```bash
 docker compose -f docker/event-streaming/docker-compose.yml config --quiet
 docker compose -f docker/event-streaming/docker-compose.yml build
+```
+
+or, for a GPU build, use:
+
+```bash
+# docker compose -f docker/event-streaming/docker-compose.yml config --quiet
+# time docker compose -f docker/event-streaming/docker-compose.yml build --build-arg COMPUTE_BACKEND=gpu
 ```
 
 ## Stage 2: Run the API
@@ -40,7 +47,9 @@ Log commands stream until you press `Ctrl+C`.
 docker compose -f docker/event-streaming/docker-compose.yml logs -f --tail=100 docpipe
 ```
 
-### Pull an embedding model (optional)
+### Run a sample flow through the API (optional)
+
+Pull the embedding model:
 
 ```bash
 docker compose -f docker/event-streaming/docker-compose.yml exec ollama ollama pull nomic-embed-text
