@@ -1,5 +1,9 @@
 # Docpipe UI User Guide
 
+> **⚠️ Beta notice:** The web UI is experimental and **not production-ready**. It is under active
+> development and may change significantly between releases. For production workloads use the CLI,
+> Python API (`DocpipeFlowManager`), or REST API instead.
+
 The Docpipe web UI is a visual tool for building, running, and monitoring document processing pipelines.
 It is served by the FastAPI backend and is accessible at `/ui` on whichever host you have deployed Docpipe to.
 
