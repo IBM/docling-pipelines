@@ -300,6 +300,12 @@ class DocpipeConfigKeys:
     # Global storage configuration keys (shared defaults for all services)
     GLOBAL_STORAGE = "global_storage"
 
+    # Docling converter pool configuration keys (docling.converter_pool.*)
+    DOCLING = "docling"
+    CONVERTER_POOL = "converter_pool"
+    SIZE = "size"
+    IDLE_TTL_SECONDS = "idle_ttl_seconds"
+
 
 class EnvironmentVariables:
     """Environment variable names used across Docpipe runtime components."""

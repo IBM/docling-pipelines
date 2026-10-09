@@ -1193,12 +1193,21 @@ curl http://localhost:5001/health
 
 The `docling_library` text provider and the `docling` entity provider lease Docling `DocumentConverter` / `DocumentExtractor` instances from a process-wide pool instead of building new ones per worker thread and micro-batch. Each instance keeps its initialised model pipelines (layout, TableFormer, OCR, VLM), so models are loaded once per configuration and reused by later batches and operator instances. An instance is only ever used by one worker at a time, and configurations that differ in any option value never share an instance.
 
-| Environment variable | Default | Description |
-|----------------------|---------|-------------|
-| `DOCPIPE_DOCLING_CONVERTER_POOL_SIZE` | `min(2 x CPU count, 16)` | Maximum number of live converters/extractors in the process, across all configurations and concurrent micro-batches. When all are busy, workers wait for a free one instead of loading more models. |
-| `DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS` | `600` | Idle converters are released after this many seconds so a long-running API server frees model memory between jobs. `0` keeps them until the process exits. |
+Because the pool is shared by every flow and job in the process (CLI, Python library and REST API alike), its limits are process-wide runtime settings, not flow or operator parameters. Set them in the `docling.converter_pool` section of the runtime config file `docling-pipelines-config.yaml` (path override: `DOCPIPE_CONFIG_PATH`) or with environment variables. An environment variable takes precedence over the config file, which takes precedence over the built-in default; an invalid value is ignored with a warning and the next source is used. Settings are read when the pool is first used, so changes take effect after a restart.
 
-- The default pool size equals the default text-extraction worker count, so a single batch at default settings never waits. If you set `max_workers` higher than the pool size, the extra workers wait for a converter; raise `DOCPIPE_DOCLING_CONVERTER_POOL_SIZE` together with `max_workers` if you have the memory for more converters.
+```yaml
+docling:
+  converter_pool:
+    size: 8                 # default: min(2 x CPU count, 16)
+    idle_ttl_seconds: 600   # 0 = keep idle converters until the process exits
+```
+
+| Environment variable | Config file key | Default | Description |
+|----------------------|-----------------|---------|-------------|
+| `DOCPIPE_DOCLING_CONVERTER_POOL_SIZE` | `docling.converter_pool.size` | `min(2 x CPU count, 16)` | Maximum number of live converters/extractors in the process, across all configurations and concurrent micro-batches. When all are busy, workers wait for a free one instead of loading more models. Minimum `1`. |
+| `DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS` | `docling.converter_pool.idle_ttl_seconds` | `600` | Idle converters are released after this many seconds so a long-running API server frees model memory between jobs. `0` keeps them until the process exits. |
+
+- The default pool size equals the default text-extraction worker count, so a single batch at default settings never waits. If you set `max_workers` higher than the pool size, the extra workers wait for a converter; raise the pool size together with `max_workers` if you have the memory for more converters.
 - Each converter runs its models with Docling's own thread count (`AcceleratorOptions.num_threads`, default `4`, overridable with `DOCLING_NUM_THREADS` or `OMP_NUM_THREADS`). Up to `pool size x num_threads` inference threads can run at once (for example 16 x 4 = 64 on a 16-core host). If CPU usage is oversubscribed, lower `DOCLING_NUM_THREADS` or the pool size so that their product is close to the number of cores. These settings change throughput only, not the extracted content.
 
 ## Execution Metadata
@@ -1263,7 +1272,7 @@ Complete sample flows are available in [`sample_flows/`](../../../sample_flows/)
 
 **Issue: Extraction workers stall or memory stays high after a job**
 - Workers wait when every pooled converter is busy; the log shows `Docling converter pool is at capacity` once. Raise `DOCPIPE_DOCLING_CONVERTER_POOL_SIZE` or lower `max_workers`
-- Idle converters keep model memory until `DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS` elapses; lower it to free memory sooner (see [Converter Reuse and Pool Sizing](#converter-reuse-and-pool-sizing))
+- Idle converters keep model memory until the idle TTL (`DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS` or `docling.converter_pool.idle_ttl_seconds`) elapses; lower it to free memory sooner (see [Converter Reuse and Pool Sizing](#converter-reuse-and-pool-sizing))
 
 **Issue: "ffmpeg not found" error during audio/video extraction**
 - Verify ffmpeg installation: `ffmpeg -version`
