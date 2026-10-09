@@ -609,7 +609,7 @@ class EntityExtractionService:
             document_types: List of document types to load schemas for
             schema_templates: Dictionary to populate with loaded schemas
         """
-        loaded_schemas = self.document_class_provider.get_schema_templates(document_types)
+        loaded_schemas = self.document_class_provider.get_schema_templates(document_types=document_types)
         schema_templates.update(loaded_schemas)
 
     def validate_loaded_schemas(self, *, document_types: list[str], schema_templates: dict[str, dict]) -> None:

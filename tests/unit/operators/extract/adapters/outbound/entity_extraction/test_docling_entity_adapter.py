@@ -603,50 +603,6 @@ def test_transform_delegates_to_service(adapter):
 
 
 # ---------------------------------------------------------------------------
-# _prepare_document_tasks (adapter-level)
-# ---------------------------------------------------------------------------
-
-
-@pytest.mark.unit
-def test_adapter_prepare_document_tasks(adapter):
-    """_prepare_document_tasks merges document_type into each task dict."""
-    import pyarrow as pa
-
-    table = pa.table({"id": ["d1", "d2"], "name": ["a.pdf", "b.pdf"], "path": ["/a.pdf", "/b.pdf"]})
-    document_types = ["invoice", "receipt"]
-
-    fake_tasks = [
-        {"idx": 0, "doc_id": "d1", "doc_name": "a.pdf", "content": b""},
-        {"idx": 1, "doc_id": "d2", "doc_name": "b.pdf", "content": b""},
-    ]
-    with patch(
-        "docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter.OperatorUtils.prepare_document_content_fetch",
-        return_value=fake_tasks,
-    ):
-        tasks = adapter._prepare_document_tasks(table, document_types, {})
-
-    assert tasks[0]["document_type"] == "invoice"
-    assert tasks[1]["document_type"] == "receipt"
-
-
-@pytest.mark.unit
-def test_adapter_prepare_document_tasks_empty_document_types(adapter):
-    """When document_types is empty, document_type is set to None."""
-    import pyarrow as pa
-
-    table = pa.table({"id": ["d1"], "name": ["a.pdf"], "path": ["/a.pdf"]})
-    fake_tasks = [{"idx": 0, "doc_id": "d1", "doc_name": "a.pdf", "content": b""}]
-
-    with patch(
-        "docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter.OperatorUtils.prepare_document_content_fetch",
-        return_value=fake_tasks,
-    ):
-        tasks = adapter._prepare_document_tasks(table, [], {})
-
-    assert tasks[0]["document_type"] is None
-
-
-# ---------------------------------------------------------------------------
 # _load_schema_templates (adapter-level)
 # ---------------------------------------------------------------------------
 

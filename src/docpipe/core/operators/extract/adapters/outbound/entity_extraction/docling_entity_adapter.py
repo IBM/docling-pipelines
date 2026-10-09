@@ -420,36 +420,6 @@ class DoclingEntityAdapter(EntityExtractionPort):
             logger.error("Error extracting with template: %s", e)
             return {OperatorConstants.Extraction.SUCCESS: False, OperatorConstants.Extraction.ERROR: str(e)}
 
-    def _prepare_document_tasks(
-        self, table: Any, document_types: list[str], metadata: dict[str, Any]
-    ) -> list[dict[str, Any]]:
-        """Prepare document tasks with binary content for Docling processing.
-
-        This override fetches binary content from the table instead of text content,
-        using on-demand fetching to support both local files and cloud sources.
-        It looks for columns in this order of preference:
-        1. "binary_content" (pre-loaded)
-        2. "path" or "source_id" (fetched on-demand from local or cloud)
-
-        Args:
-            table: PyArrow table containing document data
-            document_types: List of document types corresponding to table rows
-            metadata: Metadata dictionary for recording skipped documents
-
-        Returns:
-            List of task dictionaries with binary content
-        """
-        doc_tasks: list[dict[str, Any]] = OperatorUtils.prepare_document_content_fetch(
-            table=table,
-            global_config=self.global_config,
-            supported_extensions=set(OperatorConstants.FileExtensions.DOCLING_ENTITY_EXTENSIONS_PDF_IMAGE_ONLY),
-        )
-
-        for doc_task in doc_tasks:
-            row_idx = doc_task["idx"]
-            doc_task.update({"document_type": document_types[row_idx] if document_types else None})
-        return doc_tasks
-
     def _load_schema_templates(self, *, document_types: list[str], schema_templates: dict[str, dict]) -> None:
         """Load schema templates for given document types.
 
@@ -457,7 +427,9 @@ class DoclingEntityAdapter(EntityExtractionPort):
             document_types: List of document types to load schemas for
             schema_templates: Dictionary to populate with loaded schemas
         """
-        loaded_schemas = self.document_class_provider.generate_docling_templates_for_types(document_types)
+        loaded_schemas = self.document_class_provider.generate_docling_templates_for_types(
+            document_types=document_types
+        )
         schema_templates.update(loaded_schemas)
 
 
@@ -542,5 +514,7 @@ class DoclingEntityExtractionService(EntityExtractionService):
             document_types: List of document types to load schemas for
             schema_templates: Dictionary to populate with loaded schemas
         """
-        loaded_schemas = self.document_class_provider.generate_docling_templates_for_types(document_types)
+        loaded_schemas = self.document_class_provider.generate_docling_templates_for_types(
+            document_types=document_types
+        )
         schema_templates.update(loaded_schemas)
