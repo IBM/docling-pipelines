@@ -199,7 +199,8 @@ All input columns are preserved. The operator appends:
 | `chunked_content` column not found | Chunker was skipped | Add `ChunkerOperator` before this step; a validation warning is also emitted |
 | Slow throughput with HuggingFace API | Rate limits | Switch to `use_local: true` for local inference |
 | Rate-limit (HTTP 429) errors from a hosted provider | Too many requests in flight | Lower `provider_config.max_concurrent_requests` (LiteLLM default `4`) |
-| Warning `A shared embedding request failed; re-embedding ... documents in isolation` | A request shared by several documents failed permanently | Expected fallback: each affected document is retried on its own and only documents that still fail are recorded as failed; check their failure reasons |
+| Warning `A shared embedding request failed; re-embedding ... documents in isolation` | A request shared by several documents was rejected for its input (HTTP 400/413/422 or a context-length error) | Expected fallback: each affected document is retried on its own and only documents that still fail are recorded as failed; check their failure reasons |
+| Warning `A shared embedding request failed with an error that does not depend on its texts` | Rate limit, timeout, connection error, 5xx or authentication error after the provider retries | All documents of that request are recorded as failed without being re-sent; check the failure reason and the provider, then rerun the flow |
 
 ### API key best practice
 
@@ -246,12 +247,19 @@ document for `content`) into a single stream, sends it in requests of `batch_siz
 the original order. Whitespace-only texts receive zero vectors and are not sent. Provider retries (LiteLLM,
 watsonx) apply to each request on its own.
 
-If a request still fails and it carried texts of several documents, each of those documents is
-re-embedded on its own (only its texts from the failed request, in requests of `batch_size`), so a bad
-text fails only its own document. A failed request that carried a single document fails that document
-directly. This fallback only runs on failures and adds at most (failed shared requests + affected
-documents) requests; during a full provider outage the request count therefore roughly doubles before
-every document is recorded as failed.
+If a request still fails, the operator only re-sends texts when the error could depend on one of
+them: an HTTP 400, 413 or 422 response (bad request, payload too large, unprocessable input, including
+context-window and content-policy errors) or a context-length error. In that case, if the request carried
+texts of several documents, each of those documents is re-embedded on its own (only its texts from the
+failed request, in requests of `batch_size`), so a bad text fails only its own document. This fallback
+adds at most (failed shared requests + affected documents) requests.
+
+Every other failure (rate limit 429, timeouts, connection errors, 5xx responses, authentication or
+permission errors, unexpected responses) is treated as provider-wide: all documents of the failed request
+are recorded as failed with that error and nothing is re-sent, so an outage or rate limit is not amplified.
+During a full outage the operator therefore sends no more requests than without failures (for example,
+100 one-text documents with `batch_size` 32 cause 4 requests, plus the provider client's own retries of
+each request). A failed request that carried a single document always fails that document directly.
 
 `max_concurrent_requests` applies to each operator run. When micro-batching runs several batches at the
 same time, up to `max_concurrent_batches` x `max_concurrent_requests` requests can be in flight, so lower

@@ -1189,6 +1189,64 @@ class TestEmbeddingsProviderSchemas:
         for name, schema in schemas.items():
             assert "properties" in schema, f"Schema for {name} missing 'properties'"
 
+    @pytest.mark.parametrize(
+        ("provider", "batch_size", "max_concurrent_requests"),
+        [("litellm", 32, 4), ("watsonx", 800, 1)],
+    )
+    def test_metadata_exposes_request_shaping_options(self, provider, batch_size, max_concurrent_requests):
+        providers = EmbeddingsOperator.get_metadata()["attributes"]["provider_config"]["providers"]
+        properties = providers[provider]["properties"]
+
+        assert properties["batch_size"]["default"] == batch_size
+        assert properties["batch_size"]["min_value"] == 1
+        assert properties["batch_size"]["type"] == "int64"
+        assert properties["max_concurrent_requests"]["default"] == max_concurrent_requests
+        assert properties["max_concurrent_requests"]["min_value"] == 1
+        assert properties["max_concurrent_requests"]["type"] == "int64"
+        assert "model_id" in properties
+
+    @pytest.mark.parametrize(
+        ("provider", "batch_size", "max_concurrent_requests"),
+        [("litellm", 32, 4), ("watsonx", 800, 1)],
+    )
+    def test_schema_defaults_match_factory_defaults(self, provider, batch_size, max_concurrent_requests):
+        from docpipe.core.adapters.llm_adapter_factory import LLMAdapterFactory
+
+        with (
+            patch("docpipe.core.adapters.litellm.litellm_adapter.LiteLLMLLMClient") as litellm_client,
+            patch("docpipe.core.adapters.watsonx.watsonx_adapter.WatsonXClient"),
+        ):
+            litellm_client.return_value.batch_size = 32
+            adapter = LLMAdapterFactory.create_embedding_adapter(
+                provider=provider, model_id="m", provider_config={"api_key": "k"}
+            )
+
+        assert adapter.get_embedding_batch_size() == batch_size
+        assert adapter.get_max_concurrent_requests() == max_concurrent_requests
+
+    def test_shared_inference_schemas_do_not_offer_embedding_options(self):
+        from docpipe.core.operators.shared.llm_provider_config import LLMProviderConfig, WatsonxProviderConfig
+
+        for config_cls in (LLMProviderConfig, WatsonxProviderConfig):
+            properties = config_cls.model_json_schema()["properties"]
+            assert "batch_size" not in properties
+            assert "max_concurrent_requests" not in properties
+
+    @pytest.mark.parametrize("bad_value", [0, -1])
+    def test_embedding_schemas_reject_non_positive_values(self, bad_value):
+        from pydantic import ValidationError
+
+        from docpipe.core.operators.shared.llm_provider_config import (
+            LLMEmbeddingProviderConfig,
+            WatsonxEmbeddingProviderConfig,
+        )
+
+        for config_cls in (LLMEmbeddingProviderConfig, WatsonxEmbeddingProviderConfig):
+            with pytest.raises(ValidationError):
+                config_cls(batch_size=bad_value)
+            with pytest.raises(ValidationError):
+                config_cls(max_concurrent_requests=bad_value)
+
 
 class TestEmbeddingsParseChunkedContent:
     """Tests for _parse_chunked_content edge cases."""
