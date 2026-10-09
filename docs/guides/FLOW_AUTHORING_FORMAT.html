@@ -316,7 +316,7 @@
     {
       &quot;name&quot;: &quot;ingest&quot;,
       &quot;type&quot;: &quot;ingest_source&quot;,
-      &quot;config&quot;: {&quot;provider&quot;: &quot;filesystem&quot;, &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./data&quot;]}}
+      &quot;config&quot;: {&quot;provider&quot;: &quot;filesystem&quot;, &quot;provider_config&quot;: {&quot;paths&quot;: [&quot;./data&quot;]}}
     },
     {
       &quot;name&quot;: &quot;extract&quot;,
@@ -386,7 +386,7 @@
       &quot;type&quot;: &quot;ingest_source&quot;,
       &quot;config&quot;: {
         &quot;provider&quot;: &quot;filesystem&quot;,
-        &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./documents&quot;]},
+        &quot;provider_config&quot;: {&quot;paths&quot;: [&quot;./documents&quot;]},
         &quot;include_filter&quot;: &quot;pdf,txt&quot;
       }
     },
@@ -539,7 +539,7 @@ flow_def = {
         {
             &quot;name&quot;: &quot;ingest&quot;,
             &quot;type&quot;: &quot;ingest_source&quot;,
-            &quot;config&quot;: {&quot;provider&quot;: &quot;filesystem&quot;, &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./data&quot;]}}
+            &quot;config&quot;: {&quot;provider&quot;: &quot;filesystem&quot;, &quot;provider_config&quot;: {&quot;paths&quot;: [&quot;./data&quot;]}}
         }
     ]
 }
@@ -676,7 +676,7 @@ curl -X POST &quot;http://localhost:8000/api/v1/flows?is_elyra=true&quot; \
       &quot;type&quot;: &quot;ingest_source&quot;,
       &quot;config&quot;: {
         &quot;provider&quot;: &quot;filesystem&quot;,
-        &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./mixed_docs&quot;]}
+        &quot;provider_config&quot;: {&quot;paths&quot;: [&quot;./mixed_docs&quot;]}
       }
     },
     {

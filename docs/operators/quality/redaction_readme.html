@@ -431,6 +431,12 @@
 </tr>
 </tbody>
 </table></div>
+<h2 id="doclang-xml-considerations-amp-limitations">DocLang XML Considerations &amp; Limitations</h2>
+<p>When <code>doc_format == "doclang"</code>, <code>RedactionOperator</code> performs DOM-aware redaction:<br />
+- Text content is parsed into an XML element tree, and redaction is applied individually to <code>element.text</code> and <code>element.tail</code> nodes.<br />
+- XML tags, attributes, and element hierarchies are preserved intact.</p>
+<p><strong>Known limitation (Cross-node PII)</strong>:<br />
+Redaction is scoped to individual DOM text nodes. Target patterns or words split across separate XML tags (for example, <code>&lt;text&gt;John &lt;/text&gt;&lt;bold&gt;Doe&lt;/bold&gt;</code>) cannot be matched across the tag boundary.</p>
 <h2 id="troubleshooting">Troubleshooting</h2>
 <p><strong>Pattern matches nothing</strong> — verify the regex in a tool like <a href="https://regex101.com">regex101.com</a> with a sample document. Remember to double-escape backslashes in JSON (<code>\\d</code> not <code>\d</code>).</p>
 <p><strong>Too many false positives</strong> — use word boundary anchors (<code>\\b</code>) to avoid partial matches.</p>
@@ -448,6 +454,7 @@
       <a href="#output-columns">Output Columns</a>
       <a href="#examples">Examples</a>
       <a href="#common-patterns">Common patterns</a>
+      <a href="#doclang-xml-considerations-amp-limitations">DocLang XML Considerations &amp; Limitations</a>
       <a href="#troubleshooting">Troubleshooting</a>
       <a href="#sample-flow">Sample Flow</a>
     </aside>

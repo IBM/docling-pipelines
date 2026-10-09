@@ -439,7 +439,7 @@ result = manager.execute()
   &quot;type&quot;: &quot;ingest_source&quot;,
   &quot;config&quot;: {
     &quot;provider&quot;: &quot;filesystem&quot;,
-    &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./tests/fixtures/invoices&quot;]},
+    &quot;provider_config&quot;: {&quot;paths&quot;: [&quot;./tests/fixtures/invoices&quot;]},
     &quot;include_filter&quot;: &quot;.pdf&quot;
   }
 }
@@ -816,7 +816,7 @@ result = manager.execute()
       &quot;type&quot;: &quot;ingest_source&quot;,
       &quot;config&quot;: {
         &quot;provider&quot;: &quot;filesystem&quot;,
-        &quot;connection_params&quot;: {&quot;paths&quot;: [&quot;./documents&quot;]},
+        &quot;provider_config&quot;: {&quot;paths&quot;: [&quot;./documents&quot;]},
         &quot;include_filter&quot;: &quot;.pdf,.txt&quot;
       }
     },

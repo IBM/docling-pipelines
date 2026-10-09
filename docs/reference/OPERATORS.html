@@ -486,25 +486,53 @@ owner: str = &quot;custom&quot;  # MUST be set for all custom operators
 </thead>
 <tbody>
 <tr>
-<td><code>source_type</code></td>
+<td><code>provider</code></td>
 <td>string</td>
 <td style="text-align: right;">Yes</td>
 <td>-</td>
-<td>Adapter type</td>
+<td>Source provider: <code>filesystem</code>, <code>s3</code>, <code>ibm_cos</code>, <code>sharepoint</code>, <code>onedrive</code>, <code>google_drive</code>, <code>box_driver</code>, <code>dropbox</code>, <code>web</code></td>
+</tr>
+<tr>
+<td><code>provider_config</code></td>
+<td>object</td>
+<td style="text-align: right;">Yes</td>
+<td>-</td>
+<td>All provider-specific parameters including credentials in a single dict</td>
+</tr>
+<tr>
+<td><code>connection_params</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td>-</td>
+<td><strong>Deprecated.</strong> Use <code>provider_config</code> instead</td>
+</tr>
+<tr>
+<td><code>credentials</code></td>
+<td>object</td>
+<td style="text-align: right;">No</td>
+<td>-</td>
+<td><strong>Deprecated.</strong> Use <code>provider_config</code> instead</td>
 </tr>
 <tr>
 <td><code>include_filter</code></td>
 <td>string</td>
 <td style="text-align: right;">No</td>
 <td>-</td>
-<td>Extension include list</td>
+<td>Extension include list (comma-separated, e.g. <code>"pdf,docx"</code>)</td>
 </tr>
 <tr>
 <td><code>exclude_filter</code></td>
 <td>string</td>
 <td style="text-align: right;">No</td>
 <td>-</td>
-<td>Extension exclude list</td>
+<td>Extension exclude list (comma-separated)</td>
+</tr>
+<tr>
+<td><code>max_files</code></td>
+<td>int</td>
+<td style="text-align: right;">No</td>
+<td><code>100</code></td>
+<td>Maximum number of files to ingest</td>
 </tr>
 <tr>
 <td><code>force_ingest</code></td>
@@ -512,13 +540,6 @@ owner: str = &quot;custom&quot;  # MUST be set for all custom operators
 <td style="text-align: right;">No</td>
 <td><code>false</code></td>
 <td>Reprocess prior docs</td>
-</tr>
-<tr>
-<td><code>provider_config</code></td>
-<td>object</td>
-<td style="text-align: right;">Yes</td>
-<td>-</td>
-<td>Provider-specific configuration</td>
 </tr>
 </tbody>
 </table></div>
@@ -582,33 +603,36 @@ owner: str = &quot;custom&quot;  # MUST be set for all custom operators
 <p><strong>Example</strong></p>
 <p><strong>Folder Ingestion:</strong></p>
 <pre><code class="language-json">{
-  &quot;id&quot;: &quot;ingest-source-node&quot;,
-  &quot;name&quot;: &quot;s3-ingest&quot;,
-  &quot;operator&quot;: &quot;ingest_source&quot;,
+  &quot;name&quot;: &quot;ingest-s3&quot;,
+  &quot;type&quot;: &quot;ingest_source&quot;,
   &quot;config&quot;: {
-    &quot;source_type&quot;: &quot;s3&quot;,
+    &quot;provider&quot;: &quot;s3&quot;,
     &quot;provider_config&quot;: {
       &quot;bucket&quot;: &quot;example-bucket&quot;,
-      &quot;prefix&quot;: &quot;incoming/&quot;
-    }
+      &quot;prefix&quot;: &quot;incoming/&quot;,
+      &quot;access_key&quot;: &quot;${S3_ACCESS_KEY}&quot;,
+      &quot;secret_key&quot;: &quot;${S3_SECRET_KEY}&quot;
+    },
+    &quot;include_filter&quot;: &quot;pdf,docx&quot;,
+    &quot;max_files&quot;: 200
   }
 }
 </code></pre>
-<p><strong>File-Level Ingestion (S3 Only):</strong></p>
+<p><strong>Filesystem Ingestion:</strong></p>
 <pre><code class="language-json">{
-  &quot;id&quot;: &quot;ingest-source-node&quot;,
-  &quot;name&quot;: &quot;s3-file-ingest&quot;,
-  &quot;operator&quot;: &quot;ingest_source&quot;,
+  &quot;name&quot;: &quot;ingest-local&quot;,
+  &quot;type&quot;: &quot;ingest_source&quot;,
   &quot;config&quot;: {
-    &quot;source_type&quot;: &quot;s3&quot;,
+    &quot;provider&quot;: &quot;filesystem&quot;,
     &quot;provider_config&quot;: {
-      &quot;bucket&quot;: &quot;example-bucket&quot;,
-      &quot;prefix&quot;: &quot;incoming/document.pdf&quot;
-    }
+      &quot;paths&quot;: [&quot;/data/documents&quot;],
+      &quot;recursive&quot;: true
+    },
+    &quot;include_filter&quot;: &quot;pdf,docx,txt&quot;
   }
 }
 </code></pre>
-<p><strong>Note:</strong> S3 is the only provider that supports file-level ingestion. Use the <code>prefix</code> parameter to specify either a folder path (e.g., <code>"incoming/"</code>) or a specific file path (e.g., <code>"incoming/document.pdf"</code>).</p>
+<p><strong>Note:</strong> S3 supports file-level ingestion by specifying a full key as the <code>prefix</code> (e.g., <code>"incoming/report.pdf"</code>). For other providers, use folder-level configuration.</p>
 <hr />
 <h3 id="extract-operators">Extract Operators</h3>
 <h4>ExtractOperator</h4>
@@ -655,12 +679,20 @@ owner: str = &quot;custom&quot;  # MUST be set for all custom operators
 <td>Column name for storing extracted text content</td>
 </tr>
 <tr>
+<td><code>doc_format</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>markdown</code></td>
+<td>All</td>
+<td>Primary content format: <code>"markdown"</code> (default) or <code>"doclang"</code>. When <code>"doclang"</code>, the <code>content</code> column contains DocLang XML instead of Markdown. Use <code>"doclang"</code> for pipelines that must preserve DocLang's structured element hierarchy through redaction and vector indexing.</td>
+</tr>
+<tr>
 <td><code>text_extraction.provider_config.additional_formats</code></td>
 <td>array</td>
 <td style="text-align: right;">No</td>
 <td><code>[]</code></td>
 <td>All</td>
-<td>Additional output formats beyond markdown: <code>html</code>, <code>json</code>, <code>text</code>, <code>doctags</code>, <code>doclang</code></td>
+<td>Additional output formats beyond the primary format: <code>html</code>, <code>json</code>, <code>text</code>, <code>doctags</code>, <code>doclang</code>, <code>markdown</code>. When <code>doc_format=doclang</code>, add <code>"markdown"</code> here to also produce a <code>content_markdown</code> column.</td>
 </tr>
 <tr>
 <td><code>text_extraction.provider_config.vlm_pipeline</code></td>
@@ -984,12 +1016,13 @@ owner: str = &quot;custom&quot;  # MUST be set for all custom operators
 </ul>
 <p><strong>Output Schema</strong></p>
 <ul>
-<li><code>content</code> (or configured via <code>doc_column</code> parameter) - Extracted markdown text (always generated)</li>
+<li><code>content</code> (or configured via <code>doc_column</code> parameter) - Primary extracted content: Markdown when <code>doc_format=markdown</code> (default), DocLang XML when <code>doc_format=doclang</code></li>
 <li><code>content_html</code> - HTML format (if <code>additional_formats</code> includes "html")</li>
 <li><code>content_json</code> - JSON structured format (if <code>additional_formats</code> includes "json")</li>
 <li><code>content_text</code> - Plain text format (if <code>additional_formats</code> includes "text")</li>
 <li><code>content_doctags</code> - Docling's native DocTags format (if <code>additional_formats</code> includes "doctags")</li>
-<li><code>content_doclang</code> - DocLang format (if <code>additional_formats</code> includes "doclang")</li>
+<li><code>content_doclang</code> - DocLang format (if <code>additional_formats</code> includes "doclang" and <code>doc_format=markdown</code>)</li>
+<li><code>content_markdown</code> - Markdown format (if <code>additional_formats</code> includes "markdown" and <code>doc_format=doclang</code>)</li>
 <li><code>entities</code> (or configured <code>output_column</code>) - Extracted entities as JSON string (if entity extraction enabled)</li>
 <li><code>doc_id_hash</code> - Document hash identifier</li>
 <li><code>pages_processed</code> - Number of pages in the document. Obtained from Docling extraction metadata when available; otherwise estimated using 3000 characters = 1 page</li>
@@ -2143,6 +2176,13 @@ owner: str = &quot;custom&quot;  # MUST be set for all custom operators
 <td style="text-align: right;">No</td>
 <td><code>redaction_stats</code></td>
 <td>Per-row redaction count</td>
+</tr>
+<tr>
+<td><code>doc_format</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>markdown</code></td>
+<td>Content format of the input column: <code>"markdown"</code> (default) or <code>"doclang"</code>. When <code>"doclang"</code>, redaction is applied per DOM node using <code>defusedxml</code> — XML tags, attributes, and element hierarchy are preserved. Falls back to plain-text redaction if the XML is malformed.</td>
 </tr>
 </tbody>
 </table></div>
@@ -3598,6 +3638,13 @@ owner: str = &quot;custom&quot;  # MUST be set for all custom operators
 <td style="text-align: right;">No</td>
 <td>-</td>
 <td>Mapping of PyArrow columns to vector DB fields</td>
+</tr>
+<tr>
+<td><code>doc_format</code></td>
+<td>string</td>
+<td style="text-align: right;">No</td>
+<td><code>markdown</code></td>
+<td>Content format of the incoming <code>content</code> column: <code>"markdown"</code> (default) or <code>"doclang"</code>. When <code>"doclang"</code>, DocLang XML is auto-transcoded to clean Markdown before indexing (both unchunked and chunked modes). Chunk metadata (bounding boxes, page numbers, header paths) is preserved in indexed document payloads.</td>
 </tr>
 </tbody>
 </table></div>

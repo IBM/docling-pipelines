@@ -403,8 +403,8 @@ git pull upstream main
 <p><strong>Run code quality checks</strong>:</p>
 </li>
 </ol>
-<pre><code class="language-bash"># Run pre-commit hooks (from project root)
-uv run pre-commit run --all-files
+<pre><code class="language-bash"># Run pre-commit hooks on committed branch changes (from project root)
+pre-commit run --from-ref origin/main --to-ref HEAD
 
 # Or run individual tools (from project root)
 uv run ruff check --fix .
@@ -919,8 +919,8 @@ git rebase main
 <ol>
 <li><strong>Run all checks</strong>:</li>
 </ol>
-<pre><code class="language-bash"># Code quality (from project root)
-uv run pre-commit run --all-files
+<pre><code class="language-bash"># Code quality for committed branch changes (from project root)
+pre-commit run --from-ref origin/main --to-ref HEAD
 
 # Tests (from project root)
 uv run pytest -v --cov=src

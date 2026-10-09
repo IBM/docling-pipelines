@@ -494,20 +494,19 @@
 <li><strong>Repository Tests</strong>: Integration tests with DuckDB (optional)</li>
 </ul>
 <h3 id="running-tests">Running Tests</h3>
-<pre><code class="language-bash"># Navigate to backend directory
-cd src/docpipe_app/backend
+<pre><code class="language-bash"># Run from the project root
 
 # Set PYTHONPATH
-export PYTHONPATH=&quot;$(cd ../../.. &amp;&amp; pwd)/src/docpipe_app/backend:${PYTHONPATH}&quot;
+export PYTHONPATH=&quot;$(pwd)/src:${PYTHONPATH}&quot;
 
 # Run all document library tests
-uv run pytest ../../../tests/unit/core/assets_management/document_libraries/ -v
+uv run pytest tests/unit/core/assets_management/document_libraries/ -v
 
 # Run specific test file
-uv run pytest ../../../tests/unit/core/assets_management/document_libraries/domain/models/test_document_library_validation.py -v
+uv run pytest tests/unit/core/assets_management/document_libraries/domain/models/test_document_library_validation.py -v
 
 # Run with coverage
-uv run pytest ../../../tests/unit/core/assets_management/document_libraries/ --cov=core.assets_management.document_libraries --cov-report=html
+uv run pytest tests/unit/core/assets_management/document_libraries/ --cov=core.assets_management.document_libraries --cov-report=html
 </code></pre>
 <h2 id="usage-examples">Usage Examples</h2>
 <h3 id="creating-a-library">Creating a Library</h3>

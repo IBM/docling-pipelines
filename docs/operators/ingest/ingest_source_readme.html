@@ -319,7 +319,7 @@
 <p><strong>Configuration:</strong></p>
 <pre><code class="language-python">node_config = {
     'provider': 'filesystem',
-    'connection_params': {
+    'provider_config': {
         'paths': ['/data/invoices', '/data/contracts'],
         'recursive': True,
         'exclude_patterns': ['*.tmp', '__pycache__/*'],
@@ -383,12 +383,10 @@
 <p><strong>Configuration (AWS S3):</strong></p>
 <pre><code class="language-python">node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'your-bucket-name',
         'prefix': 'optional/path/prefix/',  # Optional
-        'region': 'us-east-1'  # Optional
-    },
-    'credentials': {
+        'region': 'us-east-1',             # Optional
         'access_key': 'YOUR_AWS_ACCESS_KEY',
         'secret_key': 'YOUR_AWS_SECRET_KEY'  # pragma: allowlist secret
     }
@@ -397,12 +395,10 @@
 <p><strong>Configuration (IBM Cloud Object Storage):</strong></p>
 <pre><code class="language-python">node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'your-bucket-name',
         'prefix': 'optional/path/prefix/',  # Optional
-        'endpoint_url': 'https://s3.us-south.cloud-object-storage.appdomain.cloud'
-    },
-    'credentials': {
+        'endpoint_url': 'https://s3.us-south.cloud-object-storage.appdomain.cloud',
         'access_key': 'YOUR_IBM_ACCESS_KEY',
         'secret_key': 'YOUR_IBM_SECRET_KEY'  # pragma: allowlist secret
     }
@@ -430,10 +426,8 @@
 <p><strong>Configuration:</strong></p>
 <pre><code class="language-python">node_config = {
     'provider': 'sharepoint',
-    'connection_params': {
-        'document_library_id': 'your-library-id'
-    },
-    'credentials': {
+    'provider_config': {
+        'document_library_id': 'your-library-id',
         'client_id': 'YOUR_CLIENT_ID',
         'client_secret': 'YOUR_CLIENT_SECRET',  # pragma: allowlist secret
         'tenant_id': 'YOUR_TENANT_ID'
@@ -453,13 +447,11 @@
 <p><strong>Configuration:</strong></p>
 <pre><code class="language-python">node_config = {
     'provider': 'onedrive',
-    'connection_params': {
+    'provider_config': {
         'drive_id': 'your-drive-id',
-        'folder_path': '/Documents/MyFolder'  # Optional
-    },
-    'credentials': {
+        'folder_path': '/Documents/MyFolder',  # Optional
         'client_id': 'YOUR_CLIENT_ID',
-        'client_secret': 'YOUR_CLIENT_SECRET', # pragma: allowlist secret
+        'client_secret': 'YOUR_CLIENT_SECRET',  # pragma: allowlist secret
         'tenant_id': 'YOUR_TENANT_ID'
     }
 }
@@ -478,12 +470,10 @@
 <p><strong>Configuration:</strong></p>
 <pre><code class="language-python">node_config = {
     'provider': 'google_drive',
-    'connection_params': {
+    'provider_config': {
         'folder_id': 'your-folder-id',
-        'recursive': False  # Optional: include subfolders
-    },
-    'credentials': {
-        'credentials_json_path': '/path/to/client_secret.json',
+        'recursive': False,  # Optional: include subfolders
+        'credentials_path': '/path/to/client_secret.json',
         'token_path': '/path/to/token.json',  # Optional
         'scopes': ['https://www.googleapis.com/auth/drive.readonly']  # Optional
     }
@@ -510,14 +500,12 @@ The operator uses read-only access by default for security. Available scopes:<br
 <p><strong>Configuration:</strong></p>
 <pre><code class="language-python">node_config = {
     'provider': 'box_driver',
-    'connection_params': {
+    'provider_config': {
         'folder_id': '0',  # Optional: Box folder ID to start from (default: '0' for root)
         'recursive': True,  # Optional: include subfolders
         'max_file_size_mb': 50,  # Optional: max file size in MB
-        'exclude_patterns': ['*.tmp', 'Trash/*']  # Optional: patterns to exclude
-    },
-    'credentials': {
-        'credentials_json_path': '/path/to/box_jwt_config.json'
+        'exclude_patterns': ['*.tmp', 'Trash/*'],  # Optional: patterns to exclude
+        'credentials_path': '/path/to/box_jwt_config.json'
     },
     'include_filter': 'pdf,docx,txt,pptx,xlsx',  # Optional: file extensions to include
     'max_files': 100  # Optional
@@ -560,13 +548,11 @@ The adapter uses JWT (JSON Web Token) authentication which provides:<br />
 <p><strong>Configuration:</strong></p>
 <pre><code class="language-python">node_config = {
     'provider': 'dropbox',
-    'connection_params': {
+    'provider_config': {
         'folder_path': '/Reports',  # Optional: folder to ingest from ('' or '/' for account root)
         'recursive': True,  # Optional: include subfolders (default: True)
         'max_file_size_mb': 50,  # Optional: max file size in MB
-        'exclude_patterns': ['*.tmp', '*/Archive/*']  # Optional: patterns to exclude
-    },
-    'credentials': {
+        'exclude_patterns': ['*.tmp', '*/Archive/*'],  # Optional: patterns to exclude
         'access_token': '${DROPBOX_ACCESS_TOKEN}'
     },
     'include_filter': 'pdf,docx,txt',  # Optional: file extensions to include
@@ -605,14 +591,11 @@ The adapter uses JWT (JSON Web Token) authentication which provides:<br />
 <p><strong>Configuration:</strong></p>
 <pre><code class="language-python">node_config = {
     'provider': 'custom',
-    'connection_params': {
+    'provider_config': {
         'loader_class_path': 'my_package.loaders.CustomLoader',
-        # Additional parameters specific to your loader
+        # Additional parameters specific to your loader (including credentials)
         'param1': 'value1',
-        'param2': 'value2'
-    },
-    'credentials': {
-        # Credentials specific to your loader
+        'param2': 'value2',
         'api_key': 'YOUR_API_KEY'  # pragma: allowlist secret
     }
 }
@@ -632,11 +615,9 @@ import pyarrow as pa
 # Configure the operator
 node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'my-bucket',
-        'prefix': 'documents/'
-    },
-    'credentials': {
+        'prefix': 'documents/',
         'access_key': 'YOUR_ACCESS_KEY',
         'secret_key': 'YOUR_SECRET_KEY'  # pragma: allowlist secret
     },
@@ -688,18 +669,11 @@ print(f&quot;Schema: {result_table.schema}&quot;)
 <td>Source provider: <code>filesystem</code>, <code>s3</code>, <code>ibm_cos</code>, <code>sharepoint</code>, <code>onedrive</code>, <code>google_drive</code>, <code>box_driver</code>, <code>dropbox</code>, <code>web</code></td>
 </tr>
 <tr>
-<td><code>connection_params</code></td>
+<td><code>provider_config</code></td>
 <td>object</td>
 <td><strong>Yes</strong></td>
 <td>—</td>
-<td>Provider-specific connection settings</td>
-</tr>
-<tr>
-<td><code>credentials</code></td>
-<td>object</td>
-<td><strong>Yes</strong></td>
-<td>—</td>
-<td>Provider-specific authentication credentials</td>
+<td>All provider-specific parameters including credentials in a single dict</td>
 </tr>
 <tr>
 <td><code>include_filter</code></td>
@@ -712,7 +686,7 @@ print(f&quot;Schema: {result_table.schema}&quot;)
 <td><code>max_files</code></td>
 <td>integer</td>
 <td>No</td>
-<td>unlimited</td>
+<td><code>100</code></td>
 <td>Maximum files to ingest</td>
 </tr>
 <tr>
@@ -721,13 +695,6 @@ print(f&quot;Schema: {result_table.schema}&quot;)
 <td>No</td>
 <td><code>false</code></td>
 <td>Re-ingest previously processed files</td>
-</tr>
-<tr>
-<td><code>retain_deleted_docs</code></td>
-<td>boolean</td>
-<td>No</td>
-<td><code>false</code></td>
-<td>Keep records of deleted files</td>
 </tr>
 </tbody>
 </table></div>
@@ -787,13 +754,11 @@ print(f&quot;Schema: {result_table.schema}&quot;)
   &quot;name&quot;: &quot;ingest_s3_documents&quot;,
   &quot;config&quot;: {
     &quot;provider&quot;: &quot;s3&quot;,
-    &quot;connection_params&quot;: {
+    &quot;provider_config&quot;: {
       &quot;bucket&quot;: &quot;my-bucket&quot;,
-      &quot;prefix&quot;: &quot;documents/&quot;
-    },
-    &quot;credentials&quot;: {
-      &quot;aws_access_key_id&quot;: &quot;${AWS_ACCESS_KEY_ID}&quot;,
-      &quot;aws_secret_access_key&quot;: &quot;${AWS_SECRET_ACCESS_KEY}&quot;
+      &quot;prefix&quot;: &quot;documents/&quot;,
+      &quot;access_key&quot;: &quot;${S3_ACCESS_KEY}&quot;,
+      &quot;secret_key&quot;: &quot;${S3_SECRET_KEY}&quot;
     },
     &quot;include_filter&quot;: &quot;pdf,docx&quot;,
     &quot;max_files&quot;: 500
@@ -854,8 +819,11 @@ for i in range(result_table.num_rows):
 <p>The operator supports incremental processing to avoid re-ingesting unchanged documents:</p>
 <pre><code class="language-python">node_config = {
     'provider': 's3',
-    'connection_params': {...},
-    'credentials': {...},
+    'provider_config': {
+        'bucket': 'my-bucket',
+        'access_key': '...',
+        'secret_key': '...'
+    },
     'job_id': 'my-job-123',
     'force_ingest': False  # Set to True to re-ingest all documents
 }
@@ -1071,8 +1039,7 @@ pip install box-sdk-gen==1.17.0 langchain-community==0.4.1
 <p><strong>Parameters:</strong><br />
 - <code>node_config</code> (dict): Configuration dictionary containing:<br />
   - <code>provider</code> (str): Provider identifier (s3, google_drive, sharepoint, onedrive, box_driver, dropbox, filesystem, web, custom)<br />
-  - <code>connection_params</code> (dict): Provider-specific connection parameters<br />
-  - <code>credentials</code> (dict): Authentication credentials<br />
+  - <code>provider_config</code> (dict): All provider-specific parameters including credentials in a single dict<br />
   - <code>job_id</code> (str, optional): Job identifier for tracking<br />
   - <code>job_run_id</code> (str, optional): Job run identifier<br />
   - <code>max_files</code> (int, optional): Maximum number of files to process (default: 100)<br />
@@ -1099,7 +1066,7 @@ pip install box-sdk-gen==1.17.0 langchain-community==0.4.1
 <h3 id="example-1-filesystem-single-directory-python">Example 1: Filesystem — Single Directory (Python)</h3>
 <pre><code class="language-python">node_config = {
     'provider': 'filesystem',
-    'connection_params': {
+    'provider_config': {
         'paths': ['/data/customer_support_docs'],
         'recursive': True,
         'exclude_patterns': ['*.tmp', '__pycache__/*'],
@@ -1113,7 +1080,7 @@ pip install box-sdk-gen==1.17.0 langchain-community==0.4.1
 <h3 id="example-2-filesystem-multiple-directories-python">Example 2: Filesystem — Multiple Directories (Python)</h3>
 <pre><code class="language-python">node_config = {
     'provider': 'filesystem',
-    'connection_params': {
+    'provider_config': {
         'paths': [
             '/data/invoices',
             '/data/contracts',
@@ -1134,7 +1101,7 @@ pip install box-sdk-gen==1.17.0 langchain-community==0.4.1
   &quot;type&quot;: &quot;ingest_source&quot;,
   &quot;config&quot;: {
     &quot;provider&quot;: &quot;filesystem&quot;,
-    &quot;connection_params&quot;: {
+    &quot;provider_config&quot;: {
       &quot;paths&quot;: [
         &quot;./data/invoices&quot;,
         &quot;./data/contracts&quot;
@@ -1153,11 +1120,9 @@ pip install box-sdk-gen==1.17.0 langchain-community==0.4.1
 <h3 id="example-4-s3-with-folder-prefix-filtering">Example 4: S3 with Folder Prefix Filtering</h3>
 <pre><code class="language-python">node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'company-documents',
-        'prefix': '2024/invoices/'  # Ingests all files in this folder
-    },
-    'credentials': {
+        'prefix': '2024/invoices/',  # Ingests all files in this folder
         'access_key': os.getenv('AWS_ACCESS_KEY'),
         'secret_key': os.getenv('AWS_SECRET_KEY')
     }
@@ -1166,11 +1131,9 @@ pip install box-sdk-gen==1.17.0 langchain-community==0.4.1
 <h3 id="example-5-s3-with-file-level-ingestion">Example 5: S3 with File-Level Ingestion</h3>
 <pre><code class="language-python">node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'company-documents',
-        'prefix': '2024/invoices/report.pdf'  # Ingests only this specific file
-    },
-    'credentials': {
+        'prefix': '2024/invoices/report.pdf',  # Ingests only this specific file
         'access_key': os.getenv('AWS_ACCESS_KEY'),
         'secret_key': os.getenv('AWS_SECRET_KEY')
     }
@@ -1179,12 +1142,10 @@ pip install box-sdk-gen==1.17.0 langchain-community==0.4.1
 <h3 id="example-6-s3-compatible-storage-ibm-cos">Example 6: S3-Compatible Storage (IBM COS)</h3>
 <pre><code class="language-python">node_config = {
     'provider': 's3',
-    'connection_params': {
+    'provider_config': {
         'bucket': 'enterprise-data',
         'prefix': 'contracts/',
-        'endpoint_url': 'https://s3.eu-gb.cloud-object-storage.appdomain.cloud'
-    },
-    'credentials': {
+        'endpoint_url': 'https://s3.eu-gb.cloud-object-storage.appdomain.cloud',
         'access_key': os.getenv('IBM_COS_ACCESS_KEY'),
         'secret_key': os.getenv('IBM_COS_SECRET_KEY')
     }
@@ -1193,11 +1154,9 @@ pip install box-sdk-gen==1.17.0 langchain-community==0.4.1
 <h3 id="example-7-google-drive-recursive">Example 7: Google Drive Recursive</h3>
 <pre><code class="language-python">node_config = {
     'provider': 'google_drive',
-    'connection_params': {
+    'provider_config': {
         'folder_id': '1DKN_mxnoW1Uaacghz8vyEeqw-j4IOSFK',
-        'recursive': True
-    },
-    'credentials': {
+        'recursive': True,
         'credentials_json_path': os.getenv('GOOGLE_CREDENTIALS_PATH'),
         'token_path': os.path.expanduser('~/.credentials/gdrive_token.json'),
         'scopes': ['https://www.googleapis.com/auth/drive.readonly']
@@ -1207,13 +1166,11 @@ pip install box-sdk-gen==1.17.0 langchain-community==0.4.1
 <h3 id="example-8-box-with-jwt-authentication">Example 8: Box with JWT Authentication</h3>
 <pre><code class="language-python">node_config = {
     'provider': 'box_driver',
-    'connection_params': {
+    'provider_config': {
         'folder_id': '123456789',  # Specific Box folder ID (use '0' for root)
         'recursive': True,
         'max_file_size_mb': 50,
-        'exclude_patterns': ['*.tmp', 'Trash/*']
-    },
-    'credentials': {
+        'exclude_patterns': ['*.tmp', 'Trash/*'],
         'credentials_json_path': os.getenv('BOX_JWT_CONFIG_FILE')
     },
     'include_filter': 'pdf,docx,txt,pptx,xlsx',  # File extensions to include
@@ -1223,13 +1180,11 @@ pip install box-sdk-gen==1.17.0 langchain-community==0.4.1
 <h3 id="example-9-dropbox-folder-with-extension-filtering">Example 9: Dropbox Folder with Extension Filtering</h3>
 <pre><code class="language-python">node_config = {
     'provider': 'dropbox',
-    'connection_params': {
+    'provider_config': {
         'folder_path': '/Reports/2026',
         'recursive': True,
         'max_file_size_mb': 50,
-        'exclude_patterns': ['*.tmp', '*/Archive/*']
-    },
-    'credentials': {
+        'exclude_patterns': ['*.tmp', '*/Archive/*'],
         'access_token': os.getenv('DROPBOX_ACCESS_TOKEN')
     },
     'include_filter': 'pdf,docx,txt',
