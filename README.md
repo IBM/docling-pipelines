@@ -76,7 +76,11 @@ result = manager.execute()
 
 Log verbosity is controlled via `DS_LOG_LEVEL` (`DEBUG`, `INFO`, `WARNING`).
 
-## UI
+## UI *(beta)*
+
+> **⚠️ Beta notice:** The web UI is experimental and **not production-ready**. It is under active development and may change significantly between releases. For production workloads, use the CLI, Python API, or REST API.
+
+A browser-based UI for building flows and monitoring runs is included in this repository under [`frontend/`](frontend/).
 
 Docling pipelines includes a React + TypeScript frontend (IBM Carbon Design System) served by the FastAPI backend at `/ui`.
 
@@ -106,15 +110,7 @@ uvicorn docpipe.api.main:app --host 0.0.0.0 --port 8080
 # UI available at http://localhost:8080/ui
 ```
 
-For full details see [FRONTEND_BUILD_INTEGRATION.md](FRONTEND_BUILD_INTEGRATION.md).
-
-## Web UI (Beta)
-
-A browser-based UI for building flows and monitoring runs is included in this repository under [`frontend/`](frontend/).
-
-> **⚠️ Beta notice:** The web UI is experimental and **not production-ready**. It is under active development and may change significantly between releases. For production workloads, use the CLI, Python API, or REST API.
-
-To run the UI locally, see the [Frontend README](frontend/README.md) and the [All-in-One Docker deployment](docker/all-in-one-deployment/README.md).
+For full details see [FRONTEND_BUILD_INTEGRATION.md](FRONTEND_BUILD_INTEGRATION.md) and the [Frontend README](frontend/README.md).
 
 ## Documentation
 
