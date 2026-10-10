@@ -282,21 +282,94 @@ graph LR
 
 ## 7. Viewing lineage events
 
-### Console transport — no backend required
+### 7.1 Console transport — no backend required
 
 Set `OPENLINEAGE__TRANSPORT__TYPE=console` (or omit the transport setting entirely). Events are logged to stdout at INFO level via the Python logger. This is the fastest way to verify that lineage events are being generated correctly.
 
-### File transport — offline inspection
+### 7.2 File transport — offline inspection
 
 Configure the file transport (see [Section 5.4](#54-file-transport)) to write events to a local JSONL file. Open the file in any JSON viewer or use `jq` to inspect individual events without connecting a backend.
 
-### OpenLineage-compatible backend
+### 7.3 Marquez integration and visualization
 
-Configure the HTTP transport with your backend URL. [Marquez](https://marquezproject.ai) is the open source reference implementation — any other platform that implements the OpenLineage HTTP API works equally well. For a full list of compatible platforms see [openlineage.io/ecosystem](https://openlineage.io/ecosystem).
+[Marquez](https://marquezproject.ai) is the open-source reference implementation of the OpenLineage standard (hosted by the Linux Foundation). While OpenLineage defines the metadata specification, Marquez provides the centralized metadata repository, graph stitching engine, and interactive Web UI.
 
-> [!NOTE]
-> Backend installation and setup is outside the scope of this guide. Refer to your chosen platform's
-> own documentation for server setup and configuration.
+#### Key Marquez concepts
+
+Before viewing lineage in Marquez, understand how its data model aligns with `docling-pipelines`:
+
+* **Namespaces**: Logical context boundaries for jobs and datasets (e.g. `docpipe://dev`, `docpipe://stage`, `docpipe://prod`).
+* **Jobs**: The transformation code that executed. In **flow mode**, this is the pipeline flow name (e.g. `customer_support_rag`). In **operator mode**, each DAG node also becomes a distinct child job (e.g. `extract_operator`, `chunker`, `embeddings`).
+* **Runs**: A single execution instance of a job identified by a UUID. Runs transition through lifecycle states: `START` &rarr; `RUNNING` &rarr; `COMPLETE` or `FAIL`.
+* **Datasets & Graph Stitching**: Data inputs and outputs identified by unique URIs (e.g. `filesystem://./docs`, `opensearch://knowledge_base`). Marquez automatically stitches DAG edges whenever Job A's output dataset matches Job B's input dataset.
+* **Facets**: Metadata payloads attached to runs, jobs, and datasets, such as dynamic PyArrow schema definitions, execution times, document processing metrics (`docpipeStats`), and error stack traces.
+
+#### Architecture and data flow
+
+`docling-pipelines` interacts with Marquez via the standard `openlineage-python` SDK over HTTP:
+
+```mermaid
+graph TD
+    subgraph DoclingPipelines ["docling-pipelines (Client)"]
+        DP["Pipeline Execution"]
+        OL["openlineage-python SDK<br/>(HTTP Transport)"]
+        DP -->|"Emits RunEvents<br/>(START, COMPLETE, FAIL)"| OL
+    end
+
+    subgraph MarquezBackend ["Marquez Backend"]
+        MAPI["Marquez API Server<br/>(Port :5000)<br/>POST /api/v1/lineage"]
+        MDB[("Marquez Postgres DB<br/>• Namespaces<br/>• Jobs & Runs<br/>• Datasets & Versions<br/>• Facet Blobs")]
+        MWEB["Marquez Web UI<br/>(Port :3000)<br/>React Frontend"]
+
+        OL -->|"HTTP POST (JSON)"| MAPI
+        MAPI -->|"Persists & Indexes"| MDB
+        MWEB -->|"Proxies REST API"| MAPI
+    end
+
+    Browser["User Browser"] -->|"Inspect Lineage DAG & Facets"| MWEB
+```
+
+#### Setting up Marquez locally
+
+Start the Marquez API, Web UI, and PostgreSQL database locally using Docker Compose:
+
+```bash
+git clone https://github.com/MarquezProject/marquez.git
+cd marquez
+./docker/up.sh
+```
+
+Once started:
+* **Marquez Web UI**: `http://localhost:3000`
+* **Marquez API Server**: `http://localhost:5000`
+
+#### Marquez transport configuration
+
+To direct the `openlineage-python` SDK to your Marquez API endpoint, set the target URL:
+
+```bash
+export OPENLINEAGE_URL=http://localhost:5000
+```
+
+Alternatively, when using structured transport variables:
+
+```bash
+export OPENLINEAGE__TRANSPORT__TYPE=http
+export OPENLINEAGE__TRANSPORT__URL=http://localhost:5000
+```
+
+#### Viewing events in the Marquez UI
+
+Once the setup is running and pipelines execute, navigating to `http://localhost:3000` provides full visibility into the emitted events:
+
+1. **Namespace Selection**: Choose your configured namespace (e.g. `docpipe://dev`) from the top-left dropdown.
+2. **Lineage Graph**: Select any pipeline job under the **Jobs** tab to view the stitched dataset-to-job DAG.
+3. **Schema Inspection**: Click on any input/output dataset node to inspect the dynamically inferred PyArrow column names and data types.
+4. **Execution Status & Metrics**: Click on any run to inspect execution timestamps, lifecycle status badges (`COMPLETE` in green, `FAIL` in red), and custom facets including **`docpipeStats`** and **`docpipeFlow`**.
+
+### 7.4 Other OpenLineage-compatible backends
+
+Because `docling-pipelines` standardizes on OpenLineage, any backend implementing the OpenLineage HTTP API (such as DataHub, Atlan, Collibra, or Egeria) can consume events by setting `OPENLINEAGE_URL` to its endpoint. For a full list of compatible platforms see [openlineage.io/ecosystem](https://openlineage.io/ecosystem).
 
 ---
 

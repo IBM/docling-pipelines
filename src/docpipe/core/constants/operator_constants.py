@@ -211,6 +211,9 @@ class OperatorConstants:
         PROVIDER: Final[str] = "provider"
         PROVIDERS: Final[str] = "providers"
         PROVIDER_CONFIG: Final[str] = "provider_config"
+        # Attribute-metadata key naming the sibling field that selects the active provider
+        # for a provider-config attribute (defaults to "provider" when absent).
+        PROVIDER_FIELD: Final[str] = "provider_field"
         PROVIDER_LITELLM: Final[str] = "litellm"
         PROVIDER_WATSONX: Final[str] = "watsonx"
         REQUIRED: Final[str] = "required"
@@ -794,6 +797,12 @@ Example format: {"customer": {"name": "John Doe", "email": "john@example.com"}, 
         HAP_REDACTION_CHARACTER_KEY: Final[str] = "hap_redaction_character"
         HAP_REDACTION_KEY: Final[str] = "hap_redaction"
         HAP_THRESHOLD_KEY: Final[str] = "hap_threshold"
+
+        # Per-capability provider selection (legacy "provider"/"provider_config" sets both)
+        PII_PROVIDER_KEY: Final[str] = "pii_provider"
+        PII_PROVIDER_CONFIG_KEY: Final[str] = "pii_provider_config"
+        HAP_PROVIDER_KEY: Final[str] = "hap_provider"
+        HAP_PROVIDER_CONFIG_KEY: Final[str] = "hap_provider_config"
         MODERATIONS: Final[str] = "moderations"
 
         # Redaction Configuration

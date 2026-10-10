@@ -1292,7 +1292,7 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 
 #### PIIAndHAPAnnotator
 
-**Purpose:** Detect Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using LLM-based detection, with optional redaction.
+**Purpose:** Detect Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content, with optional redaction. PII and HAP can use different providers: `litellm` and `watsonx` support both, `presidio` supports PII only.
 
 **Category:** Quality
 
@@ -1302,8 +1302,12 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `provider` | string | No | `litellm` | Detection provider: `litellm` or `watsonx` |
-| `provider_config` | object | No | `{}` | Provider-specific configuration (see below) |
+| `provider` | string | No | `litellm` | Provider for every expected redaction without its own `pii_provider` / `hap_provider`: `litellm`, `watsonx`, `presidio` (PII only) |
+| `provider_config` | object | No | `{}` | Provider-specific configuration (see below); shared with `pii_provider` / `hap_provider` when they name the same provider or `provider` is unset |
+| `pii_provider` | string | No | — | Provider for PII only: `litellm`, `watsonx`, `presidio` |
+| `pii_provider_config` | object | No | `{}` | Configuration for `pii_provider` (falls back to `provider_config` as above) |
+| `hap_provider` | string | No | — | Provider for HAP only: `litellm`, `watsonx` |
+| `hap_provider_config` | object | No | `{}` | Configuration for `hap_provider` (falls back to `provider_config` as above) |
 | `doc_column` | string | No | `content` | Input text column |
 | `expected_redactions` | list | No | `["pii","hap"]` | Detection types to run: any subset of `["pii","hap"]` |
 | `pii_list` | list | No | all 13 types | PII types to detect |
@@ -1333,6 +1337,16 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 | `container_kind` | string | Yes | `"project"` or `"space"` |
 | `container_id` | string | Yes | Project or space UUID |
 | `timeout` | integer | No | Request timeout in seconds (default: `300`) |
+
+**`provider_config` — Presidio (PII only; requires `pip install "docling-pipelines[presidio]"` and a spaCy model):**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `language` | string | No | Document language code (default: `en`) |
+| `spacy_model` | string | No | spaCy NER model (default: `en_core_web_lg`) |
+| `entity_mapping` | object | No | Presidio entity type to PII type overrides (e.g. `{"DATE_TIME": "DateOfBirth"}`) |
+
+A provider selected for a capability it does not support (e.g. `hap_provider: "presidio"`) fails validation before any document is processed.
 
 **Output Schema:**
 

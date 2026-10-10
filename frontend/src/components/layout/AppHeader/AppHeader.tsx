@@ -6,6 +6,7 @@ import {
   HeaderMenuItem,
   HeaderGlobalBar,
   HeaderGlobalAction,
+  Tag,
   Theme,
 } from '@carbon/react';
 import { Asleep, Light, Notification } from '@carbon/icons-react';
@@ -55,6 +56,9 @@ export function AppHeader(): React.JSX.Element {
         >
           {APP_INFO.NAME}
         </HeaderName>
+        <span className={styles.betaTag}>
+          <Tag type="teal" size="sm">Beta</Tag>
+        </span>
         <HeaderNavigation aria-label={intl.formatMessage(messages.mainNavLabel)}>
           <HeaderMenuItem
             onClick={handleNavHome}

@@ -25,7 +25,7 @@ dependencies = [
     "datatrove==0.10.0",
     "datefinder==1.0.0",
     "defusedxml==0.7.1",
-    "docling[rapidocr]==2.130.0",
+    "docling[rapidocr]==2.132.0",
     "dropbox==12.2.1",
     "duckdb==1.3.2",
     "fastapi==0.141.1",
@@ -84,7 +84,7 @@ dependencies = [
     "python-ldap==3.4.5",
     "python-multipart==0.0.32",
     "pyyaml==6.0.3",
-    "requests==2.33.0",
+    "requests==2.34.2",
     "sentence-transformers==5.6.0",
     "setuptools==83.0.0",
     "spacy>=3.7.4",
@@ -109,6 +109,11 @@ event-streaming = [
 ]
 lineage = [
     "openlineage-python==1.52.0",
+]
+# Optional local PII provider for the pii_and_hap operator (pii_provider: "presidio").
+# Also requires a spaCy model, e.g. `python -m spacy download en_core_web_lg`.
+presidio = [
+    "presidio-analyzer==2.2.364",
 ]
 benchmark = [
     "matplotlib==3.11.0",
@@ -154,23 +159,23 @@ telemetry = [
 ]
 
 rapidocr = [
-    "docling[rapidocr]==2.130.0",
+    "docling[rapidocr]==2.132.0",
 ]
 
 easyocr = [
-    "docling[easyocr]==2.130.0",
+    "docling[easyocr]==2.132.0",
 ]
 
 ocrmac = [
-    "docling[ocrmac]==2.130.0",
+    "docling[ocrmac]==2.132.0",
 ]
 
 tesserocr = [
-    "docling[tesserocr]==2.130.0",
+    "docling[tesserocr]==2.132.0",
 ]
 
 vlm_asr = [
-    "docling[vlm,asr]==2.130.0",
+    "docling[vlm,asr]==2.132.0",
 ]
 
 [project.urls]
