@@ -21,7 +21,7 @@ or, for a GPU build, use:
 
 ```bash
 # docker compose -f docker/event-streaming/docker-compose.yml config --quiet
-# time docker compose -f docker/event-streaming/docker-compose.yml build --build-arg COMPUTE_BACKEND=gpu
+# docker compose -f docker/event-streaming/docker-compose.yml build --build-arg COMPUTE_BACKEND=gpu
 ```
 
 ## Stage 2: Run the API
