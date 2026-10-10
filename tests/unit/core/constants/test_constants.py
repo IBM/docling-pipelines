@@ -16,11 +16,13 @@ def test_default_database_paths(*, monkeypatch, tmp_path, data_root):
     monkeypatch.chdir(working_dir)
     if data_root is None:
         monkeypatch.delenv("DOCPIPE_DATA_PATH", raising=False)
-        expected_root = working_dir / "data"
+        expected_root = constants._find_project_root() / "data"
     else:
         configured_root = str(tmp_path / data_root) if data_root.startswith("absolute") else data_root
         monkeypatch.setenv("DOCPIPE_DATA_PATH", configured_root)
         expected_root = Path(configured_root).resolve()
+
+    root_existed = expected_root.exists()
 
     # Execute in an isolated namespace: constants are evaluated at import time.
     loaded_constants = runpy.run_path(constants.__file__)["DocpipeConstants"]
@@ -28,4 +30,4 @@ def test_default_database_paths(*, monkeypatch, tmp_path, data_root):
     assert loaded_constants.DOCUMENT_SET_DEFAULT_DB_PATH == str(expected_root / "duckdb" / "document_sets.duckdb")
     assert loaded_constants.DOCUMENT_LIBRARY_DEFAULT_DB_PATH == loaded_constants.DOCUMENT_SET_DEFAULT_DB_PATH
     assert loaded_constants.JOB_STATS_DEFAULT_DB_PATH == str(expected_root / "duckdb" / "job_stats.duckdb")
-    assert not expected_root.exists()
+    assert expected_root.exists() == root_existed
