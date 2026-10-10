@@ -1,23 +1,3 @@
-# Build the React UI into static assets.
-FROM registry.access.redhat.com/ubi10/nodejs-22 AS frontend-builder
-
-USER root
-WORKDIR /frontend
-
-# Cache dependencies separately from frontend source changes.
-COPY frontend/package*.json ./
-RUN npm ci
-
-COPY frontend/src ./src
-COPY frontend/public ./public
-COPY frontend/index.html \
-     frontend/vite.config.ts \
-     frontend/tsconfig.json \
-     ./
-# Copy
-RUN mv ./public/samples/docker_samplePipeline.json ./public/samples/samplePipeline.json
-RUN npm run build
-
 # Install Python dependencies before copying application source.
 FROM registry.access.redhat.com/ubi9/python-312 AS backend-builder
 
@@ -34,15 +14,15 @@ ARG COMPUTE_BACKEND=cpu
 RUN uv venv --python /usr/bin/python3.12 /opt/docpipe-venv && \
     case "$COMPUTE_BACKEND" in \
         gpu) \
-            uv export --locked --no-dev --no-emit-project \
+            uv export --locked --no-dev --extra event-streaming --no-emit-project \
                 --format requirements.txt --output-file requirements-gpu.txt && \
             uv pip install --python /opt/docpipe-venv/bin/python \
                 --no-cache --require-hashes -r requirements-gpu.txt ;; \
         cpu) \
-            uv export --locked --no-dev --no-emit-project \
+            uv export --locked --no-dev --extra event-streaming --no-emit-project \
                 --prune torch --prune torchvision \
                 --format requirements.txt --output-file requirements-cpu-base.txt && \
-            uv export --locked --no-dev --no-emit-project --no-hashes \
+            uv export --locked --no-dev --extra event-streaming --no-emit-project --no-hashes \
                 --only-emit-package torch --only-emit-package torchvision \
                 --format requirements.txt --output-file requirements-cpu-torch.txt && \
             uv pip install --python /opt/docpipe-venv/bin/python \
@@ -63,7 +43,6 @@ RUN microdnf install -y --nodocs --setopt=install_weak_deps=0 \
 
 COPY --from=backend-builder --chown=1000:0 /opt/docpipe-venv/ /opt/docpipe-venv/
 COPY --chown=1000:0 src/docpipe/ /opt/app-root/src/docpipe/
-COPY --from=frontend-builder --chown=1000:0 /frontend/dist /opt/app-root/src/docpipe/api/static/
 
 # Allow runtime downloads and storage writes under the supported data paths.
 RUN mkdir -p \
