@@ -94,6 +94,10 @@ job_management:
       database_path: ./data/duckdb/job_stats.duckdb
 ```
 
+DuckDB defaults to `<DOCPIPE_DATA_PATH>/duckdb`, or `<project-root>/data/duckdb` when unset, resolved at startup.
+Job stats use `job_stats.duckdb`; document sets and libraries share the default `document_sets.duckdb` file.
+Explicit `database_path` settings take precedence, including the YAML example above.
+
 Important notes:
 
 - DuckDB stores all data in a single file
