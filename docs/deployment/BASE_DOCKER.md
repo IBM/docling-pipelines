@@ -13,13 +13,22 @@ export OPENSEARCH_PASSWORD='DocpipeLocal9!Secure'
 ## Stage 1: Build the images
 
 ```bash
+docker compose -f docker/docker-compose.yml config --quiet
 docker compose -f docker/docker-compose.yml build
+```
+
+or, for a GPU build, use:
+
+```bash
+# docker compose -f docker/docker-compose.yml config --quiet
+# time docker compose -f docker/docker-compose.yml build --build-arg COMPUTE_BACKEND=gpu
 ```
 
 ## Stage 2: Run the API
 
 ```bash
 docker compose -f docker/docker-compose.yml up -d --no-build
+docker compose -f docker/docker-compose.yml ps
 ```
 
 Check API health:
