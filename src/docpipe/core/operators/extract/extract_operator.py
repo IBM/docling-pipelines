@@ -129,6 +129,7 @@ from docpipe.core.operators.extract.domain.models import (
 from docpipe.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
 from docpipe.core.operators.operator_utils import OperatorUtils, format_failed_docs_summary
+from docpipe.core.ports.document_class_provider import DocumentClassProvider, StaticDocumentClassProvider
 from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 from docpipe.utils.data.transform import TransformUtils
 from docpipe.utils.infrastructure.logging import get_logger
@@ -190,7 +191,12 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
     category = OperatorCategory.Extract
     owner = DocpipeConstants.OWNER_DOCPIPE
 
-    def __init__(self, *, config: dict[str, Any]):
+    def __init__(
+        self,
+        *,
+        config: dict[str, Any],
+        document_class_provider: DocumentClassProvider | None = None,
+    ):
         """Initialize the unified extract operator.
 
         Parses the extraction mode, builds adapter-specific configuration,
@@ -213,11 +219,17 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                     - expand_extracted_data: Expand entity data flag
                 - max_workers: Number of parallel workers (default: auto-detect)
                 - use_processes: Use processes vs threads (default: False)
+            document_class_provider: Provider for resolving document class
+                schemas and Docling templates.  Defaults to
+                ``StaticDocumentClassProvider`` (local JSON files).
 
         Raises:
             FlowExecutionFailedException: If extraction_mode is invalid or configuration is incomplete
         """
         super().__init__(config)
+        self._document_class_provider: DocumentClassProvider = (
+            document_class_provider if document_class_provider is not None else StaticDocumentClassProvider()
+        )
 
         # Extract text_extraction nested config and store for later use.
         # Uses `or {}` so that an explicit null is treated the same
@@ -342,6 +354,7 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                     global_config=global_config,
                     doc_column=self.doc_column,
                     max_workers=entity_max_workers,
+                    document_class_provider=self._document_class_provider,
                 )
                 if self.entity_adapter:
                     logger.info(
@@ -946,6 +959,7 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
             node_id=self.entity_adapter.node_id,
             node_name=self.entity_adapter.node_name,
             batch_id=self.entity_adapter.batch_id,
+            document_class_provider=self._document_class_provider,
         )
         _doc_types, schema_templates = service.prepare_schemas(table=table)
 
@@ -1056,14 +1070,38 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                             reason=f"Column '{self.doc_column}' is empty after text extraction.",
                         )
                     else:
-                        entity_future = entity_executor.submit(
-                            self.entity_adapter.extract_entities_single,
-                            doc_id=str(task["doc_id"]),
-                            doc_name=task["doc_name"],
-                            content=extracted_content,
-                            schema=schema_to_use,
-                        )
-                        entity_future_to_info[entity_future] = (idx, str(task["doc_id"]), task["doc_name"])
+                        # Adapters that need the original file bytes (e.g. Docling VLM)
+                        # declare requires_binary_content = True on the port.
+                        # LLM-based adapters always receive extracted text.
+                        if self.entity_adapter.requires_binary_content:
+                            binary_content = task.get("binary_content")
+                            if not binary_content:
+                                AbstractOperator.record_skipped_document(
+                                    metadata=metadata,
+                                    doc_id=str(task["doc_id"]),
+                                    doc_name=task["doc_name"],
+                                    reason="Binary content unavailable for VLM extraction.",
+                                )
+                            else:
+                                entity_content: str | bytes = binary_content
+                                entity_future = entity_executor.submit(
+                                    self.entity_adapter.extract_entities_single,
+                                    doc_id=str(task["doc_id"]),
+                                    doc_name=task["doc_name"],
+                                    content=entity_content,
+                                    schema=schema_to_use,
+                                )
+                                entity_future_to_info[entity_future] = (idx, str(task["doc_id"]), task["doc_name"])
+                        else:
+                            entity_content = extracted_content
+                            entity_future = entity_executor.submit(
+                                self.entity_adapter.extract_entities_single,
+                                doc_id=str(task["doc_id"]),
+                                doc_name=task["doc_name"],
+                                content=entity_content,
+                                schema=schema_to_use,
+                            )
+                            entity_future_to_info[entity_future] = (idx, str(task["doc_id"]), task["doc_name"])
 
                 else:
                     # ---- Text extraction failed ----
@@ -1329,8 +1367,9 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
                     temp_pages_idx = column_names.index(DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN)
                     column_names[temp_pages_idx] = OperatorConstants.Columns.PAGES_PROCESSED
                     logger.info(
-                        f"Renaming '{DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN}' to "
-                        f"'{OperatorConstants.Columns.PAGES_PROCESSED}'"
+                        "Renaming '%s' to '%s'",
+                        DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN,
+                        OperatorConstants.Columns.PAGES_PROCESSED,
                     )
 
                 table = pa.table(

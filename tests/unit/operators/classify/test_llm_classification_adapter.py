@@ -52,8 +52,8 @@ class TestClassificationService:
         assert model_info["provider"] == "watsonx"
 
     def test_init_missing_model_id(self):
-        """Test initialization fails without model_id."""
-        with pytest.raises(DocpipeException, match="model_id is required"):
+        """Test initialization fails without model_id when using factory path."""
+        with pytest.raises(DocpipeException, match="model_id"):
             ClassificationService(
                 model_id=None,
                 provider_name="litellm",
@@ -409,6 +409,80 @@ class TestClassificationService:
         # Verify validate was called and service was created successfully
         mock_llm_adapter.validate.assert_called_once()
         assert service.model_id == "openai/llama3"
+
+
+@pytest.mark.unit
+class TestClassificationServiceProviderInjection:
+    """Tests for DocumentClassProvider and llm_adapter injection into ClassificationService."""
+
+    def test_defaults_to_static_provider_when_none_given(self):
+        """When no document_class_provider is given, StaticDocumentClassProvider is used."""
+        from docpipe.core.ports.document_class_provider import StaticDocumentClassProvider
+
+        mock_adapter = Mock()
+        mock_adapter.validate.return_value = {"valid": True, "errors": [], "warnings": []}
+
+        service = ClassificationService(llm_adapter=mock_adapter)
+
+        assert isinstance(service.document_class_provider, StaticDocumentClassProvider)
+
+    def test_stores_injected_document_class_provider(self):
+        """An explicitly injected document_class_provider is stored on the service."""
+        from unittest.mock import MagicMock
+
+        from docpipe.core.ports.document_class_provider import DocumentClassProvider
+
+        mock_adapter = Mock()
+        mock_adapter.validate.return_value = {"valid": True, "errors": [], "warnings": []}
+        custom_provider = MagicMock(spec=DocumentClassProvider)
+
+        service = ClassificationService(llm_adapter=mock_adapter, document_class_provider=custom_provider)
+
+        assert service.document_class_provider is custom_provider
+
+    @patch("docpipe.core.operators.quality.classification.classification_service.LLMAdapterFactory")
+    def test_injected_llm_adapter_bypasses_factory(self, mock_factory):
+        """When llm_adapter is provided, LLMAdapterFactory.create_inference_adapter is not called."""
+        mock_adapter = Mock()
+        mock_adapter.validate.return_value = {"valid": True, "errors": [], "warnings": []}
+
+        ClassificationService(llm_adapter=mock_adapter)
+
+        mock_factory.create_inference_adapter.assert_not_called()
+
+    def test_injected_adapter_is_used_as_llm_adapter(self):
+        """The injected llm_adapter is stored as service.llm_adapter."""
+        mock_adapter = Mock()
+        mock_adapter.validate.return_value = {"valid": True, "errors": [], "warnings": []}
+
+        service = ClassificationService(llm_adapter=mock_adapter)
+
+        assert service.llm_adapter is mock_adapter
+
+    def test_injected_adapter_model_id_and_provider_stored(self):
+        """Optional model_id and provider_name are stored for reference when adapter is injected."""
+        mock_adapter = Mock()
+        mock_adapter.validate.return_value = {"valid": True, "errors": [], "warnings": []}
+
+        service = ClassificationService(llm_adapter=mock_adapter, model_id="my-model", provider_name="gateway")
+
+        assert service.model_id == "my-model"
+        assert service.provider_name == "gateway"
+
+    def test_injected_adapter_defaults_empty_model_id_and_provider(self):
+        """model_id and provider_name default to empty string when adapter is injected without them."""
+        mock_adapter = Mock()
+        mock_adapter.validate.return_value = {"valid": True, "errors": [], "warnings": []}
+
+        service = ClassificationService(llm_adapter=mock_adapter)
+
+        assert service.model_id == ""
+        assert service.provider_name == ""
+
+    def test_factory_path_requires_provider_name(self):
+        """Without llm_adapter, a missing provider_name raises DocpipeException."""
+        with pytest.raises(DocpipeException, match="provider"):
+            ClassificationService(model_id="some-model")
 
 
 if __name__ == "__main__":
