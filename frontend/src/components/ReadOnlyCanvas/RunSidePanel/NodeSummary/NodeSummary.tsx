@@ -40,7 +40,6 @@ import {
   CELL_VALUE_FLOAT_DECIMALS,
   CELL_VALUE_FLOAT_THRESHOLD,
   DEFAULT_NODE_STATUS,
-  METADATA_TABLE_HEADERS,
 } from '@/constants/runSidePanel';
 import { SharedDataTable, SharedTearsheet } from '@/components/common';
 import { messages } from './NodeSummary.messages';
@@ -192,9 +191,14 @@ function getStatusIconComponent(status: string): CarbonIconType | null {
  * Renders a Carbon DataTable for a list of name/value metadata rows.
  */
 function MetadataDataTable({ rows }: { rows: MetadataRow[] }): React.JSX.Element {
+  const intl = useIntl();
   const dtRows = rows as unknown as React.ComponentProps<typeof DataTable>['rows'];
+  const metadataTableHeaders = [
+    { key: 'name',  header: intl.formatMessage(messages.metadataHeaderName)  },
+    { key: 'value', header: intl.formatMessage(messages.metadataHeaderValue) },
+  ];
   return (
-    <DataTable rows={dtRows} headers={METADATA_TABLE_HEADERS}>
+    <DataTable rows={dtRows} headers={metadataTableHeaders}>
       {/* eslint-disable react/jsx-props-no-spreading, react/jsx-key */}
       {({ rows: tableRows, headers, getHeaderProps, getRowProps }) => (
         <Table className={styles.metadataTable}>
@@ -291,9 +295,11 @@ export function NodeSummary({
     [nodeMetadata.id, jobStats.node_stats]
   );
 
+  // DEFAULT_NODE_STATUS drives the CSS class and icon lookup.
   const nodeStatus = nodeStat?.node_status ?? DEFAULT_NODE_STATUS;
   const statusBadgeClass = `${styles.nodeStatus} ${getStatusClass(nodeStatus)}`;
   const StatusIcon = getStatusIconComponent(nodeStatus);
+  const nodeStatusLabel = nodeStat?.node_status ?? intl.formatMessage(messages.statusNotStarted);
 
   // Parse doc arrays from node_metadata once
   const skippedDocs = useMemo(
@@ -392,7 +398,7 @@ export function NodeSummary({
           </div>
           <div className={statusBadgeClass}>
             {StatusIcon && <StatusIcon className={styles.statusIcon} />}
-            {nodeStatus}
+            {nodeStatusLabel}
           </div>
         </div>
       </div>

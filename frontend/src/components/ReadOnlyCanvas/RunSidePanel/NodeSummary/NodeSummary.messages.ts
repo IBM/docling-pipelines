@@ -45,4 +45,16 @@ export const messages = defineMessages({
     id: 'src.components.ReadOnlyCanvas.RunSidePanel.NodeSummary.noMetadata',
     defaultMessage: 'No metadata available for this node.',
   },
+  metadataHeaderName: {
+    id: 'src.components.ReadOnlyCanvas.RunSidePanel.NodeSummary.metadataHeaderName',
+    defaultMessage: 'Name',
+  },
+  metadataHeaderValue: {
+    id: 'src.components.ReadOnlyCanvas.RunSidePanel.NodeSummary.metadataHeaderValue',
+    defaultMessage: 'Value',
+  },
+  statusNotStarted: {
+    id: 'src.components.ReadOnlyCanvas.RunSidePanel.NodeSummary.statusNotStarted',
+    defaultMessage: 'Not Started',
+  },
 });

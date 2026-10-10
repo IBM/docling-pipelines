@@ -5,11 +5,8 @@ import { NoDataEmptyState } from '@carbon/ibm-products';
 import { useNavigate } from 'react-router-dom';
 import { useIntl } from 'react-intl';
 import { SharedDataTable, SharedTearsheet } from '@/components/common';
-import {
-  FLOW_RUN_HISTORY_HEADERS,
-  FLOW_RUN_HISTORY_TITLE,
-  DOWNLOAD_ENABLED_STATUSES,
-} from '@/constants/flowRunHistory';
+import { DOWNLOAD_ENABLED_STATUSES } from '@/constants/flowRunHistory';
+import type { SharedDataTableHeader } from '@/components/common/SharedDataTable';
 import { API_STATUS_MAP } from '@/constants/flowStatus';
 import { getJobRuns } from '@/services/api';
 import { getJobRun } from '@/services/api/actions/job-run-actions';
@@ -17,7 +14,7 @@ import { generateRoute } from '@/config';
 import type { JobRunListItem } from '@/types';
 import { StatusIcon } from '@/components/FlowDetail';
 import type { RunStatus } from '@/components/FlowDetail';
-import { getJobRunStatusLabel } from '@/constants/jobRunStatus';
+import { JOB_RUN_STATUS } from '@/constants/jobRunStatus';
 import { formatEpochToDisplay, formatElapsedTime } from '@/utils/dateTimeUtils';
 import { useTheme } from '@/hooks';
 import { messages } from './FlowRunHistoryTearsheet.messages';
@@ -92,6 +89,21 @@ export function FlowRunHistoryTearsheet({
     cancelled:       intl.formatMessage(messages.statusCanceled),
   };
 
+
+  // Overrides for status strings whose display label differs from the raw API value.
+  // All other statuses are already human-readable and fall back to the raw string.
+  const rawStatusLabelOverrides: Partial<Record<string, string>> = {
+    [JOB_RUN_STATUS.COMPLETED_WITH_ERRORS]:   intl.formatMessage(messages.statusCompletedWithErrors),
+    [JOB_RUN_STATUS.COMPLETED_WITH_WARNINGS]: intl.formatMessage(messages.statusCompletedWithWarnings),
+  };
+
+  const tableHeaders: SharedDataTableHeader[] = [
+    { key: 'timestamp', header: intl.formatMessage(messages.headerTimestamp) },
+    { key: 'status',    header: intl.formatMessage(messages.headerStatus)    },
+    { key: 'duration',  header: intl.formatMessage(messages.headerDuration)  },
+    { key: 'logs',      header: intl.formatMessage(messages.headerLogs)      },
+  ];
+
   const navigate = useNavigate();
   const { isDarkMode } = useTheme();
   const [rawItems, setRawItems] = useState<JobRunListItem[]>([]);
@@ -145,7 +157,7 @@ export function FlowRunHistoryTearsheet({
           <StatusIcon status={uiStatus} iconStyles={styles} />
           {statusLabels[uiStatus]}
         </span>
-      ) : getJobRunStatusLabel(item.status),
+      ) : (rawStatusLabelOverrides[item.status] ?? item.status),
       duration: formatElapsedTime(item.duration),
       logs: canDownload ? (
         <Button
@@ -174,12 +186,12 @@ export function FlowRunHistoryTearsheet({
     <SharedTearsheet
       open={open}
       onClose={onClose}
-      title={FLOW_RUN_HISTORY_TITLE}
+      title={intl.formatMessage(messages.title)}
       hideFooter
     >
       <div className={styles.tearsheetContent}>
         <SharedDataTable
-          headers={FLOW_RUN_HISTORY_HEADERS}
+          headers={tableHeaders}
           rows={rows}
           loading={loading}
           emptyState={emptyState}

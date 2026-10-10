@@ -15,9 +15,6 @@ import { useIntl } from 'react-intl';
 import type { JobRunStatusResponse } from '@/types';
 import { JOB_RUN_STATUS } from '@/constants/jobRunStatus';
 import {
-  TAB_LABEL_LOG_DETAILS,
-  TAB_LABEL_NODE_SUMMARY,
-  NODE_SUMMARY_EMPTY_TEXT,
   LOG_DOWNLOAD_MIME_TYPE,
   LOG_DOWNLOAD_FILENAME_PREFIX,
   LOG_SECTION_SEPARATOR,
@@ -99,14 +96,14 @@ export function RunSidePanel({
             onClick={() => { onTabChange(0); }}
             disabled={!hasNodeSequence && !isFailedNoSequence}
           >
-            {TAB_LABEL_LOG_DETAILS}
+            {intl.formatMessage(messages.tabLogDetails)}
           </button>
           {showNodeSummaryTab && (
             <button
               className={`${styles.tabButton} ${activeTabIndex === 1 ? styles.activeTab : ''}`}
               onClick={() => { onTabChange(1); }}
             >
-              {TAB_LABEL_NODE_SUMMARY}
+              {intl.formatMessage(messages.tabNodeSummary)}
             </button>
           )}
         </div>
@@ -138,7 +135,7 @@ export function RunSidePanel({
             />
           ) : (
             <div className={styles.emptyTabContent}>
-              <p>{NODE_SUMMARY_EMPTY_TEXT}</p>
+              <p>{intl.formatMessage(messages.nodeSummaryEmpty)}</p>
             </div>
           )
         )}
