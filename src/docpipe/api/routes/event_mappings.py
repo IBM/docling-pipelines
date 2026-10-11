@@ -104,6 +104,4 @@ def delete_event_mapping(*, key: RoutingKeyPath, mapping_service: EventMappingSe
 )
 def list_event_mappings(mapping_service: EventMappingServiceDep) -> list[EventMappingDTO]:
     """Return all stored event routing mappings."""
-    return [
-        EventMappingDTO(key=mapping.key, flow_id=mapping.flow_id) for mapping in mapping_service.list_mappings()
-    ]
+    return [EventMappingDTO(key=mapping.key, flow_id=mapping.flow_id) for mapping in mapping_service.list_mappings()]
