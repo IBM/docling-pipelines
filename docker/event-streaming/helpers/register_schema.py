@@ -1,58 +1,45 @@
-"""Register selected JSON schema files with Schema Registry."""
+"""Register the event schema with Schema Registry."""
 
 import argparse
 import json
+import logging
 import os
 from pathlib import Path
-from urllib.error import HTTPError, URLError
 from urllib.parse import quote
 from urllib.request import Request, urlopen
 
+logger = logging.getLogger(__name__)
 
-def register_schemas(*, schema_files: list[str]) -> None:
-    registry_url = os.getenv("SCHEMA_REGISTRY_URL", "http://localhost:8081").rstrip("/")
-    topic = os.environ["KAFKA_TOPIC"]
+SCHEMA_REGISTRY_URL = os.environ["SCHEMA_REGISTRY_URL"].rstrip("/")
+
+
+def register_schema(*, topic: str, schema_file: str) -> None:
     subject = quote(f"{topic}-value", safe="")
+    schema = Path(schema_file).read_text(encoding="utf-8")
+    request = Request(
+        f"{SCHEMA_REGISTRY_URL}/subjects/{subject}/versions",
+        data=json.dumps({"schema": schema, "schemaType": "JSON"}).encode("utf-8"),
+        headers={"Content-Type": "application/vnd.schemaregistry.v1+json"},
+        method="POST",
+    )
 
-    for schema_file in schema_files:
-        schema_path = Path(schema_file)
-        if not schema_path.is_file():
-            raise FileNotFoundError(f"Schema file does not exist: {schema_path}")
-        schema = schema_path.read_text(encoding="utf-8")
-        request = Request(
-            f"{registry_url}/subjects/{subject}/versions",
-            data=json.dumps({"schema": schema, "schemaType": "JSON"}).encode("utf-8"),
-            headers={"Content-Type": "application/vnd.schemaregistry.v1+json"},
-            method="POST",
-        )
-
-        try:
-            with urlopen(request, timeout=5) as response:
-                result = json.load(response)
-        except (HTTPError, URLError, TimeoutError) as error:
-            raise RuntimeError(
-                f"Failed to register schema {schema_file} for {topic}-value "
-                f"with Schema Registry at {registry_url}: {error}"
-            ) from error
-
-        print(
-            f"Registered schema {schema_file} for {topic}-value (id={result['id']})",
-            flush=True,
-        )
+    with urlopen(request, timeout=5) as response:
+        result = json.load(response)
+    logger.info("Registered %s for %s (id=%s)", schema_file, subject, result["id"])
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Register one or more JSON schema files by path.")
-    parser.add_argument(
-        "--schema-files",
-        nargs="+",
-        required=True,
-        metavar="PATH",
-        help="One or more JSON schema file paths, registered in the order given.",
-    )
+    parser = argparse.ArgumentParser(description="Register a JSON schema with Schema Registry.")
+    parser.add_argument("topic", help="Kafka topic whose value schema to register.")
+    parser.add_argument("schema_file", help="Path to the JSON schema file.")
     args = parser.parse_args()
-    register_schemas(schema_files=args.schema_files)
+    try:
+        register_schema(topic=args.topic, schema_file=args.schema_file)
+    except Exception:
+        logger.exception("Failed to register schema")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     main()
