@@ -35,9 +35,9 @@ def main() -> None:
     args = parser.parse_args()
     try:
         register_schema(topic=args.topic, schema_file=args.schema_file)
-    except Exception:
+    except Exception as error:
         logger.exception("Failed to register schema")
-        raise SystemExit(1)
+        raise SystemExit(1) from error
 
 
 if __name__ == "__main__":

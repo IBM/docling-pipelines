@@ -43,16 +43,14 @@ def produce(*, message: dict) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Produce a JSON message to Kafka."
-    )
+    parser = argparse.ArgumentParser(description="Produce a JSON message to Kafka.")
     parser.add_argument("--message", required=True, help="JSON event object to produce.")
     args = parser.parse_args()
     try:
         produce(message=json.loads(args.message))
-    except Exception:
+    except Exception as error:
         logger.exception("Failed to produce Kafka message")
-        raise SystemExit(1)
+        raise SystemExit(1) from error
 
 
 if __name__ == "__main__":

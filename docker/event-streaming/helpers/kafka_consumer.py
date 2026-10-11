@@ -54,6 +54,6 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     try:
         consume()
-    except Exception:
+    except Exception as error:
         logger.exception("Kafka consumer failed")
-        raise SystemExit(1)
+        raise SystemExit(1) from error
