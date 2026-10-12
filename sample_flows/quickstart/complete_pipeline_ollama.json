@@ -1,11 +1,14 @@
 {
   "flow_name": "complete-document-pipeline",
-  "description": "Complete document processing pipeline: Ingest -> Extract -> Chunk -> Embed -> Store in OpenSearch",
+  "description": "Complete document processing pipeline: Ingest -> Extract -> Deduplicate -> Chunk -> Embed -> Store in OpenSearch",
   "global_config": {
     "doc_column": "content",
     "disable_validation": true,
     "force_ingest": true,
     "storage": "in-memory",
+    "enable_micro_batching": true,
+    "micro_batch_size": 1,
+    "max_concurrent_batches": 3,
     "execute_type": "local"
   },
   "flow": [
@@ -39,6 +42,14 @@
       ]
     },
     {
+      "type": "ededup",
+      "name": "deduplicate_documents",
+      "config": {},
+      "depends_on": [
+        "extract_with_docling"
+      ]
+    },
+    {
       "type": "chunker",
       "name": "simple_chunker",
       "config": {
@@ -48,7 +59,7 @@
         "retain_original_content": false
       },
       "depends_on": [
-        "extract_with_docling"
+        "deduplicate_documents"
       ]
     },
     {

@@ -99,20 +99,26 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
         try:
             # Create engine and session factory
             self._engine = create_postgres_engine(connection_string=connection_string, config=wrapped_config)
-            self._session_factory = create_session_factory(engine=self._engine)
 
             # Create schema and incremental metadata table if they don't exist.
             # We copy the SQLAlchemy Table into a per-instance MetaData with the
             # target schema so we never mutate the shared class-level __table__.
             schema_name = flat_config.get("schema", "incremental_metadata")
+            self._session_factory = create_session_factory(
+                engine=self._engine.execution_options(schema_translate_map={None: schema_name})
+            )
             source_table = cast(SATable, IncrementalMetadataPostgresModel.__table__)  # type: ignore[attr-defined]
             instance_metadata = MetaData(schema=schema_name)
             incremental_table = source_table.tometadata(instance_metadata)
 
             with self._engine.begin() as connection:
-                connection.execute(text(f'CREATE SCHEMA IF NOT EXISTS "{schema_name}"'))
-
-            incremental_table.create(self._engine, checkfirst=True)
+                connection.execute(
+                    text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
+                    {"key": f"{schema_name}.inc_update_metadata"},
+                )
+                quoted_schema = self._engine.dialect.identifier_preparer.quote_schema(schema_name)
+                connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {quoted_schema}"))
+                incremental_table.create(connection, checkfirst=True)
 
             logger.info(
                 "PostgresIncrementalMetadataStore initialized successfully (schema: %s, table: %s)",
