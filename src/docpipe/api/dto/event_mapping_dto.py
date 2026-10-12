@@ -1,5 +1,7 @@
 """Request and response DTOs for event-to-flow mapping management."""
 
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from docpipe.core.event_streaming.models import ROUTING_KEY_PATTERN
@@ -12,13 +14,12 @@ class EventMappingDTO(BaseModel):
 
     key: str = Field(
         pattern=ROUTING_KEY_PATTERN,
-        description=("Case-insensitive routing key containing only ASCII letters, digits, hyphens, and underscores."),
-        examples=["tenant-a_invoices-updated"],
+        description="Case-insensitive routing key containing only ASCII letters, digits, hyphens, and underscores.",
+        examples=["document-invoices"],
     )
-    flow_id: str = Field(
-        min_length=1,
-        description="Identifier of an existing flow",
-        examples=["550e8400-e29b-41d4-a716-446655440000"],
+    flow_id: UUID = Field(
+        description="UUID of an existing flow",
+        examples=["00000000-0000-0000-0000-000000000000"],
     )
 
 
@@ -27,8 +28,7 @@ class EventMappingUpdateRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    flow_id: str = Field(
-        min_length=1,
-        description="Identifier of an existing flow",
-        examples=["550e8400-e29b-41d4-a716-446655440000"],
+    flow_id: UUID = Field(
+        description="UUID of an existing flow",
+        examples=["00000000-0000-0000-0000-000000000000"],
     )

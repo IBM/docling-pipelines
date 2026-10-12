@@ -3,7 +3,8 @@
 Coverage: filesystem default, YAML backend selection, and environment-over-YAML
 precedence, all through ``create_event_mapping_service``.
 
-Do not modify or delete these tests unless the design changes.
+Do not add, modify, or delete test cases in this file unless the user explicitly
+asks you to make those changes here. Add new test cases in a separate file otherwise.
 """
 
 from pathlib import Path

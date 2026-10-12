@@ -3,7 +3,8 @@
 Coverage: HTTP create, get, update, delete, and list through filesystem storage,
 plus agreement between ``InputEvent`` and the Schema Registry JSON Schema.
 
-Do not modify or delete these tests unless the design changes.
+Do not add, modify, or delete test cases in this file unless the user explicitly
+asks you to make those changes here. Add new test cases in a separate file otherwise.
 """
 
 import json

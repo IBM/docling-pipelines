@@ -31,7 +31,7 @@ RoutingKeyPath = Annotated[str, Path(pattern=r"^[A-Za-z0-9_-]+$")]
     responses={
         409: {"description": "A mapping already exists for the key"},
         404: {"description": "The requested flow does not exist"},
-        400: {"description": "The request is malformed or contains an empty field"},
+        400: {"description": "The request is malformed or contains an invalid key or flow UUID"},
     },
 )
 def create_event_mapping(
@@ -41,9 +41,10 @@ def create_event_mapping(
     flow_service: FlowServiceDep,
 ) -> EventMappingDTO:
     """Validate the target flow and create a mapping for the submitted key."""
-    flow_service.get_flow(body.flow_id)
-    mapping = mapping_service.create_mapping(key=body.key, flow_id=body.flow_id)
-    return EventMappingDTO(key=mapping.key, flow_id=mapping.flow_id)
+    flow_id = str(body.flow_id)
+    flow_service.get_flow(flow_id)
+    mapping = mapping_service.create_mapping(key=body.key, flow_id=flow_id)
+    return EventMappingDTO.model_validate(mapping.model_dump())
 
 
 @event_mappings_router.get(
@@ -56,7 +57,7 @@ def create_event_mapping(
 def get_event_mapping(*, key: RoutingKeyPath, mapping_service: EventMappingServiceDep) -> EventMappingDTO:
     """Resolve one mapping by its case-insensitive key."""
     mapping = mapping_service.get_mapping(key=key)
-    return EventMappingDTO(key=mapping.key, flow_id=mapping.flow_id)
+    return EventMappingDTO.model_validate(mapping.model_dump())
 
 
 @event_mappings_router.put(
@@ -66,7 +67,7 @@ def get_event_mapping(*, key: RoutingKeyPath, mapping_service: EventMappingServi
     summary="Update the flow assigned to an event routing key",
     responses={
         404: {"description": "The mapping or requested flow does not exist"},
-        400: {"description": "The request is malformed or contains an empty flow ID"},
+        400: {"description": "The request is malformed or contains an invalid key or flow UUID"},
     },
 )
 def update_event_mapping(
@@ -78,9 +79,10 @@ def update_event_mapping(
 ) -> EventMappingDTO:
     """Update an existing mapping's flow association."""
     mapping_service.get_mapping(key=key)
-    flow_service.get_flow(body.flow_id)
-    mapping = mapping_service.update_mapping(key=key, flow_id=body.flow_id)
-    return EventMappingDTO(key=mapping.key, flow_id=mapping.flow_id)
+    flow_id = str(body.flow_id)
+    flow_service.get_flow(flow_id)
+    mapping = mapping_service.update_mapping(key=key, flow_id=flow_id)
+    return EventMappingDTO.model_validate(mapping.model_dump())
 
 
 @event_mappings_router.delete(
@@ -104,4 +106,4 @@ def delete_event_mapping(*, key: RoutingKeyPath, mapping_service: EventMappingSe
 )
 def list_event_mappings(mapping_service: EventMappingServiceDep) -> list[EventMappingDTO]:
     """Return all stored event routing mappings."""
-    return [EventMappingDTO(key=mapping.key, flow_id=mapping.flow_id) for mapping in mapping_service.list_mappings()]
+    return [EventMappingDTO.model_validate(mapping.model_dump()) for mapping in mapping_service.list_mappings()]
