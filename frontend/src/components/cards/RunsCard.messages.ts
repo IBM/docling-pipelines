@@ -25,4 +25,12 @@ export const messages = defineMessages({
     id: 'src.components.cards.RunsCard.loadError',
     defaultMessage: 'Failed to load runs.',
   },
+  runCompleted: {
+    id: 'src.components.cards.RunsCard.runCompleted',
+    defaultMessage: 'Execution of "{label}" flow at {time} completed.',
+  },
+  runFailed: {
+    id: 'src.components.cards.RunsCard.runFailed',
+    defaultMessage: 'Execution of "{label}" flow at {time} failed.',
+  },
 });

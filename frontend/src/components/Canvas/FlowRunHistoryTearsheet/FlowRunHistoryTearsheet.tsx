@@ -89,7 +89,6 @@ export function FlowRunHistoryTearsheet({
     cancelled:       intl.formatMessage(messages.statusCanceled),
   };
 
-
   // Overrides for status strings whose display label differs from the raw API value.
   // All other statuses are already human-readable and fall back to the raw string.
   const rawStatusLabelOverrides: Partial<Record<string, string>> = {

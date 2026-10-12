@@ -51,15 +51,17 @@ function formatRunTime(epochSeconds: number): string {
  * `jobId` (= flow_id) so each row can resolve its own name without an extra fetch.
  */
 function RunRow({ run }: { run: JobRun }): React.JSX.Element {
+  const intl = useIntl();
   const storeFlowName = useAppSelector(makeSelectFlowName(String(run.jobId ?? '')));
   const flowName = run.flowName ?? storeFlowName;
   const { Icon, className: iconClass } = getStatusIcon(String(run.status ?? ''));
   const startEpoch = run.startTime ? Math.floor(new Date(run.startTime).getTime() / 1000) : 0;
   const isSuccess = ['completed', 'success'].includes((run.status ?? '').toLowerCase());
   const label = flowName ?? String(run.jobId ?? '').slice(0, 8);
-  const outcomeMessage = isSuccess
-    ? `Execution of "${label}" flow at ${formatRunTime(startEpoch)} completed.`
-    : `Execution of "${label}" flow at ${formatRunTime(startEpoch)} failed.`;
+  const outcomeMessage = intl.formatMessage(
+    isSuccess ? messages.runCompleted : messages.runFailed,
+    { label, time: formatRunTime(startEpoch) }
+  );
 
   return (
     <div className={styles.runRow}>

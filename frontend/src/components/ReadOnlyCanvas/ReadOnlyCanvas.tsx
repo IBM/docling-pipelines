@@ -388,22 +388,22 @@ export function ReadOnlyCanvas({
       { divider: true },
       {
         action: CANVAS_ACTIONS.ZOOM_IN,
-        label: 'Zoom In',
+        label: intl.formatMessage(messages.zoomIn),
         enable: true,
       },
       {
         action: CANVAS_ACTIONS.ZOOM_OUT,
-        label: 'Zoom Out',
+        label: intl.formatMessage(messages.zoomOut),
         enable: true,
       },
       {
         action: CANVAS_ACTIONS.ZOOM_TO_FIT,
-        label: 'Zoom to fit',
+        label: intl.formatMessage(messages.zoomToFit),
         enable: true,
       },
       {
         action: CANVAS_ACTIONS.TOGGLE_RIGHT_PANEL,
-        label: logsPanelVisible ? 'Close logs' : 'Open logs',
+        label: intl.formatMessage(logsPanelVisible ? messages.closeLogs : messages.openLogs),
         enable: true,
         iconEnabled: logsPanelVisible ? (
           <RightPanelCloseFilled size={32} />

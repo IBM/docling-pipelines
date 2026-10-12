@@ -104,7 +104,7 @@ export function SampleProjectModal({
       const indexName = `sample_flow_index_${timestamp}`;
 
       setSteps((prev) =>
-        prev.map((s, i) => (i === 1 ? { ...s, label: `Creating flow: ${flowName}` } : s))
+        prev.map((s, i) => (i === 1 ? { ...s, label: intl.formatMessage(messages.stepCreatingFlowNamed, { name: flowName }) } : s))
       );
 
       // Fetch sample nodes from the public asset and stamp the vectordb index_name

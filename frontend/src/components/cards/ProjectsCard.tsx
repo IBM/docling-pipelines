@@ -96,7 +96,7 @@ export function ProjectsCard(): React.JSX.Element {
       } else {
         go(navigate, generateRoute.projectDetail(created.id));
       }
-      notify.success(`${project.name} created successfully.`);
+      notify.success(intl.formatMessage(messages.createSuccess, { name: project.name }));
     } catch {
       notify.error(intl.formatMessage(messages.createError));
       throw new Error('Failed to create project');

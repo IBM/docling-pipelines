@@ -37,4 +37,8 @@ export const messages = defineMessages({
     id: 'src.components.cards.ProjectsCard.createError',
     defaultMessage: 'Failed to create project.',
   },
+  createSuccess: {
+    id: 'src.components.cards.ProjectsCard.createSuccess',
+    defaultMessage: '{name} created successfully.',
+  },
 });

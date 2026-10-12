@@ -17,6 +17,10 @@ export const messages = defineMessages({
     id: 'src.components.Home.SampleProjectModal.stepCreatingSampleFlow',
     defaultMessage: 'Creating sample flow',
   },
+  stepCreatingFlowNamed: {
+    id: 'src.components.Home.SampleProjectModal.stepCreatingFlowNamed',
+    defaultMessage: 'Creating flow: {name}',
+  },
   stepUsingExistingProject: {
     id: 'src.components.Home.SampleProjectModal.stepUsingExistingProject',
     defaultMessage: 'Using existing project',
