@@ -36,23 +36,23 @@ def _install_kafka_modules(*, monkeypatch, consumer, deserializer):
     """Install lightweight module fakes for the listener's optional Kafka imports."""
     kafka_module = ModuleType("confluent_kafka")
     consumer_factory = MagicMock(return_value=consumer)
-    kafka_module.Consumer = consumer_factory
+    kafka_module.__dict__["Consumer"] = consumer_factory
 
     schema_registry_module = ModuleType("confluent_kafka.schema_registry")
     registry = MagicMock()
     registry.get_latest_version.return_value = SimpleNamespace(schema=SimpleNamespace(schema_str="{}"))
     registry_factory = MagicMock(return_value=registry)
-    schema_registry_module.SchemaRegistryClient = registry_factory
+    schema_registry_module.__dict__["SchemaRegistryClient"] = registry_factory
 
     json_schema_module = ModuleType("confluent_kafka.schema_registry.json_schema")
     deserializer_factory = MagicMock(return_value=deserializer)
-    json_schema_module.JSONDeserializer = deserializer_factory
+    json_schema_module.__dict__["JSONDeserializer"] = deserializer_factory
 
     serialization_module = ModuleType("confluent_kafka.serialization")
-    serialization_module.MessageField = SimpleNamespace(VALUE="value")
+    serialization_module.__dict__["MessageField"] = SimpleNamespace(VALUE="value")
     context = object()
     context_factory = MagicMock(return_value=context)
-    serialization_module.SerializationContext = context_factory
+    serialization_module.__dict__["SerializationContext"] = context_factory
 
     modules = {
         "confluent_kafka": kafka_module,
