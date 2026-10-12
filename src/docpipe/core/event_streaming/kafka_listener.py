@@ -120,12 +120,18 @@ class KafkaEventListener:
                     self._dispatch_service.dispatch(event=event)
                     logger.info(
                         "Kafka event dispatched event_id=%s topic=%s partition=%s offset=%s",
-                        event_id, message.topic(), message.partition(), message.offset(),
+                        event_id,
+                        message.topic(),
+                        message.partition(),
+                        message.offset(),
                     )
                 except Exception:
                     logger.exception(
                         "Kafka event dispatch failed event_id=%s topic=%s partition=%s offset=%s",
-                        event_id, message.topic(), message.partition(), message.offset(),
+                        event_id,
+                        message.topic(),
+                        message.partition(),
+                        message.offset(),
                     )
                 self._commit(consumer=consumer, message=message, event_id=event_id)
         except Exception:
@@ -147,10 +153,17 @@ class KafkaEventListener:
                 if partition.error is not None:
                     logger.error(
                         "Kafka offset commit failed event_id=%s topic=%s partition=%s commit_offset=%s: %s",
-                        event_id, partition.topic, partition.partition, partition.offset, partition.error,
+                        event_id,
+                        partition.topic,
+                        partition.partition,
+                        partition.offset,
+                        partition.error,
                     )
         except Exception:
             logger.exception(
                 "Kafka offset commit failed event_id=%s topic=%s partition=%s offset=%s",
-                event_id, message.topic(), message.partition(), message.offset(),
+                event_id,
+                message.topic(),
+                message.partition(),
+                message.offset(),
             )

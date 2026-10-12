@@ -197,7 +197,7 @@ class MicrosoftGraphLoader(BaseLoader):
             doc._binary_content = binary_content  # type: ignore[attr-defined]
             return doc
         except Exception as e:
-            logger.error("Failed to download file %s: %s", item.get("name", ""), e, exc_info=True)
+            logger.exception("Failed to download file %s: %s", item.get("name", ""), e)
             return Document(
                 page_content="",
                 metadata={
