@@ -2,22 +2,6 @@ default_language_version:
   python: python3.12
 
 repos:
-  - repo: https://github.com/astral-sh/uv-pre-commit
-    # until Mend supports `uv` directly, an export to requirements.txt is needed.
-    # the .whitesource.config is adjusted accordingly
-    rev: 0.11.25
-    hooks:
-      - id: uv-export
-        files: ^(pyproject\.toml|uv\.lock)$
-        args:
-          [
-            "--no-hashes",
-            "--frozen",
-            "--output-file=requirements.txt",
-            "--no-dev",
-            "--all-packages",
-          ]
-
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:

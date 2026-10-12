@@ -79,7 +79,7 @@ dependencies = [
     "python-jose[cryptography]==3.5.0",
     "python-ldap==3.4.5",
     "pyyaml==6.0.3",
-    "requests==2.33.0",
+    "requests==2.34.2",
     "setuptools==83.0.0",
     "spacy>=3.7.4",
     "sqlalchemy==2.0.49",
@@ -136,25 +136,25 @@ telemetry = [
 
 extract = [
     "accelerate==1.13.0",
-    "docling[rapidocr]==2.127.0",
+    "docling[rapidocr]==2.132.0",
     "sentence-transformers==5.6.0",
     "transformers>=5.17.0,<5.18.0",
 ]
 
 easyocr = [
-    "docling[easyocr]==2.127.0",
+    "docling[easyocr]==2.132.0",
 ]
 
 ocrmac = [
-    "docling[ocrmac]==2.127.0",
+    "docling[ocrmac]==2.132.0",
 ]
 
 tesserocr = [
-    "docling[tesserocr]==2.127.0",
+    "docling[tesserocr]==2.132.0",
 ]
 
 vlm_asr = [
-    "docling[vlm,asr]==2.127.0",
+    "docling[vlm,asr]==2.132.0",
 ]
 
 [project.urls]

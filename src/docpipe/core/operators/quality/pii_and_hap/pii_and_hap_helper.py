@@ -242,7 +242,7 @@ class GuardRailsPIIAndHAPExtractor:
 
         # Validate redaction character is a single safe character
         if not isinstance(redaction_character, str) or len(redaction_character) != 1:
-            logger.warning(f"Invalid redaction character '{redaction_character}'. Using default '*'.")
+            logger.warning("Invalid redaction character '%s'. Using default '*'.", redaction_character)
             redaction_character = "*"
 
         redaction_symbol = redaction_character
@@ -264,7 +264,7 @@ class GuardRailsPIIAndHAPExtractor:
         else:
             # No position or text - cannot redact
             logger.warning(
-                f"Detection missing both position and text, cannot redact: {item.get('detection', 'unknown')}"
+                "Detection missing both position and text, cannot redact: %s", item.get("detection", "unknown")
             )
 
         return content
