@@ -303,7 +303,7 @@ All flows follow this JSON structure:
   "type": "ingest_source",
   "config": {
     "provider": "filesystem",
-    "connection_params": {"paths": ["./your/documents/path"]},
+    "provider_config": {"paths": ["./your/documents/path"]},
     "include_filter": "pdf,txt,docx"
   }
 }
