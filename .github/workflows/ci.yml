@@ -20,16 +20,27 @@ jobs:
       contents: read
     steps:
       - name: Verify All Commits (DCO + GPG) & PR Template
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        id: verify
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            const fs = require('fs');
+            const path = require('path');
+
             const { owner, repo } = context.repo;
             const prNumber = context.payload.pull_request.number;
-            const prAuthor = context.payload.pull_request.user.login;
-            const baseRef = context.payload.pull_request.base.ref;
             const prBody = context.payload.pull_request.body || '';
+
+            // Results are handed to the commit-verification.yml workflow_run workflow
+            // as an artifact (step outputs are not exposed through the REST API).
+            function writeResults(data) {
+              const resultsDir = path.join(process.env.RUNNER_TEMP, 'verification-results');
+              fs.mkdirSync(resultsDir, { recursive: true });
+              fs.writeFileSync(
+                path.join(resultsDir, 'results.json'),
+                JSON.stringify(data, null, 2)
+              );
+            }
 
             // Get all commits in the PR (handle pagination, max 250 per GitHub API)
             let allCommits = [];
@@ -59,13 +70,14 @@ jobs:
             // Edge case: PR with zero commits - treat as pass (nothing to validate)
             if (allCommits.length === 0) {
               console.log('No commits found in PR');
-              core.setOutput('dco_failed', '[]');
-              core.setOutput('gpg_failed', '[]');
-              core.setOutput('template_failed', '[]');
-              core.setOutput('dco_passed', '0');
-              core.setOutput('gpg_passed', '0');
-              core.setOutput('template_passed', '0');
-              core.setOutput('all_passed', 'true');
+              writeResults({
+                dco_failed: [],
+                gpg_failed: [],
+                template_failed: [],
+                dco_passed: 0,
+                gpg_passed: 0,
+                template_passed: 0
+              });
               return;
             }
 
@@ -160,21 +172,30 @@ jobs:
               console.log('Template Failed:', JSON.stringify(results.template.failed, null, 2));
             }
 
-            // Set outputs for job conclusion
-            core.setOutput('dco_failed', JSON.stringify(results.dco.failed));
-            core.setOutput('gpg_failed', JSON.stringify(results.gpg.failed));
-            core.setOutput('template_failed', JSON.stringify(results.template.failed));
-            core.setOutput('dco_passed', String(results.dco.passed.length));
-            core.setOutput('gpg_passed', String(results.gpg.passed.length));
-            core.setOutput('template_passed', String(results.template.passed.length));
-            core.setOutput('all_passed', String(allPassed));
-            core.setOutput('pr_author', prAuthor);
-            core.setOutput('base_ref', baseRef);
+            // Persist results for the comment bot (written before setFailed so it
+            // is available even when verification fails)
+            writeResults({
+              dco_failed: results.dco.failed,
+              gpg_failed: results.gpg.failed,
+              template_failed: results.template.failed,
+              dco_passed: results.dco.passed.length,
+              gpg_passed: results.gpg.passed.length,
+              template_passed: results.template.passed.length
+            });
 
             // Fail the job if any check failed
             if (!allPassed) {
               core.setFailed('Commit verification failed');
             }
+
+      - name: Upload Verification Results Artifact
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: commit-verification-results
+          path: ${{ runner.temp }}/verification-results/
+          retention-days: 1
+          overwrite: true
 
   lint:
     name: Code Quality & Type Checking
