@@ -303,6 +303,12 @@ This repo uses [OpenSpec](https://openspec.dev) for spec-driven development. Liv
 | `backend/document-libraries-api` | Document library REST API |
 | `backend/documents-api` | Document REST API |
 | `backend/flow-execution-engine` | FlowExecutor, orchestration, micro-batching |
+| `frontend/canvas-page` | Pipeline editor page |
+| `frontend/properties-panel` + custom panels | Operator config side panel |
+| `frontend/elyra-canvas`, `frontend/read-only-canvas` | Canvas components |
+| `frontend/home-page`, `projects-page`, `project-detail-page`, `flow-detail-page`, `run-details-page` | UI pages |
+| `frontend/state/*-slice` | Redux state slices |
+| `frontend/common/*` | Shared UI components |
 
 **Pre-commit Workflow** — OpenSpec operations:
 
@@ -330,4 +336,4 @@ openspec archive <name>
 - Scope implementation strictly to the declared change — no opportunistic refactors.
 - Run `openspec validate <name> --strict` before handing off for implementation.
 - The `openspec/changes/archive/` directory is the historical record — do not edit archived changes.
-- All new capabilities must use the `backend/*` namespace. The `frontend/*` specs in this repo are historical artifacts from a prior version; do not add new `frontend/*` capabilities.
+- New capabilities must use `backend/*` for Python API/engine/operator work, or `frontend/*` for React page and component work.
