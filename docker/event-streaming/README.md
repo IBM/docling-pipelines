@@ -115,78 +115,67 @@ uv run --env-file docker/event-streaming/.env python docker/event-streaming/help
 
 Run Steps 5–9 in the same terminal. Keep the consumer from Step 4 running.
 
+Pull the embedding model:
+
 ```bash
 docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml \
-  exec -T ollama ollama pull nomic-embed-text
+  exec ollama ollama pull nomic-embed-text
+```
 
-API_URL="http://localhost:8080/api/v1"
-DEMO_NAME="event-streaming-invoices-$(date +%s)"
+Upload the sample flow and use `python3` to capture and print the returned Flow ID:
 
-FLOW_JSON="$(uv run python - "$DEMO_NAME" <<'PY'
-import json
-import sys
-from pathlib import Path
-
-flow = json.loads(Path("sample_flows/quickstart/docker_e2e_ollama_opensearch.json").read_text())
-flow["flow_name"] = sys.argv[1]
-flow["flow"][0]["config"]["provider_config"]["paths"] = ["/documents/TR-INV_001_3_2.1.pdf"]
-flow["flow"][-1]["config"]["provider_config"]["index_name"] = sys.argv[1]
-print(json.dumps(flow))
-PY
-)"
-
-FLOW_ID="$(curl --fail-with-body --silent --show-error \
-  --request POST "$API_URL/flows" \
-  --header 'Content-Type: application/json' \
-  --data "$FLOW_JSON" \
-  | uv run python -c 'import json, sys; print(json.load(sys.stdin)["flow_id"])')"
-echo "$FLOW_ID"
+```bash
+FLOW_ID=$(curl --fail-with-body -sS \
+  -X POST http://localhost:8080/api/v1/flows \
+  -H 'Content-Type: application/json' \
+  --data-binary @sample_flows/quickstart/docker_e2e_ollama_opensearch.json \
+  | python3 -c 'import json, sys; print(json.load(sys.stdin)["flow_id"])')
+printf 'FLOW_ID=%s\n' "$FLOW_ID"
 ```
 
 ## Step 6: Create an event mapping
 
-```bash
-curl --fail-with-body --silent --show-error \
-  --request POST "$API_URL/event_mappings" \
-  --header 'Content-Type: application/json' \
-  --data "{\"key\":\"$DEMO_NAME\",\"flow_id\":\"$FLOW_ID\"}"
+Create the mapping using the captured Flow ID:
 
-curl --fail-with-body --silent --show-error "$API_URL/event_mappings/$DEMO_NAME"
+```bash
+curl --fail-with-body -sS \
+  -X POST http://localhost:8080/api/v1/event_mappings \
+  -H 'Content-Type: application/json' \
+  -d "{\"key\":\"invoices-created\",\"flow_id\":\"${FLOW_ID:?Run the flow upload command first}\"}"
+```
+
+Verify the mapping:
+
+```bash
+curl --fail-with-body -sS http://localhost:8080/api/v1/event_mappings/invoices-created
 ```
 
 ## Step 7: Publish a create event
 
-```bash
-EVENT_JSON="$(uv run python - "$DEMO_NAME" <<'PY'
-import json
-import sys
-from datetime import datetime, timezone
-from uuid import uuid4
+Publish an event for the mounted sample invoice:
 
-print(json.dumps({
-    "event_id": str(uuid4()),
-    "event_timestamp": datetime.now(timezone.utc).isoformat(),
-    "routing_key": sys.argv[1],
-    "operation": "create",
-    "file_reference": "/documents/TR-INV_001_3_2.1.pdf",
-}))
-PY
-)"
+```bash
+EVENT_ID=$(python3 -c 'from uuid import uuid4; print(uuid4())')
+EVENT_TIMESTAMP=$(python3 -c 'from datetime import datetime, timezone; print(datetime.now(timezone.utc).isoformat())')
 
 uv run --env-file docker/event-streaming/.env python docker/event-streaming/helpers/kafka_producer.py \
-  --message "$EVENT_JSON"
+  --message "{\"event_id\":\"$EVENT_ID\",\"event_timestamp\":\"$EVENT_TIMESTAMP\",\"routing_key\":\"invoices-created\",\"operation\":\"create\",\"file_reference\":\"/documents/TR-INV_001_3_2.1.pdf\"}"
 ```
 
-Confirm the event appears in the consumer output.
+Confirm the event appears in the consumer output and that the flow completes successfully in the API logs.
 
 ## Step 8: Find the triggered job
 
-Find `Event job run submitted` for your routing key and copy its `job_run_id`:
+Find `Event job run submitted` for `invoices-created` and copy its `job_run_id`:
 
 ```bash
 docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml \
   logs --tail=100 docpipe
+```
 
+Set the returned Job Run ID in the same terminal:
+
+```bash
 JOB_RUN_ID="<job_run_id from the log>"
 ```
 
@@ -195,17 +184,18 @@ JOB_RUN_ID="<job_run_id from the log>"
 Repeat until `job_stats.status` is `Completed` and `failed_docs` is `0`:
 
 ```bash
-curl --fail-with-body --silent --show-error \
-  "$API_URL/job_runs/$JOB_RUN_ID?include_logs=true" | uv run python -m json.tool
+curl --fail-with-body -sS \
+  "http://localhost:8080/api/v1/job_runs/${JOB_RUN_ID:?Set JOB_RUN_ID first}?include_logs=true" \
+  | python3 -m json.tool
 ```
 
 Enter `OPENSEARCH_PASSWORD` from `docker/event-streaming/.env` when prompted. Expect `count` greater than `0`:
 
 ```bash
-curl --fail-with-body --silent --show-error --user admin \
-  --request POST "http://localhost:9200/$DEMO_NAME/_refresh"
+curl --fail-with-body -sS -u admin \
+  -X POST http://localhost:9200/docker-e2e-documents/_refresh
 
-curl --fail-with-body --silent --show-error --user admin "http://localhost:9200/$DEMO_NAME/_count"
+curl --fail-with-body -sS -u admin http://localhost:9200/docker-e2e-documents/_count
 ```
 
 ## Stop the stack
