@@ -509,14 +509,6 @@ node_config = {
 
 Documents are tracked by their ID and modification time. Previously processed documents are automatically skipped unless `force_ingest` is set to `True`.
 
-### Event runs
-
-Event runs pass a validated `input_event` at runtime. The source adapter binds its `file_reference` before validating
-the effective source settings. The filesystem adapter requires an existing readable file, then selects only that file
-while retaining the saved source settings. The ingest extension filter and filesystem file-size check still
-apply. Create and update events bypass the processed-document check. Runs without an event keep the configured paths
-and normal incremental behavior. Other source adapters reject event input until they implement file binding.
-
 ## Error Handling
 
 ### Graceful Degradation
