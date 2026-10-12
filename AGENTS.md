@@ -295,19 +295,24 @@ This repo uses [OpenSpec](https://openspec.dev) for spec-driven development. Liv
 
 | Namespace | Coverage |
 |---|---|
-| `backend/flows-api` | Flow CRUD REST API |
+| `backend/flows-api` | Flow CRUD REST API (incl. cascade delete of job runs) |
 | `backend/projects-api` | Project CRUD REST API |
 | `backend/job-runs-api` | Job run lifecycle REST API |
-| `backend/operators-api` | Operator metadata REST API |
+| `backend/operators-api` | Operator metadata + flow validation REST API |
 | `backend/document-sets-api` | Document set REST API |
 | `backend/document-libraries-api` | Document library REST API |
 | `backend/documents-api` | Document REST API |
+| `backend/providers-api` | LLM/embedding provider model listing (ollama, watsonx) |
+| `backend/custom-operators-api` | Custom operator upload, CRUD, directory tree |
+| `backend/document-classes-api` | Document type definitions REST API |
 | `backend/flow-execution-engine` | FlowExecutor, orchestration, micro-batching |
 | `frontend/canvas-page` | Pipeline editor page |
 | `frontend/properties-panel` + custom panels | Operator config side panel |
 | `frontend/elyra-canvas`, `frontend/read-only-canvas` | Canvas components |
 | `frontend/home-page`, `projects-page`, `project-detail-page`, `flow-detail-page`, `run-details-page` | UI pages |
-| `frontend/state/*-slice` | Redux state slices |
+| `frontend/state/assets-slice` | Shared flow + job run navigation asset maps |
+| `frontend/state/notifications-slice` | Global toast / history / unread-counter notification system |
+| `frontend/state/flows-slice`, `job-runs-slice`, `operators-slice`, `projects-slice` | Domain entity Redux slices |
 | `frontend/common/*` | Shared UI components |
 
 **Pre-commit Workflow** — OpenSpec operations:
