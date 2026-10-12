@@ -37,12 +37,8 @@ class KafkaEventListener:
         self._thread: threading.Thread | None = None
 
     @classmethod
-    def from_environment(cls, *, dispatch_service: EventDispatchService) -> KafkaEventListener | None:
-        """Build the listener only when enabled and validate its required settings."""
-        enabled = os.getenv(EnvironmentVariables.DOCPIPE_EVENT_STREAMING_ENABLED, "false").strip().lower()
-        if enabled != "true":
-            return None
-
+    def from_environment(cls, *, dispatch_service: EventDispatchService) -> KafkaEventListener:
+        """Build the listener from environment settings and validate Kafka configuration."""
         environment_names = {
             "bootstrap_servers": EnvironmentVariables.KAFKA_BOOTSTRAP_SERVERS,
             "topic": EnvironmentVariables.KAFKA_INPUT_TOPIC,
@@ -50,38 +46,35 @@ class KafkaEventListener:
             "schema_registry_url": EnvironmentVariables.SCHEMA_REGISTRY_URL,
         }
         settings = {key: os.getenv(name, "").strip() for key, name in environment_names.items()}
-        missing = [name for name, value in settings.items() if not value]
+        missing = [environment_names[name] for name, value in settings.items() if not value]
         if missing:
-            missing_names = [environment_names[name] for name in missing]
-            raise ValueError(f"Kafka event streaming requires: {', '.join(missing_names)}")
+            raise ValueError(f"Kafka event streaming requires: {', '.join(missing)}")
 
         try:
             importlib.import_module("confluent_kafka.schema_registry.json_schema")
         except ImportError as exc:
             raise RuntimeError("Kafka event streaming requires the 'event-streaming' dependency extra") from exc
 
-        return cls(
-            dispatch_service=dispatch_service,
-            **settings,
-        )
+        return cls(dispatch_service=dispatch_service, **settings)
 
     def start(self) -> None:
         """Start the consumer thread without blocking API startup."""
         if self._thread is not None and self._thread.is_alive():
             return
+
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._consume, name="docpipe-kafka-listener", daemon=True)
         self._thread.start()
-        logger.info("Started Kafka event listener for topic %s", self._topic)
 
     async def stop(self) -> None:
         """Request cooperative shutdown and join without blocking the event loop."""
-        self._stop_event.set()
         if self._thread is None:
             return
+
+        self._stop_event.set()
         await asyncio.to_thread(self._thread.join, 5.0)
         if self._thread.is_alive():
-            logger.warning("Kafka event listener did not stop within the shutdown timeout")
+            logger.warning("Kafka event listener shutdown timed out topic=%s", self._topic)
 
     def _consume(self) -> None:
         consumer = None
@@ -97,6 +90,7 @@ class KafkaEventListener:
                 registered_schema.schema.schema_str,
                 schema_registry_client=registry,
             )
+            serialization_context = SerializationContext(self._topic, MessageField.VALUE)
             consumer = Consumer(
                 {
                     "bootstrap.servers": self._bootstrap_servers,
@@ -107,67 +101,56 @@ class KafkaEventListener:
                 }
             )
             consumer.subscribe([self._topic])
+            logger.info("Kafka event listener subscribed topic=%s group_id=%s", self._topic, self._group_id)
 
             while not self._stop_event.is_set():
                 message = consumer.poll(timeout=1.0)
                 if message is None:
                     continue
-                if message.error() is not None:
-                    logger.error(
-                        "Kafka message error for topic %s: %s",
-                        self._topic,
-                        message.error(),
-                    )
+                error = message.error()
+                if error is not None:
+                    logger.error("Kafka consumer error topic=%s: %s", self._topic, error)
                     continue
 
                 event_id = "unknown"
                 try:
-                    payload = deserializer(
-                        message.value(),
-                        SerializationContext(self._topic, MessageField.VALUE),
-                    )
-                    if isinstance(payload, dict) and payload.get("event_id") is not None:
-                        event_id = str(payload["event_id"])
+                    payload = deserializer(message.value(), serialization_context)
                     event = InputEvent.model_validate(payload)
                     event_id = str(event.event_id)
                     self._dispatch_service.dispatch(event=event)
+                    logger.info(
+                        "Kafka event dispatched event_id=%s topic=%s partition=%s offset=%s",
+                        event_id, message.topic(), message.partition(), message.offset(),
+                    )
                 except Exception:
                     logger.exception(
-                        "Event %s dispatch failed for Kafka message %s[%s] offset %s; acknowledging terminal failure",
-                        event_id,
-                        message.topic(),
-                        message.partition(),
-                        message.offset(),
+                        "Kafka event dispatch failed event_id=%s topic=%s partition=%s offset=%s",
+                        event_id, message.topic(), message.partition(), message.offset(),
                     )
-                self._commit(consumer=consumer, message=message)
+                self._commit(consumer=consumer, message=message, event_id=event_id)
         except Exception:
-            logger.exception("Kafka event listener stopped after a consumer error")
+            logger.exception("Kafka event listener failed topic=%s", self._topic)
         finally:
             if consumer is not None:
                 try:
                     consumer.close()
                 except Exception:
-                    logger.exception("Failed to close Kafka consumer for topic %s", self._topic)
-            logger.info("Stopped Kafka event listener for topic %s", self._topic)
+                    logger.exception("Kafka consumer close failed topic=%s", self._topic)
+            logger.info("Kafka event listener exited topic=%s", self._topic)
 
     @staticmethod
-    def _commit(*, consumer: Any, message: Any) -> None:
-        """Commit this message after dispatch succeeds or reaches terminal failure."""
+    def _commit(*, consumer: Any, message: Any, event_id: str) -> None:
+        """Commit this message after dispatch succeeds or fails."""
         try:
             committed_partitions = consumer.commit(message=message, asynchronous=False)
             for partition in committed_partitions or []:
                 if partition.error is not None:
                     logger.error(
-                        "Kafka commit failed for %s[%s] offset %s: %s",
-                        partition.topic,
-                        partition.partition,
-                        partition.offset,
-                        partition.error,
+                        "Kafka offset commit failed event_id=%s topic=%s partition=%s commit_offset=%s: %s",
+                        event_id, partition.topic, partition.partition, partition.offset, partition.error,
                     )
         except Exception:
             logger.exception(
-                "Kafka commit failed for %s[%s] offset %s",
-                message.topic(),
-                message.partition(),
-                message.offset(),
+                "Kafka offset commit failed event_id=%s topic=%s partition=%s offset=%s",
+                event_id, message.topic(), message.partition(), message.offset(),
             )

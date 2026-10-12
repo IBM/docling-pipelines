@@ -35,11 +35,11 @@ class EventStreamingFactory:
     def create_kafka_listener() -> KafkaEventListener | None:
         """Create a Kafka listener only when explicitly enabled by the environment."""
         enabled = os.getenv(EnvironmentVariables.DOCPIPE_EVENT_STREAMING_ENABLED, "false").strip().lower()
-        if enabled != "true":
-            return None
-        return KafkaEventListener.from_environment(
-            dispatch_service=EventStreamingFactory.create_event_dispatch_service(),
-        )
+        if enabled == "true":
+            return KafkaEventListener.from_environment(
+                dispatch_service=EventStreamingFactory.create_event_dispatch_service(),
+            )
+        return None
 
     @staticmethod
     def create_event_mapping_service() -> EventMappingService:

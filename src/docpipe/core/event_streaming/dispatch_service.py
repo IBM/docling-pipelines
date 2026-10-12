@@ -1,5 +1,6 @@
 """Resolve events and submit mapped flow runs through the job-run API."""
 
+import json
 import os
 from typing import Any
 
@@ -16,11 +17,11 @@ logger = get_logger()
 class EventDispatchService:
     """Dispatch validated events to their mapped flows through REST."""
 
-    def __init__(self, *, mapping_service: EventMappingService, api_base_url: str | None = None) -> None:
+    def __init__(self, *, mapping_service: EventMappingService) -> None:
         self._mapping_service = mapping_service
-        self._api_base_url = (
-            api_base_url or os.environ.get(EnvironmentVariables.DOCPIPE_API_BASE_URL, "http://127.0.0.1:8080")
-        ).rstrip("/")
+        self._api_base_url = os.environ.get(EnvironmentVariables.DOCPIPE_API_BASE_URL, "http://127.0.0.1:8080").rstrip(
+            "/"
+        )
 
     def dispatch(self, *, event: InputEvent) -> dict[str, Any]:
         """Resolve the event routing key and submit an asynchronous job run."""
@@ -34,17 +35,10 @@ class EventDispatchService:
         }
         request_payload = {
             "entity": {
-                "job": {
-                    "asset_ref": mapping.flow_id,
-                    "asset_ref_type": "ibm_udp_flow",
-                    "name": mapping.flow_id,
-                    "configuration": {},
-                },
+                "job": {"asset_ref": mapping.flow_id},
                 "job_run": {
                     "configuration": {
                         "input_event": event_payload,
-                        "force_ingest": False,
-                        "retain_deleted_docs": True,
                         "metadata": event_metadata,
                     }
                 },
@@ -59,10 +53,7 @@ class EventDispatchService:
         response.raise_for_status()
         result = response.json()
         logger.info(
-            "Dispatched event %s with metadata=%s for routing key %s as job_run_id=%s",
-            event_metadata["event_id"],
-            event_metadata,
-            event.routing_key,
-            result.get("job_run_id"),
+            "Event job run submitted: %s",
+            json.dumps({**event_metadata, "job_run_id": result.get("job_run_id")}),
         )
         return result

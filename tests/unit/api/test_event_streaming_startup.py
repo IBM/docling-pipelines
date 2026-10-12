@@ -76,17 +76,19 @@ def test_api_startup_starts_and_stops_explicitly_enabled_listener(
     startup_dependencies["stop"].assert_awaited_once_with()
 
 
-@pytest.mark.parametrize("enabled", [None, "", "false", "0", "yes"])
-def test_listener_configuration_skips_kafka_without_explicit_opt_in(*, enabled, monkeypatch, mocker) -> None:
-    """Direct listener configuration also requires explicit opt-in."""
-    if enabled is None:
-        monkeypatch.delenv(EnvironmentVariables.DOCPIPE_EVENT_STREAMING_ENABLED, raising=False)
-    else:
-        monkeypatch.setenv(EnvironmentVariables.DOCPIPE_EVENT_STREAMING_ENABLED, enabled)
+def test_listener_configuration_does_not_check_opt_in_flag(*, monkeypatch, mocker) -> None:
+    """The factory owns opt-in; listener construction validates only Kafka settings."""
+    monkeypatch.delenv(EnvironmentVariables.DOCPIPE_EVENT_STREAMING_ENABLED, raising=False)
+    monkeypatch.setenv(EnvironmentVariables.KAFKA_BOOTSTRAP_SERVERS, "localhost:9092")
+    monkeypatch.setenv(EnvironmentVariables.KAFKA_INPUT_TOPIC, "docpipe-input")
+    monkeypatch.setenv(EnvironmentVariables.KAFKA_GROUP_ID, "docpipe-event-consumer")
+    monkeypatch.setenv(EnvironmentVariables.SCHEMA_REGISTRY_URL, "http://localhost:8081")
     kafka_imports = mocker.patch.object(listener_module, "importlib")
 
-    assert KafkaEventListener.from_environment(dispatch_service=MagicMock()) is None
-    kafka_imports.import_module.assert_not_called()
+    listener = KafkaEventListener.from_environment(dispatch_service=MagicMock())
+
+    assert isinstance(listener, KafkaEventListener)
+    kafka_imports.import_module.assert_called_once_with("confluent_kafka.schema_registry.json_schema")
 
 
 def test_enabled_listener_requires_kafka_settings(*, monkeypatch, startup_dependencies) -> None:
