@@ -90,11 +90,15 @@ The flows-api capability is the REST API surface for flow management. It lets ca
 - **THEN** the response is 404
 
 ### Requirement: Delete flow
-`DELETE /api/v1/flows/{flow_id}` SHALL permanently delete the flow. On success the response SHALL be 204 with no body. Unknown flow SHALL return 404.
+`DELETE /api/v1/flows/{flow_id}` SHALL permanently delete the flow and CASCADE delete all associated job runs. On success the response SHALL be 204 with no body. Unknown flow SHALL return 404.
 
 #### Scenario: Delete succeeds with 204
 - **WHEN** `DELETE /api/v1/flows/{flow_id}` is called for an existing flow
 - **THEN** the response is 204 and the flow is no longer retrievable
+
+#### Scenario: Associated job runs deleted on flow delete
+- **WHEN** `DELETE /api/v1/flows/{flow_id}` is called for a flow that has existing job runs
+- **THEN** all job runs associated with that flow are also permanently deleted
 
 #### Scenario: Unknown flow returns 404
 - **WHEN** `DELETE /api/v1/flows/{unknown_id}` is called
