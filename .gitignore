@@ -97,7 +97,6 @@ frontend/.vite/
 frontend/bff/
 sonar/
 skills/
-openspec/
 
 # Private execution-granularity benchmark inputs and generated artifacts
 benchmarks/

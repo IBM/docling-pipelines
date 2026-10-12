@@ -286,3 +286,48 @@ Full style guide: [`docs/guides/DOCUMENTATION_STYLE_GUIDE.md`](docs/guides/DOCUM
 **Mermaid:** validate every diagram at [mermaid.live](https://mermaid.live) before committing; use `graph LR` for pipelines, `graph TD` for hierarchy
 
 **Changelog:** maintainers manually update `CHANGELOG.md` at release time. Agents must not update it during PR or commit work unless explicitly requested.
+
+## OpenSpec
+
+This repo uses [OpenSpec](https://openspec.dev) for spec-driven development. Live specs in `openspec/specs/` describe the current observable behavior of every major API surface and engine capability. Read the relevant spec before modifying any capability it covers.
+
+**Spec index** — `openspec list --specs` (requires `openspec` CLI, Node ≥20.19):
+
+| Namespace | Coverage |
+|---|---|
+| `backend/flows-api` | Flow CRUD REST API |
+| `backend/projects-api` | Project CRUD REST API |
+| `backend/job-runs-api` | Job run lifecycle REST API |
+| `backend/operators-api` | Operator metadata REST API |
+| `backend/document-sets-api` | Document set REST API |
+| `backend/document-libraries-api` | Document library REST API |
+| `backend/documents-api` | Document REST API |
+| `backend/flow-execution-engine` | FlowExecutor, orchestration, micro-batching |
+
+**Pre-commit Workflow** — OpenSpec operations:
+
+```bash
+# Before starting new feature or behavior change
+openspec list --specs                             # read what's already specified
+
+# Start a change
+openspec new change <descriptive-name>
+# → write openspec/changes/<name>/proposal.md
+# → write openspec/changes/<name>/specs/<capability>/spec.md
+# → write openspec/changes/<name>/design.md
+# → write openspec/changes/<name>/tasks.md
+
+# Validate before implementing
+openspec validate <name> --strict
+
+# After code review and tests pass
+openspec archive <name>
+```
+
+**Rules:**
+- Never modify `openspec/specs/` directly — only `openspec archive` writes there.
+- Do not implement code before the change's `proposal.md` and spec delta are written and reviewed.
+- Scope implementation strictly to the declared change — no opportunistic refactors.
+- Run `openspec validate <name> --strict` before handing off for implementation.
+- The `openspec/changes/archive/` directory is the historical record — do not edit archived changes.
+- All new capabilities must use the `backend/*` namespace. The `frontend/*` specs in this repo are historical artifacts from a prior version; do not add new `frontend/*` capabilities.
