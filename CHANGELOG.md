@@ -34,6 +34,8 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Changed
 
+- `sample_flows/README.md` — synchronize existing JSON flow catalog and storage output examples (#228).
+
 - **Breaking:** `IngestSourceOperator` migrated from `connection_params` + `credentials` to unified `provider_config`; all 8 source adapters and all sample flows updated (#152)
 - `PIIAndHAPAnnotator` provider selection replaced with decorator-based `PIIAndHAPDetectionFactory` registry (#76)
 - 33 self-free instance methods converted to `@staticmethod` across `FlowValidator`, `AuthoringCompiler`, `FlowExecutionReporter`, `MetadataAggregator`, and `IncrementalUpdateService` (#139)
