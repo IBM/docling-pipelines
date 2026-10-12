@@ -51,6 +51,21 @@ def test_category_filtering_keeps_only_requested_category() -> None:
     assert all(test.category is ExampleCategory.CONNECTORS for test in tests)
 
 
+def test_registered_examples_use_their_actual_default_requirements_and_output() -> None:
+    tester = ExampleTester(dry_run=True)
+    tests_by_name = {test.name: test for test in tester.define_tests()}
+
+    notebook = tests_by_name["Flow Manager Notebook Usage"]
+    assert notebook.requires_ollama is False
+
+    entity_curation = tests_by_name["Entity Curation"]
+    assert entity_curation.expected_outputs == ["Curated Entities for All Documents"]
+
+    extract = tests_by_name["Extract Operator"]
+    assert extract.requires_env is None
+    assert extract.expected_outputs == ["EXTRACT OPERATOR"]
+
+
 def test_missing_example_is_skipped_with_a_reason(tmp_path: Path) -> None:
     tester = ExampleTester(dry_run=False)
     missing = ExampleTest(
