@@ -1,4 +1,4 @@
-import re
+import re2 as re
 
 
 def weight_to_numeric(*, weight: str | None, locale: str = "en_US") -> float | None:
@@ -274,7 +274,7 @@ def weight_to_numeric(*, weight: str | None, locale: str = "en_US") -> float | N
 
     # Pattern: number (with optional decimal) + optional space + unit
     pattern = r"(\d+(?:[.,]\d+)?)\s*(" + unit_pattern + r")?"
-    match = re.search(pattern, weight, re.IGNORECASE)
+    match = re.search("(?i)" + pattern, weight)
 
     if match:
         # Extract numeric value (handle both . and , as decimal separators)

@@ -1,9 +1,9 @@
 """Branching operator that splits a document table into multiple sub-flows."""
 
-import re
 from typing import Any
 
 import pyarrow as pa
+import re2 as re
 import sqlglot
 from sqlglot import expressions as exp
 
@@ -391,7 +391,7 @@ class BranchingOperator(AbstractOperator):
                     unique_cols.append(c)
             return True, unique_cols
         except Exception as e:
-            logger.error(f"Error while parsing sql statement: {e!s}")
+            logger.error("Error while parsing sql statement: %s", e)
             return False, []
 
     def _is_valid_column_name(self, column_name: str) -> bool:
@@ -404,8 +404,6 @@ class BranchingOperator(AbstractOperator):
         Returns:
             bool: True if valid column name format
         """
-        import re
-
         if not column_name or len(column_name) > 128:  # Max column name length
             return False
 
