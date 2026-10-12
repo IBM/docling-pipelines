@@ -15,17 +15,17 @@ ARG COMPUTE_BACKEND=cpu
 RUN uv venv --python /usr/bin/python3.12 /opt/docpipe-venv && \
     case "$COMPUTE_BACKEND" in \
         gpu) \
-            uv export --locked --no-dev --no-emit-project \
+            uv export --locked --no-dev --extra event-streaming --no-emit-project \
                 --format pylock.toml --output-file pylock.toml && \
             uv pip install --python /opt/docpipe-venv/bin/python \
                 --no-cache --require-hashes -r pylock.toml ;; \
         cpu) \
-            uv export --locked --no-dev --no-emit-project \
+            uv export --locked --no-dev --extra event-streaming --no-emit-project \
                 --prune torch --prune torchvision \
                 --format pylock.toml --output-file pylock.toml && \
             uv pip install --python /opt/docpipe-venv/bin/python \
                 --no-cache --require-hashes -r pylock.toml && \
-            uv export --locked --no-dev --no-emit-project --no-hashes \
+            uv export --locked --no-dev --extra event-streaming --no-emit-project --no-hashes \
                 --only-emit-package torch --only-emit-package torchvision \
                 --format requirements.txt --output-file requirements-cpu.txt && \
             uv pip install --python /opt/docpipe-venv/bin/python \
