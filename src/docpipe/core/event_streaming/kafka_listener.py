@@ -37,21 +37,13 @@ class KafkaEventListener:
         self._thread: threading.Thread | None = None
 
     @classmethod
-    def from_environment(
-        cls, *, dispatch_service: EventDispatchService
-    ) -> KafkaEventListener | None:
+    def from_environment(cls, *, dispatch_service: EventDispatchService) -> KafkaEventListener | None:
         """Build the listener only when enabled and validate its required settings."""
-        enabled = (
-            os.getenv(EnvironmentVariables.DOCPIPE_EVENT_STREAMING_ENABLED, "false")
-            .strip()
-            .lower()
-        )
+        enabled = os.getenv(EnvironmentVariables.DOCPIPE_EVENT_STREAMING_ENABLED, "false").strip().lower()
         if enabled == "false":
             return None
         if enabled != "true":
-            raise ValueError(
-                f"{EnvironmentVariables.DOCPIPE_EVENT_STREAMING_ENABLED} must be 'true' or 'false'"
-            )
+            raise ValueError(f"{EnvironmentVariables.DOCPIPE_EVENT_STREAMING_ENABLED} must be 'true' or 'false'")
 
         environment_names = {
             "bootstrap_servers": EnvironmentVariables.KAFKA_BOOTSTRAP_SERVERS,
@@ -59,22 +51,16 @@ class KafkaEventListener:
             "group_id": EnvironmentVariables.KAFKA_GROUP_ID,
             "schema_registry_url": EnvironmentVariables.SCHEMA_REGISTRY_URL,
         }
-        settings = {
-            key: os.getenv(name, "").strip() for key, name in environment_names.items()
-        }
+        settings = {key: os.getenv(name, "").strip() for key, name in environment_names.items()}
         missing = [name for name, value in settings.items() if not value]
         if missing:
             missing_names = [environment_names[name] for name in missing]
-            raise ValueError(
-                f"Kafka event streaming requires: {', '.join(missing_names)}"
-            )
+            raise ValueError(f"Kafka event streaming requires: {', '.join(missing_names)}")
 
         try:
             importlib.import_module("confluent_kafka.schema_registry.json_schema")
         except ImportError as exc:
-            raise RuntimeError(
-                "Kafka event streaming requires the 'event-streaming' dependency extra"
-            ) from exc
+            raise RuntimeError("Kafka event streaming requires the 'event-streaming' dependency extra") from exc
 
         return cls(
             dispatch_service=dispatch_service,
@@ -86,9 +72,7 @@ class KafkaEventListener:
         if self._thread is not None and self._thread.is_alive():
             return
         self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._consume, name="docpipe-kafka-listener", daemon=True
-        )
+        self._thread = threading.Thread(target=self._consume, name="docpipe-kafka-listener", daemon=True)
         self._thread.start()
         logger.info("Started Kafka event listener for topic %s", self._topic)
 
@@ -99,9 +83,7 @@ class KafkaEventListener:
             return
         await asyncio.to_thread(self._thread.join, 5.0)
         if self._thread.is_alive():
-            logger.warning(
-                "Kafka event listener did not stop within the shutdown timeout"
-            )
+            logger.warning("Kafka event listener did not stop within the shutdown timeout")
 
     def _consume(self) -> None:
         consumer = None
@@ -146,10 +128,7 @@ class KafkaEventListener:
                         message.value(),
                         SerializationContext(self._topic, MessageField.VALUE),
                     )
-                    if (
-                        isinstance(payload, dict)
-                        and payload.get("event_id") is not None
-                    ):
+                    if isinstance(payload, dict) and payload.get("event_id") is not None:
                         event_id = str(payload["event_id"])
                     event = InputEvent.model_validate(payload)
                     event_id = str(event.event_id)
@@ -170,9 +149,7 @@ class KafkaEventListener:
                 try:
                     consumer.close()
                 except Exception:
-                    logger.exception(
-                        "Failed to close Kafka consumer for topic %s", self._topic
-                    )
+                    logger.exception("Failed to close Kafka consumer for topic %s", self._topic)
             logger.info("Stopped Kafka event listener for topic %s", self._topic)
 
     @staticmethod

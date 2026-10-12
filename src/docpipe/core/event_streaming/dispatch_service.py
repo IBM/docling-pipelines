@@ -16,15 +16,10 @@ logger = get_logger()
 class EventDispatchService:
     """Dispatch validated events to their mapped flows through REST."""
 
-    def __init__(
-        self, *, mapping_service: EventMappingService, api_base_url: str | None = None
-    ) -> None:
+    def __init__(self, *, mapping_service: EventMappingService, api_base_url: str | None = None) -> None:
         self._mapping_service = mapping_service
         self._api_base_url = (
-            api_base_url
-            or os.getenv(
-                EnvironmentVariables.DOCPIPE_API_BASE_URL, "http://127.0.0.1:8080"
-            )
+            api_base_url or os.environ.get(EnvironmentVariables.DOCPIPE_API_BASE_URL, "http://127.0.0.1:8080")
         ).rstrip("/")
 
     def dispatch(self, *, event: InputEvent) -> dict[str, Any]:
