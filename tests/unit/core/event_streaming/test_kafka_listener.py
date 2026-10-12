@@ -237,9 +237,7 @@ async def test_listener_start_is_idempotent_and_stop_warns_on_timeout(*, mocker)
     thread.start.assert_called_once_with()
     assert listener._stop_event.is_set()
     to_thread.assert_awaited_once_with(thread.join, 5.0)
-    warning.assert_called_once_with(
-        "Kafka event listener shutdown timed out topic=%s", "docpipe-input"
-    )
+    warning.assert_called_once_with("Kafka event listener shutdown timed out topic=%s", "docpipe-input")
 
 
 @pytest.mark.asyncio
