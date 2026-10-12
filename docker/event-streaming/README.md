@@ -1,73 +1,97 @@
 # Run Docling Pipelines with Docker Compose
 
-Run from the repository root.
+Run all commands from repo root.
 
-## Stage 0: Configure the environment
+## Prerequisites
+
+- Docker Engine 24.0+ and Docker Compose 2.24+; the Docker daemon must be running.
+- At least 6 GB of RAM available for containers.
+- Internet access to build images and download the embedding model.
+
+## Step 0: Setup Environment
 
 ```bash
 cp -n docker/event-streaming/.env.example docker/event-streaming/.env
 ```
 
-## Stage 1: Build the images
+## Step 1: Verify Configuration
 
 ```bash
 docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml config --quiet
+```
+
+## Step 2: Build Image
+
+```bash
 docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml build
 ```
 
-For a GPU build:
+or, for a GPU build, use:
 
 ```bash
-#docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml config --quiet
-#docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml build --build-arg COMPUTE_BACKEND=gpu
+# docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml build --build-arg COMPUTE_BACKEND=gpu
 ```
 
-## Stage 2: Run the API
+## Step 3: Start Application
 
 ```bash
 docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml up -d --no-build
-docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml ps
 ```
 
-Check API health:
+### Check application health:
 
 ```bash
+docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml ps
 curl --fail http://localhost:8080/health
 ```
 
-API docs: `http://localhost:8080/api/v1/docs`.
+### View API logs (optional)
 
-### API logs (optional)
+In a separate terminal, run this command to follow the API logs. Press `Ctrl+C` to stop the stream.
 
 ```bash
-docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml logs -f --tail=100 docpipe
+docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml logs -f docpipe
 ```
 
-## Stage 3: Run the Kafka example
+## Step 4: Event Streaming: Run a sample producer and consumer
 
-Install the Kafka dependencies:
+Install the Event Streaming dependencies:
 
 ```bash
 uv sync --extra dev --extra event-streaming
 ```
 
-Check the event schema registration:
+### Confirm the topic was created
+
+The stack creates the input topic at startup. Check the initialization logs before sending an event:
+
+```bash
+docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml logs kafka-init
+```
+
+### Confirm the schema is ready
+
+The stack registers the event schema at startup. Check the registration logs before sending an event:
 
 ```bash
 docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml logs register-schema
 ```
 
-Consume messages in a new terminal:
+### Start listening for events
+
+Open a new terminal and leave the consumer running. It will print each event as it arrives:
 
 ```bash
 uv run --env-file docker/event-streaming/.env python docker/event-streaming/helpers/kafka_consumer.py
 ```
 
-Produce a message in another terminal:
+### Send a sample event
+
+Open a new terminal, publish a sample `create` event. You should see it appear in the consumer output:
 
 ```bash
 uv run --env-file docker/event-streaming/.env python docker/event-streaming/helpers/kafka_producer.py \
-  --message '{"event_id":"550e8400-e29b-41d4-a716-446655440000","event_timestamp":"2026-01-01T00:00:00Z","routing_key":"invoices","operation":"update","file_reference":"/documents/invoice.pdf"}'
+  --message '{"event_id":"00000000-0000-0000-0000-000000000000","event_timestamp":"2026-01-01T00:00:00Z","routing_key":"example","operation":"create","file_reference":"/documents/example.txt"}'
 ```
 
 ## Stop the stack
@@ -76,4 +100,4 @@ uv run --env-file docker/event-streaming/.env python docker/event-streaming/help
 docker compose --env-file docker/event-streaming/.env -f docker/event-streaming/docker-compose.yml down
 ```
 
-Add `-v` to remove named data volumes.
+Named data volumes are retained. Add `-v` to remove them.

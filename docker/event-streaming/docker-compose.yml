@@ -26,7 +26,7 @@ services:
   kafka-init:
     image: apache/kafka:4.3.1
     environment:
-      KAFKA_INPUT_TOPIC: ${KAFKA_INPUT_TOPIC:-}
+      KAFKA_INPUT_TOPIC: ${KAFKA_INPUT_TOPIC:?Set KAFKA_INPUT_TOPIC}
     volumes:
       - ./scripts/kafka-init.sh:/kafka-init.sh:ro
     entrypoint: ["/bin/sh", "/kafka-init.sh"]
@@ -62,7 +62,7 @@ services:
     command:
       - python
       - /app/register_schema.py
-      - ${KAFKA_INPUT_TOPIC:-}
+      - ${KAFKA_INPUT_TOPIC:?Set KAFKA_INPUT_TOPIC}
       - /app/schemas/event_schema.json
     depends_on:
       kafka-init:
@@ -85,7 +85,7 @@ services:
       OLLAMA_HOST: http://ollama:11434
       OPENSEARCH_HOST: opensearch
       OPENSEARCH_USERNAME: admin
-      OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD:-}
+      OPENSEARCH_PASSWORD: ${OPENSEARCH_PASSWORD:?Set OPENSEARCH_PASSWORD}
     volumes:
       - docpipe-data:/data
       - ../../tests/fixtures/invoices:/documents:ro
@@ -107,7 +107,7 @@ services:
     environment:
       discovery.type: single-node
       plugins.security.ssl.http.enabled: "false"
-      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_PASSWORD:-}
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: ${OPENSEARCH_PASSWORD:?Set OPENSEARCH_PASSWORD}
       OPENSEARCH_JAVA_OPTS: -Xms512m -Xmx512m
     ulimits:
       nofile:

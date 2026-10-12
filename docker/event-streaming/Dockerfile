@@ -10,24 +10,26 @@ RUN pip install --no-cache-dir uv
 COPY pyproject.toml uv.lock ./
 ARG COMPUTE_BACKEND=cpu
 # Use CPU dependencies by default, or select GPU support with COMPUTE_BACKEND=gpu.
-# Keep CPU Torch separate because the locked PyPI Torch graph includes CUDA dependencies.
+# Install the pinned torch and torchvision versions separately using CPU wheels.
+# This avoids CUDA dependencies while keeping pyproject.toml and uv.lock unchanged.
 RUN uv venv --python /usr/bin/python3.12 /opt/docpipe-venv && \
     case "$COMPUTE_BACKEND" in \
         gpu) \
-            uv export --locked --no-dev --extra event-streaming --no-emit-project \
-                --format requirements.txt --output-file requirements-gpu.txt && \
+            uv export --locked --no-dev --no-emit-project \
+                --format pylock.toml --output-file pylock.toml && \
             uv pip install --python /opt/docpipe-venv/bin/python \
-                --no-cache --require-hashes -r requirements-gpu.txt ;; \
+                --no-cache --require-hashes -r pylock.toml ;; \
         cpu) \
-            uv export --locked --no-dev --extra event-streaming --no-emit-project \
+            uv export --locked --no-dev --no-emit-project \
                 --prune torch --prune torchvision \
-                --format requirements.txt --output-file requirements-cpu-base.txt && \
-            uv export --locked --no-dev --extra event-streaming --no-emit-project --no-hashes \
-                --only-emit-package torch --only-emit-package torchvision \
-                --format requirements.txt --output-file requirements-cpu-torch.txt && \
+                --format pylock.toml --output-file pylock.toml && \
             uv pip install --python /opt/docpipe-venv/bin/python \
-                --no-cache --torch-backend=cpu \
-                -r requirements-cpu-base.txt -r requirements-cpu-torch.txt ;; \
+                --no-cache --require-hashes -r pylock.toml && \
+            uv export --locked --no-dev --no-emit-project --no-hashes \
+                --only-emit-package torch --only-emit-package torchvision \
+                --format requirements.txt --output-file requirements-cpu.txt && \
+            uv pip install --python /opt/docpipe-venv/bin/python \
+                --no-cache --torch-backend=cpu -r requirements-cpu.txt ;; \
         *) echo "COMPUTE_BACKEND must be cpu or gpu" >&2; exit 1 ;; \
     esac
 
