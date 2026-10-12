@@ -2,8 +2,8 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/docling-pipelines)](https://pypi.org/project/docling-pipelines/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
-[![License MIT](https://img.shields.io/github/license/IBM/docling-pipelines)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/IBM/docling-pipelines/actions/workflows/ci.yml/badge.svg)](https://github.com/IBM/docling-pipelines/actions/workflows/ci.yml)
+[![License MIT](https://img.shields.io/github/license/docling-project/docling-pipelines)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/docling-project/docling-pipelines/actions/workflows/ci.yml/badge.svg)](https://github.com/docling-project/docling-pipelines/actions/workflows/ci.yml)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![DCO](https://img.shields.io/badge/DCO-required-brightgreen)](https://developercertificate.org/)

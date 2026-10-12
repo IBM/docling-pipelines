@@ -179,10 +179,10 @@ vlm_asr = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/IBM/docling-pipelines"
-Documentation = "https://github.com/IBM/docling-pipelines/blob/main/docs/README.md"
-Source = "https://github.com/IBM/docling-pipelines"
-"Bug Tracker" = "https://github.com/IBM/docling-pipelines/issues"
+Homepage = "https://github.com/docling-project/docling-pipelines"
+Documentation = "https://github.com/docling-project/docling-pipelines/blob/main/docs/README.md"
+Source = "https://github.com/docling-project/docling-pipelines"
+"Bug Tracker" = "https://github.com/docling-project/docling-pipelines/issues"
 
 [project.scripts]
 docling-pipelines-api = "docpipe.api.main:run"

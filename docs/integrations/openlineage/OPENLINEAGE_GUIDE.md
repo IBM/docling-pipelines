@@ -168,7 +168,7 @@ DocpipeFlowManager(flow_file="my_flow.json").execute()
 | `DOCPIPE_LINEAGE_ENABLED` | `false` | Master switch. Must be `true` to activate emission. |
 | `DOCPIPE_LINEAGE_MODE` | `flow` | `flow` or `operator`. Controls event granularity — see [Section 6](#6-emission-modes--flow-vs-operator). |
 | `DOCPIPE_LINEAGE_NAMESPACE` | `docpipe://local` | OpenLineage namespace for all jobs and datasets. Use a stable, environment-specific value in shared deployments. |
-| `DOCPIPE_LINEAGE_PRODUCER` | `https://github.com/IBM/docling-pipelines` | Producer URI embedded in all facets. Identifies the system that generated events. |
+| `DOCPIPE_LINEAGE_PRODUCER` | `https://github.com/docling-project/docling-pipelines` | Producer URI embedded in all facets. Identifies the system that generated events. |
 | `DOCPIPE_LINEAGE_STRICT` | `false` | When `true`, observer exceptions are re-raised and halt the pipeline. Default `false` — exceptions are logged as warnings and execution continues. |
 
 ### 5.2 OpenLineage SDK transport configuration
@@ -510,7 +510,7 @@ publisher = MyCustomPublisher(endpoint_url="https://my-backend.example.com/linea
 > [!NOTE]
 > Modifying `lineage_factory.py` directly is the correct mechanism for internal use. If you need
 > plugin-style publisher registration without modifying source files, open a feature request on the
-> [issue tracker](https://github.com/IBM/docling-pipelines/issues).
+> [issue tracker](https://github.com/docling-project/docling-pipelines/issues).
 
 ### 10.5 Advanced: implementing ExecutionLifecycleObserverPort
 
@@ -533,4 +533,3 @@ If you need to change *when* an event fires — not just where it goes — imple
 > During development, pair a custom observer with
 > [`NoOpLineagePublisherAdapter`](../../../src/docpipe/core/lineage/adapters/noop/publisher.py)
 > to silence actual emission while you iterate on the observer logic.
-

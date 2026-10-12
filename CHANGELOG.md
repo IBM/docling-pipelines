@@ -98,6 +98,6 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 - SonarQube, ruff, mypy, and Mend CI quality gates
 - Comprehensive documentation under `docs/`
 
-[Unreleased]: https://github.com/IBM/docling-pipelines/compare/v1.0.1...HEAD
-[1.0.1]: https://github.com/IBM/docling-pipelines/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/IBM/docling-pipelines/releases/tag/v1.0.0
+[Unreleased]: https://github.com/docling-project/docling-pipelines/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/docling-project/docling-pipelines/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/docling-project/docling-pipelines/releases/tag/v1.0.0

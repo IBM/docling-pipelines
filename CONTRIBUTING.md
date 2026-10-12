@@ -1117,9 +1117,9 @@ For full details on support channels, response time expectations, and maintainer
 
 Quick reference:
 
-- **[GitHub Issues](https://github.com/IBM/docling-pipelines/issues)**: Bug reports and feature requests
-- **[GitHub Discussions](https://github.com/IBM/docling-pipelines/discussions)**: General questions and ideas
-- **[Pull Requests](https://github.com/IBM/docling-pipelines/pulls)**: Code contributions
+- **[GitHub Issues](https://github.com/docling-project/docling-pipelines/issues)**: Bug reports and feature requests
+- **[GitHub Discussions](https://github.com/docling-project/docling-pipelines/discussions)**: General questions and ideas
+- **[Pull Requests](https://github.com/docling-project/docling-pipelines/pulls)**: Code contributions
 - **Security issues**: Follow [SECURITY.md](SECURITY.md) — do not open a public issue
 
 ### Questions?
@@ -1127,7 +1127,7 @@ Quick reference:
 If you have questions:
 
 1. Check existing documentation
-2. Search [GitHub Discussions](https://github.com/IBM/docling-pipelines/discussions)
+2. Search [GitHub Discussions](https://github.com/docling-project/docling-pipelines/discussions)
 3. Open a new Discussion in the Q&A category
 
 ---
