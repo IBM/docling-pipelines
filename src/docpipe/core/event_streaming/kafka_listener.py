@@ -40,10 +40,8 @@ class KafkaEventListener:
     def from_environment(cls, *, dispatch_service: EventDispatchService) -> KafkaEventListener | None:
         """Build the listener only when enabled and validate its required settings."""
         enabled = os.getenv(EnvironmentVariables.DOCPIPE_EVENT_STREAMING_ENABLED, "false").strip().lower()
-        if enabled == "false":
-            return None
         if enabled != "true":
-            raise ValueError(f"{EnvironmentVariables.DOCPIPE_EVENT_STREAMING_ENABLED} must be 'true' or 'false'")
+            return None
 
         environment_names = {
             "bootstrap_servers": EnvironmentVariables.KAFKA_BOOTSTRAP_SERVERS,

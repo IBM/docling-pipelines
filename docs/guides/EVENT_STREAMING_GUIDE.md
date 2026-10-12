@@ -222,8 +222,10 @@ sent as `X-Global-Transaction-Id`. The dispatcher uses `DOCPIPE_API_BASE_URL`, w
 
 The listener uses Schema Registry JSON deserialization and commits each message after the API accepts the run or
 after a terminal dispatch failure. It does not wait for pipeline completion. Set `DOCPIPE_EVENT_STREAMING_ENABLED=true`
-to start it; it is disabled by default. The listener requires `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_INPUT_TOPIC`,
-`KAFKA_GROUP_ID`, and `SCHEMA_REGISTRY_URL`.
+to start it at API startup. Only `true` enables the listener (case-insensitive, with surrounding whitespace ignored).
+An unset, empty, or other value leaves it disabled without initializing Kafka or event mapping storage.
+When enabled, the listener requires `KAFKA_BOOTSTRAP_SERVERS`, `KAFKA_INPUT_TOPIC`, `KAFKA_GROUP_ID`, and
+`SCHEMA_REGISTRY_URL`.
 
 ## Verify Kafka-to-flow dispatch
 
