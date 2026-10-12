@@ -344,8 +344,11 @@ def pytest_collection_modifyitems(config, items):
         if "unit" in str(item.fspath):
             item.add_marker(pytest.mark.unit)
 
-        # Auto-mark integration tests
-        if "integration" in str(item.fspath):
+        # Auto-mark integration tests: anything under an "integration" directory, or a
+        # file with "integration" in its name. Do not match the full path as a
+        # substring: that also hits tests/unit/integrations/, and CI's
+        # "-m 'unit and not integration'" then silently deselects those unit tests.
+        if "integration" in item.path.parent.parts or "integration" in item.path.name:
             item.add_marker(pytest.mark.integration)
 
         # Auto-mark slow tests based on name
