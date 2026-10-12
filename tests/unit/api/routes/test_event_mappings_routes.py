@@ -86,9 +86,7 @@ def test_create_event_mapping_returns_flow_lookup_failure(
     mapping_service.create_mapping.assert_not_called()
 
 
-def test_create_event_mapping_returns_duplicate_failure(
-    *, client: TestClient, mapping_service: MagicMock
-) -> None:
+def test_create_event_mapping_returns_duplicate_failure(*, client: TestClient, mapping_service: MagicMock) -> None:
     mapping_service.create_mapping.side_effect = DocpipeException(
         "Mapping already exists", status_code=409, error_code=ErrorCode.EVENT_MAPPING_ALREADY_EXISTS
     )
@@ -127,7 +125,9 @@ def test_get_event_mapping_rejects_invalid_path_key(*, client: TestClient, mappi
     mapping_service.get_mapping.assert_not_called()
 
 
-def test_update_event_mapping_changes_flow(*, client: TestClient, mapping_service: MagicMock, flow_service: MagicMock) -> None:
+def test_update_event_mapping_changes_flow(
+    *, client: TestClient, mapping_service: MagicMock, flow_service: MagicMock
+) -> None:
     mapping_service.get_mapping.return_value = EventMapping(key="Invoice-Ready", flow_id=FLOW_ID)
     mapping_service.update_mapping.return_value = EventMapping(key="Invoice-Ready", flow_id=UPDATED_FLOW_ID)
 

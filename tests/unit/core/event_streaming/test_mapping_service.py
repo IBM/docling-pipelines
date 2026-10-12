@@ -24,7 +24,9 @@ class InMemoryKeyValueStorage(KeyValueStoragePort):
         return record.copy() if record is not None else None
 
     def list_records(self, *, collection: str, filters: dict[str, object] | None = None) -> list[dict[str, object]]:
-        return [record.copy() for (record_collection, _), record in self.records.items() if record_collection == collection]
+        return [
+            record.copy() for (record_collection, _), record in self.records.items() if record_collection == collection
+        ]
 
     def delete_record(self, *, collection: str, key: str) -> bool:
         return self.records.pop((collection, key), None) is not None
