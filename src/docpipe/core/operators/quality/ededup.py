@@ -27,9 +27,7 @@ class EdedupOperator(AbstractOperator):
             OperatorConstants.Columns.DOC_ID_HASH, OperatorConstants.Columns.DOC_ID_HASH_DEFAULT
         )
         if "filter" in config:
-            raise ValueError(
-                "ededup no longer accepts a DPK filter; configure the ededup storage backend instead"
-            )
+            raise ValueError("ededup no longer accepts a DPK filter; configure the ededup storage backend instead")
         # Preserve standalone library use without creating a shared 'None' run.
         self._local_hashes: set[str] = set()
 
