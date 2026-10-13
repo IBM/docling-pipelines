@@ -1,5 +1,6 @@
-import re
 from decimal import Decimal
+
+import re2 as re
 
 
 def currency_to_numeric(*, amount: str | None, locale: str = "en_US") -> str | None:
@@ -138,7 +139,7 @@ def currency_to_numeric(*, amount: str | None, locale: str = "en_US") -> str | N
     pattern = r"(" + "|".join(escaped_patterns) + r")\s*$"
 
     # Extract magnitude suffix if present
-    magnitude_match = re.search(pattern, amount, re.IGNORECASE)
+    magnitude_match = re.search("(?i)" + pattern, amount)
     multiplier = Decimal("1")
 
     if magnitude_match:

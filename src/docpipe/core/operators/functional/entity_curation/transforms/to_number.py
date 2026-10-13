@@ -1,4 +1,4 @@
-import re
+import re2 as re
 
 
 def to_number(*, number_str: str | None) -> float | None:
@@ -146,10 +146,10 @@ def to_number(*, number_str: str | None) -> float | None:
     suffix_patterns = sorted(multipliers.keys(), key=len, reverse=True)
     # Escape special regex characters and join with |
     escaped_patterns = [re.escape(s) for s in suffix_patterns]
-    pattern = r" ?(" + "|".join(escaped_patterns) + r") ?$"
+    pattern = r"(?i) ?(" + "|".join(escaped_patterns) + r") ?$"
 
     # Try to match a suffix at the end (case-insensitive for Latin scripts)
-    match = re.search(pattern, number_str, re.IGNORECASE)
+    match = re.search(pattern, number_str)
 
     if match:
         # Extract the suffix
