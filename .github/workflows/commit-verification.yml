@@ -99,20 +99,28 @@ jobs:
               return;
             }
 
-            // Sanitize user-provided values for markdown table safety
+            // Neutralise markdown/HTML/mention syntax in untrusted text rendered
+            // outside a code span. Truncate first so entities are never cut in half.
+            const TABLE_ESCAPES = {
+              '&': '&amp;', '|': '&#124;', '\\': '&#92;', '`': '&#96;',
+              '<': '&lt;', '>': '&gt;', '[': '&#91;', ']': '&#93;',
+              '(': '&#40;', ')': '&#41;', '!': '&#33;'
+            };
             function sanitizeForTable(str) {
               return String(str)
-                .replace(/\|/g, '\\|')
-                .replace(/\n/g, ' ')
-                .replace(/\r/g, '')
-                .slice(0, 100);
+                .replace(/[\r\n]+/g, ' ')
+                .slice(0, 100)
+                .replace(/[&|\\`<>[\]()!]/g, ch => TABLE_ESCAPES[ch])
+                // Zero-width space after @ prevents user/team mentions
+                .replace(/@/g, '@\u200b');
             }
 
-            // Sanitize values interpolated into the double-quoted bash snippet
-            function sanitizeForShell(str) {
+            // Untrusted text rendered inside an inline code span: only backticks
+            // and line breaks can break out of it.
+            function sanitizeForCode(str) {
               return String(str)
-                .replace(/[\r\n]/g, ' ')
-                .replace(/["`$\\]/g, '')
+                .replace(/[\r\n]+/g, ' ')
+                .replace(/`/g, '')
                 .slice(0, 100);
             }
 
@@ -134,7 +142,7 @@ jobs:
 
             const dcoFailed = raw.dco_failed.map(normalizeCommit);
             const gpgFailed = raw.gpg_failed.map(normalizeCommit);
-            const templateFailed = raw.template_failed.map(s => sanitizeForTable(s));
+            const templateFailed = raw.template_failed.map(s => sanitizeForCode(s));
             const dcoPassed = raw.dco_passed;
             const gpgPassed = raw.gpg_passed;
             const templatePassed = raw.template_passed;
@@ -178,17 +186,12 @@ jobs:
                 body += "| Commit | Author | Message |\n";
                 body += "|--------|--------|---------|\n";
                 for (const c of dcoFailed) {
-                  body += `| \`${c.sha.slice(0,7)}\` | ${sanitizeForTable(c.author)} <${sanitizeForTable(c.email)}> | ${sanitizeForTable(c.message)} |\n`;
+                  body += `| \`${c.sha.slice(0,7)}\` | ${sanitizeForTable(c.author)} &lt;${sanitizeForTable(c.email)}&gt; | ${sanitizeForTable(c.message)} |\n`;
                 }
-                body += "\n**Quick Fix (no history rewrite):** Add a remediation commit:\n";
+                body += "\n**Fix:** Every commit needs its own `Signed-off-by` trailer. A separate remediation commit does **not** satisfy this check; re-sign the commits instead:\n";
                 body += "```bash\n";
-                body += `git commit --allow-empty -s -m "DCO Remediation Commit for ${sanitizeForShell(dcoFailed[0].author)} <${sanitizeForShell(dcoFailed[0].email)}>\n\n`;
-                for (const c of dcoFailed) {
-                  body += `I, ${sanitizeForShell(c.author)} <${sanitizeForShell(c.email)}>, hereby add my Signed-off-by to this commit: ${c.sha}\n`;
-                }
-                body += '"\n';
-                body += "git push\n```\n";
-                body += `\n*Or sign each commit directly:* \`git rebase --signoff origin/${baseRef} && git push --force-with-lease\`\n`;
+                body += `git rebase --signoff origin/${baseRef}\n`;
+                body += "git push --force-with-lease\n```\n";
               }
 
               if (gpgFailed.length > 0) {
@@ -198,7 +201,7 @@ jobs:
                 body += "|--------|--------|--------|---------|\n";
                 for (const c of gpgFailed) {
                   const reason = c.reason || 'unsigned';
-                  body += `| \`${c.sha.slice(0,7)}\` | ${sanitizeForTable(c.author)} <${sanitizeForTable(c.email)}> | ${sanitizeForTable(reason)} | ${sanitizeForTable(c.message)} |\n`;
+                  body += `| \`${c.sha.slice(0,7)}\` | ${sanitizeForTable(c.author)} &lt;${sanitizeForTable(c.email)}&gt; | ${sanitizeForTable(reason)} | ${sanitizeForTable(c.message)} |\n`;
                 }
                 body += "\n**Fix:** You must GPG-sign all commits. See [Verified Commits setup guide](https://github.com/IBM/docling-pipelines/blob/main/CONTRIBUTING.md#verified-commits).\n\n";
                 body += "**Single commit:**\n";
