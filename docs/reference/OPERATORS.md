@@ -1394,9 +1394,12 @@ Context-free standalone instances retain an in-memory registry across calls on t
 Configuration precedence is `ededup.storage` over `global_storage` over filesystem defaults; nested dedup config values
 override shared values. `incremental_metadata` settings and `DOCPIPE_INCREMENTAL_BASE_DIR` are not consulted. Invalid
 ededup backend settings fail explicitly. PostgreSQL uses common `DOCPIPE_POSTGRES_*` connection settings and creates
-only `ededup_hashes`. Filesystem uses `ededup.storage.config.base_dir`, defaulting to the common data root.
+only `hashes`, defaulting to the `dedup_registry` schema when no schema is configured. Filesystem uses
+`<base_dir>/dedup_registry/hashes_<scope_hash>.parquet` and matching `.lock` files, where `base_dir` is
+`ededup.storage.config.base_dir` or the common data root. The scope hash is SHA-256 of the JSON-encoded
+`[job_id, node_id, job_run_id]`.
 When moving from the earlier coupled configuration, copy service-specific storage settings into `ededup.storage`
-and retain the existing schema/base directory. No admission data rewrite is needed.
+before running. Existing `ededup_hashes` tables and folders are not automatically migrated or read.
 
 Registration is isolated by `(job_id, node_id, job_run_id, hash_value)`. Within each input table, the first occurrence wins;
 across concurrent batches the winner depends on registration order. Hashes use the existing normalization: remove spaces,

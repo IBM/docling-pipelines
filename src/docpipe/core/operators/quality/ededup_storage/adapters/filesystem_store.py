@@ -29,9 +29,9 @@ class FilesystemDedupStore(DedupStore):
         if not records:
             return set()
         scope = hashlib.sha256(json.dumps([job_id, node_id, job_run_id]).encode()).hexdigest()
-        directory = self._base_dir / "ededup_hashes"
+        directory = self._base_dir / "dedup_registry"
         directory.mkdir(parents=True, exist_ok=True)
-        path = directory / f"{scope}.parquet"
+        path = directory / f"hashes_{scope}.parquet"
         temporary = path.with_suffix(".tmp")
         schema = pa.schema([(key, pa.string()) for key in ("job_id", "node_id", "job_run_id", "hash_value", "doc_id")])
         try:

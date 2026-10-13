@@ -13,25 +13,16 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import create_engine, event, inspect, select, text
 
-from docpipe.core.incremental_metadata.adapters.stores.postgres.postgres_incremental_store import (
-    PostgresIncrementalMetadataStore,
-)
 from docpipe.core.operators.quality.ededup_storage.adapters.postgres_store import PostgresDedupStore
 from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 
 _MODULE = "docpipe.core.operators.quality.ededup_storage.adapters.postgres_store"
-_INCREMENTAL_MODULE = "docpipe.core.incremental_metadata.adapters.stores.postgres.postgres_incremental_store"
 pytestmark = pytest.mark.integration
 
 
 def _store(*, url, schema):
     with patch(f"{_MODULE}.get_postgres_connection_string", return_value=url):
         return PostgresDedupStore(config={"schema": schema})
-
-
-def _incremental_store(*, url, schema):
-    with patch(f"{_INCREMENTAL_MODULE}.get_postgres_connection_string", return_value=url):
-        return PostgresIncrementalMetadataStore(config={"schema": schema})
 
 
 def _claim_in_process(args):
@@ -124,35 +115,26 @@ def test_bulk_failure_rolls_back_all_chunks(database):
         store._engine.dispose()
 
 
-def test_source_deletion_does_not_delete_admissions(database):
-    from docpipe.core.incremental_metadata.domain.models import IncrementalMetadataRecord
-
+def test_source_deletion_does_not_delete_admissions(*, database, tmp_path):
     url, schema = database
+    source = tmp_path / "old.txt"
+    source.write_text("content")
     store = _store(url=url, schema=schema)
-    incremental = _incremental_store(url=url, schema=schema)
-    scope = {"job_id": "job", "node_id": "node", "job_run_id": "run", "records": {"hash": "old.txt"}}
+    scope = {"job_id": "job", "node_id": "node", "job_run_id": "run"}
     try:
-        incremental.upsert_records(
-            job_id="job",
-            job_run_id="run",
-            records=[IncrementalMetadataRecord(job_id="job", doc_id="old.txt", modified_time=1)],
-        )
-        assert incremental.get_processed_docs(job_id="job")["old.txt"]["job_run_id"] == "run"
-        assert store.check_and_register_hashes(**scope) == {"hash"}
-        incremental.delete_docs(job_id="job", doc_ids=["old.txt"])
-        assert incremental.get_processed_docs(job_id="job") == {}
-        assert store.check_and_register_hashes(**scope) == set()
+        assert store.check_and_register_hashes(**scope, records={"hash": str(source)}) == {"hash"}
+        source.unlink()
+        assert store.check_and_register_hashes(**scope, records={"hash": "copy.txt"}) == set()
+        assert store.check_and_register_hashes(
+            job_id="job", node_id="node", job_run_id="next-run", records={"hash": "copy.txt"}
+        ) == {"hash"}
     finally:
-        store._engine.dispose()
-    incremental._engine.dispose()
+        store.close()
 
 
 def test_bulk_renames_and_reopening_preserve_all_scopes(database):
-    from docpipe.core.incremental_metadata.domain.models import IncrementalMetadataRecord
-
     url, schema = database
     store = _store(url=url, schema=schema)
-    incremental = _incremental_store(url=url, schema=schema)
     scopes = [
         {"job_id": "job", "node_id": "branch-a", "job_run_id": "run-a"},
         {"job_id": "job", "node_id": "branch-b", "job_run_id": "run-a"},
@@ -162,11 +144,6 @@ def test_bulk_renames_and_reopening_preserve_all_scopes(database):
     ]
     try:
         assert set(store._ededup_table.columns.keys()) == {"job_id", "node_id", "job_run_id", "hash_value", "doc_id"}
-        incremental.upsert_records(
-            job_id="unrelated",
-            job_run_id="run",
-            records=[IncrementalMetadataRecord(job_id="unrelated", doc_id="keep", modified_time=7)],
-        )
         for index, scope in enumerate(scopes):
             doc = "renamed.txt" if scope["job_run_id"] == "run-b" else f"original-{index}.txt"
             assert store.check_and_register_hashes(**scope, records={"h": doc}) == {"h"}
@@ -180,7 +157,6 @@ def test_bulk_renames_and_reopening_preserve_all_scopes(database):
         assert {row["doc_id"] for row in before if row["hash_value"] == "h" and row["job_run_id"] == "run-b"} == {
             "renamed.txt"
         }
-        incremental_before = incremental.get_processed_docs(job_id="unrelated")
     finally:
         store._engine.dispose()
 
@@ -192,10 +168,8 @@ def test_bulk_renames_and_reopening_preserve_all_scopes(database):
             with reopened._engine.connect() as connection:
                 after = connection.execute(select(reopened._ededup_table)).mappings().all()
             assert {tuple(sorted(row.items())) for row in after} == {tuple(sorted(row.items())) for row in before}
-            assert incremental.get_processed_docs(job_id="unrelated") == incremental_before
         finally:
             reopened._engine.dispose()
-    incremental._engine.dispose()
 
 
 @pytest.mark.parametrize("second_scope", [("branch-b", "run-a"), ("branch-a", "run-b")])
@@ -227,8 +201,8 @@ def test_storage_initialization_is_independent(database):
     url, schema = database
     store = _store(url=url, schema=schema)
     try:
-        assert inspect(store._engine).get_table_names(schema=schema) == ["ededup_hashes"]
-        assert set(inspect(store._engine).get_pk_constraint("ededup_hashes", schema=schema)["constrained_columns"]) == {
+        assert inspect(store._engine).get_table_names(schema=schema) == ["hashes"]
+        assert set(inspect(store._engine).get_pk_constraint("hashes", schema=schema)["constrained_columns"]) == {
             "job_id",
             "node_id",
             "job_run_id",
@@ -236,11 +210,3 @@ def test_storage_initialization_is_independent(database):
         }
     finally:
         store.close()
-    incremental_schema = schema + "_incremental"
-    incremental = _incremental_store(url=url, schema=incremental_schema)
-    try:
-        assert inspect(incremental._engine).get_table_names(schema=incremental_schema) == ["inc_update_metadata"]
-    finally:
-        with incremental._engine.begin() as connection:
-            connection.execute(text(f'DROP SCHEMA "{incremental_schema}" CASCADE'))
-        incremental._engine.dispose()

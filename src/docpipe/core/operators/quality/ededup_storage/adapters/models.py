@@ -7,7 +7,7 @@ from sqlmodel import Field, SQLModel
 class EdedupHashPostgresModel(SQLModel, table=True):  # type: ignore[call-arg]
     """Run-scoped admissions, retained independently of source deletion."""
 
-    __tablename__ = "ededup_hashes"
+    __tablename__ = "hashes"
     __table_args__ = {"extend_existing": True}
 
     job_id: str = Field(sa_column=Column(String, primary_key=True))

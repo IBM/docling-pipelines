@@ -54,12 +54,12 @@ ededup:
     type: postgresql
     config:
       postgres:
-        schema: incremental_metadata
+        schema: dedup_registry
 ```
 
 Supply connection settings using `DOCPIPE_POSTGRES_HOST`, `DOCPIPE_POSTGRES_PORT`, `DOCPIPE_POSTGRES_DB`,
 `DOCPIPE_POSTGRES_USER`, and `DOCPIPE_POSTGRES_PASSWORD`. The database role needs permission to create the schema/tables.
-The store creates `ededup_hashes` with a composite primary key. Candidates are inserted in bounded bulk statements
+The store creates `hashes` with a composite primary key. Candidates are inserted in bounded bulk statements
 within one transaction, and only newly inserted hashes pass through after commit. A failure rolls back all chunks.
 Existing node-scoped records remain valid when the store is reopened.
 
@@ -71,8 +71,10 @@ connection environment variables remain supported. Incremental service-specific 
 
 If a previous setup used `incremental_metadata.storage` for dedup, copy its backend and connection/schema settings into
 `ededup.storage`. For filesystem storage, set `ededup.storage.config.base_dir` to the previous registry's base directory.
-Keep the same schema or base directory to preserve existing admission history. The example's schema name is retained
-for data compatibility; it does not make ededup depend on the incremental service.
+The default PostgreSQL location is `dedup_registry.hashes`. Filesystem registries use
+`<base_dir>/dedup_registry/hashes_<scope_hash>.parquet`, with matching `hashes_<scope_hash>.lock` files.
+The scope hash is SHA-256 of the JSON-encoded `[job_id, node_id, job_run_id]`.
+Existing `ededup_hashes` tables and folders are not automatically migrated or read by this layout.
 
 ### Filesystem and standalone use
 

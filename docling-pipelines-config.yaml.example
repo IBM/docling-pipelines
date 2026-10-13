@@ -307,7 +307,7 @@ incremental_metadata:
 #     type: postgresql
 #     config:
 #       postgres:
-#         schema: incremental_metadata
+#         schema: dedup_registry
 # Common DOCPIPE_POSTGRES_* environment variables supply connection settings.
 # For filesystem instead: type: filesystem, config: {base_dir: ./data}
 # DOCPIPE_INCREMENTAL_BASE_DIR does not configure deduplication.

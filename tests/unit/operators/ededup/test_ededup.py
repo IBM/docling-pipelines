@@ -621,7 +621,9 @@ def test_filesystem_reopen_retains_branch_run_and_job_records(tmp_path):
     reopened = FilesystemDedupStore(config=config)
     for scope in scopes:
         assert reopened.check_and_register_hashes(**scope, records={"h": "renamed"}) == set()
-    records = [row for path in tmp_path.glob("ededup_hashes/*.parquet") for row in pq.read_table(path).to_pylist()]
+    records = [
+        row for path in tmp_path.glob("dedup_registry/hashes_*.parquet") for row in pq.read_table(path).to_pylist()
+    ]
     assert len(records) == 4
     assert {row["doc_id"] for row in records} == {f"original-{index}" for index in range(4)}
     assert reopened.check_and_register_hashes(
@@ -697,10 +699,10 @@ def test_filesystem_lifecycles_do_not_create_each_others_records(tmp_path, monke
     store = FilesystemDedupStore(config={"base_dir": str(tmp_path / "dedup")})
     assert store.check_and_register_hashes(job_id="j", node_id="n", job_run_id="r", records={"h": "d"}) == {"h"}
     assert not (tmp_path / "incremental").exists()
-    assert [p.name for p in (tmp_path / "dedup").iterdir()] == ["ededup_hashes"]
+    assert [p.name for p in (tmp_path / "dedup").iterdir()] == ["dedup_registry"]
     incremental = FilesystemIncrementalMetadataStore()
     assert not hasattr(incremental, "check_and_register_hashes")
-    assert not (tmp_path / "incremental" / "ededup_hashes").exists()
+    assert not (tmp_path / "incremental" / "dedup_registry").exists()
 
 
 def test_dedup_modules_do_not_import_incremental_metadata():
@@ -769,7 +771,7 @@ def test_postgres_store_initialization_creates_schema_and_table(mocked_postgres_
     assert store._ededup_table.schema == "test_schema"
     assert connection.execute.call_count == 2
     assert connection.execute.call_args_list[0].args[0].text == "SELECT pg_advisory_xact_lock(hashtext(:key))"
-    assert connection.execute.call_args_list[0].args[1] == {"key": "test_schema.ededup_hashes"}
+    assert connection.execute.call_args_list[0].args[1] == {"key": "test_schema.hashes"}
     assert "CREATE SCHEMA IF NOT EXISTS" in connection.execute.call_args_list[1].args[0].text
     store.close()
     engine.dispose.assert_called_once()
@@ -810,3 +812,15 @@ def test_postgres_store_wraps_registration_errors(mocked_postgres_store):
     connection.execute.side_effect = RuntimeError("database unavailable")
     with pytest.raises(FlowExecutionFailedException, match="Failed to register deduplication hashes"):
         store.check_and_register_hashes(job_id="job", node_id="node", job_run_id="run", records={"hash": "doc"})
+
+
+@pytest.mark.parametrize("schema", [None, "existing_registry"])
+def test_postgres_schema_default_and_override(*, mocked_postgres_store, schema):
+    from docpipe.core.operators.quality.ededup_storage.adapters.postgres_store import PostgresDedupStore
+
+    config = {} if schema is None else {"schema": schema}
+    store = PostgresDedupStore(config=config)
+    try:
+        assert store._ededup_table.schema == (schema or "dedup_registry")
+    finally:
+        store.close()

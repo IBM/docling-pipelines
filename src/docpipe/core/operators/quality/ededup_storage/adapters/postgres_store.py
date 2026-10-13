@@ -26,13 +26,13 @@ class PostgresDedupStore(DedupStore):
             raise DocpipeException("PostgreSQL connection not configured for ededup")
         self._engine = create_postgres_engine(connection_string=connection_string, config=wrapped)
         try:
-            schema = postgres.get("schema", "incremental_metadata")
+            schema = postgres.get("schema", "dedup_registry")
             metadata = MetaData(schema=schema)
             self._ededup_table = cast(Table, EdedupHashPostgresModel.__table__).to_metadata(metadata)
             with self._engine.begin() as connection:
                 connection.execute(
                     text("SELECT pg_advisory_xact_lock(hashtext(:key))"),
-                    {"key": f"{schema}.ededup_hashes"},
+                    {"key": f"{schema}.hashes"},
                 )
                 quoted = self._engine.dialect.identifier_preparer.quote_schema(schema)
                 connection.execute(text(f"CREATE SCHEMA IF NOT EXISTS {quoted}"))

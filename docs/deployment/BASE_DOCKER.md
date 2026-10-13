@@ -7,8 +7,7 @@ Run from the repository root.
 Compose requires `OPENSEARCH_PASSWORD`. Run this in each terminal before using Compose:
 
 ```bash
-read -r -s -p 'OpenSearch password: ' OPENSEARCH_PASSWORD
-export OPENSEARCH_PASSWORD
+export OPENSEARCH_PASSWORD='DocpipeLocal9!Secure'
 ```
 
 ## Stage 1: Build the images
