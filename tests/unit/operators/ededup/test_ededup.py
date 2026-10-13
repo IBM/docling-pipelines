@@ -22,6 +22,7 @@ from dpk_ededup import (
 from docpipe.core.constants.constants import Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.incremental_metadata import FilesystemIncrementalMetadataStore
+from docpipe.core.models.session_info import SessionInfo, session_info_var
 from docpipe.core.operators.quality import ededup
 from docpipe.core.operators.quality.ededup import EdedupOperator
 from docpipe.core.operators.quality.ededup_storage import factory
@@ -31,6 +32,14 @@ from docpipe.exceptions.docpipe_exceptions import DocpipeException
 
 # from dpk_ededup.transform_python import EdedupTransform
 # from docpipe_core.operators.quality.ededup import EdedupOperator
+
+
+@pytest.fixture(autouse=True)
+def isolate_session_info():
+    """Prevent job/run context from leaking in from other test modules."""
+    token = session_info_var.set(SessionInfo())
+    yield
+    session_info_var.reset(token)
 
 
 class TestEdedupTransformFromParquetFile(AbstractTableTransformTest):
