@@ -17,7 +17,7 @@ reasoning text. Unsupported file formats are skipped, not failed.
 
 ## Key Features
 
-- Multi-provider: LiteLLM (100+ providers including Ollama) and IBM WatsonX
+- Multi-provider: LiteLLM (100+ providers including Ollama), IBM WatsonX
 - Confidence scoring on a 1–10 scale
 - Optional reasoning output
 - Configurable document type lists (simple list or detailed descriptions)
@@ -28,77 +28,52 @@ reasoning text. Unsupported file formats are skipped, not failed.
 
 ## Architecture
 
-### Simplified Service-Based Architecture
+### Hexagonal (Ports and Adapters) Architecture
 
-The operator uses a streamlined architecture that leverages shared LLM infrastructure:
+The operator depends only on the `ClassificationPort` interface. A registry-based
+`ClassificationAdapterFactory` resolves the flow `provider` string to a concrete adapter and
+calls its `from_config()` classmethod, which validates the config and builds its own
+dependencies.
 
+```mermaid
+graph TD
+    OP[DocumentClassifierOperator] -->|classify_document| PORT[ClassificationPort]
+    OP -->|create_adapter| FACTORY[ClassificationAdapterFactory]
+    FACTORY -->|from_config| STD[StandardLLMClassificationAdapter]
+    STD -.implements.-> PORT
+    STD -->|uses| LLMPORT[LLMInferencePort]
+    LLMPORT --> LITE[LiteLLM adapter]
+    LLMPORT --> WX[WatsonX adapter]
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                   DocumentClassifierOperator                 │
-│                     (Main Operator)                          │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  ClassificationService                       │
-│              (Business Logic Layer)                          │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  Domain Models:                                       │  │
-│  │  - ClassificationRequest                              │  │
-│  │  - ClassificationResponse                             │  │
-│  │  - build_classification_prompt()                      │  │
-│  └──────────────────────────────────────────────────────┘  │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  DocumentClassProvider (injected port)                │  │
-│  │  - get_document_types()                               │  │
-│  │  - get_schema_templates()                             │  │
-│  │  Default: StaticDocumentClassProvider (local JSON)    │  │
-│  └──────────────────────────────────────────────────────┘  │
-└────────────┬─────────────────────────────┬─────────────────┘
-             │                             │
-             │ path A: injected adapter    │ path B: factory
-             ▼                             ▼
-┌────────────────────┐       ┌─────────────────────────────┐
-│  Pre-built         │       │  Shared LLM Adapter          │
-│  LLMInferencePort  │       │  Infrastructure               │
-│  (any provider)    │       │  (LLMAdapterFactory)          │
-└────────────────────┘       └──────────────┬──────────────┘
-                                            │
-                             ┌──────────────┼──────────────┐
-                             ▼              ▼              ▼
-                      ┌──────────┐  ┌──────────┐  ┌──────────┐
-                      │ LiteLLM  │  │ Watsonx  │  │ HuggingFace│
-                      │ Client   │  │ Client   │  │ Client   │
-                      └──────────┘  └──────────┘  └──────────┘
-```
-
-**Two adapter paths:**
-- **Path A (injected):** A pre-built `LLMInferencePort` is passed directly to `ClassificationService` via `llm_adapter=`. The factory is bypassed entirely. `provider_name` and `model_id` become optional.
-- **Path B (factory):** `provider_name` and `model_id` are provided; `LLMAdapterFactory` constructs the adapter. This is the standard flow JSON path.
 
 ### Component Responsibilities
 
-#### 1. **Operator Layer** ([`document_classifier.py`](../../../src/docpipe/core/operators/quality/classification/document_classifier.py))
+#### 1. Operator ([`document_classifier.py`](../../../src/docpipe/core/operators/quality/classification/document_classifier.py))
 - Handles PyArrow table processing and orchestration
 - Manages parallel document classification
 - Integrates with job tracking and progress reporting
+- Calls only `ClassificationPort`; never imports concrete adapters
 
-#### 2. **Service Layer** ([`classification_service.py`](../../../src/docpipe/core/operators/quality/classification/classification_service.py))
-- Contains business logic for document classification
-- Validates configuration parameters
-- Accepts either a pre-built `LLMInferencePort` adapter (path A) or creates one via `LLMAdapterFactory` (path B)
-- Accepts an optional `DocumentClassProvider` for resolving document types and schemas
+#### 2. Port ([`classification_port.py`](../../../src/docpipe/core/operators/quality/classification/ports/outbound/classification_port.py))
+- Defines `classify_document()` and the `from_config()` classmethod contract
 
-#### 3. **Domain Layer** ([`domain/models.py`](../../../src/docpipe/core/operators/quality/classification/domain/models.py))
+#### 3. Factory ([`classification_adapter_factory.py`](../../../src/docpipe/core/operators/quality/classification/adapters/outbound/factories/classification_adapter_factory.py))
+- Registry of adapters keyed by `ADAPTER_NAME`
+- Alias table (`litellm`, `watsonx` resolve to the `standard` adapter)
+- Rejects deprecated providers (`ollama`) with migration guidance
+
+#### 4. Adapter ([`standard_llm_adapter.py`](../../../src/docpipe/core/operators/quality/classification/adapters/outbound/standard_llm_adapter.py))
+- `StandardLLMClassificationAdapter` builds an `LLMInferencePort` through `LLMAdapterFactory` and performs prompt building, LLM call and response parsing
+
+#### 5. Domain ([`domain/models.py`](../../../src/docpipe/core/operators/quality/classification/domain/models.py))
 - Pure domain models: `ClassificationRequest`, `ClassificationResponse`
 - Provider-agnostic prompt building logic
 - No infrastructure dependencies
 
-#### 4. **Infrastructure Layer** (Shared `LLMAdapterFactory`)
-- Creates provider-specific LLM adapters (LiteLLM, Watsonx)
-- Manages adapter configuration and initialization
-- Provides unified `LLMInferencePort` interface
-- Only invoked when no pre-built adapter is injected (path B)
+### Adding a new adapter
+
+Implement `ClassificationPort` (set `ADAPTER_NAME`, implement `from_config()` and
+`classify_document()`), then call `ClassificationAdapterFactory.register(MyAdapter)`.
 
 ---
 
@@ -192,7 +167,7 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `provider` | string | LLM provider: `"litellm"` or `"watsonx"` |
-| `model_id` | string | Model identifier in `<provider>/<model_id>` format for LiteLLM (e.g., `"openai/granite3.1-dense:8b"`, `"openai/gpt-4o-mini"`, `"anthropic/claude-3-sonnet"`), or plain format for Watsonx (e.g., `"ibm/granite-13b-chat-v2"`) |
+| `model_id` | string | Text model identifier (inside `provider_config`). For LiteLLM: `"openai/granite3.1-dense:8b"`; for WatsonX: `"ibm/granite-13b-chat-v2"` |
 
 ### Optional Parameters
 
