@@ -1,0 +1,97 @@
+"""Outbound port interface for document classification adapters."""
+
+from abc import ABC, abstractmethod
+from typing import Any, Self
+
+from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.quality.classification.domain.models import ClassificationResponse
+
+
+class ClassificationPort(ABC):
+    """Outbound port that every classification adapter must implement.
+
+    Concrete adapters extend this ABC and are resolved at runtime by
+    :class:`~docpipe.core.operators.quality.classification.adapters.outbound.factories.classification_adapter_factory.ClassificationAdapterFactory`.
+
+    Class attributes:
+        ADAPTER_NAME: Machine-readable short name registered in the factory
+            (e.g. ``"standard"``).  The factory's ``register()`` call uses this
+            value as the registry key.
+        ADAPTER_DISPLAY_NAME: Human-readable label for logs and UI.
+    """
+
+    ADAPTER_NAME: str
+    ADAPTER_DISPLAY_NAME: str
+
+    def __init__(self, *, config: dict[str, Any]) -> None:
+        """Store common classification config values from the operator config dict.
+
+        Args:
+            config: Full operator config dictionary.
+        """
+        self.config = config
+        self.document_types: list[str] | dict[str, str] = config.get(OperatorConstants.Config.DOCUMENT_TYPES, [])
+        self.confidence_threshold: float = config.get(
+            OperatorConstants.Config.CONFIDENCE_THRESHOLD,
+            OperatorConstants.Classification.DEFAULT_CONFIDENCE_THRESHOLD,
+        )
+
+    @classmethod
+    @abstractmethod
+    def from_config(cls, config: dict[str, Any]) -> Self:
+        """Validate *config*, build any dependencies, and return a ready instance.
+
+        Each adapter subclass owns its own config-validation and dependency-
+        construction logic here.  The factory delegates entirely to this method,
+        keeping itself as a pure dispatcher.
+
+        Typical implementation pattern::
+
+            @classmethod
+            def from_config(cls, config):
+                provider_config = config.get("provider_config") or {}
+                model_id = provider_config.get("model_id", "")
+                if not model_id:
+                    raise ValueError("provider_config.model_id is required")
+                llm_adapter = LLMAdapterFactory.create_inference_adapter(
+                    provider=..., model_id=model_id, provider_config=provider_config
+                )
+                return cls(llm_adapter=llm_adapter, config=config)
+
+        Args:
+            config: Full operator config dictionary from the flow JSON.
+
+        Returns:
+            A fully initialised concrete :class:`ClassificationPort` instance.
+
+        Raises:
+            ValueError: When required config keys are absent or invalid.
+        """
+        ...
+
+    @abstractmethod
+    def classify_document(
+        self,
+        *,
+        doc_name: str,
+        binary_content: bytes | None,
+        existing_text: str | None,
+    ) -> ClassificationResponse:
+        """Classify a single document and return a structured response.
+
+        Implementations must populate all ``ClassificationResponse`` fields.
+
+        Args:
+            doc_name: Document file name (used for format detection and logging).
+            binary_content: Raw bytes of the document.  May be ``None`` when
+                ``existing_text`` is already available.
+            existing_text: Pre-extracted text content.  When supplied, adapters
+                that support a text path should prefer it over re-extracting
+                from ``binary_content``.
+
+        Returns:
+            :class:`ClassificationResponse` with ``document_type``,
+            ``confidence``, ``reasoning``, ``success``, and optionally
+            ``error``.
+        """
+        ...

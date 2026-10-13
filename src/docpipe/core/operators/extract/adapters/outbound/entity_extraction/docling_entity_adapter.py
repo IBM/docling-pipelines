@@ -54,6 +54,32 @@ _ALLOWED_VLM_FIELDS = frozenset(
 )
 
 
+def generate_docling_templates_for_types(
+    *,
+    document_types: list[str],
+    include_nested: bool = True,
+) -> dict[str, dict[str, Any]]:
+    """Return Docling extraction templates for the requested document types.
+
+    Delegates to
+    :meth:`~docpipe.utils.document_class_utils.DocumentClassUtils.generate_docling_templates_for_types`,
+    keeping Docling-format knowledge within this adapter module.
+
+    Args:
+        document_types: List of document type names to generate templates for.
+        include_nested: Whether to include nested fields in the templates.
+
+    Returns:
+        Dict mapping document type to its Docling template dict.
+    """
+    from docpipe.utils.document_class_utils import DocumentClassUtils
+
+    return DocumentClassUtils.generate_docling_templates_for_types(
+        document_types,
+        include_nested=include_nested,
+    )
+
+
 @register_entity_extraction_adapter
 class DoclingEntityAdapter(EntityExtractionPort):
     """Template-based entity extraction adapter.
@@ -427,9 +453,7 @@ class DoclingEntityAdapter(EntityExtractionPort):
             document_types: List of document types to load schemas for
             schema_templates: Dictionary to populate with loaded schemas
         """
-        loaded_schemas = self.document_class_provider.generate_docling_templates_for_types(
-            document_types=document_types
-        )
+        loaded_schemas = generate_docling_templates_for_types(document_types=document_types)
         schema_templates.update(loaded_schemas)
 
 
@@ -514,7 +538,5 @@ class DoclingEntityExtractionService(EntityExtractionService):
             document_types: List of document types to load schemas for
             schema_templates: Dictionary to populate with loaded schemas
         """
-        loaded_schemas = self.document_class_provider.generate_docling_templates_for_types(
-            document_types=document_types
-        )
+        loaded_schemas = generate_docling_templates_for_types(document_types=document_types)
         schema_templates.update(loaded_schemas)

@@ -12,20 +12,24 @@ Two implementations are shipped here:
   must subclass.
 - ``StaticDocumentClassProvider`` — the default local-file-backed
   implementation that wraps ``DocumentClassUtils``.  It is used automatically
-  when no provider is explicitly injected into ``ClassificationService`` or
-  ``ExtractOperator``, preserving all existing local / dev behaviour.
+  when no provider is explicitly injected into ``ExtractOperator``, preserving
+  all existing local / dev behaviour.
+
+Note: Docling-specific template generation (previously
+``generate_docling_templates_for_types``) has been moved to
+:mod:`docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter`.
+The port only exposes domain-level contracts.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 
 class DocumentClassProvider(ABC):
     """Abstract base class for resolving document class metadata.
 
-    Implementations must provide document types, schema templates, and
-    Docling extraction templates.  Concrete subclasses must inherit from
-    this class and implement all abstract methods.
+    Implementations must provide document types and schema templates.
+    Concrete subclasses must inherit from this class and implement all
+    abstract methods.
     """
 
     @abstractmethod
@@ -50,24 +54,6 @@ class DocumentClassProvider(ABC):
         """
         ...
 
-    @abstractmethod
-    def generate_docling_templates_for_types(
-        self,
-        *,
-        document_types: list[str],
-        include_nested: bool = True,
-    ) -> dict[str, dict]:
-        """Return Docling extraction templates for the requested document types.
-
-        Args:
-            document_types: List of document type names to generate templates for.
-            include_nested: Whether to include nested fields in the templates.
-
-        Returns:
-            Dict mapping document type to its Docling template dict.
-        """
-        ...
-
 
 class StaticDocumentClassProvider(DocumentClassProvider):
     """Default local-file-backed implementation of :class:`DocumentClassProvider`.
@@ -85,13 +71,3 @@ class StaticDocumentClassProvider(DocumentClassProvider):
         from docpipe.utils.document_class_utils import DocumentClassUtils
 
         return DocumentClassUtils.get_schema_templates(document_types)
-
-    def generate_docling_templates_for_types(
-        self,
-        *,
-        document_types: list[str],
-        include_nested: bool = True,
-    ) -> dict[str, dict[str, Any]]:
-        from docpipe.utils.document_class_utils import DocumentClassUtils
-
-        return DocumentClassUtils.generate_docling_templates_for_types(document_types, include_nested=include_nested)

@@ -533,33 +533,37 @@ def test_document_classifier_file_extension_validation():
     config = {
         "provider": "litellm",
         "provider_config": {
+            "model_id": "openai/granite3.1-dense:8b",
             "api_base": "http://localhost:11434/v1",
             "api_key": "<ollama>",
         },
-        "model_id": "openai/granite3.1-dense:8b",
         "document_types": ["invoice", "contract", "receipt"],
         "confidence_threshold": 7.0,
         "doc_column": "content",
         "output_column": "document_type",
     }
 
-    # Mock the classification service to avoid actual LLM calls
-    with patch(
-        "docpipe.core.operators.quality.classification.document_classifier.ClassificationService"
-    ) as mock_service:
-        mock_instance = mock_service.return_value
-        mock_instance.classify_document.return_value = type(
-            "Response",
-            (),
-            {
-                "success": True,
-                "document_type": "invoice",
-                "confidence": 9,
-                "reasoning": "Test classification",
-            },
-        )()
+    # Mock the adapter factory to avoid actual LLM calls
+    from unittest.mock import MagicMock
 
+    mock_adapter = MagicMock()
+    mock_adapter.classify_document.return_value = type(
+        "Response",
+        (),
+        {
+            "success": True,
+            "document_type": "invoice",
+            "confidence": 9,
+            "reasoning": "Test classification",
+        },
+    )()
+
+    with patch(
+        "docpipe.core.operators.quality.classification.document_classifier.ClassificationAdapterFactory"
+    ) as mock_factory:
+        mock_factory.create_adapter.return_value = mock_adapter
         operator = DocumentClassifierOperator(config)
+        operator.adapter = mock_adapter
         output_tables, metadata = operator.transform(table)
 
         # Verify that unsupported files were skipped (not failed)
@@ -620,19 +624,25 @@ def test_document_classifier_all_files_skipped():
         }
     )
 
-    # Initialize operator
+    # Initialize operator — patch factory since all files are skipped before LLM is called
     config = {
         "provider": "litellm",
         "provider_config": {
+            "model_id": "openai/granite3.1-dense:8b",
             "api_base": "http://localhost:11434/v1",
             "api_key": "<ollama>",
         },
-        "model_id": "openai/granite3.1-dense:8b",
         "document_types": ["invoice", "contract"],
         "doc_column": "content",
     }
 
-    operator = DocumentClassifierOperator(config)
+    from unittest.mock import MagicMock
+
+    with patch(
+        "docpipe.core.operators.quality.classification.document_classifier.ClassificationAdapterFactory"
+    ) as mock_factory:
+        mock_factory.create_adapter.return_value = MagicMock()
+        operator = DocumentClassifierOperator(config)
     output_tables, metadata = operator.transform(table)
 
     # Verify all files were skipped (not failed)
@@ -676,31 +686,35 @@ def test_document_classifier_supported_extensions_only():
     config = {
         "provider": "litellm",
         "provider_config": {
+            "model_id": "openai/granite3.1-dense:8b",
             "api_base": "http://localhost:11434/v1",
             "api_key": "<ollama>",
         },
-        "model_id": "openai/granite3.1-dense:8b",
         "document_types": ["document"],
         "doc_column": "content",
     }
 
-    # Mock the classification service
-    with patch(
-        "docpipe.core.operators.quality.classification.document_classifier.ClassificationService"
-    ) as mock_service:
-        mock_instance = mock_service.return_value
-        mock_instance.classify_document.return_value = type(
-            "Response",
-            (),
-            {
-                "success": True,
-                "document_type": "document",
-                "confidence": 9,
-                "reasoning": "Test",
-            },
-        )()
+    # Mock the adapter factory to avoid actual LLM calls
+    from unittest.mock import MagicMock
 
+    mock_adapter = MagicMock()
+    mock_adapter.classify_document.return_value = type(
+        "Response",
+        (),
+        {
+            "success": True,
+            "document_type": "document",
+            "confidence": 9,
+            "reasoning": "Test",
+        },
+    )()
+
+    with patch(
+        "docpipe.core.operators.quality.classification.document_classifier.ClassificationAdapterFactory"
+    ) as mock_factory:
+        mock_factory.create_adapter.return_value = mock_adapter
         operator = DocumentClassifierOperator(config)
+        operator.adapter = mock_adapter
         output_tables, metadata = operator.transform(table)
 
         # Verify no files were rejected

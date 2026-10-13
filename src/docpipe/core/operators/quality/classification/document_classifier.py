@@ -13,13 +13,13 @@ from typing import Any
 import pyarrow as pa
 from data_processing.utils import TransformUtils
 
-from docpipe.core.adapters.llm_adapter_factory import LLMAdapterFactory
 from docpipe.core.constants import AttributeDataTypes, DocpipeConstants, Metrics, OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
 from docpipe.core.operators.operator_utils import OperatorUtils
-from docpipe.core.operators.quality.classification.classification_service import ClassificationService
-from docpipe.core.operators.quality.classification.domain.models import ClassificationRequest
-from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.core.operators.quality.classification.adapters.outbound.factories.classification_adapter_factory import (
+    ClassificationAdapterFactory,
+)
+from docpipe.core.operators.quality.classification.ports.outbound.classification_port import ClassificationPort
 from docpipe.utils.infrastructure.concurrency import submit_task_with_context_propagation
 from docpipe.utils.infrastructure.logging import get_logger
 
@@ -37,7 +37,6 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
     - Multi-provider support (watsonx, litellm)
     - Confidence scoring (1-10 scale)
     - Optional reasoning output
-    - Vision model support for scanned documents
     - Flexible document type definitions
 
     Input Requirements:
@@ -115,19 +114,12 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
 
         Args:
             config: Configuration dictionary containing:
-                - provider: LLM provider ("watsonx" or "litellm", default: "litellm")
-                - provider_config: Provider-specific configuration dictionary containing:
-                    For watsonx:
+                - provider: Classification adapter ("litellm" or "watsonx")
+                - provider_config: Provider-specific configuration dictionary.
+                    For litellm / watsonx:
+                        - model_id: Model identifier (e.g. "openai/granite3.1-dense:8b")
                         - api_base: API endpoint URL
-                        - container_kind: Container type ("project" or "space", default: "project")
-                        - timeout: Request timeout in seconds (default: 120)
-                        Note: api_key and container_id MUST be set via environment variables:
-                              WATSONX_API_KEY and WATSONX_CONTAINER_ID (not in provider_config for security)
-                    For litellm (default examples, configured for Ollama-compatible endpoints):
-                        - api_base: API endpoint URL (example: "http://localhost:11434/v1")
-                        - api_key: API key for authentication (example: "ollama")
-                        - timeout: Request timeout in seconds (default: 120)
-                - model_id: Model identifier in <provider>/<model_id> format (default: "openai/granite3.1-dense:8b")
+                        - api_key: API key for authentication
                 - document_types: List of document types or dict with descriptions
                 - confidence_threshold: Minimum confidence for classification (default: 7.0)
                 - doc_column: Column containing document text (default: "content")
@@ -136,41 +128,18 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                 - include_reasoning: Include reasoning in output (default: False)
 
         Raises:
-            ValueError: If provider is "ollama" (no longer supported)
+            ValueError: When provider configuration is invalid (delegated to
+                :class:`ClassificationAdapterFactory`).
         """
         super().__init__(config)
 
         # Store full config for on-demand binary fetching (includes ingest_source if present)
         self.global_config = config
 
-        # Provider configuration
+        # Provider name stored for logging only
         self.provider: str = config.get(
             OperatorConstants.Config.PROVIDER, OperatorConstants.Classification.DEFAULT_PROVIDER
         ).lower()
-
-        # Reject Ollama provider explicitly
-        if self.provider == OperatorConstants.Classification.PROVIDER_OLLAMA:
-            raise ValueError(
-                "Ollama provider is no longer supported for classification. "
-                "Please use 'litellm' provider with Ollama via OpenAI-compatible API. "
-                "Example: provider='litellm', provider_config={'api_base': 'http://localhost:11434/v1', 'api_key': 'ollama'}"  # pragma: allowlist secret
-            )
-
-        # Get provider config - required for litellm provider
-        self.provider_config: dict[str, Any] = config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
-
-        # Get model_id from provider_config (new nested structure)
-        self.model_id: str | None = self.provider_config.get(
-            OperatorConstants.Config.MODEL_ID, OperatorConstants.Classification.DEFAULT_MODEL
-        )
-
-        # Validate provider_config is provided for litellm
-        if self.provider == OperatorConstants.Classification.PROVIDER_LITELLM and not self.provider_config:
-            raise DocpipeException(
-                "provider_config is required for litellm provider. "
-                "Must include at minimum: {'api_base': 'http://localhost:11434/v1', 'api_key': 'ollama'} for Ollama, "  # pragma: allowlist secret
-                "or appropriate API keys for other providers."
-            )
 
         # Document types configuration
         self.document_types: list[str] | dict[str, str] = config.get(OperatorConstants.Config.DOCUMENT_TYPES, [])
@@ -204,7 +173,16 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
             DocpipeConstants.JOB_RUN_ID: self.job_run_id,
         }
 
-        self.classification_service = self._create_classification_service()
+        self.adapter: ClassificationPort = ClassificationAdapterFactory.create_adapter(
+            provider=self.provider,
+            config=self.config,
+        )
+
+        logger.debug(
+            "DocumentClassifierOperator: created adapter=%s for provider=%s",
+            type(self.adapter).__name__,
+            self.provider,
+        )
 
         # Parallel processing configuration
         # Uses ThreadPoolExecutor for I/O-bound LLM API calls
@@ -213,9 +191,8 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
         )
 
         logger.info(
-            "Initialized DocumentClassifierOperator with provider=%s, model=%s, types=%s",
+            "Initialized DocumentClassifierOperator with provider=%s types=%s",
             self.provider,
-            self.model_id,
             len(self.document_types),
         )
 
@@ -239,17 +216,11 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
         # Use generic validation helper
         validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
 
-        # Validate provider using LLMAdapterFactory
+        # Validate provider — delegate to factory which is the single source of truth.
         if self.should_validate_field(field_value=self.provider):
-            if self.provider == OperatorConstants.Classification.PROVIDER_OLLAMA:
-                errors.append(
-                    "Ollama provider is no longer supported. Use 'litellm' provider with Ollama via OpenAI-compatible API. "
-                    "Example: provider='litellm', provider_config={'api_base': 'http://localhost:11434/v1', 'api_key': 'ollama'}"  # pragma: allowlist secret
-                )
-            else:
-                supported_providers = LLMAdapterFactory.get_supported_providers(capability="inference")
-                if self.provider not in supported_providers:
-                    errors.append(f"provider must be one of {sorted(supported_providers)}, got '{self.provider}'")
+            supported_providers = ClassificationAdapterFactory.get_supported_providers()
+            if self.provider not in supported_providers:
+                errors.append(f"provider must be one of {sorted(supported_providers)}, got '{self.provider}'")
 
         # Validate document types
         if self.should_validate_field(field_value=self.document_types):
@@ -269,17 +240,6 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                     errors.append("confidence_threshold must be a number")
                 elif not (1.0 <= self.confidence_threshold <= 10.0):
                     errors.append("confidence_threshold must be between 1.0 and 10.0")
-
-    def _create_classification_service(self) -> ClassificationService:
-        """Create and return the classification service.
-
-        Uses the simplified ClassificationService that directly uses LLMAdapterFactory.
-        """
-        return ClassificationService(
-            model_id=self.model_id,
-            provider_name=self.provider,
-            provider_config=self.provider_config,
-        )
 
     @staticmethod
     def _get_document_types() -> dict[str, str]:
@@ -357,16 +317,24 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
         Returns:
             Dictionary containing classification results
         """
+        logger.debug(
+            "DocumentClassifierOperator._classify_document: doc_name=%s adapter=%s",
+            doc_name,
+            type(self.adapter).__name__,
+        )
         try:
-            request = ClassificationRequest(
-                content=content,
-                document_types=self.document_types,
-                max_content_length=self.max_content_length,
-                confidence_threshold=self.confidence_threshold,
+            response = self.adapter.classify_document(
+                doc_name=doc_name or "",
+                binary_content=None,
+                existing_text=content,
             )
-            response = self.classification_service.classify_document(request=request)
 
             if not response.success:
+                logger.debug(
+                    "DocumentClassifierOperator: classification unsuccessful for %s: %s",
+                    doc_name,
+                    response.error,
+                )
                 return {
                     OperatorConstants.Extraction.SUCCESS: False,
                     OperatorConstants.Extraction.ERROR: response.error or "Unknown classification error",
@@ -376,7 +344,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                 }
 
             logger.info(
-                "Classified document %s: type=%s, confidence=%s",
+                "Classified document %s: type=%s confidence=%s",
                 doc_name or OperatorConstants.Classification.UNKNOWN_TYPE,
                 response.document_type,
                 response.confidence,
@@ -463,7 +431,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
             return [table], metadata
 
         if self.output_column in table.column_names:
-            logger.warning("%s already already present. Moving to next operator", self.output_column)
+            logger.warning("Output column '%s' already present. Moving to next operator", self.output_column)
             return [table], metadata
 
         # Check if DOC_COLUMN_KEY already exists
@@ -628,7 +596,8 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                             classifications[idx] = None
                             confidences[idx] = result[OperatorConstants.Classification.FIELD_CONFIDENCE]
                             reasonings[idx] = (
-                                f"Confidence {result[OperatorConstants.Classification.FIELD_CONFIDENCE]} below threshold {self.confidence_threshold} "
+                                f"Confidence {result[OperatorConstants.Classification.FIELD_CONFIDENCE]} "
+                                f"below threshold {self.confidence_threshold} "
                                 f"to classify as {result[OperatorConstants.Classification.FIELD_DOCUMENT_TYPE]}"
                             )
                             logger.info(
