@@ -17,12 +17,12 @@
 # Supported storage types: filesystem, postgresql, duckdb, inmemory
 global_storage:
   type: "filesystem"  # Default storage type for all services
-  
+
   # config section (required for file-based storage: parquet, duckdb)
   config:
     base_dir: "./data"  # Base directory for file-based storage
     lock_timeout: 30.0  # Lock timeout in seconds
-  
+
   # PostgreSQL configuration (only needed if type is "postgresql")
   # NOTE: For PostgreSQL, the config section above is optional
   postgres:

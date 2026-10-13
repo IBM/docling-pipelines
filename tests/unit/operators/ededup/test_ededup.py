@@ -712,7 +712,7 @@ def test_postgres_common_environment_and_dedup_override(monkeypatch):
         "PORT": "5544",
         "DB": "envdb",
         "USER": "envuser",
-        "PASSWORD": "testpass",
+        "PASSWORD": "testpass",  # pragma: allowlist secret - dummy test credential
     }.items():
         monkeypatch.setenv("DOCPIPE_POSTGRES_" + key, value)
     engine = Mock()
@@ -722,5 +722,7 @@ def test_postgres_common_environment_and_dedup_override(monkeypatch):
         with patch.object(postgres_store.MetaData, "__init__", side_effect=RuntimeError("stop before DDL")):
             with pytest.raises(RuntimeError, match="stop before DDL"):
                 postgres_store.PostgresDedupStore(config={"postgres": {"host": "deduphost"}})
-    assert create.call_args.kwargs["connection_string"] == "postgresql+psycopg2://envuser:testpass@deduphost:5544/envdb"
+    assert create.call_args.kwargs["connection_string"] == (
+        "postgresql+psycopg2://envuser:testpass@deduphost:5544/envdb"  # pragma: allowlist secret - dummy test URL
+    )
     engine.dispose.assert_called_once()
