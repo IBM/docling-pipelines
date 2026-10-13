@@ -48,7 +48,7 @@ dependencies = [
     "litellm==1.96.2",
     "lxml==6.1.0",
     "mako==1.4.3",
-    "mlx==0.32.2; sys_platform == 'darwin'",
+    "mlx==0.32.3; sys_platform == 'darwin'",
     "msal==1.37.0",
     "nltk==3.10.3",
     "numpy>=2.0.0,<3.0.0",
