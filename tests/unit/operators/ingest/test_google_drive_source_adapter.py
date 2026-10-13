@@ -6,6 +6,7 @@ from datetime import datetime
 from unittest.mock import Mock, mock_open, patch
 
 import pytest
+from pydantic import ValidationError
 
 from docpipe.core.operators.ingest.adapters.outbound.sources.google_drive.adapter import (
     GoogleDriveSourceAdapter,
@@ -48,7 +49,7 @@ class TestGoogleDriveSourceConfig:
         assert config.max_file_size_mb == 10
 
     def test_rejects_invalid_size(self):
-        with pytest.raises(Exception, match="max_file_size_mb must be positive"):
+        with pytest.raises(ValidationError, match="Input should be greater than or equal to 1"):
             GoogleDriveSourceConfig(
                 credentials_path="/tmp/creds.json",
                 token_path=None,

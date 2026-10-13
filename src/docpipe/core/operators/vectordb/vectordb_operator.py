@@ -5,10 +5,12 @@ Generic Vector Database Operator
 from typing import Any
 
 import pyarrow as pa
+from pydantic import ValidationError
 
 from docpipe.core.constants.constants import AttributeDataTypes, DocpipeConstants, ExecutionStatus, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
+from docpipe.core.operators.operator_utils import OperatorUtils
 from docpipe.core.operators.vectordb.adapters.outbound.factories.vector_store_factory import VectorStoreFactory
 from docpipe.core.operators.vectordb.ports.outbound.vector_store import VectorStorePort
 from docpipe.exceptions.docpipe_exceptions import DocpipeException
@@ -30,7 +32,7 @@ try:
 
     logger.debug("OpenSearch adapter registered (eager)")
 except ImportError as e:
-    logger.warning(f"Failed to register OpenSearch adapter: {e}")
+    logger.warning("Failed to register OpenSearch adapter: %s", e)
 
 # Milvus adapter (lazy - requires pymilvus)
 VectorStoreFactory.register_lazy(
@@ -171,11 +173,31 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
         attributes = metadata.get(OperatorConstants.Config.ATTRIBUTES, {})
         validate_config_from_metadata(config=self.config, attributes=attributes, errors=errors)
 
+        provider_config: dict = self.config.get(OperatorConstants.Config.PROVIDER_CONFIG, {})
+
+        # Validate provider_config required fields via the adapter's own Pydantic schema.
+        # This keeps VectorDBOperator provider-agnostic: adding a new adapter only requires
+        # its config model to declare required fields — no if/elif changes here.
+        schema_cls = self.adapter.get_config_schema()
+        try:
+            schema_cls.model_validate(provider_config)
+        except ValidationError as exc:
+            for error in exc.errors():
+                field_name = ".".join(str(loc) for loc in error["loc"])
+                if error["type"] == "missing":
+                    errors.append(f"{field_name} is not provided")
+                else:
+                    errors.append(error["msg"])
+
+        # Validate that feature mappings are present.
+        feature_mappings: list[dict[str, str]] = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
+        op_available_features: dict = self.config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
+        if op_available_features and not feature_mappings:
+            errors.append("The mappings from features to the collection columns is not provided")
+
         # Validate that every mandatory_for_vector_db feature has a feature mapping.
         # Mirrors enterprise validate_mandatory_feature_mappings(): a VectorDB write
         # will fail at runtime if a mandatory feature has no mapped column.
-        feature_mappings: list[dict[str, str]] = self.config.get(OperatorConstants.Config.FEATURE_MAPPINGS, [])
-        op_available_features: dict = self.config.get(OperatorConstants.Config.AVAILABLE_FEATURES, {})
         if feature_mappings and op_available_features:
             mapped_feature_names: set[str] = {
                 entry["feature_name"] for entry in feature_mappings if "feature_name" in entry
@@ -390,7 +412,9 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             # Dual mode: detect dimensions for dense vectors
             dimension_mapping = self.adapter.detect_all_vector_dimensions(table, vector_columns=vector_columns)
             logger.info(
-                f"Sparse + dense mode: detected dimensions for {len(vector_columns)} column(s): {dimension_mapping}",
+                "Sparse + dense mode: detected dimensions for %s column(s): %s",
+                len(vector_columns),
+                dimension_mapping,
                 extra=self.common_log_arguments,
             )
             return vector_columns, dimension_mapping
@@ -402,7 +426,9 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             return vector_columns, None
 
         logger.info(
-            f"Detecting dimensions for {len(vector_columns)} vector column(s): {vector_columns}",
+            "Detecting dimensions for %s vector column(s): %s",
+            len(vector_columns),
+            vector_columns,
             extra=self.common_log_arguments,
         )
 
@@ -415,7 +441,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             metadata[Metrics.External.NODE_STATUS] = ExecutionStatus.FAILED.value
             return vector_columns, None
 
-        logger.info(f"Auto-detected dimensions: {dimension_mapping}", extra=self.common_log_arguments)
+        logger.info("Auto-detected dimensions: %s", dimension_mapping, extra=self.common_log_arguments)
         return vector_columns, dimension_mapping
 
     def _ensure_index_ready(
@@ -436,7 +462,7 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 self.adapter.create_index(dimension_mapping=dimension_mapping)
             return True
         except Exception as e:
-            logger.error(f"Failed to create or validate index: {e!s}", extra=self.common_log_arguments)
+            logger.error("Failed to create or validate index: %s", e, extra=self.common_log_arguments)
             # Mark all unique documents as failed when index creation fails
             # Use original document IDs (from 'id' column) for consistency
             for doc_hash in unique_doc_ids:
@@ -482,9 +508,19 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 chunk_row_data[vec_col] = chunk_embedding.tolist()
 
             chunk_dict = json.loads(chunk_data) if isinstance(chunk_data, str) else chunk_data
-            chunk_text: str = chunk_dict.get(OperatorConstants.Columns.CHUNK, "")
+            if isinstance(chunk_dict, dict):
+                for k, v in chunk_dict.items():
+                    if k != OperatorConstants.Columns.CHUNK:
+                        chunk_row_data[k] = v
+                chunk_text: str = chunk_dict.get(OperatorConstants.Columns.CHUNK, "")
+            else:
+                chunk_text = ""
+
             if chunk_text:
-                # Update the content column with chunk text instead of full document
+                # Strip DocLang XML if present before indexing. ChunkerOperator normally produces
+                # plain text, but external chunkers or custom pipelines may not — strip defensively.
+                if self.doc_format == OperatorConstants.DocFormat.DOCLANG:
+                    chunk_text = OperatorUtils.doclang_to_markdown(chunk_text)
                 chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
 
             file_id: str = str(row_data.get(id_column, doc_id))
@@ -516,12 +552,20 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 if chunk_idx < len(embeddings_list):
                     chunk_row_data[vec_col] = embeddings_list[chunk_idx]
 
-            # Replace content field with chunk-specific text
+            # Replace content field with chunk-specific text and extract chunk metadata.
             chunk_text = ""
             if chunk_idx < len(chunked_content_list):
-                chunk_text = chunked_content_list[chunk_idx].get(OperatorConstants.Columns.CHUNK, "")
+                chunk_item = chunked_content_list[chunk_idx]
+                if isinstance(chunk_item, dict):
+                    for k, v in chunk_item.items():
+                        if k != OperatorConstants.Columns.CHUNK:
+                            chunk_row_data[k] = v
+                    chunk_text = chunk_item.get(OperatorConstants.Columns.CHUNK, "")
                 if chunk_text:
-                    # Update the content column with chunk text instead of full document
+                    # Strip DocLang XML if present before indexing. ChunkerOperator normally produces
+                    # plain text, but external chunkers or custom pipelines may not — strip defensively.
+                    if self.doc_format == OperatorConstants.DocFormat.DOCLANG:
+                        chunk_text = OperatorUtils.doclang_to_markdown(chunk_text)
                     chunk_row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = chunk_text
 
             file_id: str = str(row_data.get(id_column, doc_id))
@@ -562,7 +606,8 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 row_doc_id: Any = row_data.get(self.doc_id_column)
                 if not row_doc_id:
                     logger.warning(
-                        f"Missing document ID at row {idx}",
+                        "Missing document ID at row %s",
+                        idx,
                         extra=self.common_log_arguments,
                     )
                     self.record_skipped_document(
@@ -582,7 +627,16 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                     id_column=id_column,
                 )
                 if chunks is None:
-                    # Non-chunked: index the row directly
+                    # Non-chunked: convert DocLang XML to clean text if needed before indexing
+                    if (
+                        self.doc_format == OperatorConstants.DocFormat.DOCLANG
+                        and OperatorConstants.Columns.DOC_COLUMN_DEFAULT in row_data
+                    ):
+                        raw_content = row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+                        if isinstance(raw_content, str):
+                            row_data[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = OperatorUtils.doclang_to_markdown(
+                                raw_content
+                            )
                     documents.append((doc_id, row_data))
                 else:
                     for chunk_pk, chunk_row_data in chunks:
@@ -591,7 +645,9 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
 
             except Exception as e:
                 logger.error(
-                    f"Error preparing document at row {idx}: {e!s}",
+                    "Error preparing document at row %s: %s",
+                    idx,
+                    e,
                     extra=self.common_log_arguments,
                 )
                 self.record_failed_document(
@@ -624,14 +680,17 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             chunks_filepath = chunked_content_value[DocpipeConstants.CHUNKS_MEMMAP_FILE]
             is_chunked = True
             logger.debug(
-                f"Detected file references for chunked data - chunks: {chunks_filepath}",
+                "Detected file references for chunked data - chunks: %s",
+                chunks_filepath,
                 extra=self.common_log_arguments,
             )
         elif isinstance(chunked_content_value, list) and len(chunked_content_value) > 0:
             # In-memory chunks
             is_chunked = True
             logger.debug(
-                f"Detected in-memory chunked content with {len(chunked_content_value)} chunks for doc {doc_id}",
+                "Detected in-memory chunked content with %s chunks for doc %s",
+                len(chunked_content_value),
+                doc_id,
                 extra=self.common_log_arguments,
             )
 
@@ -664,7 +723,8 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
         if chunks_filepath and vector_column_filepaths:
             # File-based streaming for memory efficiency
             logger.debug(
-                f"Using yield for streaming {len(vector_column_filepaths)} vector columns from files",
+                "Using yield for streaming %s vector columns from files",
+                len(vector_column_filepaths),
                 extra=self.common_log_arguments,
             )
             return self._prepare_file_based_chunks(
@@ -813,12 +873,17 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
                 if original_doc_id:
                     failed_doc_ids.add(original_doc_id)
                     logger.warning(
-                        f"Chunk indexing failed: {failed_chunk_id} (document: {original_doc_id}) - {failure_reason[:100]}",
+                        "Chunk indexing failed: %s (document: %s) - %s",
+                        failed_chunk_id,
+                        original_doc_id,
+                        failure_reason[:100],
                         extra=self.common_log_arguments,
                     )
                 else:
                     logger.warning(
-                        f"Chunk indexing failed: {failed_chunk_id} - {failure_reason[:100]}",
+                        "Chunk indexing failed: %s - %s",
+                        failed_chunk_id,
+                        failure_reason[:100],
                         extra=self.common_log_arguments,
                     )
 
@@ -837,14 +902,17 @@ class VectorDBOperator(AbstractOperator):  # type: ignore[misc]
             metadata[Metrics.External.PROCESSED_DOCS] = total_docs_processed
 
             logger.info(
-                f"VectorDB indexing complete: {total_docs_processed}/{table.num_rows} documents processed, "
-                f"{chunks_indexed}/{total_chunks_to_index} chunks indexed successfully",
+                "VectorDB indexing complete: %s/%s documents processed, %s/%s chunks indexed successfully",
+                total_docs_processed,
+                table.num_rows,
+                chunks_indexed,
+                total_chunks_to_index,
                 extra=self.common_log_arguments,
             )
             return True
 
         except Exception as e:
-            logger.error(f"Failed to index documents: {e!s}", extra=self.common_log_arguments)
+            logger.error("Failed to index documents: %s", e, extra=self.common_log_arguments)
             # Mark all documents as failed when the entire indexing operation fails
             # Use original document IDs (from 'id' column) for consistency
             unique_doc_hashes_from_chunks: set[str] = set()

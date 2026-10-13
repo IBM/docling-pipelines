@@ -240,10 +240,10 @@ class S3DestinationAdapter(DestinationAdapterPort[S3DestinationConfig]):
             raise ValueError("Missing required S3 connection parameter: 'bucket'")
 
         # A destination path is mandatory — writing to the bucket root is not permitted.
-        raw_prefix = provider_config.get("prefix")
+        raw_prefix = provider_config.get("prefix") or provider_config.get("key_prefix")
         if not raw_prefix or not str(raw_prefix).strip():
             raise ValueError(
-                "Missing required S3 destination path: set 'prefix' in "
+                "Missing required S3 destination path: set 'key_prefix' in "
                 "provider_config. Writing to the bucket root is not permitted."
             )
 
@@ -253,8 +253,8 @@ class S3DestinationAdapter(DestinationAdapterPort[S3DestinationConfig]):
             bucket=bucket,
             key_prefix=raw_prefix,
             create_dirs=provider_config.get("create_dirs", True),
-            endpoint_url=provider_config.get("endpoint_url"),
-            region=provider_config.get("region"),
+            endpoint_url=resolve_env_var(provider_config.get("endpoint_url")),
+            region=resolve_env_var(provider_config.get("region")),
             verify_expected_bucket_owner=provider_config.get("verify_expected_bucket_owner", False),
         )
 

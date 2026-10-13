@@ -175,14 +175,27 @@ export function VectorDBPanelBody({
     (controller?.getPropertyValue?.({ name: ATTR.ADD_SPARSE_VECTOR }) as boolean | undefined) ?? false;
 
   // ── Authentication & Connection Fields Helper ──
-  const updateProviderConfigField = (key: string, value: unknown): void => {
-    const nextConfig = { ...parsedSavedConfig };
+  // Write a single key into provider_config. Pass `extra` to stamp additional keys
+  // atomically in the same write (e.g. auth_type alongside a Milvus credential field).
+  // Clearing a key: pass '' | null | undefined as value.
+  const updateProviderConfigField = (
+    key: string,
+    value: unknown,
+    extra?: Record<string, unknown>
+  ): void => {
+    const nextConfig = { ...parsedSavedConfig, ...extra };
     if (value === '' || value === null || value === undefined) {
       delete nextConfig[key];
     } else {
       nextConfig[key] = value;
     }
     controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, nextConfig);
+  };
+
+  // Stamp auth_type alongside any Milvus credential field so the backend always
+  // knows which auth mode is active, even if the dropdown was never touched.
+  const updateMilvusAuthField = (key: string, value: unknown): void => {
+    updateProviderConfigField(key, value, { auth_type: milvusAuthType });
   };
 
   // Connection & Settings fields for OpenSearch
@@ -651,7 +664,16 @@ export function VectorDBPanelBody({
                     selectedItem={milvusAuthType}
                     onChange={({ selectedItem }: { selectedItem?: string | null }) => {
                       if (selectedItem) {
-                        updateProviderConfigField('auth_type', selectedItem);
+                        // Clear all auth-type-specific fields from the previous selection
+                        // and write the new auth_type atomically so the backend never sees
+                        // a mix of fields from different auth types.
+                        const cleared: Record<string, unknown> = { ...parsedSavedConfig };
+                        delete cleared.username;
+                        delete cleared.password;
+                        delete cleared.token;
+                        delete cleared.uri;
+                        cleared.auth_type = selectedItem;
+                        controller?.updatePropertyValue?.({ name: ATTR.PROVIDER_CONFIG }, cleared);
                       }
                     }}
                   />
@@ -663,7 +685,7 @@ export function VectorDBPanelBody({
                       labelText="Username"
                       value={milvusUsername}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                        updateProviderConfigField('username', e.target.value);
+                        updateMilvusAuthField('username', e.target.value);
                       }}
                     />
                   </div>
@@ -686,7 +708,7 @@ export function VectorDBPanelBody({
                       }
                       value={milvusPassword}
                       onChange={(v: string) => {
-                        updateProviderConfigField('password', v);
+                        updateMilvusAuthField('password', v);
                       }}
                     />
                   </div>
@@ -709,7 +731,7 @@ export function VectorDBPanelBody({
                       }
                       value={milvusToken}
                       onChange={(v: string) => {
-                        updateProviderConfigField('token', v);
+                        updateMilvusAuthField('token', v);
                       }}
                     />
                   </div>
@@ -721,7 +743,7 @@ export function VectorDBPanelBody({
                       labelText="URI"
                       value={milvusUri}
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                        updateProviderConfigField('uri', e.target.value);
+                        updateMilvusAuthField('uri', e.target.value);
                       }}
                       placeholder="https://xxx.zillizcloud.com"
                     />

@@ -1,5 +1,6 @@
 """Chunker operator that splits documents into smaller text segments."""
 
+import io
 import uuid
 from enum import StrEnum
 from pathlib import Path
@@ -1074,8 +1075,6 @@ class ChunkerOperator(AbstractOperator):
         Returns:
             DoclingDocument instance with full structural metadata
         """
-        import io
-
         from docling.backend.md_backend import MarkdownDocumentBackend
         from docling.datamodel.base_models import InputFormat
         from docling.datamodel.document import InputDocument

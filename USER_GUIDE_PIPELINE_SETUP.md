@@ -296,7 +296,7 @@ ffmpeg -version
 **1. Clone the repository:**
 
 ```bash
-git clone https://github.com/IBM/docling-pipelines.git
+git clone https://github.com/docling-project/docling-pipelines.git
 cd docling-pipelines
 ```
 

@@ -39,7 +39,8 @@ class JobStatsService(ABC):
         *,
         job_id: str,
         job_run_id: str,
-        flow_name: str,
+        flow_id: str,
+        flow_name: str | None = None,
         user_id: str | None = None,
         metadata: dict[str, Any] | None = None,
         initial_status: ExecutionStatus = ExecutionStatus.RUNNING,
@@ -52,7 +53,12 @@ class JobStatsService(ABC):
         Args:
             job_id: Unique job identifier
             job_run_id: Unique job run identifier
-            flow_name: Name of the flow being executed
+            flow_id: Stable flow identifier — asset UUID for API-originated runs,
+                job_id slug for CLI/Library runs.
+            flow_name: Human-readable name of the flow at run creation time.
+                Snapshotted here; historical runs preserve the name even if the
+                flow is later renamed. None is acceptable (e.g. CLI/Library runs
+                where the flow has no registered name).
             user_id: Optional user identifier
             metadata: Optional metadata dictionary
             initial_status: Initial status for the job stats record.
@@ -446,6 +452,24 @@ class JobStatsService(ABC):
 
         Raises:
             JobRunNotFoundException: If job_run_id not found
+        """
+        ...
+
+    @abstractmethod
+    def delete_job_runs_by_job_id(self, *, job_id: str) -> int:
+        """
+        Delete all job runs associated with a given job_id (flow UUID).
+
+        Used for cascade-deletion when a flow is deleted.  Fetches all
+        job_run_ids whose job_id matches the given value, then deletes
+        each one from the store.  Failures for individual runs are logged
+        as warnings and do not abort the operation.
+
+        Args:
+            job_id: The flow UUID whose job runs should be deleted.
+
+        Returns:
+            Number of job runs successfully deleted.
         """
         ...
 

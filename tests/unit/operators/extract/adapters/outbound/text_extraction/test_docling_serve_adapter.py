@@ -86,7 +86,10 @@ class TestDoclingServeAdapter:
 
         # Verify
         mock_extract_text_file.assert_called_once_with(
-            file_path=file_path, binary_content=binary_content, additional_formats=[]
+            file_path=file_path,
+            binary_content=binary_content,
+            additional_formats=[],
+            doc_format=OperatorConstants.DOC_FORMAT_DEFAULT,
         )
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "This is plain text content"
@@ -120,11 +123,42 @@ class TestDoclingServeAdapter:
 
         result = adapter_with_formats.extract_single_document(file_path=file_path, binary_content=binary_content)
 
-        # Verify additional_formats is forwarded to extract_text_file
+        # Verify additional_formats and doc_format are forwarded to extract_text_file
         mock_extract_text_file.assert_called_once_with(
-            file_path=file_path, binary_content=binary_content, additional_formats=["html"]
+            file_path=file_path,
+            binary_content=binary_content,
+            additional_formats=["html"],
+            doc_format=OperatorConstants.DOC_FORMAT_DEFAULT,
         )
         assert result[OperatorConstants.Extraction.SUCCESS] is True
+
+    @patch(
+        "docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.OperatorUtils.extract_text_file"
+    )
+    def test_extract_single_document_txt_file_passes_doc_format_doclang(self, mock_extract_text_file):
+        """doc_format=doclang is forwarded to extract_text_file for .txt files."""
+        file_path = "/path/to/doc.txt"
+        binary_content = b"Plain text content"
+        doclang_xml = '<doclang version="0.7"><text>Plain text content</text></doclang>'
+        mock_extract_text_file.return_value = {
+            OperatorConstants.Extraction.SUCCESS: True,
+            OperatorConstants.Columns.DOC_COLUMN_DEFAULT: doclang_xml,
+        }
+
+        config = {
+            OperatorConstants.DOC_FORMAT_KEY: OperatorConstants.DocFormat.DOCLANG,
+            "docling_serve_config": {"base_url": "http://localhost:5001"},
+        }
+        adapter = DoclingServeAdapter(config=config)
+        result = adapter.extract_single_document(file_path=file_path, binary_content=binary_content)
+
+        mock_extract_text_file.assert_called_once_with(
+            file_path=file_path,
+            binary_content=binary_content,
+            additional_formats=[],
+            doc_format=OperatorConstants.DocFormat.DOCLANG,
+        )
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == doclang_xml
 
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     def test_extract_single_document_md_file_uses_docling_serve(self, mock_client_class, adapter):
@@ -917,6 +951,39 @@ class TestDoclingServeAdapter:
 
 
 # ---------------------------------------------------------------------------
+# v1 response + doc_format=doclang incompatibility test
+# ---------------------------------------------------------------------------
+class TestDoclingServeAdapterV1DoclangIncompatibility:
+    """Tests that doc_format=doclang is rejected against v1 servers."""
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    def test_v1_response_with_doclang_format_returns_failure(self, mock_client_class):
+        """When doc_format=doclang but server returns a v1 response, result is a clear failure.
+
+        v1 servers only provide md_content — they cannot produce DocLang XML.
+        Returning Markdown in a column the pipeline expects to be DocLang XML
+        would cause silent corruption downstream; failing clearly is correct.
+        """
+        config = {
+            OperatorConstants.DOC_FORMAT_KEY: OperatorConstants.DocFormat.DOCLANG,
+            "docling_serve_config": {"base_url": "http://localhost:5001"},
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        # Server returns v1-format response (no "documents" key)
+        mock_client_class.return_value.process_document.return_value = {
+            "document": {"md_content": "# Extracted markdown"},
+            "processing_time": 0.5,
+        }
+
+        result = adapter.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is False
+        assert "v1" in result[OperatorConstants.Extraction.ERROR].lower()
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] is None
+
+
+# ---------------------------------------------------------------------------
 # v2 response format tests (presigned artifact URIs)
 # Missing lines: 296, 297, 299, 303, 305-352
 # ---------------------------------------------------------------------------
@@ -1119,10 +1186,17 @@ class TestDoclingServeAdapterV2Response:
 
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
     @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
-    def test_v2_markdown_missing_from_artifacts_still_prepended(
+    def test_v2_primary_format_missing_from_artifacts_not_inserted(
         self, mock_get, mock_client_class, adapter_with_formats
     ):
-        """If no markdown artifact was successfully fetched, markdown is prepended to formats."""
+        """If no primary artifact was fetched, primary format is NOT prepended to formats.
+
+        Regression guard for the bug where formats_generated.insert() ran unconditionally
+        even when DOC_COLUMN_DEFAULT was None/empty, making a failed fetch look successful.
+        With the fix, a missing primary artifact leaves DOC_COLUMN_DEFAULT empty and does NOT
+        add the primary format to formats_generated — preventing None content from flowing
+        silently downstream.
+        """
         mock_client_class.return_value.process_document.return_value = {
             "documents": [
                 {
@@ -1139,8 +1213,123 @@ class TestDoclingServeAdapterV2Response:
 
         assert result[OperatorConstants.Extraction.SUCCESS] is True
         formats = result[OperatorConstants.Metadata.METADATA]["formats"]
-        # markdown is inserted at index 0 even when not in artifacts
-        assert formats[0] == OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN
+        # Primary format (markdown) was never fetched — must NOT appear in formats_generated
+        assert OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN not in formats
+        # The html artifact that was fetched is still present
+        assert "html" in formats
+        # DOC_COLUMN_DEFAULT must be empty/falsy — not silently filled with None
+        assert not result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_doclang_primary_missing_from_artifacts_not_inserted(self, mock_get, mock_client_class):
+        """When doc_format=doclang and doclang artifact fails, it is NOT inserted into formats_generated.
+
+        Regression guard: a v2 server that produces no doclang artifact (e.g., only markdown)
+        must not silently pretend doclang was produced. Without this guard a None content column
+        would flow downstream into RedactionOperator or VectorDBOperator.
+        """
+        config = {
+            "docling_serve_config": {"base_url": "http://localhost:5001"},
+            OperatorConstants.DOC_FORMAT_KEY: OperatorConstants.DocFormat.DOCLANG,
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        mock_client_class.return_value.process_document.return_value = {
+            "documents": [
+                {
+                    "artifacts": [
+                        # Server only returns markdown, no doclang artifact at all
+                        {"artifact_type": "markdown", "uri": "http://s3/doc.md"},
+                    ]
+                }
+            ],
+            "processing_time": 0.9,
+        }
+        mock_get.side_effect = self._mock_get({"doc.md": "# Fallback markdown"})
+
+        result = adapter.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        formats = result[OperatorConstants.Metadata.METADATA]["formats"]
+        # doclang was never produced — must NOT be inserted
+        assert OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG not in formats
+        # DOC_COLUMN_DEFAULT must be empty (doclang was the primary, never fetched)
+        assert not result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_v2_doclang_primary_format_fetches_and_sets_doc_column(self, mock_get, mock_client_class):
+        """When doc_format='doclang', v2 doclang artifact is set on DOC_COLUMN_DEFAULT."""
+        doclang_xml = '<doclang version="0.7"><text>Hello DocLang</text></doclang>'
+        config = {
+            "docling_serve_config": {"base_url": "http://localhost:5001"},
+            OperatorConstants.DOC_FORMAT_KEY: OperatorConstants.DocFormat.DOCLANG,
+            "global_config": {OperatorConstants.DOC_FORMAT_KEY: OperatorConstants.DocFormat.DOCLANG},
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        mock_client_class.return_value.process_document.return_value = {
+            "documents": [
+                {
+                    "artifacts": [
+                        {"artifact_type": "doclang", "uri": "http://s3/doc.xml"},
+                        {"artifact_type": "markdown", "uri": "http://s3/doc.md"},
+                    ]
+                }
+            ],
+            "processing_time": 1.2,
+        }
+        mock_get.side_effect = self._mock_get({"doc.xml": doclang_xml, "doc.md": "# Ignored MD"})
+
+        result = adapter.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == doclang_xml
+        formats = result[OperatorConstants.Metadata.METADATA]["formats"]
+        assert formats[0] == OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG
+
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.DoclingServeClient")
+    @patch("docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_serve_adapter.requests.get")
+    def test_doclang_format_from_global_config_only_triggers_doclang_request(self, mock_get, mock_client_class):
+        """doc_format injected by ExtractOperator lives only in the merged global_config dict.
+
+        Regression guard for the bug where _init_adapter_config read doc_format from the
+        adapter-specific 'config' sub-dict instead of self.global_config.  When the key is
+        present only at the top-level of the merged config (as ExtractOperator sets it), the
+        doclang artifact must still be requested and returned as the primary content column.
+        """
+        doclang_xml = '<doclang version="0.7"><text>Global config path</text></doclang>'
+        # Simulate exactly what TextExtractionAdapterFactory.create_adapter produces:
+        # full_config = {**global_config, **adapter_config} where global_config carries
+        # DOC_FORMAT_KEY and adapter_config contains the adapter-specific docling_serve_config.
+        # There is NO nested "global_config" sub-dict and the key does NOT appear inside
+        # docling_serve_config — only at the top level of the merged dict.
+        config = {
+            OperatorConstants.DOC_FORMAT_KEY: OperatorConstants.DocFormat.DOCLANG,
+            "docling_serve_config": {"base_url": "http://localhost:5001"},
+        }
+        adapter = DoclingServeAdapter(config=config)
+
+        mock_client_class.return_value.process_document.return_value = {
+            "documents": [
+                {
+                    "artifacts": [
+                        {"artifact_type": "doclang", "uri": "http://s3/doc.xml"},
+                        {"artifact_type": "markdown", "uri": "http://s3/doc.md"},
+                    ]
+                }
+            ],
+            "processing_time": 0.8,
+        }
+        mock_get.side_effect = self._mock_get({"doc.xml": doclang_xml, "doc.md": "# Should not appear"})
+
+        result = adapter.extract_single_document(file_path="/doc.pdf", binary_content=b"pdf")
+
+        assert result[OperatorConstants.Extraction.SUCCESS] is True
+        assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == doclang_xml
+        formats = result[OperatorConstants.Metadata.METADATA]["formats"]
+        assert formats[0] == OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG
 
 
 # ---------------------------------------------------------------------------
@@ -1248,3 +1437,44 @@ class TestDoclingServeAdapterConfigSchema:
         """ocr_engine is str | None — no enum constraint expected."""
         schema = DoclingServeAdapter.get_config_schema().model_json_schema()
         assert "enum" not in str(schema["properties"]["ocr_engine"])
+
+
+# ---------------------------------------------------------------------------
+# DoclingLibraryConfig.additional_formats — markdown acceptance tests
+# ---------------------------------------------------------------------------
+class TestDoclingLibraryConfigAdditionalFormats:
+    """Tests that DoclingLibraryConfig accepts 'markdown' in additional_formats.
+
+    When doc_format=doclang, users legitimately want to also request markdown
+    as a secondary column. The schema must allow it.
+    """
+
+    def test_markdown_accepted_in_additional_formats(self):
+        """'markdown' is a valid additional_formats value."""
+        from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_library_config import (
+            DoclingLibraryConfig,
+        )
+
+        cfg = DoclingLibraryConfig(additional_formats=["markdown"])
+        assert "markdown" in cfg.additional_formats
+
+    def test_markdown_alongside_doclang_accepted(self):
+        """User can request both doclang (primary) and markdown (secondary)."""
+        from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_library_config import (
+            DoclingLibraryConfig,
+        )
+
+        cfg = DoclingLibraryConfig(additional_formats=["doclang", "markdown"])
+        assert "doclang" in cfg.additional_formats
+        assert "markdown" in cfg.additional_formats
+
+    def test_invalid_format_still_rejected(self):
+        """Unrecognised format strings are still rejected by the schema."""
+        from pydantic import ValidationError
+
+        from docpipe.core.operators.extract.adapters.outbound.text_extraction.docling_library_config import (
+            DoclingLibraryConfig,
+        )
+
+        with pytest.raises(ValidationError):
+            DoclingLibraryConfig(additional_formats=["xml"])

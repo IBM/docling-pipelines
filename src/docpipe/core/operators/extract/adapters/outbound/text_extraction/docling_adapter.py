@@ -470,6 +470,9 @@ class DoclingAdapter(TextExtractionPort):
                     converter_config=None,
                     additional_formats=self.additional_formats,
                     converter=self._gpu_converter,
+                    doc_format=self.global_config.get(
+                        OperatorConstants.DOC_FORMAT_KEY, OperatorConstants.DOC_FORMAT_DEFAULT
+                    ),
                 )
             else:
                 # Use common extraction method with output_formats
@@ -478,6 +481,9 @@ class DoclingAdapter(TextExtractionPort):
                     binary_content=binary_content,
                     converter_config=converter_config,
                     additional_formats=self.additional_formats,
+                    doc_format=self.global_config.get(
+                        OperatorConstants.DOC_FORMAT_KEY, OperatorConstants.DOC_FORMAT_DEFAULT
+                    ),
                 )
 
             # Add GPU-specific metadata if extraction succeeded and GPU was used

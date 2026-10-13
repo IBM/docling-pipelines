@@ -255,7 +255,8 @@ For full details on the priority system, override behaviour, and registering cus
 | `text_extraction`                                             | object |          No | `{"provider": "docling_library", "doc_column": "content"}` | All | Text extraction configuration (see below)                                                          |
 | `text_extraction.provider`                                    | string |          No | `docling_library`       | All                             | Text extraction provider: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
 | `text_extraction.doc_column`                                  | string |          No | `content`               | All                             | Column name for storing extracted text content                                                     |
-| `text_extraction.provider_config.additional_formats`          | array  |          No | `[]`                    | All                             | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`, `doclang`            |
+| `doc_format`                                                  | string |          No | `markdown`              | All                             | Primary content format: `"markdown"` (default) or `"doclang"`. When `"doclang"`, the `content` column contains DocLang XML instead of Markdown. Use `"doclang"` for pipelines that must preserve DocLang's structured element hierarchy through redaction and vector indexing. |
+| `text_extraction.provider_config.additional_formats`          | array  |          No | `[]`                    | All                             | Additional output formats beyond the primary format: `html`, `json`, `text`, `doctags`, `doclang`, `markdown`. When `doc_format=doclang`, add `"markdown"` here to also produce a `content_markdown` column. |
 | `text_extraction.provider_config.vlm_pipeline`                | object |          No | `null`                  | `docling_library`               | VLM (Vision-Language Model) pipeline configuration. When present, VLM processing is enabled. |
 | `text_extraction.provider_config.vlm_pipeline.preset`         | string |          No | `granite_docling`       | `docling_library`               | VLM preset name. Valid presets: `smoldocling`, `granite_docling`, `deepseek_ocr`, `granite_vision`, `pixtral`, `got_ocr`, `phi4`, `qwen`, `nanonets_ocr2`, `gemma_12b`, `gemma_27b`, `dolphin`, `glm_ocr`, `lightonocr`, `falcon_ocr` |
 | `text_extraction.provider_config.vlm_pipeline.engine`         | string |          No | `api_ollama`            | `docling_library`               | VLM engine type. Valid engines: `api_ollama`, `api_openai`, `api_watsonx`, `api_lmstudio`, `api` (generic), `transformers` (local), `mlx` (macOS) |
@@ -304,12 +305,13 @@ For full details on the priority system, override behaviour, and registering cus
 
 **Output Schema**
 
-- `content` (or configured via `doc_column` parameter) - Extracted markdown text (always generated)
+- `content` (or configured via `doc_column` parameter) - Primary extracted content: Markdown when `doc_format=markdown` (default), DocLang XML when `doc_format=doclang`
 - `content_html` - HTML format (if `additional_formats` includes "html")
 - `content_json` - JSON structured format (if `additional_formats` includes "json")
 - `content_text` - Plain text format (if `additional_formats` includes "text")
 - `content_doctags` - Docling's native DocTags format (if `additional_formats` includes "doctags")
-- `content_doclang` - DocLang format (if `additional_formats` includes "doclang")
+- `content_doclang` - DocLang format (if `additional_formats` includes "doclang" and `doc_format=markdown`)
+- `content_markdown` - Markdown format (if `additional_formats` includes "markdown" and `doc_format=doclang`)
 - `entities` (or configured `output_column`) - Extracted entities as JSON string (if entity extraction enabled)
 - `doc_id_hash` - Document hash identifier
 - `pages_processed` - Number of pages in the document. Obtained from Docling extraction metadata when available; otherwise estimated using 3000 characters = 1 page
@@ -1279,6 +1281,7 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 | `regex`             | string |      Yes | -                 | Pattern or literal to redact |
 | `masking_character` | string |       No | `*`               | Replacement character        |
 | `stats_column`      | string |       No | `redaction_stats` | Per-row redaction count      |
+| `doc_format`        | string |       No | `markdown`        | Content format of the input column: `"markdown"` (default) or `"doclang"`. When `"doclang"`, redaction is applied per DOM node using `defusedxml` — XML tags, attributes, and element hierarchy are preserved. Falls back to plain-text redaction if the XML is malformed. |
 
 **Output Schema**
 
@@ -1289,7 +1292,7 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 
 #### PIIAndHAPAnnotator
 
-**Purpose:** Detect Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using LLM-based detection, with optional redaction.
+**Purpose:** Detect Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content, with optional redaction. PII and HAP can use different providers: `litellm` and `watsonx` support both, `presidio` supports PII only.
 
 **Category:** Quality
 
@@ -1299,8 +1302,12 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `provider` | string | No | `litellm` | Detection provider: `litellm` or `watsonx` |
-| `provider_config` | object | No | `{}` | Provider-specific configuration (see below) |
+| `provider` | string | No | `litellm` | Provider for every expected redaction without its own `pii_provider` / `hap_provider`: `litellm`, `watsonx`, `presidio` (PII only) |
+| `provider_config` | object | No | `{}` | Provider-specific configuration (see below); shared with `pii_provider` / `hap_provider` when they name the same provider or `provider` is unset |
+| `pii_provider` | string | No | — | Provider for PII only: `litellm`, `watsonx`, `presidio` |
+| `pii_provider_config` | object | No | `{}` | Configuration for `pii_provider` (falls back to `provider_config` as above) |
+| `hap_provider` | string | No | — | Provider for HAP only: `litellm`, `watsonx` |
+| `hap_provider_config` | object | No | `{}` | Configuration for `hap_provider` (falls back to `provider_config` as above) |
 | `doc_column` | string | No | `content` | Input text column |
 | `expected_redactions` | list | No | `["pii","hap"]` | Detection types to run: any subset of `["pii","hap"]` |
 | `pii_list` | list | No | all 13 types | PII types to detect |
@@ -1330,6 +1337,16 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 | `container_kind` | string | Yes | `"project"` or `"space"` |
 | `container_id` | string | Yes | Project or space UUID |
 | `timeout` | integer | No | Request timeout in seconds (default: `300`) |
+
+**`provider_config` — Presidio (PII only; requires `pip install "docling-pipelines[presidio]"` and a spaCy model):**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `language` | string | No | Document language code (default: `en`) |
+| `spacy_model` | string | No | spaCy NER model (default: `en_core_web_lg`) |
+| `entity_mapping` | object | No | Presidio entity type to PII type overrides (e.g. `{"DATE_TIME": "DateOfBirth"}`) |
+
+A provider selected for a capability it does not support (e.g. `hap_provider: "presidio"`) fails validation before any document is processed.
 
 **Output Schema:**
 
@@ -2008,6 +2025,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 | `provider_config`    | object |      Yes | -             | Connection parameters and resource name for the backend (see examples below)|
 | `available_features` | object |       No | -             | Feature definitions for vector DB schema                                    |
 | `feature_mappings`   | object |       No | -             | Mapping of PyArrow columns to vector DB fields                              |
+| `doc_format`         | string |       No | `markdown`    | Content format of the incoming `content` column: `"markdown"` (default) or `"doclang"`. When `"doclang"`, DocLang XML is auto-transcoded to clean Markdown before indexing (both unchunked and chunked modes). Chunk metadata (bounding boxes, page numbers, header paths) is preserved in indexed document payloads. |
 
 **Multi-Model Embeddings Support:**
 

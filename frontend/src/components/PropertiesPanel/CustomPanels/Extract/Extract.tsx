@@ -57,6 +57,7 @@ import styles from './Extract.module.scss';
 import common from '../../CommonPropertiesPanel.module.scss';
 import { TagInput } from '@/components/common/TagInput/TagInput';
 import { isValidJsonObject } from '@/utils/json';
+import { useProviderConfigDefaults } from '@/hooks/useProviderConfigDefaults';
 
 interface ExtractPanelBodyProps {
   controller: any;
@@ -228,6 +229,8 @@ export function ExtractPanelBody({ controller }: ExtractPanelBodyProps): React.J
   const markFieldAsTouched = (field: string): void => {
     setTouchedFields((previous) => ({ ...previous, [field]: true }));
   };
+
+  useProviderConfigDefaults(controller, nodeAttributes);
 
   // ── Required param validator ──────────────────────────────────────────────
   const validate = getRequiredParamValidator(nodeAttributes);

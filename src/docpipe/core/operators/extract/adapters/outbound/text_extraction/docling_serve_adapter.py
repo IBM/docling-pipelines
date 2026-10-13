@@ -122,8 +122,16 @@ class DoclingServeAdapter(TextExtractionPort):
             "pdf_backend": docling_serve_config.get("pdf_backend", "dlparse_v2"),
         }
 
-        if self.additional_formats:
-            self.processing_options["additional_formats"] = self.additional_formats
+        # Include doclang if doc_format is doclang.
+        # Read from self.global_config (set by the base class from the same config dict) so
+        # that doc_format injected by ExtractOperator into global_config is always visible here.
+        formats_to_request = list(self.additional_formats)
+        doc_format = self.global_config.get(OperatorConstants.DOC_FORMAT_KEY)
+        if doc_format == OperatorConstants.DocFormat.DOCLANG and "doclang" not in formats_to_request:
+            formats_to_request.append("doclang")
+
+        if formats_to_request:
+            self.processing_options["additional_formats"] = formats_to_request
 
         # OCR wiring — new canonical ocr block takes precedence over flat fields
         ocr_block = docling_serve_config.get("ocr")
@@ -204,6 +212,9 @@ class DoclingServeAdapter(TextExtractionPort):
                     file_path=file_path,
                     binary_content=binary_content,
                     additional_formats=self.additional_formats,
+                    doc_format=self.global_config.get(
+                        OperatorConstants.DOC_FORMAT_KEY, OperatorConstants.DOC_FORMAT_DEFAULT
+                    ),
                 )
 
             # Extract filename from path to preserve extension for remote processing
@@ -269,6 +280,28 @@ class DoclingServeAdapter(TextExtractionPort):
             Tuple of (result_dict, formats_generated, extra_metadata) where extra_metadata
             contains additional fields (e.g. page_count) to be merged into the final metadata dict.
         """
+        # v1 servers cannot produce DocLang artifacts — fail immediately so the caller
+        # receives a clear error rather than silently receiving Markdown in a column that
+        # the rest of the pipeline expects to contain DocLang XML.
+        doc_format = self.global_config.get(OperatorConstants.DOC_FORMAT_KEY, OperatorConstants.DOC_FORMAT_DEFAULT)
+        if doc_format == OperatorConstants.DocFormat.DOCLANG:
+            logger.error(
+                "doc_format=doclang is not supported by v1 docling-serve servers. "
+                "Upgrade to a v2 server or use doc_format=markdown.",
+            )
+            return (
+                {
+                    OperatorConstants.Extraction.SUCCESS: False,
+                    OperatorConstants.Extraction.ERROR: (
+                        "doc_format=doclang requires a v2 docling-serve server; "
+                        "this server returned a v1 response with no doclang artifact."
+                    ),
+                    OperatorConstants.Columns.DOC_COLUMN_DEFAULT: None,
+                },
+                [],
+                {},
+            )
+
         document = result.get(OperatorConstants.Extraction.DOCLING_SERVE_DOCUMENT, {})
         logger.debug(
             "v1 response - document keys: %s",
@@ -318,16 +351,24 @@ class DoclingServeAdapter(TextExtractionPort):
         }
         formats_generated: list[str] = []
 
+        doc_format = self.global_config.get(OperatorConstants.DOC_FORMAT_KEY, OperatorConstants.DOC_FORMAT_DEFAULT)
+        is_doclang_primary = doc_format == OperatorConstants.DocFormat.DOCLANG
+        primary_format = (
+            OperatorConstants.Extraction.OUTPUT_FORMAT_DOCLANG
+            if is_doclang_primary
+            else OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN
+        )
+
         if not documents:
             logger.warning("v2 response contains no documents for %s", file_path)
-            return result_dict, [OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN]
+            return result_dict, [primary_format]
 
         doc = documents[0]
         artifacts = doc.get("artifacts", [])
         logger.debug("v2 response - artifact types: %s", [a.get("artifact_type") for a in artifacts])
 
-        # Determine which formats to fetch: always markdown + any requested additional formats
-        requested_formats = {OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN} | set(self.additional_formats)
+        # Determine which formats to fetch: primary format + any requested additional formats
+        requested_formats = {primary_format} | set(self.additional_formats)
 
         for artifact in artifacts:
             artifact_type = artifact.get("artifact_type", "")
@@ -349,7 +390,7 @@ class DoclingServeAdapter(TextExtractionPort):
                 logger.warning("Failed to fetch v2 artifact '%s' for %s: %s", artifact_type, file_path, fetch_err)
                 continue
 
-            if fmt == OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN:
+            if fmt == primary_format:
                 result_dict[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] = content
                 formats_generated.append(fmt)
             elif fmt in OperatorConstants.Extraction.FORMAT_COLUMN_MAPPING:
@@ -363,7 +404,19 @@ class DoclingServeAdapter(TextExtractionPort):
                 formats_generated.append(fmt)
                 logger.info("Generated %s format for %s", fmt, file_path)
 
-        if OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN not in formats_generated:
-            formats_generated.insert(0, OperatorConstants.Extraction.OUTPUT_FORMAT_MARKDOWN)
+        if primary_format not in formats_generated:
+            if result_dict.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT):
+                # Primary content was fetched successfully via a non-standard artifact_type path;
+                # prepend it to formats_generated so the caller sees the correct format list.
+                formats_generated.insert(0, primary_format)
+            else:
+                logger.warning(
+                    "Primary format '%s' was not found or failed to fetch in v2 response for %s",
+                    primary_format,
+                    file_path,
+                )
+                # Do NOT insert — primary content is genuinely missing. Leaving formats_generated
+                # without the primary format lets the caller treat this as a failed extraction
+                # rather than silently flowing None/empty content downstream.
 
         return result_dict, formats_generated

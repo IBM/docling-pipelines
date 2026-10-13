@@ -101,10 +101,7 @@ class TestOperatorMessages:
         """Test operator start message includes step name and type."""
         reporter.print_operator_start(step_name="step1", operator_type="extract_operator")
 
-        mock_logger.info.assert_called_once()
-        call_args = mock_logger.info.call_args[0][0]
-        assert "step1" in call_args
-        assert "extract_operator" in call_args
+        mock_logger.info.assert_called_once_with("[%s] Starting %s...", "step1", "extract_operator")
 
     @patch("docpipe.utils.infrastructure.flow_execution_reporter.logger")
     def test_print_operator_summary_updates_table_state(
@@ -244,9 +241,7 @@ class TestColumnListPrinting:
         columns = ["id", "name", "content"]
         reporter._print_column_list(columns)
 
-        mock_logger.info.assert_called_once()
-        call_args = mock_logger.info.call_args[0][0]
-        assert "id, name, content" in call_args
+        mock_logger.info.assert_called_once_with("%s%s", "     ", "id, name, content")
 
     @patch("docpipe.utils.infrastructure.flow_execution_reporter.logger")
     def test_print_column_list_many_columns(self, mock_logger, reporter):
@@ -271,8 +266,7 @@ class TestColumnListPrinting:
         custom_indent = "       "
         reporter._print_column_list(columns, indent=custom_indent)
 
-        call_args = mock_logger.info.call_args[0][0]
-        assert call_args.startswith(custom_indent)
+        mock_logger.info.assert_called_once_with("%s%s", custom_indent, "id, name")
 
 
 class TestMetadataCategorization:

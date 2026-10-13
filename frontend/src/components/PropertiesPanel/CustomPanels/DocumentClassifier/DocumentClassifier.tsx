@@ -49,6 +49,7 @@ import {
   CLASSIFICATION_CONFIG_DESCRIPTION,
 } from './constants';
 import common from '../../CommonPropertiesPanel.module.scss';
+import { useProviderConfigDefaults } from '@/hooks/useProviderConfigDefaults';
 
 /**
  * Props for {@link DocumentClassifierPanelBody}.
@@ -168,6 +169,8 @@ export function DocumentClassifierPanelBody({
 
   const docColumn = (controller?.getPropertyValue?.({ name: ATTR.DOC_COLUMN }) as string | undefined)
     ?? (nodeAttributes[ATTR.DOC_COLUMN]?.default as string | undefined);
+
+  useProviderConfigDefaults(controller, nodeAttributes);
 
   // ── Required param validation ─────────────────────────────────────────────
   const validate = getRequiredParamValidator(nodeAttributes);

@@ -45,6 +45,10 @@ export interface OperatorFeature {
   available_for_vector_db?: boolean | null;
   sensitive?: boolean;
   valid_values?: string[];
+  /** Minimum allowed value for numeric fields. */
+  min_value?: number;
+  /** Maximum allowed value for numeric fields. */
+  max_value?: number;
   /** Maps provider id → per-provider schema. Each entry is itself an OperatorFeature. */
   providers?: Record<string, OperatorFeature>;
   /** Sub-field map. Each value is itself an OperatorFeature so nesting is supported. */

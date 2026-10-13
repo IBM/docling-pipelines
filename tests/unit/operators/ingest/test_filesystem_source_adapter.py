@@ -83,7 +83,7 @@ class TestFilesystemSourceConfig:
         assert config.max_file_size_mb == 5
 
     def test_rejects_non_positive_max_file_size(self, tmp_path):
-        with pytest.raises(ValidationError, match="max_file_size_mb must be positive"):
+        with pytest.raises(ValidationError, match="Input should be greater than or equal to 1"):
             FilesystemSourceConfig(
                 paths=[str(tmp_path)],
                 recursive=True,

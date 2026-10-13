@@ -44,6 +44,7 @@ import {
   type WriteMode,
 } from './constants';
 import common from '../../CommonPropertiesPanel.module.scss';
+import { useProviderConfigDefaults } from '@/hooks/useProviderConfigDefaults';
 
 interface StorageOutputPanelBodyProps {
   controller: any;
@@ -197,6 +198,8 @@ export function StorageOutputPanelBody({
 
   // common across all providers
   const createDirs = pcBool('create_dirs', true);
+
+  useProviderConfigDefaults(controller, nodeAttributes);
 
   // ── Validation ────────────────────────────────────────────────────────────
   const validate = getRequiredParamValidator(nodeAttributes);

@@ -22,6 +22,7 @@ if "box_sdk_gen" not in sys.modules:
     ):
         sys.modules[f"box_sdk_gen.{_attr}"] = MagicMock()
 
+from docpipe.core.operators.storage.domain.models import WriteResult
 from docpipe.core.operators.storage.storage_output_operator import StorageOutputOperator, _extract_source_relative_path
 
 
@@ -53,6 +54,41 @@ def _base_config(tmp_path, overrides: dict | None = None) -> dict:
     if overrides:
         config.update(overrides)
     return config
+
+
+@pytest.mark.parametrize("credentials_in_provider_config", [True, False])
+def test_s3_destination_accepts_ui_and_legacy_credentials(credentials_in_provider_config):
+    provider_config = {"bucket": "bucket", "key_prefix": "exports/"}
+    credentials = {}
+    keys = {"access_key": "key", "secret_key": "secret"}  # pragma: allowlist secret
+    if credentials_in_provider_config:
+        provider_config.update(keys)
+    else:
+        credentials.update(keys)
+
+    op = StorageOutputOperator(
+        {
+            "mode": "processed_content",
+            "destination_config": {
+                "provider": "s3",
+                "provider_config": provider_config,
+                "credentials": credentials,
+            },
+        }
+    )
+    table = _make_table([{"id": "1", "name": "doc.md", "content": "text"}])
+    result = WriteResult(doc_id="1", doc_name="doc.md", success=True)
+
+    with (
+        patch(
+            "docpipe.core.operators.storage.adapters.outbound.destinations.s3.adapter.S3DestinationAdapter.validate_destination",
+            return_value=None,
+        ),
+        patch.object(StorageOutputOperator, "_write_row", return_value=result),
+    ):
+        output, _ = op.transform(table)
+
+    assert output[0].column("write_status").to_pylist() == ["success"]
 
 
 class TestStorageOutputOperatorValidation:
@@ -632,12 +668,11 @@ class TestStorageOutputOperatorS3Hierarchical:
             "mode": "refetch_original",
             "ingest_source": {
                 "provider": "s3",
-                "connection_params": {
+                "provider_config": {
                     "bucket": "my-bucket",
                     "prefix": "vt_workspace/source_files/",
                     "region": "us-east-1",
                 },
-                "credentials": {"access_key": "key", "secret_key": "secret"},  # pragma: allowlist secret
             },
             "destination_config": {
                 "provider": "filesystem",

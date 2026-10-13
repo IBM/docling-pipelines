@@ -11,6 +11,8 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Added
 
+- Unified `Commit Verification` workflow (`.github/workflows/commit-verification.yml`) enforcing DCO sign-off, GPG verification, and PR template completeness on every PR; replaces `dco-advisor.yml` (#188)
+- `docs/integrations/openlineage/OPENLINEAGE_GUIDE.md` — new integration guide covering OpenLineage support: installation, enabling, configuration reference (all env vars, HTTP and File transport), emission modes (flow vs operator), event catalog by mode, custom facets reference, and a step-by-step guide for adding a custom lineage client.
 - React frontend UI with Elyra-based pipeline canvas, per-operator properties panels, project/flow management, and Node.js BFF layer; bundled into the wheel and served at `/ui/` (#58)
 - `StorageOutputOperator` — writes processed documents to a configurable destination with `processed_content`, `refetch_original`, and `comprehensive_export` modes (#58)
 - `S3DestinationAdapter` — writes to S3 / IBM COS / MinIO with env-var credentials and bucket pre-flight validation (#58)
@@ -33,6 +35,12 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Changed
 
+- Generate ephemeral credentials in the LDAP and VectorDB tests instead of storing static password literals.
+
+- Prompt for the OpenSearch password in the Docker Compose guide instead of providing a hardcoded password.
+
+- `sample_flows/README.md` — synchronize existing JSON flow catalog and storage output examples (#228).
+
 - **Breaking:** `IngestSourceOperator` migrated from `connection_params` + `credentials` to unified `provider_config`; all 8 source adapters and all sample flows updated (#152)
 - `PIIAndHAPAnnotator` provider selection replaced with decorator-based `PIIAndHAPDetectionFactory` registry (#76)
 - 33 self-free instance methods converted to `@staticmethod` across `FlowValidator`, `AuthoringCompiler`, `FlowExecutionReporter`, `MetadataAggregator`, and `IncrementalUpdateService` (#139)
@@ -40,6 +48,8 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Fixed
 
+- Empty `vlm_pipeline` and `asr_pipeline` objects enable their respective pipelines with defaults; omitted or `null` blocks keep them disabled. The default VLM preset is `granite_docling` (#123).
+- Storage output now accepts cloud destination credentials and S3 `key_prefix` saved by the UI, while retaining support for the separate `credentials` field and legacy S3 `prefix`, and reads ingest source paths from the normalized `provider_config`.
 - Updated JupyterLab to 4.6.4 in the full and slim notebooks extras to resolve the security alerts tracked in #51.
 - Notification panel now propagates `action_type` from backend validation and fixes stale alert detection (#91)
 - Markdown chunking: send extracted content with `.md` filename to preserve source name in chunk metadata (#148)
@@ -93,6 +103,6 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 - SonarQube, ruff, mypy, and Mend CI quality gates
 - Comprehensive documentation under `docs/`
 
-[Unreleased]: https://github.com/IBM/docling-pipelines/compare/v1.0.1...HEAD
-[1.0.1]: https://github.com/IBM/docling-pipelines/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/IBM/docling-pipelines/releases/tag/v1.0.0
+[Unreleased]: https://github.com/docling-project/docling-pipelines/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/docling-project/docling-pipelines/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/docling-project/docling-pipelines/releases/tag/v1.0.0
