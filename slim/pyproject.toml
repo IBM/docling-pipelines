@@ -167,9 +167,8 @@ Source = "https://github.com/docling-project/docling-pipelines"
 docling-pipelines-api = "docpipe.api.main:run"
 docling-pipelines = "docpipe.cli.docpipe_cli:main"
 
-[tool.hatch.build.targets.wheel]
-packages = ["docpipe"]
-sources = {"docpipe" = "../src/docpipe"}
+[tool.hatch.build.targets.wheel.force-include]
+"../src/docpipe" = "docpipe"
 
 [tool.hatch.build.targets.sdist.force-include]
 "../src/docpipe" = "docpipe"
