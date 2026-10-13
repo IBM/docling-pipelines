@@ -99,6 +99,9 @@ class ClassificationPort(ABC):
         Returns:
             :class:`ClassificationResponse` with ``document_type``,
             ``confidence``, ``reasoning``, ``success``, and optionally
-            ``error``.
+            ``error``.  Adapters that had to extract text themselves may also
+            set ``extracted_content`` and ``extraction_metadata`` so the
+            operator can reuse them downstream; adapters that do not extract
+            text leave both ``None``.
         """
         ...

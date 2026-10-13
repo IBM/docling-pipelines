@@ -5,6 +5,7 @@ LLM provider or infrastructure concerns.
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 from docpipe.core.constants.operator_constants import OperatorConstants
 
@@ -36,6 +37,11 @@ class ClassificationResponse:
         reasoning: Explanation for the classification decision
         success: Whether classification was successful
         error: Error message if classification failed
+        extracted_content: Optional text the adapter had to extract as a
+            by-product of classification (e.g. via Docling).  ``None`` when the
+            adapter did not extract anything or was given the text already.
+        extraction_metadata: Optional metadata produced alongside
+            ``extracted_content`` (e.g. Docling ``page_count``).
     """
 
     document_type: str
@@ -43,6 +49,8 @@ class ClassificationResponse:
     reasoning: str
     success: bool
     error: str | None = None
+    extracted_content: str | None = None
+    extraction_metadata: dict[str, Any] | None = None
 
 
 @dataclass

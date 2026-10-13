@@ -20,11 +20,15 @@ from docpipe.core.operators.quality.classification.adapters.outbound.factories.c
     ClassificationAdapterFactory,
 )
 from docpipe.core.operators.quality.classification.ports.outbound.classification_port import ClassificationPort
-from docpipe.core.ports.document_class_provider import DocumentClassProvider, StaticDocumentClassProvider
+from docpipe.core.ports.document_class_provider import DocumentClassProvider, get_default_document_class_provider
 from docpipe.utils.infrastructure.concurrency import submit_task_with_context_propagation
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger: logging.Logger = get_logger()
+
+# Private keys used to pass adapter side products through the result dict
+_EXTRACTED_CONTENT = "__extracted_content__"
+_EXTRACTION_METADATA = "__extraction_metadata__"
 
 
 class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
@@ -148,7 +152,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
         super().__init__(config)
 
         self._document_class_provider: DocumentClassProvider = (
-            document_class_provider if document_class_provider is not None else StaticDocumentClassProvider()
+            document_class_provider if document_class_provider is not None else get_default_document_class_provider()
         )
 
         # Store full config for on-demand binary fetching (includes ingest_source if present)
@@ -327,12 +331,24 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
             # Log but don't fail the operation if progress update fails
             logger.warning("Failed to update classification progress: %s", e)
 
-    def _classify_document(self, *, content: str, doc_name: str | None = None) -> dict[str, Any]:
+    def _classify_document(
+        self,
+        *,
+        content: str | None,
+        binary_content: bytes | None = None,
+        doc_name: str | None = None,
+    ) -> dict[str, Any]:
         """
-        Classify a single document using the LLM.
+        Classify a single document using the configured adapter.
+
+        The operator does not extract text itself.  It passes whatever it has
+        (existing text and/or raw bytes) to the adapter, which decides what it
+        needs.  Adapters that extract text as a by-product report it back via
+        ``extracted_content`` / ``extraction_metadata``.
 
         Args:
-            content: Document content to classify
+            content: Existing document text, or ``None`` when not available
+            binary_content: Raw document bytes, or ``None`` when text is given
             doc_name: Optional document name for logging
 
         Returns:
@@ -346,7 +362,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
         try:
             response = self.adapter.classify_document(
                 doc_name=doc_name or "",
-                binary_content=None,
+                binary_content=binary_content,
                 existing_text=content,
                 document_types=self.document_types,
             )
@@ -363,6 +379,8 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                     OperatorConstants.Classification.FIELD_DOCUMENT_TYPE: None,
                     OperatorConstants.Classification.FIELD_CONFIDENCE: 0,
                     OperatorConstants.Classification.FIELD_REASONING: response.reasoning,
+                    _EXTRACTED_CONTENT: response.extracted_content,
+                    _EXTRACTION_METADATA: response.extraction_metadata,
                 }
 
             logger.info(
@@ -378,6 +396,8 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                 OperatorConstants.Classification.FIELD_CONFIDENCE: response.confidence,
                 OperatorConstants.Classification.FIELD_REASONING: response.reasoning,
                 "is_confident": response.confidence >= self.confidence_threshold,
+                _EXTRACTED_CONTENT: response.extracted_content,
+                _EXTRACTION_METADATA: response.extraction_metadata,
             }
         except Exception as e:
             logger.error("Classification failed for %s: %s", doc_name or "unknown", e)
@@ -456,19 +476,17 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
             logger.warning("Output column '%s' already present. Moving to next operator", self.output_column)
             return [table], metadata
 
-        # Check if DOC_COLUMN_KEY already exists
         doc_column_exists = self.doc_column in table.column_names
         content_was_fetched = False
-        # Process documents in parallel
-        doc_contents = []
-        doc_extraction_metadata = []  # Track extraction metadata for page counts
-        skipped_indices = set()  # Track indices skipped due to unsupported extensions
+        doc_contents: list[Any] = [None] * table.num_rows
+        # Raw bytes for rows without a text column; the adapter decides whether it needs them.
+        doc_binaries: dict[int, bytes] = {}
+        skipped_indices: set[int] = set()  # Rows skipped due to unsupported extensions
+        failed_indices: set[int] = set()  # Rows already recorded as failed (e.g. binary fetch error)
 
         if doc_column_exists:
             # Use existing content column directly; LLM classifiers benefit from structured DocLang XML
             doc_contents = table.column(self.doc_column).to_pylist()
-            # No extraction metadata available when content already exists
-            doc_extraction_metadata = [None] * table.num_rows
             logger.info("Using existing '%s' column for classification", self.doc_column)
 
             # Validate file extensions for existing content
@@ -476,96 +494,47 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                 table=table, doc_contents=doc_contents, metadata=metadata
             )
         else:
-            # Fetch content using utility function with extension validation
-            logger.info("'%s' column not found, fetching content from documents", self.doc_column)
+            # Fetch raw bytes only. Text extraction (if any) is the adapter's concern.
+            logger.info("'%s' column not found, fetching document binaries", self.doc_column)
             content_was_fetched = True
-            # Prepare document data for parallel processing with extension validation
             doc_tasks = OperatorUtils.prepare_document_content_fetch(
                 table=table,
                 global_config=self.global_config,
                 supported_extensions=set(OperatorConstants.FileExtensions.CLASSIFICATION_FILE_EXTENSIONS),
             )
-
-            logger.info("Processing %s documents in parallel with %s workers", len(doc_tasks), self.max_workers)
-            # Process documents in parallel using ThreadPoolExecutor
-            doc_contents.extend([None] * table.num_rows)
-            with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-                # Submit all tasks
-                future_to_task = {}
-                for task in doc_tasks:
-                    if "error" in task:
-                        # Check if this is an unsupported extension (should be skipped, not failed)
-                        if task.get("skip_reason") == "unsupported_extension":
-                            self.record_skipped_document(
-                                metadata=metadata,
-                                doc_id=str(task["doc_id"]),
-                                doc_name=task["doc_name"],
-                                reason=task["error"],
-                            )
-                            skipped_indices.add(task["idx"])
-                        else:
-                            # Other errors are failures
-                            self.record_failed_document(
-                                metadata=metadata,
-                                doc_id=str(task["doc_id"]),
-                                doc_name=task["doc_name"],
-                                reason=task["error"],
-                            )
-                        continue
-
-                    future = submit_task_with_context_propagation(
-                        executor,
-                        OperatorUtils.extract_content,
-                        file_path=task["doc_name"],
-                        binary_content=task["binary_content"],
+            for task in doc_tasks:
+                if "error" not in task:
+                    doc_binaries[task["idx"]] = task["binary_content"]
+                elif task.get("skip_reason") == "unsupported_extension":
+                    # Unsupported extensions are skipped, not failed
+                    self.record_skipped_document(
+                        metadata=metadata,
+                        doc_id=str(task["doc_id"]),
+                        doc_name=task["doc_name"],
+                        reason=task["error"],
                     )
-
-                    future_to_task[future] = task
-
-                # Collect results as they complete
-                # Also collect extraction metadata for page counts
-                doc_extraction_metadata = [None] * table.num_rows
-
-                for future in as_completed(future_to_task):
-                    task = future_to_task[future]
-                    idx = task["idx"]
-
-                    try:
-                        result = future.result()
-
-                        if result[OperatorConstants.Extraction.SUCCESS]:
-                            doc_contents[idx] = result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT]
-                            # Store extraction metadata for page count extraction
-                            doc_extraction_metadata[idx] = result.get(OperatorConstants.Metadata.METADATA, {})
-                        else:
-                            self.record_failed_document(
-                                metadata=metadata,
-                                doc_id=str(task["doc_id"]),
-                                doc_name=task["doc_name"],
-                                reason=result.get(OperatorConstants.Extraction.ERROR, "Unknown error"),
-                            )
-                            logger.error(
-                                "Failed to extract content from %s: %s",
-                                task["doc_name"],
-                                result.get(OperatorConstants.Extraction.ERROR),
-                                extra=self.common_log_arguments,
-                            )
-
-                    except Exception as e:
-                        logger.error("Error processing document at index %s: %s", idx, e)
-                        self.record_failed_document(
-                            metadata=metadata, doc_id=str(task["doc_id"]), doc_name=task["doc_name"], reason=str(e)
-                        )
+                    skipped_indices.add(task["idx"])
+                else:
+                    self.record_failed_document(
+                        metadata=metadata,
+                        doc_id=str(task["doc_id"]),
+                        doc_name=task["doc_name"],
+                        reason=task["error"],
+                    )
+                    failed_indices.add(task["idx"])
 
         # Process each document
         classifications: list[Any] = [None] * table.num_rows
         confidences: list[Any] = [0] * table.num_rows
         reasonings: list[Any] = [None] * table.num_rows
+        # Side products an adapter may report when it extracted text itself
+        extracted_contents: list[str | None] = [None] * table.num_rows
+        extraction_metadatas: list[dict[str, Any] | None] = [None] * table.num_rows
 
         # Use ThreadPoolExecutor for classification (I/O-bound LLM API calls)
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             # Submit all tasks
-            future_to_task = {}
+            future_to_task: dict[Any, dict[str, Any]] = {}
             for idx, content in enumerate(doc_contents):
                 doc_id = (
                     table[OperatorConstants.Columns.ID][idx].as_py()
@@ -578,9 +547,14 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                     else f"document_{idx}"
                 )
 
-                if not content or (isinstance(content, str) and not content.strip()):
-                    # Only record if NOT already skipped during validation
-                    if idx not in skipped_indices:
+                binary_content = doc_binaries.pop(idx, None)
+
+                has_text = bool(content) and not (isinstance(content, str) and not content.strip())
+                if not has_text and binary_content is None:
+                    if idx in failed_indices:
+                        # Already recorded as failed while fetching the binary
+                        reasonings[idx] = "Failed to fetch document content"
+                    elif idx not in skipped_indices:
                         logger.warning("Empty content for document %s, skipping classification", doc_name)
                         self.record_skipped_document(
                             metadata=metadata, doc_id=str(idx), doc_name=doc_name, reason="Empty content"
@@ -593,8 +567,13 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                     continue
 
                 future = submit_task_with_context_propagation(
-                    executor, self._classify_document, content=content, doc_name=doc_name
+                    executor,
+                    self._classify_document,
+                    content=content if has_text else None,
+                    binary_content=None if has_text else binary_content,
+                    doc_name=doc_name,
                 )
+                del binary_content  # release the reference; the worker holds its own
 
                 future_to_task[future] = {"idx": idx, "doc_name": doc_name, "doc_id": doc_id}
 
@@ -605,6 +584,8 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
 
                 try:
                     result = future.result()
+                    extracted_contents[idx] = result.get(_EXTRACTED_CONTENT)
+                    extraction_metadatas[idx] = result.get(_EXTRACTION_METADATA)
 
                     if result[OperatorConstants.Extraction.SUCCESS]:
                         # Enforce confidence threshold using pre-calculated is_confident flag
@@ -641,6 +622,19 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                             progress_percentage=progress_pct,
                             failed_count=failed,
                         )
+                    elif (extracted := result.get(_EXTRACTED_CONTENT)) is not None and not extracted.strip():
+                        # The adapter extracted text but it was blank: same outcome as an
+                        # empty text column, so skipped rather than failed.
+                        logger.warning("Empty content for document %s, skipping classification", task["doc_name"])
+                        self.record_skipped_document(
+                            metadata=metadata,
+                            doc_id=str(task["doc_id"]),
+                            doc_name=task["doc_name"],
+                            reason="Empty content",
+                        )
+                        skipped_indices.add(idx)
+                        classifications[idx] = None
+                        reasonings[idx] = "Empty content"
                     else:
                         self.record_failed_document(
                             metadata=metadata,
@@ -668,49 +662,24 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
         # Start with the original table
         output_table = table
 
-        # Handle content column storage based on whether it was fetched
-        # Only store temp columns if ALL documents have supported extensions (no skipped documents)
-        # This ensures Extract operator doesn't have mixed content (some null, some not)
-        if content_was_fetched and len(skipped_indices) == 0:
-            output_table = TransformUtils.add_column(output_table, DocpipeConstants.TEMP_CONTENT_COLUMN, doc_contents)
-
-            logger.info(
-                "Stored fetched content in '%s' column for potential reuse by extract operator",
-                DocpipeConstants.TEMP_CONTENT_COLUMN,
-            )
-
-            # Calculate and store pages_processed for content reuse scenario
-            # Try to use page_count from Docling metadata first, fall back to character-based calculation
-            pages_processed_list = []
-            for idx, content in enumerate(doc_contents):
-                # Try to get page count from extraction metadata (from Docling)
-                extraction_meta = doc_extraction_metadata[idx] if idx < len(doc_extraction_metadata) else None
-                native_page_count = extraction_meta.get("page_count") if extraction_meta else None
-
-                if native_page_count and isinstance(native_page_count, (int, float)) and native_page_count > 0:
-                    # Use native page count from Docling metadata
-                    page_count = int(native_page_count)
-                else:
-                    # Fallback to character-based calculation
-                    char_count = len(content) if content else 0
-                    chars_per_page = OperatorConstants.Processing.CHARS_PER_PAGE
-                    page_count = max(1, (char_count + chars_per_page - 1) // chars_per_page)
-
-                pages_processed_list.append(page_count)
-
-            output_table = TransformUtils.add_column(
-                output_table, DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN, pages_processed_list
-            )
-            logger.info(
-                "Calculated and stored page counts in '%s' column for extract operator",
-                DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN,
-            )
-        elif content_was_fetched and len(skipped_indices) > 0:
-            logger.info(
-                "Skipping temp column creation: %s documents with unsupported extensions detected. "
-                "Extract operator will fetch content for all documents.",
-                len(skipped_indices),
-            )
+        # Reuse columns for the extract operator exist only when the adapter extracted
+        # text itself (the standard adapter does; the hybrid adapter does not).
+        # They are written only if ALL documents were extracted (no skipped rows), so
+        # the Extract operator never sees mixed content (some null, some not).
+        if content_was_fetched and any(text is not None for text in extracted_contents):
+            if not skipped_indices and not failed_indices and all(text is not None for text in extracted_contents):
+                output_table = self._add_extraction_reuse_columns(
+                    table=output_table,
+                    extracted_contents=extracted_contents,
+                    extraction_metadatas=extraction_metadatas,
+                )
+            else:
+                logger.info(
+                    "Skipping temp column creation: not every document was extracted "
+                    "(%s skipped, %s failed fetch). Extract operator will fetch content for all documents.",
+                    len(skipped_indices),
+                    len(failed_indices),
+                )
 
         # Add classification columns to table
         output_table = TransformUtils.add_column(output_table, self.output_column, classifications)
@@ -742,6 +711,48 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
         )
 
         return [output_table], metadata
+
+    @staticmethod
+    def _calculate_pages_processed(*, content: str | None, extraction_metadata: dict[str, Any] | None) -> int:
+        """Return the page count for a document.
+
+        Uses the native ``page_count`` from *extraction_metadata* when present,
+        otherwise estimates from character count.
+        """
+        native = (extraction_metadata or {}).get("page_count")
+        if native and isinstance(native, (int, float)) and native > 0:
+            return int(native)
+        char_count = len(content) if content else 0
+        chars_per_page = OperatorConstants.Processing.CHARS_PER_PAGE
+        return max(1, (char_count + chars_per_page - 1) // chars_per_page)
+
+    @staticmethod
+    def _add_extraction_reuse_columns(
+        *,
+        table: pa.Table,
+        extracted_contents: list[str | None],
+        extraction_metadatas: list[dict[str, Any] | None],
+    ) -> pa.Table:
+        """Append ``TEMP_CONTENT_COLUMN`` and ``TEMP_PAGES_PROCESSED_COLUMN`` to *table*.
+
+        These columns let :class:`ExtractOperator` skip a second Docling pass
+        when the classifier already extracted the text.
+        """
+        table = TransformUtils.add_column(table, DocpipeConstants.TEMP_CONTENT_COLUMN, extracted_contents)
+        logger.info(
+            "Stored extracted content in '%s' column for potential reuse by extract operator",
+            DocpipeConstants.TEMP_CONTENT_COLUMN,
+        )
+        pages_processed_list = [
+            DocumentClassifierOperator._calculate_pages_processed(content=text, extraction_metadata=meta)
+            for text, meta in zip(extracted_contents, extraction_metadatas, strict=True)
+        ]
+        table = TransformUtils.add_column(table, DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN, pages_processed_list)
+        logger.info(
+            "Calculated and stored page counts in '%s' column for extract operator",
+            DocpipeConstants.TEMP_PAGES_PROCESSED_COLUMN,
+        )
+        return table
 
     @staticmethod
     def _get_classifier_provider_schemas() -> dict[str, Any]:

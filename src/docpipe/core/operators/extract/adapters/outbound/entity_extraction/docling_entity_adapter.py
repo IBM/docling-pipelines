@@ -21,7 +21,7 @@ from docpipe.core.operators.extract.adapters.outbound.factories.entity_extractio
 from docpipe.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from docpipe.core.operators.extract.services.entity_extraction_service import EntityExtractionService
 from docpipe.core.operators.operator_utils import OperatorUtils
-from docpipe.core.ports.document_class_provider import DocumentClassProvider, StaticDocumentClassProvider
+from docpipe.core.ports.document_class_provider import DocumentClassProvider, get_default_document_class_provider
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger(__name__)
@@ -117,7 +117,7 @@ class DoclingEntityAdapter(EntityExtractionPort):
         """
         super().__init__(config=config)
         self.document_class_provider: DocumentClassProvider = (
-            document_class_provider if document_class_provider is not None else StaticDocumentClassProvider()
+            document_class_provider if document_class_provider is not None else get_default_document_class_provider()
         )
 
     def validate(self, *, config: dict[str, Any]) -> None:

@@ -71,3 +71,15 @@ class StaticDocumentClassProvider(DocumentClassProvider):
         from docpipe.utils.document_class_utils import DocumentClassUtils
 
         return DocumentClassUtils.get_schema_templates(document_types)
+
+
+_DEFAULT_PROVIDER = StaticDocumentClassProvider()
+
+
+def get_default_document_class_provider() -> DocumentClassProvider:
+    """Return the shared stateless :class:`StaticDocumentClassProvider`.
+
+    Use this instead of instantiating ``StaticDocumentClassProvider()`` at every
+    call site that falls back to the local-file default.
+    """
+    return _DEFAULT_PROVIDER

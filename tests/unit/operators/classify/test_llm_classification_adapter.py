@@ -8,7 +8,7 @@ that _LLMClassificationService now supports.
 """
 
 import json
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 

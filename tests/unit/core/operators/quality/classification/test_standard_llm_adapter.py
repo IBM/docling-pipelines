@@ -243,46 +243,77 @@ class TestClassifyDocumentWithExistingText:
 
 
 # ---------------------------------------------------------------------------
-# Tests — classify_document with binary_content
+# Tests — classify_document from binary_content (adapter owns Docling extraction)
 # ---------------------------------------------------------------------------
 
+_OPERATOR_UTILS = "docpipe.core.operators.quality.classification.adapters.outbound.standard_llm_adapter.OperatorUtils"
 
-class TestClassifyDocumentWithBinaryContent:
-    def test_calls_extract_content_when_no_existing_text(self) -> None:
-        """When only binary_content is provided, OperatorUtils.extract_content is called."""
+
+class TestClassifyDocumentFromBinary:
+    def test_extracts_then_classifies_and_reports_side_products(self) -> None:
         adapter = _make_adapter()
-        fake_extraction = {
-            "success": True,
-            "content": "Extracted markdown text",
-        }
-        with patch(
-            "docpipe.core.operators.operator_utils.OperatorUtils.extract_content",
-            return_value=fake_extraction,
-        ) as mock_extract:
+        with patch(_OPERATOR_UTILS) as mock_utils:
+            mock_utils.extract_content.return_value = {
+                "success": True,
+                "content": "Extracted markdown text",
+                "metadata": {"page_count": 3},
+            }
             response = adapter.classify_document(
                 doc_name="doc.pdf",
                 binary_content=b"%PDF-fake",
                 existing_text=None,
                 document_types=["invoice"],
             )
-        mock_extract.assert_called_once_with(file_path="doc.pdf", binary_content=b"%PDF-fake")
-        assert isinstance(response, ClassificationResponse)
+        mock_utils.extract_content.assert_called_once_with(file_path="doc.pdf", binary_content=b"%PDF-fake")
+        request = adapter._service.classify_document.call_args.kwargs["request"]  # type: ignore[attr-defined]
+        assert request.content == "Extracted markdown text"
+        assert response.success is True
+        assert response.extracted_content == "Extracted markdown text"
+        assert response.extraction_metadata == {"page_count": 3}
+
+    def test_does_not_mutate_service_response(self) -> None:
+        adapter = _make_adapter()
+        with patch(_OPERATOR_UTILS) as mock_utils:
+            mock_utils.extract_content.return_value = {"success": True, "content": "text", "metadata": {}}
+            adapter.classify_document(
+                doc_name="doc.pdf", binary_content=b"x", existing_text=None, document_types=["invoice"]
+            )
+        assert _GOOD_RESPONSE.extracted_content is None
+        assert _GOOD_RESPONSE.extraction_metadata is None
+
+    def test_existing_text_skips_extraction(self) -> None:
+        adapter = _make_adapter()
+        with patch(_OPERATOR_UTILS) as mock_utils:
+            response = adapter.classify_document(
+                doc_name="doc.pdf", binary_content=b"x", existing_text="already here", document_types=["invoice"]
+            )
+        mock_utils.extract_content.assert_not_called()
+        assert response.extracted_content is None
+        assert response.extraction_metadata is None
 
     def test_returns_failure_when_extraction_fails(self) -> None:
         adapter = _make_adapter()
-        fake_extraction = {"success": False, "error": "Unsupported format"}
-        with patch(
-            "docpipe.core.operators.operator_utils.OperatorUtils.extract_content",
-            return_value=fake_extraction,
-        ):
+        with patch(_OPERATOR_UTILS) as mock_utils:
+            mock_utils.extract_content.return_value = {"success": False, "error": "Unsupported format"}
             response = adapter.classify_document(
-                doc_name="doc.pdf",
-                binary_content=b"bad-pdf",
-                existing_text=None,
-                document_types=["invoice"],
+                doc_name="doc.pdf", binary_content=b"bad", existing_text=None, document_types=["invoice"]
             )
         assert response.success is False
-        assert "Extraction failed" in (response.error or "") or "Unsupported format" in (response.error or "")
+        assert response.error == "Unsupported format"
+        assert response.extracted_content is None
+        adapter._service.classify_document.assert_not_called()  # type: ignore[attr-defined]
+
+    def test_blank_extraction_returns_failure_carrying_extracted_content(self) -> None:
+        adapter = _make_adapter()
+        with patch(_OPERATOR_UTILS) as mock_utils:
+            mock_utils.extract_content.return_value = {"success": True, "content": "   \n", "metadata": {}}
+            response = adapter.classify_document(
+                doc_name="doc.pdf", binary_content=b"x", existing_text=None, document_types=["invoice"]
+            )
+        assert response.success is False
+        assert response.error == "Empty content"
+        assert response.extracted_content == "   \n"
+        adapter._service.classify_document.assert_not_called()  # type: ignore[attr-defined]
 
 
 # ---------------------------------------------------------------------------
@@ -301,4 +332,4 @@ class TestClassifyDocumentNoContent:
         )
         assert response.success is False
         assert response.error is not None
-        assert "None" in response.error
+        assert "existing_text or binary_content" in response.error

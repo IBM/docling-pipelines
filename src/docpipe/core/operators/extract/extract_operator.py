@@ -129,7 +129,7 @@ from docpipe.core.operators.extract.domain.models import (
 from docpipe.core.operators.extract.ports.outbound.entity_extraction import EntityExtractionPort
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
 from docpipe.core.operators.operator_utils import OperatorUtils, format_failed_docs_summary
-from docpipe.core.ports.document_class_provider import DocumentClassProvider, StaticDocumentClassProvider
+from docpipe.core.ports.document_class_provider import DocumentClassProvider, get_default_document_class_provider
 from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 from docpipe.utils.data.transform import TransformUtils
 from docpipe.utils.infrastructure.logging import get_logger
@@ -228,7 +228,7 @@ class ExtractOperator(AbstractOperator):  # type: ignore[misc]
         """
         super().__init__(config)
         self._document_class_provider: DocumentClassProvider = (
-            document_class_provider if document_class_provider is not None else StaticDocumentClassProvider()
+            document_class_provider if document_class_provider is not None else get_default_document_class_provider()
         )
 
         # Extract text_extraction nested config and store for later use.

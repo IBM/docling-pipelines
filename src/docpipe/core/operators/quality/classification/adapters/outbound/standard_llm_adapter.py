@@ -10,11 +10,13 @@ LLM adapter construction in :meth:`~StandardLLMClassificationAdapter.from_config
 The factory is a pure dispatcher and never contains adapter-specific logic.
 """
 
+from dataclasses import replace
 from typing import Any, Self
 
 from docpipe.core.adapters.llm_adapter_factory import LLMAdapterFactory
 from docpipe.core.constants.constants import LLMConstants
 from docpipe.core.constants.operator_constants import OperatorConstants
+from docpipe.core.operators.operator_utils import OperatorUtils
 from docpipe.core.operators.quality.classification.domain.models import (
     ClassificationRequest,
     ClassificationResponse,
@@ -322,6 +324,24 @@ class StandardLLMClassificationAdapter(ClassificationPort):
 
         return cls(llm_adapter=llm_adapter, config=config)
 
+    @staticmethod
+    def _failure_response(
+        *,
+        error: str,
+        extracted_content: str | None = None,
+        extraction_metadata: dict[str, Any] | None = None,
+    ) -> ClassificationResponse:
+        """Build a failed :class:`ClassificationResponse`, optionally carrying extraction side products."""
+        return ClassificationResponse(
+            document_type=OperatorConstants.Classification.UNKNOWN_TYPE,
+            confidence=0,
+            reasoning="",
+            success=False,
+            error=error,
+            extracted_content=extracted_content,
+            extraction_metadata=extraction_metadata,
+        )
+
     def classify_document(
         self,
         *,
@@ -332,9 +352,12 @@ class StandardLLMClassificationAdapter(ClassificationPort):
     ) -> ClassificationResponse:
         """Classify a document using :class:`_LLMClassificationService`.
 
-        Uses *existing_text* directly.  When only *binary_content* is available
-        the adapter falls back to Docling extraction — the operator normally
-        provides ``existing_text`` so this path is a safety net.
+        This adapter classifies from text.  When *existing_text* is given it is
+        used directly.  Otherwise the text is extracted from *binary_content*
+        with Docling, and the extracted text plus its extraction metadata are
+        returned on the response (``extracted_content`` / ``extraction_metadata``)
+        so the operator can hand them to downstream operators without a second
+        extraction.
 
         Args:
             doc_name: File name (used for Docling format detection when
@@ -348,8 +371,13 @@ class StandardLLMClassificationAdapter(ClassificationPort):
 
         Returns:
             :class:`ClassificationResponse` populated by
-            :class:`_LLMClassificationService`.
+            :class:`_LLMClassificationService`.  ``extracted_content`` and
+            ``extraction_metadata`` are set only when this adapter extracted
+            the text itself.
         """
+        extracted_content: str | None = None
+        extraction_metadata: dict[str, Any] | None = None
+
         if existing_text is not None:
             logger.debug(
                 "StandardLLMAdapter: classifying %s using existing_text (len=%s)",
@@ -359,44 +387,37 @@ class StandardLLMClassificationAdapter(ClassificationPort):
             content = existing_text
         elif binary_content is not None:
             logger.debug(
-                "StandardLLMAdapter: existing_text absent for %s, falling back to Docling extraction (binary_size=%s bytes)",
+                "StandardLLMAdapter: extracting text from %s with Docling (binary_size=%s bytes)",
                 doc_name,
                 len(binary_content),
             )
-            from docpipe.core.operators.operator_utils import OperatorUtils
-
             result = OperatorUtils.extract_content(file_path=doc_name, binary_content=binary_content)
-            if result.get(OperatorConstants.Extraction.SUCCESS):
-                content = result.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT, "")
-                logger.debug(
-                    "StandardLLMAdapter: Docling extraction succeeded for %s (content_len=%s)",
-                    doc_name,
-                    len(content),
-                )
-            else:
-                logger.warning(
-                    "StandardLLMAdapter: Docling extraction failed for %s: %s",
-                    doc_name,
-                    result.get(OperatorConstants.Extraction.ERROR, "Extraction failed"),
-                )
-                return ClassificationResponse(
-                    document_type=OperatorConstants.Classification.UNKNOWN_TYPE,
-                    confidence=0,
-                    reasoning="",
-                    success=False,
-                    error=result.get(OperatorConstants.Extraction.ERROR, "Extraction failed"),
+            if not result.get(OperatorConstants.Extraction.SUCCESS):
+                error = result.get(OperatorConstants.Extraction.ERROR, "Extraction failed")
+                logger.warning("StandardLLMAdapter: Docling extraction failed for %s: %s", doc_name, error)
+                return self._failure_response(error=error)
+
+            content = result.get(OperatorConstants.Columns.DOC_COLUMN_DEFAULT) or ""
+            extracted_content = content
+            extraction_metadata = result.get(OperatorConstants.Metadata.METADATA) or {}
+            logger.debug(
+                "StandardLLMAdapter: Docling extraction succeeded for %s (content_len=%s)",
+                doc_name,
+                len(content),
+            )
+            if not content.strip():
+                return self._failure_response(
+                    error="Empty content",
+                    extracted_content=extracted_content,
+                    extraction_metadata=extraction_metadata,
                 )
         else:
             logger.warning(
                 "StandardLLMAdapter: no content available for %s (both binary_content and existing_text are None)",
                 doc_name,
             )
-            return ClassificationResponse(
-                document_type=OperatorConstants.Classification.UNKNOWN_TYPE,
-                confidence=0,
-                reasoning="",
-                success=False,
-                error="No content provided: both binary_content and existing_text are None",
+            return self._failure_response(
+                error="StandardLLMClassificationAdapter requires existing_text or binary_content"
             )
 
         request = ClassificationRequest(
@@ -410,4 +431,8 @@ class StandardLLMClassificationAdapter(ClassificationPort):
             len(content),
             len(document_types),
         )
-        return self._service.classify_document(request=request)
+        response = self._service.classify_document(request=request)
+        if extracted_content is None:
+            return response
+        # Copy rather than mutate: the service may return a shared/cached object.
+        return replace(response, extracted_content=extracted_content, extraction_metadata=extraction_metadata)
