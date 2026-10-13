@@ -48,7 +48,7 @@ dependencies = [
     "langchain-experimental==0.4.1",
     "langchain-text-splitters==1.1.2",
     "langdetect==1.0.9",
-    "langsmith==0.8.18",
+    "langsmith==0.14.7",
     "litellm==1.96.2",
     "lxml==6.1.0",
     "mako==1.4.3",
