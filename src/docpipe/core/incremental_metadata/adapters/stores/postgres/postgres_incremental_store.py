@@ -151,7 +151,7 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
                 result = {
                     row.doc_id: {"modified_time": row.modified_time, "job_run_id": row.job_run_id} for row in rows
                 }
-                logger.debug(f"Retrieved {len(result)} processed docs for job_id={job_id}")
+                logger.debug("Retrieved %s processed docs for job_id=%s", len(result), job_id)
                 return result
 
         except Exception as exc:
@@ -181,7 +181,7 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
                     session.add(model)
 
                 session.commit()
-                logger.info(f"Upserted {len(records)} records for job_id={job_id}")
+                logger.info("Upserted %s records for job_id=%s", len(records), job_id)
 
         except Exception as exc:
             raise FlowExecutionFailedException(f"Failed to upsert records for job_id={job_id}: {exc}") from exc
@@ -201,7 +201,7 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
                     .all()
                 )
                 result = set(rows)
-                logger.debug(f"Retrieved {len(result)} soft-deleted docs for job_id={job_id}")
+                logger.debug("Retrieved %s soft-deleted docs for job_id=%s", len(result), job_id)
                 return result
 
         except Exception as exc:
@@ -239,7 +239,7 @@ class PostgresIncrementalMetadataStore(IncrementalMetadataStore):
                 session.commit()
 
                 if deleted_ids:
-                    logger.info(f"Marked {len(deleted_ids)} docs as deleted for job_id={job_id}")
+                    logger.info("Marked %s docs as deleted for job_id=%s", len(deleted_ids), job_id)
 
                 return deleted_ids
 
