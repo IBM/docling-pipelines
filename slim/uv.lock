@@ -1468,7 +1468,7 @@ requires-dist = [
     { name = "httpx", specifier = "==0.28.1" },
     { name = "httpx", marker = "extra == 'dev'", specifier = "==0.28.1" },
     { name = "ibm-cos-sdk", specifier = "==2.14.3" },
-    { name = "ibm-watsonx-ai", specifier = "==1.5.10" },
+    { name = "ibm-watsonx-ai", specifier = "==1.8.0" },
     { name = "interrogate", marker = "extra == 'dev'", specifier = "==1.7.0" },
     { name = "ipykernel", marker = "extra == 'notebooks'", specifier = "==7.3.0" },
     { name = "jupyter", marker = "extra == 'notebooks'", specifier = "==1.1.1" },
@@ -2352,7 +2352,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/f3/ff/c9baf0997266d398a
 
 [[package]]
 name = "ibm-watsonx-ai"
-version = "1.5.10"
+version = "1.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "cachetools" },
@@ -2366,9 +2366,9 @@ dependencies = [
     { name = "tabulate" },
     { name = "urllib3" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e7/9c/241f54c65d1d21e2f91523f0b59b123c8e5cbe9b790945ca5149b577cf32/ibm_watsonx_ai-1.5.10.tar.gz", hash = "sha256:91eb5808044a9a443574a789a8482bbcc52b44a5c6cdf8e0999b5d05c9c9d36d", size = 728591, upload-time = "2026-04-21T11:13:07.756Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/4b/c1/49489cbb417206e35b85250c8b03d8ac65ddf9ba521710f60175ce599134/ibm_watsonx_ai-1.8.0.tar.gz", hash = "sha256:e2a11b4146b5942a58ccbdb63bc64c18889969e73f80a31216bf683fa42419e3", size = 742250, upload-time = "2026-09-29T08:54:57.715Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e8/f2/e28de56f0c9f56ad01f09765d8e6e74762a498d981d942fa4573c88c8b1a/ibm_watsonx_ai-1.5.10-py3-none-any.whl", hash = "sha256:cb0fc306a0beac1ccd4a787a0233da0a558bd088ac9b254f71fc283eb12b69c7", size = 1106432, upload-time = "2026-04-21T11:13:05.673Z" },
+    { url = "https://files.pythonhosted.org/packages/43/4b/cc5a3bbd795a03e653ea2fad6d26456107e3295b787439afdccd480268a7/ibm_watsonx_ai-1.8.0-py3-none-any.whl", hash = "sha256:26885d661679ffc032a4102d60b0cb34cc3dca3e9e61ffa29a3c6cac30e6eab4", size = 1130617, upload-time = "2026-09-29T08:54:56.189Z" },
 ]
 
 [[package]]
