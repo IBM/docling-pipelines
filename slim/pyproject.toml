@@ -36,7 +36,7 @@ dependencies = [
     "griffe==1.15.0",
     "httpx==0.28.1",
     "ibm-cos-sdk==2.14.3",
-    "ibm-watsonx-ai==1.5.10",
+    "ibm-watsonx-ai==1.8.0",
     "langchain==1.3.9",
     "langchain-classic==1.0.7",
     "langchain-community==0.4.1",
@@ -45,10 +45,10 @@ dependencies = [
     "langchain-text-splitters==1.1.2",
     "langdetect==1.0.9",
     "langsmith==0.8.18",
-    "litellm==1.88.6",
+    "litellm==1.96.2",
     "lxml==6.1.0",
-    "mako==1.4.2",  # CVE-2026-44307: Security fix for Mako vulnerability
-    "mlx==0.32.2; sys_platform == 'darwin'",
+    "mako==1.4.3",
+    "mlx==0.32.3; sys_platform == 'darwin'",
     "msal==1.37.0",
     "nltk==3.10.3",
     "numpy>=2.0.0,<3.0.0",
@@ -56,7 +56,7 @@ dependencies = [
     "ollama==0.6.1",
     "openai==2.33.0",
     "opensearch-py==3.1.0",
-    "orjson==3.11.7",
+    "orjson==3.13.0",
     "pandas==2.3.3",
     "passlib[bcrypt]==1.7.4",
     "pillow==12.3.0",
@@ -70,21 +70,21 @@ dependencies = [
     "pygments==2.20.0",
     "pyiceberg-core==0.7.0",
     "pyiceberg[glue]==0.9.1",
-    "pyjwt==2.15.0",
+    "pyjwt==2.15.1",
     "pymilvus==2.6.13",
     "pyopenssl==26.4.0",
-    "pypdf==6.19.0",
+    "pypdf==6.20.0",
     "pyphen==0.17.2",
     "python-dotenv==1.2.2",
     "python-jose[cryptography]==3.5.0",
     "python-ldap==3.4.5",
     "pyyaml==6.0.3",
     "requests==2.34.2",
-    "setuptools==83.0.0",
+    "setuptools==84.0.0",
     "spacy>=3.7.4",
     "sqlalchemy==2.0.49",
     "sqlglot==27.13.2",
-    "sqlmodel==0.0.38",
+    "sqlmodel==0.0.48",
     "tabulate==0.9.0",
     "tenacity==8.3.0",
     "toml==0.10.2",
@@ -135,7 +135,7 @@ telemetry = [
 ]
 
 extract = [
-    "accelerate==1.13.0",
+    "accelerate==1.15.0",
     "docling[rapidocr]==2.132.0",
     "sentence-transformers==5.6.0",
     "transformers>=5.17.0,<5.18.0",
@@ -158,18 +158,17 @@ vlm_asr = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/IBM/docling-pipelines"
-Documentation = "https://github.com/IBM/docling-pipelines/blob/main/docs/README.md"
-Source = "https://github.com/IBM/docling-pipelines"
-"Bug Tracker" = "https://github.com/IBM/docling-pipelines/issues"
+Homepage = "https://github.com/docling-project/docling-pipelines"
+Documentation = "https://github.com/docling-project/docling-pipelines/blob/main/docs/README.md"
+Source = "https://github.com/docling-project/docling-pipelines"
+"Bug Tracker" = "https://github.com/docling-project/docling-pipelines/issues"
 
 [project.scripts]
 docling-pipelines-api = "docpipe.api.main:run"
 docling-pipelines = "docpipe.cli.docpipe_cli:main"
 
-[tool.hatch.build.targets.wheel]
-packages = ["docpipe"]
-sources = {"docpipe" = "../src/docpipe"}
+[tool.hatch.build.targets.wheel.force-include]
+"../src/docpipe" = "docpipe"
 
 [tool.hatch.build.targets.sdist.force-include]
 "../src/docpipe" = "docpipe"
@@ -363,6 +362,6 @@ exclude_lines = [
 dev = [
     "mypy>=1.19.1",
     "types-boto3==1.43.0",
-    "types-python-dateutil==2.9.0.20260408",
+    "types-python-dateutil==2.9.0.20260807",
     "types-requests==2.33.0.20260408",
 ]

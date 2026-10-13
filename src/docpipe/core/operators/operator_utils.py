@@ -13,6 +13,7 @@ from typing import Any, ClassVar
 
 import pyarrow as pa
 import pyarrow.compute as pc
+import re2 as re
 from charset_normalizer import from_bytes
 from pyarrow import Table
 
@@ -1474,8 +1475,6 @@ class OperatorUtils:
         """
         if not text or not text.lstrip().startswith("<"):
             return text
-
-        import re
 
         try:
             deserializer = OperatorUtils.get_doclang_deserializer()
