@@ -53,9 +53,12 @@ graph TD
 - Manages parallel document classification
 - Integrates with job tracking and progress reporting
 - Calls only `ClassificationPort`; never imports concrete adapters
+- Does not extract text itself: it passes `existing_text` (from the `content` column) and/or the raw `binary_content` to the adapter, which decides what it needs
+- Writes the `_temp_content_for_extract` / `_temp_pages_processed` reuse columns only when the adapter reports `extracted_content` (see [Content reuse](#content-reuse-by-the-extract-operator))
 
 #### 2. Port ([`classification_port.py`](../../../src/docpipe/core/operators/quality/classification/ports/outbound/classification_port.py))
 - Defines `classify_document()` and the `from_config()` classmethod contract
+- `ClassificationResponse` may carry optional `extracted_content` and `extraction_metadata` for adapters that extract text as a by-product
 
 #### 3. Factory ([`classification_adapter_factory.py`](../../../src/docpipe/core/operators/quality/classification/adapters/outbound/factories/classification_adapter_factory.py))
 - Registry of adapters keyed by `ADAPTER_NAME`
@@ -64,6 +67,7 @@ graph TD
 
 #### 4. Adapter ([`standard_llm_adapter.py`](../../../src/docpipe/core/operators/quality/classification/adapters/outbound/standard_llm_adapter.py))
 - `StandardLLMClassificationAdapter` builds an `LLMInferencePort` through `LLMAdapterFactory` and performs prompt building, LLM call and response parsing
+- Classifies from text: uses `existing_text` when given, otherwise extracts text from `binary_content` with Docling and returns it as `extracted_content` / `extraction_metadata`
 
 #### 5. Domain ([`domain/models.py`](../../../src/docpipe/core/operators/quality/classification/domain/models.py))
 - Pure domain models: `ClassificationRequest`, `ClassificationResponse`
@@ -74,6 +78,25 @@ graph TD
 
 Implement `ClassificationPort` (set `ADAPTER_NAME`, implement `from_config()` and
 `classify_document()`), then call `ClassificationAdapterFactory.register(MyAdapter)`.
+
+Adapters that do not need Docling text (for example, ones that classify from raw bytes) simply
+leave `extracted_content` and `extraction_metadata` as `None`; the operator then never runs
+Docling and does not write the reuse columns.
+
+### Content reuse by the Extract operator
+
+When the input table has no `content` column and the adapter had to extract text itself (the
+standard adapter does), the operator adds two temporary columns so a downstream
+[Extract Operator](../extract/extract_operator_readme.md) can skip a second Docling pass:
+
+| Column | Description |
+|---|---|
+| `_temp_content_for_extract` | Text extracted by the adapter |
+| `_temp_pages_processed` | Native Docling `page_count`, or an estimate from character count |
+
+The columns are written only when every document was extracted. If any document is skipped
+(unsupported extension, blank extraction) or fails to fetch, neither column is added, so Extract
+never sees mixed content.
 
 ---
 
@@ -295,7 +318,7 @@ The operator validates file extensions and only processes documents with the fol
 
 - PyArrow Table with document content
 - Required: `name` column containing filename (used for extension validation)
-- Optional: `content` column (if not present, will be fetched from binary content)
+- Optional: `content` column (if not present, the raw document bytes are fetched and passed to the adapter, which extracts text when it needs to)
 
 ## Output Columns
 
@@ -306,7 +329,8 @@ All input columns are preserved. The operator appends:
 | `document_type` | `string` | Classified document type label |
 | `document_type_confidence` | `float32` | Confidence score (1–10); present when `include_confidence: true` |
 | `document_type_reasoning` | `string` | Explanation for the classification; present when `include_reasoning: true` |
-| `content` | `string` | Document text content; added only if not already in the input table |
+| `_temp_content_for_extract` | `string` | Internal reuse column for the Extract operator; added only when no `content` column was supplied and the adapter extracted text for every document |
+| `_temp_pages_processed` | `int` | Internal reuse column; added together with `_temp_content_for_extract` |
 
 **Note:** Documents with unsupported file extensions are not removed — they remain in the output table with `None` values in the classification columns and are tracked in `skipped_docs` metadata.
 
@@ -317,7 +341,7 @@ All input columns are preserved. The operator appends:
 | Column | Type | Required | Description |
 |---|---|---|---|
 | `name` | string | Yes | Filename — used for file extension validation |
-| `content` | string | No | Document text; fetched from binary content if absent |
+| `content` | string | No | Document text; if absent, binary content is fetched and the adapter extracts text from it |
 
 ---
 
@@ -330,7 +354,8 @@ The operator adds the following columns to the output table:
 | `document_type` | string | Classified document type | Yes |
 | `document_type_confidence` | float | Confidence score (1-10) | If `include_confidence=true` |
 | `document_type_reasoning` | string | Classification explanation | If `include_reasoning=true` |
-| `content` | string | Document content (if fetched) | If not already present |
+| `_temp_content_for_extract` | string | Text extracted by the adapter, for reuse by Extract | Only when adapter extracted all documents |
+| `_temp_pages_processed` | int | Page count for the extracted text | Only with `_temp_content_for_extract` |
 
 ### Metadata
 
@@ -719,6 +744,8 @@ class ClassificationResponse:
     reasoning: str
     success: bool
     error: str | None = None
+    extracted_content: str | None = None  # text the adapter extracted itself (e.g. via Docling)
+    extraction_metadata: dict[str, Any] | None = None  # e.g. Docling page_count
 
 @dataclass
 class ModelInfo:
