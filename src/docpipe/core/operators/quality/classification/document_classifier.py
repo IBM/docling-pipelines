@@ -20,6 +20,7 @@ from docpipe.core.operators.quality.classification.adapters.outbound.factories.c
     ClassificationAdapterFactory,
 )
 from docpipe.core.operators.quality.classification.ports.outbound.classification_port import ClassificationPort
+from docpipe.core.ports.document_class_provider import DocumentClassProvider, StaticDocumentClassProvider
 from docpipe.utils.infrastructure.concurrency import submit_task_with_context_propagation
 from docpipe.utils.infrastructure.logging import get_logger
 
@@ -108,7 +109,13 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
     category: OperatorCategory = OperatorCategory.Quality
     owner = DocpipeConstants.OWNER_DOCPIPE
 
-    def __init__(self, config: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        config: dict[str, Any],
+        *,
+        document_class_provider: DocumentClassProvider | None = None,
+        classification_adapter: ClassificationPort | None = None,
+    ) -> None:
         """
         Initialize the document classifier operator.
 
@@ -126,12 +133,23 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                 - output_column: Column name for classification result (default: "document_type")
                 - include_confidence: Include confidence score in output (default: True)
                 - include_reasoning: Include reasoning in output (default: False)
+            document_class_provider: Port used to resolve document types when
+                ``document_types`` is not given in *config*.  Defaults to
+                :class:`StaticDocumentClassProvider` (local JSON files).  Host
+                applications (e.g. datasift-api) inject their own implementation.
+            classification_adapter: Pre-built :class:`ClassificationPort`.  When
+                given, :class:`ClassificationAdapterFactory` is bypassed and
+                ``provider`` / ``provider_config`` are not used to build an adapter.
 
         Raises:
             ValueError: When provider configuration is invalid (delegated to
                 :class:`ClassificationAdapterFactory`).
         """
         super().__init__(config)
+
+        self._document_class_provider: DocumentClassProvider = (
+            document_class_provider if document_class_provider is not None else StaticDocumentClassProvider()
+        )
 
         # Store full config for on-demand binary fetching (includes ingest_source if present)
         self.global_config = config
@@ -141,10 +159,12 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
             OperatorConstants.Config.PROVIDER, OperatorConstants.Classification.DEFAULT_PROVIDER
         ).lower()
 
-        # Document types configuration
-        self.document_types: list[str] | dict[str, str] = config.get(OperatorConstants.Config.DOCUMENT_TYPES, [])
-        if not self.document_types:
-            self.document_types = self._get_document_types()
+        # Document types: explicit config wins; otherwise resolved lazily from the
+        # provider on first access (see the ``document_types`` property) so that
+        # remote providers do no I/O during construction.
+        self._document_types: list[str] | dict[str, str] | None = (
+            config.get(OperatorConstants.Config.DOCUMENT_TYPES) or None
+        )
 
         # Classification parameters
         self.confidence_threshold: float = config.get(
@@ -173,9 +193,10 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
             DocpipeConstants.JOB_RUN_ID: self.job_run_id,
         }
 
-        self.adapter: ClassificationPort = ClassificationAdapterFactory.create_adapter(
-            provider=self.provider,
-            config=self.config,
+        self.adapter: ClassificationPort = (
+            classification_adapter
+            if classification_adapter is not None
+            else ClassificationAdapterFactory.create_adapter(provider=self.provider, config=self.config)
         )
 
         logger.debug(
@@ -190,11 +211,22 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
             OperatorConstants.Config.MAX_WORKERS, OperatorUtils.get_optimal_workers(is_cpu_intensive=False)
         )
 
-        logger.info(
-            "Initialized DocumentClassifierOperator with provider=%s types=%s",
-            self.provider,
-            len(self.document_types),
-        )
+        logger.info("Initialized DocumentClassifierOperator with provider=%s", self.provider)
+
+    @property
+    def document_types(self) -> list[str] | dict[str, str]:
+        """Document types to classify into.
+
+        Uses ``document_types`` from the config when present, otherwise asks the
+        injected :class:`DocumentClassProvider`.  The result is cached.
+        """
+        if self._document_types is None:
+            self._document_types = self._document_class_provider.get_document_types()
+        return self._document_types
+
+    @document_types.setter
+    def document_types(self, value: list[str] | dict[str, str]) -> None:
+        self._document_types = value or None
 
     def validate(self, errors: list[str], warnings: list[str], available_features: list[str]) -> None:
         """
@@ -222,16 +254,15 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
             if self.provider not in supported_providers:
                 errors.append(f"provider must be one of {sorted(supported_providers)}, got '{self.provider}'")
 
-        # Validate document types
-        if self.should_validate_field(field_value=self.document_types):
-            if not self.document_types:
+        # Validate document types (may be resolved from the document class provider)
+        try:
+            document_types = self.document_types
+        except Exception as exc:  # provider failures must surface as validation errors
+            logger.warning("Failed to resolve document types from provider: %s", exc)
+            errors.append(f"Unable to resolve document types from document class provider: {exc}")
+        else:
+            if self.should_validate_field(field_value=document_types) and not document_types:
                 errors.append("document_types cannot be empty")
-            elif isinstance(self.document_types, list):
-                if not self.document_types:
-                    errors.append("document_types list cannot be empty")
-            elif isinstance(self.document_types, dict):
-                if not self.document_types:
-                    errors.append("document_types dictionary cannot be empty")
 
         # Validate confidence threshold (optional, defaults to 7.0)
         if self.should_validate_field(field_value=self.confidence_threshold):
@@ -240,16 +271,6 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                     errors.append("confidence_threshold must be a number")
                 elif not (1.0 <= self.confidence_threshold <= 10.0):
                     errors.append("confidence_threshold must be between 1.0 and 10.0")
-
-    @staticmethod
-    def _get_document_types() -> dict[str, str]:
-        """
-        Returns:
-            Dictionary mapping document_type to document_description
-        """
-        from docpipe.utils.document_class_utils import DocumentClassUtils
-
-        return dict(DocumentClassUtils.get_document_types())
 
     def _update_classification_progress(
         self, *, completed: int, total: int, progress_percentage: float, failed_count: int
@@ -327,6 +348,7 @@ class DocumentClassifierOperator(AbstractOperator):  # type: ignore[misc]
                 doc_name=doc_name or "",
                 binary_content=None,
                 existing_text=content,
+                document_types=self.document_types,
             )
 
             if not response.success:

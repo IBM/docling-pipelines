@@ -24,13 +24,16 @@ class ClassificationPort(ABC):
     ADAPTER_DISPLAY_NAME: str
 
     def __init__(self, *, config: dict[str, Any]) -> None:
-        """Store common classification config values from the operator config dict.
+        """Store common classification tuning values from the operator config dict.
+
+        Document types are intentionally *not* read here: they are supplied
+        per call to :meth:`classify_document` so adapters never depend on where
+        the classes came from (static files, UDC, ...).
 
         Args:
             config: Full operator config dictionary.
         """
         self.config = config
-        self.document_types: list[str] | dict[str, str] = config.get(OperatorConstants.Config.DOCUMENT_TYPES, [])
         self.confidence_threshold: float = config.get(
             OperatorConstants.Config.CONFIDENCE_THRESHOLD,
             OperatorConstants.Classification.DEFAULT_CONFIDENCE_THRESHOLD,
@@ -76,6 +79,7 @@ class ClassificationPort(ABC):
         doc_name: str,
         binary_content: bytes | None,
         existing_text: str | None,
+        document_types: list[str] | dict[str, str],
     ) -> ClassificationResponse:
         """Classify a single document and return a structured response.
 
@@ -88,6 +92,9 @@ class ClassificationPort(ABC):
             existing_text: Pre-extracted text content.  When supplied, adapters
                 that support a text path should prefer it over re-extracting
                 from ``binary_content``.
+            document_types: Document types to classify into, as a list of names
+                or a ``name → description`` mapping.  Resolved by the caller
+                (typically via a ``DocumentClassProvider``).
 
         Returns:
             :class:`ClassificationResponse` with ``document_type``,

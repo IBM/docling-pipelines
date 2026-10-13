@@ -1,20 +1,25 @@
-"""Unit tests for DocumentClassifierOperator — factory wiring.
+"""Unit tests for DocumentClassifierOperator — factory wiring and injection seams.
 
 Tests verify that:
 - ``provider="litellm"`` → factory is called correctly and operator holds the result
 - Output columns are present and correct
 - Validate() does not flag valid providers
+- ``DocumentClassProvider`` / ``ClassificationPort`` can be injected (hexagonal seams)
 """
 
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pyarrow as pa
+import pytest
 
 from docpipe.core.operators.quality.classification.adapters.outbound.standard_llm_adapter import (
     StandardLLMClassificationAdapter,
 )
+from docpipe.core.operators.quality.classification.document_classifier import DocumentClassifierOperator
 from docpipe.core.operators.quality.classification.domain.models import ClassificationResponse
+from docpipe.core.operators.quality.classification.ports.outbound.classification_port import ClassificationPort
+from docpipe.core.ports.document_class_provider import DocumentClassProvider, StaticDocumentClassProvider
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -137,3 +142,124 @@ class TestValidate:
 
         provider_errors = [e for e in errors if "provider" in e.lower() and "litellm" in e.lower()]
         assert provider_errors == [], "validate() should not flag 'litellm' as invalid provider"
+
+
+# ---------------------------------------------------------------------------
+# Tests — DocumentClassProvider / ClassificationPort injection
+# ---------------------------------------------------------------------------
+
+_CONFIG_NO_TYPES: dict[str, Any] = {
+    "provider": "litellm",
+    "provider_config": {
+        "model_id": "openai/test",
+        "api_base": "http://localhost:11434/v1",
+        "api_key": "x",
+    },  # pragma: allowlist secret
+}
+
+
+class _FakeProvider(DocumentClassProvider):
+    def __init__(self, types: dict[str, str]) -> None:
+        self._types = types
+        self.calls = 0
+
+    def get_document_types(self) -> dict[str, str]:
+        self.calls += 1
+        return dict(self._types)
+
+    def get_schema_templates(self, *, document_types: list[str]) -> dict[str, dict]:
+        return {}
+
+
+class _FakeAdapter(ClassificationPort):
+    ADAPTER_NAME = "_fake"
+    ADAPTER_DISPLAY_NAME = "Fake"
+
+    def __init__(self) -> None:
+        super().__init__(config={})
+        self.received_types: Any = None
+
+    @classmethod
+    def from_config(cls, config: dict[str, Any]) -> "_FakeAdapter":
+        return cls()
+
+    def classify_document(self, *, doc_name, binary_content, existing_text, document_types):  # type: ignore[override]
+        self.received_types = document_types
+        return ClassificationResponse(document_type="Pay Stub", confidence=9, reasoning="r", success=True)
+
+
+@pytest.mark.unit
+class TestDocumentClassProviderInjection:
+    def test_defaults_to_static_provider(self) -> None:
+        with patch("docpipe.core.operators.quality.classification.document_classifier.ClassificationAdapterFactory"):
+            op = DocumentClassifierOperator(_CONFIG_NO_TYPES)
+        assert isinstance(op._document_class_provider, StaticDocumentClassProvider)
+
+    def test_injected_provider_supplies_types(self) -> None:
+        provider = _FakeProvider({"Pay Stub": "A pay stub"})
+        op = DocumentClassifierOperator(
+            _CONFIG_NO_TYPES, document_class_provider=provider, classification_adapter=_FakeAdapter()
+        )
+        assert op.document_types == {"Pay Stub": "A pay stub"}
+
+    def test_provider_not_called_during_construction(self) -> None:
+        provider = _FakeProvider({"a": "b"})
+        DocumentClassifierOperator(
+            _CONFIG_NO_TYPES, document_class_provider=provider, classification_adapter=_FakeAdapter()
+        )
+        assert provider.calls == 0
+
+    def test_provider_result_is_cached(self) -> None:
+        provider = _FakeProvider({"a": "b"})
+        op = DocumentClassifierOperator(
+            _CONFIG_NO_TYPES, document_class_provider=provider, classification_adapter=_FakeAdapter()
+        )
+        _ = op.document_types
+        _ = op.document_types
+        assert provider.calls == 1
+
+    def test_config_document_types_override_provider(self) -> None:
+        provider = _FakeProvider({"from_provider": "x"})
+        config = {**_CONFIG_NO_TYPES, "document_types": ["from_config"]}
+        op = DocumentClassifierOperator(config, document_class_provider=provider, classification_adapter=_FakeAdapter())
+        assert op.document_types == ["from_config"]
+        assert provider.calls == 0
+
+    def test_validate_reports_provider_failure_as_error(self) -> None:
+        provider = MagicMock(spec=DocumentClassProvider)
+        provider.get_document_types.side_effect = RuntimeError("udc down")
+        op = DocumentClassifierOperator(
+            _CONFIG_NO_TYPES, document_class_provider=provider, classification_adapter=_FakeAdapter()
+        )
+        errors: list[str] = []
+        op.validate(errors, [], ["content"])
+        assert any("udc down" in e for e in errors)
+
+
+@pytest.mark.unit
+class TestClassificationAdapterInjection:
+    def test_injected_adapter_bypasses_factory(self) -> None:
+        adapter = _FakeAdapter()
+        with patch(
+            "docpipe.core.operators.quality.classification.document_classifier.ClassificationAdapterFactory"
+        ) as factory:
+            op = DocumentClassifierOperator(
+                _CONFIG_NO_TYPES,
+                document_class_provider=_FakeProvider({"Pay Stub": "d"}),
+                classification_adapter=adapter,
+            )
+        factory.create_adapter.assert_not_called()
+        assert op.adapter is adapter
+
+    def test_end_to_end_with_fake_ports_only(self) -> None:
+        """Provider + adapter fakes: no litellm / watsonx / filesystem involved."""
+        adapter = _FakeAdapter()
+        op = DocumentClassifierOperator(
+            _CONFIG_NO_TYPES,
+            document_class_provider=_FakeProvider({"Pay Stub": "A pay stub"}),
+            classification_adapter=adapter,
+        )
+        table = pa.table({"id": ["1"], "name": ["a.pdf"], "content": ["Gross pay 100"]})
+        out, _ = op.transform(table)
+        assert out[0]["document_type"].to_pylist() == ["Pay Stub"]
+        assert adapter.received_types == {"Pay Stub": "A pay stub"}

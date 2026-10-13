@@ -59,7 +59,7 @@ class TestRegistry:
             def from_config(cls, config: dict[str, Any]) -> "_FakeAdapter":
                 return cls(config=config)
 
-            def classify_document(self, *, doc_name, binary_content, existing_text):  # type: ignore[override]
+            def classify_document(self, *, doc_name, binary_content, existing_text, document_types):  # type: ignore[override]
                 ...
 
         ClassificationAdapterFactory.register(_FakeAdapter)

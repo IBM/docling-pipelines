@@ -244,7 +244,7 @@ class StandardLLMClassificationAdapter(ClassificationPort):
 
         Args:
             llm_adapter: Pre-built and validated :class:`LLMInferencePort`.
-            config: Full operator config dictionary (used for document_types,
+            config: Full operator config dictionary (used for
                 confidence_threshold, temperature, max_tokens).
         """
         super().__init__(config=config)
@@ -328,6 +328,7 @@ class StandardLLMClassificationAdapter(ClassificationPort):
         doc_name: str,
         binary_content: bytes | None,
         existing_text: str | None,
+        document_types: list[str] | dict[str, str],
     ) -> ClassificationResponse:
         """Classify a document using :class:`_LLMClassificationService`.
 
@@ -342,6 +343,8 @@ class StandardLLMClassificationAdapter(ClassificationPort):
                 is ``None``.
             existing_text: Pre-extracted text.  When given, Docling extraction
                 is skipped entirely.
+            document_types: Document types to classify into. Supplied by the
+                operator, which resolved them via a ``DocumentClassProvider``.
 
         Returns:
             :class:`ClassificationResponse` populated by
@@ -398,13 +401,13 @@ class StandardLLMClassificationAdapter(ClassificationPort):
 
         request = ClassificationRequest(
             content=content,
-            document_types=self.document_types,
+            document_types=document_types,
             confidence_threshold=self.confidence_threshold,
         )
         logger.debug(
             "StandardLLMAdapter: invoking _LLMClassificationService for %s (content_len=%s, types=%s)",
             doc_name,
             len(content),
-            len(self.document_types),
+            len(document_types),
         )
         return self._service.classify_document(request=request)

@@ -70,9 +70,10 @@ class TestStandardLLMClassificationAdapterInit:
         assert "litellm" in StandardLLMClassificationAdapter.PROVIDER_ALIASES
         assert "watsonx" in StandardLLMClassificationAdapter.PROVIDER_ALIASES
 
-    def test_stores_document_types(self) -> None:
+    def test_does_not_read_document_types_from_config(self) -> None:
+        """Document types are a per-call argument, never read from config."""
         adapter = _make_adapter()
-        assert adapter.document_types == ["invoice", "receipt"]
+        assert not hasattr(adapter, "document_types")
 
     def test_stores_confidence_threshold(self) -> None:
         adapter = _make_adapter()
@@ -180,6 +181,30 @@ class TestFromConfig:
 
 
 # ---------------------------------------------------------------------------
+# Tests — injected LLM port (host-application construction path)
+# ---------------------------------------------------------------------------
+
+
+class TestInjectedLLMPort:
+    def test_end_to_end_classification_uses_call_time_document_types(self) -> None:
+        """A host-supplied LLMInferencePort works via the constructor, with types given per call."""
+        mock_llm = _make_mock_llm_adapter()
+        mock_llm.chat.return_value = '{"document_type": "pay_stub", "confidence": 9, "reasoning": "r"}'
+        config = {"provider_config": {"model_id": "gw/model"}}  # no document_types in config
+        adapter = StandardLLMClassificationAdapter(llm_adapter=mock_llm, config=config)
+        response = adapter.classify_document(
+            doc_name="a.pdf",
+            binary_content=None,
+            existing_text="Gross pay ...",
+            document_types={"pay_stub": "A pay stub", "invoice": "An invoice"},
+        )
+        assert response.success is True
+        assert response.document_type == "pay_stub"
+        prompt = mock_llm.chat.call_args.kwargs["messages"][1]["content"]
+        assert "pay_stub: A pay stub" in prompt  # call-time types reach the prompt
+
+
+# ---------------------------------------------------------------------------
 # Tests — classify_document with existing_text
 # ---------------------------------------------------------------------------
 
@@ -192,10 +217,18 @@ class TestClassifyDocumentWithExistingText:
             doc_name="doc.pdf",
             binary_content=None,
             existing_text="Invoice total: $100",
+            document_types=["invoice", "receipt"],
         )
         assert response.success is True
         assert response.document_type == "invoice"
         adapter._service.classify_document.assert_called_once()  # type: ignore[attr-defined]
+
+    def test_passes_call_time_document_types_to_service(self) -> None:
+        adapter = _make_adapter()
+        types = {"invoice": "An invoice"}
+        adapter.classify_document(doc_name="doc.pdf", binary_content=None, existing_text="text", document_types=types)
+        request = adapter._service.classify_document.call_args.kwargs["request"]  # type: ignore[attr-defined]
+        assert request.document_types == types
 
     def test_returns_valid_classification_response(self) -> None:
         adapter = _make_adapter()
@@ -203,6 +236,7 @@ class TestClassifyDocumentWithExistingText:
             doc_name="doc.pdf",
             binary_content=None,
             existing_text="Some document content",
+            document_types=["invoice"],
         )
         assert isinstance(response, ClassificationResponse)
         assert response.success is True
@@ -229,6 +263,7 @@ class TestClassifyDocumentWithBinaryContent:
                 doc_name="doc.pdf",
                 binary_content=b"%PDF-fake",
                 existing_text=None,
+                document_types=["invoice"],
             )
         mock_extract.assert_called_once_with(file_path="doc.pdf", binary_content=b"%PDF-fake")
         assert isinstance(response, ClassificationResponse)
@@ -244,6 +279,7 @@ class TestClassifyDocumentWithBinaryContent:
                 doc_name="doc.pdf",
                 binary_content=b"bad-pdf",
                 existing_text=None,
+                document_types=["invoice"],
             )
         assert response.success is False
         assert "Extraction failed" in (response.error or "") or "Unsupported format" in (response.error or "")
@@ -261,6 +297,7 @@ class TestClassifyDocumentNoContent:
             doc_name="doc.pdf",
             binary_content=None,
             existing_text=None,
+            document_types=["invoice"],
         )
         assert response.success is False
         assert response.error is not None
