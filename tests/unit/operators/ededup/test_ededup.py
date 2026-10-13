@@ -5,7 +5,7 @@ import inspect
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pyarrow as pa
 import pytest
@@ -28,7 +28,7 @@ from docpipe.core.operators.quality.ededup import EdedupOperator
 from docpipe.core.operators.quality.ededup_storage import factory
 from docpipe.core.operators.quality.ededup_storage.adapters.filesystem_store import FilesystemDedupStore
 from docpipe.core.operators.quality.ededup_storage.factory import DedupStoreFactory
-from docpipe.exceptions.docpipe_exceptions import DocpipeException
+from docpipe.exceptions.docpipe_exceptions import DocpipeException, FlowExecutionFailedException
 
 # from dpk_ededup.transform_python import EdedupTransform
 # from docpipe_core.operators.quality.ededup import EdedupOperator
@@ -735,3 +735,78 @@ def test_postgres_common_environment_and_dedup_override(monkeypatch):
         "postgresql+psycopg2://envuser:testpass@deduphost:5544/envdb"  # pragma: allowlist secret - dummy test URL
     )
     engine.dispose.assert_called_once()
+
+
+@pytest.fixture
+def mocked_postgres_store(monkeypatch):
+    """Construct a PostgreSQL dedup store with a mocked SQLAlchemy engine."""
+    from docpipe.core.operators.quality.ededup_storage.adapters import postgres_store
+
+    engine = MagicMock()
+    connection = MagicMock()
+    engine.begin.return_value.__enter__.return_value = connection
+    engine.dialect.identifier_preparer.quote_schema.return_value = '"test_schema"'
+    monkeypatch.setattr(postgres_store, "get_postgres_connection_string", lambda *, config: "postgresql://test")
+    monkeypatch.setattr(postgres_store, "create_postgres_engine", lambda *, connection_string, config: engine)
+    monkeypatch.setattr(postgres_store.Table, "create", Mock())
+    store = postgres_store.PostgresDedupStore(config={"schema": "test_schema"})
+    return store, engine, connection
+
+
+def test_postgres_store_requires_connection(monkeypatch):
+    from docpipe.core.operators.quality.ededup_storage.adapters import postgres_store
+
+    monkeypatch.setattr(postgres_store, "get_postgres_connection_string", lambda *, config: None)
+    create_engine = Mock()
+    monkeypatch.setattr(postgres_store, "create_postgres_engine", create_engine)
+    with pytest.raises(DocpipeException, match="connection not configured"):
+        postgres_store.PostgresDedupStore()
+    create_engine.assert_not_called()
+
+
+def test_postgres_store_initialization_creates_schema_and_table(mocked_postgres_store):
+    store, engine, connection = mocked_postgres_store
+    assert store._ededup_table.schema == "test_schema"
+    assert connection.execute.call_count == 2
+    assert connection.execute.call_args_list[0].args[0].text == "SELECT pg_advisory_xact_lock(hashtext(:key))"
+    assert connection.execute.call_args_list[0].args[1] == {"key": "test_schema.ededup_hashes"}
+    assert "CREATE SCHEMA IF NOT EXISTS" in connection.execute.call_args_list[1].args[0].text
+    store.close()
+    engine.dispose.assert_called_once()
+
+
+def test_postgres_store_disposes_engine_when_initialization_fails(monkeypatch):
+    from docpipe.core.operators.quality.ededup_storage.adapters import postgres_store
+
+    engine = MagicMock()
+    engine.begin.return_value.__enter__.return_value = MagicMock()
+    monkeypatch.setattr(postgres_store, "get_postgres_connection_string", lambda *, config: "postgresql://test")
+    monkeypatch.setattr(postgres_store, "create_postgres_engine", lambda *, connection_string, config: engine)
+    monkeypatch.setattr(postgres_store.Table, "create", Mock(side_effect=RuntimeError("DDL failed")))
+    with pytest.raises(RuntimeError, match="DDL failed"):
+        postgres_store.PostgresDedupStore(config={"schema": "test_schema"})
+    engine.dispose.assert_called_once()
+
+
+def test_postgres_store_bulk_registers_in_chunks_and_returns_inserted_hashes(mocked_postgres_store):
+    store, _, connection = mocked_postgres_store
+    records = {f"hash-{index:04}": f"doc-{index}" for index in range(1001)}
+    execute_result = Mock()
+    execute_result.scalars.return_value.all.side_effect = [list(sorted(records)[:1000]), [sorted(records)[1000]]]
+    connection.execute.return_value = execute_result
+    accepted = store.check_and_register_hashes(job_id="job", node_id="node", job_run_id="run", records=records)
+    assert accepted == set(records)
+    assert connection.execute.call_count == 4  # lock, schema, and two insert chunks
+
+
+def test_postgres_store_empty_registration_skips_transaction(mocked_postgres_store):
+    store, engine, _ = mocked_postgres_store
+    assert store.check_and_register_hashes(job_id="job", node_id="node", job_run_id="run", records={}) == set()
+    engine.begin.assert_called_once()  # Only initialization opened a transaction.
+
+
+def test_postgres_store_wraps_registration_errors(mocked_postgres_store):
+    store, _, connection = mocked_postgres_store
+    connection.execute.side_effect = RuntimeError("database unavailable")
+    with pytest.raises(FlowExecutionFailedException, match="Failed to register deduplication hashes"):
+        store.check_and_register_hashes(job_id="job", node_id="node", job_run_id="run", records={"hash": "doc"})
