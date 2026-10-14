@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" id="html-root">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -13,88 +13,60 @@
   <meta property="og:description" content="Visual data engineering for complex multi-format documents: connect SharePoint, S3, and Drive, extract complex layouts with Docling, and index into Vector DBs via an open-source drag-and-drop canvas.">
   <meta property="og:image" content="assets/Canvas-page.jpg">
 
-  <!-- Google Fonts -->
+  <!-- IBM Plex fonts — matches docs site -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 
   <style>
     /* ==========================================================================
-       CSS Variables & Theme System
+       CSS Variables — docs site design language (navy / cyan)
        ========================================================================== */
     :root {
-      --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
-
-      /* Dark Theme (Default) */
-      --bg-base: #0c0e12;
-      --bg-surface: #14171f;
-      --bg-elevated: #1a1e28;
-      --bg-highlight: #222735;
-      --bg-glass: rgba(20, 23, 31, 0.75);
-
-      --border-subtle: rgba(255, 255, 255, 0.08);
-      --border-strong: rgba(255, 255, 255, 0.16);
-      --border-accent: rgba(15, 98, 254, 0.4);
-
-      --text-primary: #f4f6fa;
-      --text-secondary: #9da6b9;
-      --text-tertiary: #6b7280;
-
-      --accent-blue: #0f62fe;
-      --accent-blue-light: #4589ff;
-      --accent-cyan: #1192e8;
-      --accent-purple: #8a3ffc;
+      --bg:           #0f1117;
+      --bg-alt:       #161b27;
+      --bg-card:      #1a2035;
+      --surface:      #1e2740;
+      --border:       #2a3550;
+      --accent:       #33b1ff;
+      --accent-dim:   #1a6ea0;
+      --accent-glow:  rgba(51, 177, 255, .15);
       --accent-green: #24a148;
-      --accent-green-glow: rgba(36, 161, 72, 0.35);
       --accent-amber: #f1c21b;
-      --accent-red: #da1e28;
-
-      --card-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.6);
-      --glow-blue: 0 0 25px rgba(15, 98, 254, 0.3);
-      --radius-sm: 6px;
-      --radius-md: 10px;
-      --radius-lg: 16px;
-      --radius-xl: 24px;
-
-      --content-max-width: 940px;
-      --header-height: 68px;
+      --text:         #d4dbe8;
+      --text-dim:     #8898aa;
+      --text-head:    #ffffff;
+      --code-bg:      #111827;
+      --font:         'IBM Plex Sans', system-ui, sans-serif;
+      --mono:         'IBM Plex Mono', 'Courier New', monospace;
+      --radius-sm:    6px;
+      --radius-md:    10px;
+      --radius-lg:    16px;
+      --hdr-h:        60px;
+      --content-max:  940px;
     }
 
-    [data-theme="light"] {
-      --bg-base: #f4f6fa;
-      --bg-surface: #ffffff;
-      --bg-elevated: #f0f2f7;
-      --bg-highlight: #e4e7ee;
-      --bg-glass: rgba(255, 255, 255, 0.85);
-
-      --border-subtle: rgba(0, 0, 0, 0.08);
-      --border-strong: rgba(0, 0, 0, 0.16);
-      --border-accent: rgba(15, 98, 254, 0.3);
-
-      --text-primary: #12161f;
-      --text-secondary: #4b5563;
-      --text-tertiary: #8b949e;
-
-      --accent-blue: #0f62fe;
-      --accent-blue-light: #0043ce;
-      --accent-cyan: #0072c3;
-      --accent-purple: #6929c4;
+    /* ── Light mode — matches docs site ── */
+    html.light {
+      --bg:           #ffffff;
+      --bg-alt:       #f7f8fa;
+      --bg-card:      #eef1f6;
+      --surface:      #e5e9f0;
+      --border:       #d1d9e6;
+      --accent:       #0f62fe;
+      --accent-dim:   #0043ce;
+      --accent-glow:  rgba(15, 98, 254, .1);
       --accent-green: #198038;
-      --accent-green-glow: rgba(25, 128, 56, 0.2);
-
-      --card-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.08);
-      --glow-blue: 0 0 20px rgba(15, 98, 254, 0.15);
+      --text:         #1f2328;
+      --text-dim:     #57606a;
+      --text-head:    #0d1117;
+      --code-bg:      #f0f4f8;
     }
 
     /* ==========================================================================
-       Reset & Base Styles
+       Reset & Base
        ========================================================================== */
-    *, *::before, *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     html {
       scroll-behavior: smooth;
@@ -104,42 +76,42 @@
     }
 
     body {
-      font-family: var(--font-sans);
-      background-color: var(--bg-base);
-      color: var(--text-primary);
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
       line-height: 1.7;
-      transition: background-color 0.3s ease, color 0.3s ease;
       overflow-x: hidden;
     }
 
-    /* Progress Bar */
+    /* ==========================================================================
+       Reading Progress Bar
+       ========================================================================== */
     #reading-progress {
       position: fixed;
       top: 0;
       left: 0;
       height: 3px;
-      background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple), var(--accent-cyan));
+      background: linear-gradient(90deg, var(--accent), var(--accent-dim));
       width: 0%;
       z-index: 9999;
       transition: width 0.1s ease-out;
     }
 
     /* ==========================================================================
-       Navigation Bar
+       Navigation Bar — matches docs header style
        ========================================================================== */
     .navbar {
       position: sticky;
       top: 0;
-      height: var(--header-height);
-      background: var(--bg-glass);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border-subtle);
-      z-index: 1000;
+      height: var(--hdr-h);
+      background: var(--bg-alt);
+      border-bottom: 1px solid var(--border);
+      z-index: 200;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 2rem;
+      padding: 0 24px;
+      gap: 16px;
     }
 
     .nav-brand {
@@ -147,7 +119,7 @@
       align-items: center;
       gap: 0.85rem;
       text-decoration: none;
-      color: var(--text-primary);
+      color: var(--text-head);
       font-weight: 700;
       font-size: 1.15rem;
       letter-spacing: -0.02em;
@@ -157,22 +129,21 @@
       width: 32px;
       height: 32px;
       border-radius: var(--radius-sm);
-      background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+      background: var(--accent);
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #fff;
+      color: var(--bg);
       font-weight: 800;
       font-size: 0.95rem;
-      box-shadow: var(--glow-blue);
     }
 
     .brand-sub {
       font-size: 0.78rem;
       font-weight: 500;
-      color: var(--accent-blue-light);
+      color: var(--accent);
       padding: 2px 7px;
-      background: rgba(15, 98, 254, 0.15);
+      background: var(--accent-glow);
       border-radius: 4px;
       margin-left: 4px;
     }
@@ -186,15 +157,13 @@
 
     .nav-links a {
       text-decoration: none;
-      color: var(--text-secondary);
+      color: var(--text-dim);
       font-size: 0.9rem;
       font-weight: 500;
       transition: color 0.2s ease;
     }
 
-    .nav-links a:hover {
-      color: var(--accent-blue-light);
-    }
+    .nav-links a:hover { color: var(--accent); }
 
     .nav-actions {
       display: flex;
@@ -203,10 +172,10 @@
     }
 
     .theme-toggle-btn {
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-subtle);
+      background: var(--surface);
+      border: 1px solid var(--border);
       border-radius: var(--radius-sm);
-      color: var(--text-secondary);
+      color: var(--text-dim);
       width: 38px;
       height: 38px;
       display: flex;
@@ -217,14 +186,20 @@
     }
 
     .theme-toggle-btn:hover {
-      color: var(--text-primary);
-      border-color: var(--border-strong);
+      color: var(--text-head);
+      border-color: var(--accent-dim);
       transform: translateY(-1px);
     }
 
+    /* moon/sun swap — driven by html.light class */
+    .theme-toggle-btn .icon-moon { display: block; }
+    .theme-toggle-btn .icon-sun  { display: none; }
+    html.light .theme-toggle-btn .icon-moon { display: none; }
+    html.light .theme-toggle-btn .icon-sun  { display: block; }
+
     .btn-github {
-      background: var(--accent-blue);
-      color: #ffffff;
+      background: var(--accent);
+      color: var(--bg);
       padding: 0.5rem 1rem;
       border-radius: var(--radius-sm);
       text-decoration: none;
@@ -234,13 +209,11 @@
       align-items: center;
       gap: 0.5rem;
       transition: all 0.2s ease;
-      box-shadow: 0 4px 14px rgba(15, 98, 254, 0.35);
     }
 
     .btn-github:hover {
-      background: var(--accent-blue-light);
+      background: var(--accent-dim);
       transform: translateY(-1px);
-      box-shadow: 0 6px 20px rgba(15, 98, 254, 0.5);
     }
 
     /* ==========================================================================
@@ -250,8 +223,9 @@
       position: relative;
       padding: 5rem 1.5rem 3.5rem;
       text-align: center;
-      max-width: var(--content-max-width);
+      max-width: var(--content-max);
       margin: 0 auto;
+      overflow: hidden;
     }
 
     .hero-glow {
@@ -261,7 +235,7 @@
       transform: translateX(-50%);
       width: 600px;
       height: 400px;
-      background: radial-gradient(circle, rgba(15, 98, 254, 0.2) 0%, rgba(138, 63, 252, 0.1) 40%, transparent 70%);
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
       filter: blur(60px);
       pointer-events: none;
       z-index: -1;
@@ -271,13 +245,13 @@
       display: inline-flex;
       align-items: center;
       gap: 0.5rem;
-      background: var(--bg-elevated);
-      border: 1px solid var(--border-accent);
+      background: var(--surface);
+      border: 1px solid var(--border);
       padding: 0.35rem 1rem;
       border-radius: 9999px;
       font-size: 0.82rem;
       font-weight: 600;
-      color: var(--accent-blue-light);
+      color: var(--accent);
       margin-bottom: 1.75rem;
     }
 
@@ -292,27 +266,24 @@
 
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
+      50%       { opacity: 0.4; transform: scale(0.85); }
     }
 
     .hero h1 {
-      font-size: clamp(2.3rem, 5vw, 3.4rem);
-      font-weight: 800;
-      letter-spacing: -0.035em;
+      font-size: clamp(2.1rem, 5vw, 3.2rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
       line-height: 1.15;
       margin-bottom: 1.5rem;
-      color: var(--text-primary);
-    }
-
-    .hero h1 .gradient-text {
-      background: linear-gradient(135deg, #4589ff 0%, #a6c8ff 40%, #d4bbff 100%);
+      background: linear-gradient(135deg, var(--text-head) 0%, var(--accent) 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .hero-lead {
-      font-size: 1.2rem;
-      color: var(--text-secondary);
+      font-size: 1.1rem;
+      color: var(--text-dim);
       max-width: 780px;
       margin: 0 auto 2.25rem;
       line-height: 1.6;
@@ -323,7 +294,7 @@
       align-items: center;
       justify-content: center;
       gap: 1.75rem;
-      color: var(--text-tertiary);
+      color: var(--text-dim);
       font-size: 0.88rem;
     }
 
@@ -333,22 +304,34 @@
       gap: 0.4rem;
     }
 
+    .badge-ver {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      letter-spacing: .5px;
+    }
+
     /* ==========================================================================
        Article Layout & Typography
        ========================================================================== */
     .article-container {
-      max-width: var(--content-max-width);
+      max-width: var(--content-max);
       margin: 0 auto;
       padding: 0 1.5rem 6rem;
     }
 
     article h2 {
-      font-size: 1.85rem;
+      font-size: 1.55rem;
       font-weight: 700;
-      letter-spacing: -0.025em;
+      letter-spacing: -0.02em;
       margin: 3.5rem 0 1.25rem;
-      color: var(--text-primary);
-      position: relative;
+      color: var(--text-head);
+      border-bottom: 1px solid var(--border);
+      padding-bottom: .3em;
       display: flex;
       align-items: center;
       gap: 0.75rem;
@@ -359,40 +342,49 @@
       display: inline-block;
       width: 4px;
       height: 1.3em;
-      background: linear-gradient(to bottom, var(--accent-blue), var(--accent-purple));
+      background: var(--accent);
       border-radius: 2px;
+      flex-shrink: 0;
     }
 
     article h3 {
-      font-size: 1.35rem;
-      font-weight: 600;
-      letter-spacing: -0.015em;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
       margin: 2.25rem 0 1rem;
-      color: var(--text-primary);
+      color: var(--text-head);
     }
 
     article p {
-      color: var(--text-secondary);
+      color: var(--text);
       margin-bottom: 1.4rem;
-      font-size: 1.05rem;
+      font-size: 1rem;
     }
 
-    article strong {
-      color: var(--text-primary);
-      font-weight: 600;
-    }
+    article strong { color: var(--text-head); font-weight: 600; }
 
     article ul, article ol {
-      color: var(--text-secondary);
+      color: var(--text);
       margin: 0 0 1.5rem 1.5rem;
-      font-size: 1.03rem;
+      font-size: 1rem;
     }
 
-    article li {
-      margin-bottom: 0.6rem;
+    article li { margin-bottom: 0.6rem; }
+
+    /* Inline code */
+    code {
+      font-family: var(--mono);
+      font-size: .85em;
+      background: var(--code-bg);
+      color: var(--accent);
+      padding: 1px 5px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
     }
 
-    /* Callout Alerts */
+    /* ==========================================================================
+       Callout Alerts
+       ========================================================================== */
     .callout {
       border-radius: var(--radius-md);
       padding: 1.25rem 1.5rem;
@@ -404,59 +396,46 @@
     }
 
     .callout.callout-info {
-      background: rgba(15, 98, 254, 0.08);
-      border-color: var(--accent-blue);
-      color: var(--text-primary);
+      background: var(--accent-glow);
+      border-color: var(--accent);
+      color: var(--text);
     }
 
     .callout.callout-tip {
-      background: rgba(36, 161, 72, 0.08);
+      background: rgba(36, 161, 72, .1);
       border-color: var(--accent-green);
-      color: var(--text-primary);
+      color: var(--text);
     }
 
     .callout.callout-warning {
-      background: rgba(241, 194, 27, 0.08);
+      background: rgba(241, 194, 27, .08);
       border-color: var(--accent-amber);
-      color: var(--text-primary);
+      color: var(--text);
     }
 
-    .callout-icon {
-      font-size: 1.3rem;
-      line-height: 1;
-      margin-top: 2px;
-    }
+    .callout-icon { font-size: 1.3rem; line-height: 1; margin-top: 2px; }
 
-    .callout-content {
-      font-size: 0.96rem;
-      line-height: 1.6;
-    }
-
-    .callout-content p:last-child {
-      margin-bottom: 0;
-    }
+    .callout-content { font-size: 0.96rem; line-height: 1.6; }
+    .callout-content p:last-child { margin-bottom: 0; }
 
     /* ==========================================================================
-       Screenshots & Visual Cards
+       Screenshot / UI Showcase Cards
        ========================================================================== */
     .ui-showcase-card {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       border-radius: var(--radius-lg);
       overflow: hidden;
       margin: 2.5rem 0;
-      box-shadow: var(--card-shadow);
-      transition: border-color 0.3s ease, transform 0.2s ease;
+      transition: border-color .15s;
     }
 
-    .ui-showcase-card:hover {
-      border-color: var(--border-accent);
-    }
+    .ui-showcase-card:hover { border-color: var(--accent-dim); }
 
     .showcase-header {
       padding: 1rem 1.25rem;
-      background: var(--bg-elevated);
-      border-bottom: 1px solid var(--border-subtle);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -469,10 +448,7 @@
       gap: 0.65rem;
     }
 
-    .window-dots {
-      display: flex;
-      gap: 6px;
-    }
+    .window-dots { display: flex; gap: 6px; }
 
     .window-dot {
       width: 10px;
@@ -480,14 +456,14 @@
       border-radius: 50%;
     }
 
-    .dot-red { background-color: #ff5f56; }
+    .dot-red    { background-color: #ff5f56; }
     .dot-yellow { background-color: #ffbd2e; }
-    .dot-green { background-color: #27c93f; }
+    .dot-green  { background-color: #27c93f; }
 
     .showcase-title {
       font-size: 0.88rem;
       font-weight: 600;
-      color: var(--text-primary);
+      color: var(--text-head);
       margin-left: 0.4rem;
     }
 
@@ -496,15 +472,17 @@
       font-weight: 600;
       padding: 2px 8px;
       border-radius: 4px;
-      background: rgba(15, 98, 254, 0.15);
-      color: var(--accent-blue-light);
-      border: 1px solid rgba(15, 98, 254, 0.3);
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid var(--accent-dim);
+      font-family: var(--mono);
+      letter-spacing: .3px;
     }
 
     .showcase-media {
       position: relative;
       cursor: zoom-in;
-      background: #000;
+      background: var(--bg);
     }
 
     .showcase-media img {
@@ -514,16 +492,13 @@
       transition: opacity 0.2s ease;
     }
 
-    .showcase-media:hover img {
-      opacity: 0.95;
-    }
+    .showcase-media:hover img { opacity: 0.95; }
 
     .zoom-hint {
       position: absolute;
       bottom: 12px;
       right: 12px;
       background: rgba(0, 0, 0, 0.7);
-      backdrop-filter: blur(8px);
       padding: 4px 10px;
       border-radius: 4px;
       font-size: 0.75rem;
@@ -536,139 +511,41 @@
 
     .showcase-footer {
       padding: 1.15rem 1.4rem;
-      background: var(--bg-surface);
-      border-top: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      border-top: 1px solid var(--border);
     }
 
-    .showcase-caption {
-      font-size: 0.9rem;
-      color: var(--text-secondary);
-      line-height: 1.5;
-    }
-
-    .showcase-caption strong {
-      color: var(--text-primary);
-    }
-
-    /* CSS UI Mockup (For Ingest & Quality Panels) */
-    .carbon-mockup-panel {
-      padding: 1.5rem;
-      background: #161616;
-      color: #f4f4f4;
-      font-family: var(--font-sans);
-    }
-
-    .mockup-header-bar {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1.25rem;
-      padding-bottom: 0.75rem;
-      border-bottom: 1px solid #393939;
-    }
-
-    .mockup-header-title {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #fff;
-    }
-
-    .mockup-field-group {
-      margin-bottom: 1.2rem;
-    }
-
-    .mockup-label {
-      display: block;
-      font-size: 0.78rem;
-      color: #c6c6c6;
-      margin-bottom: 0.4rem;
-      font-weight: 500;
-    }
-
-    .mockup-input, .mockup-select {
-      width: 100%;
-      background: #262626;
-      border: 1px solid #525252;
-      border-bottom: 2px solid #0f62fe;
-      color: #fff;
-      padding: 0.6rem 0.8rem;
-      font-size: 0.88rem;
-      border-radius: 0;
-      font-family: inherit;
-    }
-
-    .mockup-checkbox-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 0.6rem;
-      background: #262626;
-      padding: 0.85rem;
-      border: 1px solid #393939;
-    }
-
-    .mockup-checkbox-item {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.84rem;
-      color: #e0e0e0;
-    }
-
-    .mockup-btn-row {
-      display: flex;
-      justify-content: flex-end;
-      gap: 0.75rem;
-      margin-top: 1.5rem;
-    }
-
-    .mockup-btn-primary {
-      background: #0f62fe;
-      color: #fff;
-      border: none;
-      padding: 0.6rem 1.4rem;
-      font-size: 0.85rem;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .mockup-btn-secondary {
-      background: #393939;
-      color: #fff;
-      border: none;
-      padding: 0.6rem 1.2rem;
-      font-size: 0.85rem;
-      cursor: pointer;
-    }
+    .showcase-caption { font-size: 0.9rem; color: var(--text-dim); line-height: 1.5; }
+    .showcase-caption strong { color: var(--text-head); }
 
     /* ==========================================================================
-       Code Blocks & Syntax Highlighting
+       Code Blocks
        ========================================================================== */
     .code-container {
-      background: var(--bg-surface);
-      border: 1px solid var(--border-subtle);
+      background: var(--bg-card);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
       overflow: hidden;
       margin: 1.75rem 0;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
     }
 
     .code-header {
-      background: var(--bg-elevated);
+      background: var(--surface);
       padding: 0.55rem 1rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      border-bottom: 1px solid var(--border-subtle);
+      border-bottom: 1px solid var(--border);
       font-size: 0.8rem;
-      color: var(--text-tertiary);
-      font-family: var(--font-mono);
+      color: var(--text-dim);
+      font-family: var(--mono);
     }
 
     .code-copy-btn {
       background: transparent;
-      border: 1px solid var(--border-subtle);
+      border: 1px solid var(--border);
       border-radius: 4px;
-      color: var(--text-secondary);
+      color: var(--text-dim);
       font-size: 0.75rem;
       padding: 3px 8px;
       cursor: pointer;
@@ -678,20 +555,19 @@
       transition: all 0.2s;
     }
 
-    .code-copy-btn:hover {
-      color: var(--text-primary);
-      border-color: var(--border-strong);
-    }
+    .code-copy-btn:hover { color: var(--text-head); border-color: var(--accent-dim); }
 
     pre code {
       display: block;
       padding: 1.15rem;
-      font-family: var(--font-mono);
+      font-family: var(--mono);
       font-size: 0.88rem;
       line-height: 1.6;
-      color: #e6edf3;
+      color: var(--text);
       overflow-x: auto;
-      background: var(--bg-base);
+      background: var(--code-bg);
+      border: none;
+      border-radius: 0;
     }
 
     /* ==========================================================================
@@ -700,9 +576,9 @@
     .table-container {
       overflow-x: auto;
       margin: 2.25rem 0;
-      border: 1px solid var(--border-subtle);
+      border: 1px solid var(--border);
       border-radius: var(--radius-md);
-      background: var(--bg-surface);
+      background: var(--bg-card);
     }
 
     table {
@@ -713,32 +589,24 @@
     }
 
     th {
-      background: var(--bg-elevated);
+      background: var(--surface);
       padding: 1rem 1.25rem;
       font-weight: 600;
-      color: var(--text-primary);
-      border-bottom: 1px solid var(--border-strong);
+      color: var(--text-head);
+      border-bottom: 1px solid var(--border);
       white-space: nowrap;
     }
 
     td {
       padding: 1rem 1.25rem;
-      border-bottom: 1px solid var(--border-subtle);
-      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
       vertical-align: top;
     }
 
-    tr:last-child td {
-      border-bottom: none;
-    }
-
-    tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
-    }
-
-    td strong {
-      color: var(--text-primary);
-    }
+    tr:last-child td   { border-bottom: none; }
+    tr:hover td        { background: var(--surface); }
+    td strong          { color: var(--text-head); }
 
     /* ==========================================================================
        Lightbox Modal
@@ -748,7 +616,6 @@
       position: fixed;
       inset: 0;
       background: rgba(0, 0, 0, 0.92);
-      backdrop-filter: blur(12px);
       z-index: 10000;
       align-items: center;
       justify-content: center;
@@ -757,10 +624,7 @@
       transition: opacity 0.25s ease;
     }
 
-    .lightbox-modal.active {
-      display: flex;
-      opacity: 1;
-    }
+    .lightbox-modal.active { display: flex; opacity: 1; }
 
     .lightbox-img-wrapper {
       max-width: 95vw;
@@ -774,13 +638,13 @@
       max-width: 100%;
       max-height: 85vh;
       border-radius: var(--radius-md);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.8);
-      border: 1px solid rgba(255,255,255,0.15);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+      border: 1px solid var(--border);
     }
 
     .lightbox-caption {
       margin-top: 1rem;
-      color: #e0e0e0;
+      color: var(--text-dim);
       font-size: 0.95rem;
       text-align: center;
     }
@@ -789,9 +653,9 @@
       position: absolute;
       top: 24px;
       right: 28px;
-      background: rgba(255, 255, 255, 0.1);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      color: #fff;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
       font-size: 1.5rem;
       width: 44px;
       height: 44px;
@@ -800,70 +664,38 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background 0.2s;
+      transition: background .2s, color .15s;
     }
 
-    .lightbox-close:hover {
-      background: rgba(255, 255, 255, 0.25);
-    }
+    .lightbox-close:hover { background: var(--bg-card); color: var(--accent); }
 
     /* ==========================================================================
-       Footer & CTA
+       Footer
        ========================================================================== */
     .blog-footer {
-      border-top: 1px solid var(--border-subtle);
-      background: var(--bg-surface);
-      padding: 4rem 1.5rem 3rem;
-      text-align: center;
-    }
-
-    .cta-box {
-      max-width: 680px;
-      margin: 0 auto 3rem;
-      padding: 2.5rem;
-      background: linear-gradient(135deg, rgba(15, 98, 254, 0.12), rgba(138, 63, 252, 0.08));
-      border: 1px solid var(--border-accent);
-      border-radius: var(--radius-xl);
-    }
-
-    .cta-box h3 {
-      font-size: 1.6rem;
-      margin-bottom: 0.75rem;
-      color: var(--text-primary);
-    }
-
-    .cta-box p {
-      color: var(--text-secondary);
-      margin-bottom: 1.75rem;
-      font-size: 1rem;
-    }
-
-    .cta-actions {
+      background: var(--bg-alt);
+      border-top: 1px solid var(--border);
+      padding: 14px 24px;
+      font-size: 12px;
+      color: var(--text-dim);
       display: flex;
-      justify-content: center;
-      gap: 1rem;
+      align-items: center;
+      gap: 14px;
       flex-wrap: wrap;
     }
 
-    .footer-bottom {
-      color: var(--text-tertiary);
-      font-size: 0.84rem;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      max-width: var(--content-max-width);
-      margin: 0 auto;
-      border-top: 1px solid var(--border-subtle);
-      padding-top: 1.5rem;
-    }
+    .blog-footer a       { color: var(--text-dim); text-decoration: none; }
+    .blog-footer a:hover { color: var(--accent); }
 
-    /* Responsive */
+    /* ==========================================================================
+       Responsive
+       ========================================================================== */
     @media (max-width: 768px) {
-      .navbar { padding: 0 1rem; }
-      .nav-links { display: none; }
-      .hero { padding-top: 3.5rem; }
-      .hero-meta { flex-direction: column; gap: 0.5rem; }
-      .footer-bottom { flex-direction: column; gap: 1rem; text-align: center; }
+      .navbar      { padding: 0 1rem; }
+      .nav-links   { display: none; }
+      .hero        { padding-top: 3.5rem; }
+      .hero-meta   { flex-direction: column; gap: 0.5rem; }
+      .blog-footer { flex-direction: column; gap: 0.75rem; text-align: center; }
     }
   </style>
 </head>
@@ -882,18 +714,19 @@
 
     <nav aria-label="Article sections">
       <ul class="nav-links">
-        <li><a href="#problem">The Retrieval Gap</a></li>
-        <li><a href="#what-youll-build">Architecture</a></li>
+        <li><a href="#what-youll-build">Overview</a></li>
         <li><a href="#visual-canvas">Visual Canvas</a></li>
         <li><a href="#deep-dive">Operator Walkthrough</a></li>
         <li><a href="#observability">Observability</a></li>
-        <li><a href="#comparison">Why Docpipe</a></li>
       </ul>
     </nav>
 
     <div class="nav-actions">
       <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Toggle dark/light theme">
-        <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+        <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="5"></circle>
           <line x1="12" y1="1" x2="12" y2="3"></line>
           <line x1="12" y1="21" x2="12" y2="23"></line>
@@ -906,7 +739,7 @@
         </svg>
       </button>
 
-      <a href="https://github.com/docling-project/docling-pipelines" target="_blank" rel="noopener" class="btn-github">
+      <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener" class="btn-github">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
           <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"/>
         </svg>
@@ -920,11 +753,11 @@
     <div class="hero-glow"></div>
     <div class="hero-pill">
       <span class="pulse-dot"></span>
-      <span>Docling Pipelines • UI Deep Dive</span>
+      <span>Docling Pipelines &bull; UI Deep Dive</span>
     </div>
 
     <h1>
-      The Architecture of Visual Document AI: Building Multi-Source RAG with Open-Source <span class="gradient-text">Docling Pipelines</span>
+      The Architecture of Visual Document AI: Building Multi-Source RAG with Open-Source Docling Pipelines
     </h1>
 
     <p class="hero-lead">
@@ -947,7 +780,7 @@
         <span>Docling Pipelines Core Team</span>
       </div>
       <div class="meta-item">
-        <span class="badge-tag">Open Source v2</span>
+        <span class="badge-ver">Open Source v2</span>
       </div>
     </div>
   </section>
@@ -956,34 +789,9 @@
   <main class="article-container">
     <article>
 
-      <!-- Section: The Retrieval Gap -->
-      <section id="problem">
-        <h2>The Document AI Bottleneck in Production RAG</h2>
-        <p>
-          In production Retrieval-Augmented Generation (RAG) systems, failures rarely originate in the vector database or LLM generation. <strong>They break at the document parsing layer.</strong>
-        </p>
-        <p>
-          Real-world organizational knowledge does not exist in clean, linear markdown. It is trapped inside structurally complex, visual artifacts: multi-column research briefs stored in <strong>Microsoft SharePoint</strong>, financial statements with merged-cell tables archived in <strong>Amazon S3</strong>, product slide decks with embedded architecture diagrams on <strong>Google Drive</strong>, and scanned compliance agreements across <strong>local storage volumes</strong>.
-        </p>
-        <p>
-          Standard document ingestion tools treat these files like simple strings of text. They apply basic OCR or naive scrapers that strip coordinate bounding boxes, interleave two-column paragraphs, and dismantle multi-row tables into unreadable sentence fragments. When a vector retriever searches these corrupted chunks, the LLM hallucinates—not because the model is flawed, but because <strong>the structural semantics of the document were destroyed before vectorization ever occurred.</strong>
-        </p>
-
-        <div class="callout callout-info">
-          <div class="callout-icon">💡</div>
-          <div class="callout-content">
-            <p><strong>The "Scripting Tax" vs. Governed Pipelines:</strong> Engineering teams traditionally attempt to patch this with ad-hoc Python glue: combining multiple third-party loaders, handwritten regex for PII filtering, and custom batch loops. These scripts are brittle, lack type safety, offer zero execution visibility, and silently fail when document formats shift.</p>
-          </div>
-        </div>
-
-        <p>
-          To solve this foundational data engineering challenge, we built <strong>Docling Pipelines (<code>docpipe</code>)</strong>: an open-source, visual-first document processing platform. Built on <strong>IBM's Docling document foundation model</strong>, an in-memory <strong>Apache Arrow (<code>pa.Table</code>) columnar engine</strong>, and an intuitive <strong>Carbon-based Visual Canvas</strong>, Docling Pipelines enables teams to visually design, govern, and monitor production-scale ingestion workflows from source to vector database.
-        </p>
-      </section>
-
       <!-- Section: What You'll Build -->
       <section id="what-youll-build">
-        <h2>What You’ll Build</h2>
+        <h2>What You'll Build</h2>
         <p>
           In this deep-dive walkthrough, we will construct an end-to-end, multi-source ingestion DAG using the Docling Pipelines UI. The pipeline will:
         </p>
@@ -991,10 +799,10 @@
         <ul>
           <li><strong>Unify Multi-Source Ingestion:</strong> Connect directly to Microsoft SharePoint, Amazon S3, Google Drive, Box, and local volumes with unified file type filtering.</li>
           <li><strong>Preserve Layout with Docling:</strong> Parse complex layouts, reading order, formula notation, and table structures using the <code>Docling</code> foundation engine and Vision-Language Models (VLMs).</li>
-          <li><strong>Enforce Quality & Compliance in the DAG:</strong> Redact sensitive PII (SSNs, credit cards, banking info) and toxic content (HAP) with dedicated visual quality operators.</li>
+          <li><strong>Enforce Quality &amp; Compliance in the DAG:</strong> Redact sensitive PII (SSNs, credit cards, banking info) and toxic content (HAP) with dedicated visual quality operators.</li>
           <li><strong>Execute Context-Aware Hybrid Chunking:</strong> Leverage Docling's structural AST to chunk along heading hierarchies and keep tabular data intact as cohesive semantic units.</li>
           <li><strong>Visually Map Schemas to VectorDB:</strong> Vectorize via LiteLLM/watsonx/Ollama and visually map PyArrow table features directly into OpenSearch or Milvus index columns via an interactive tearsheet.</li>
-          <li><strong>Monitor Live Execution & Micro-Batching:</strong> Observe document throughput, memory overhead, and operator logs in real time on the execution canvas.</li>
+          <li><strong>Monitor Live Execution &amp; Micro-Batching:</strong> Observe document throughput, memory overhead, and operator logs in real time on the execution canvas.</li>
         </ul>
       </section>
 
@@ -1014,7 +822,7 @@
                 <span class="window-dot dot-yellow"></span>
                 <span class="window-dot dot-green"></span>
               </div>
-              <span class="showcase-title">Docling Pipelines Canvas — Financial Docs RAG Flow</span>
+              <span class="showcase-title">Docling Pipelines Canvas &mdash; Financial Docs RAG Flow</span>
             </div>
             <span class="badge-tag">Canvas DAG Editor</span>
           </div>
@@ -1034,7 +842,7 @@
 
         <h3>Context-Aware Node Suggestions</h3>
         <p>
-          Connecting nodes in a complex graph can be intimidating. When you drag an output port on the Docling Pipelines canvas into open space, the UI doesn't leave you guessing—it opens the <strong>Node Suggestion Modal</strong>.
+          Connecting nodes in a complex graph can be intimidating. When you drag an output port on the Docling Pipelines canvas into open space, the UI doesn't leave you guessing&mdash;it opens the <strong>Node Suggestion Modal</strong>.
         </p>
         <p>
           This intelligent helper evaluates schema contracts and suggests only compatible downstream operators (e.g., prompting for Quality or Chunking steps after an Extraction node, preventing you from wiring raw Ingest directly into Embeddings).
@@ -1049,7 +857,7 @@
                 <span class="window-dot dot-yellow"></span>
                 <span class="window-dot dot-green"></span>
               </div>
-              <span class="showcase-title">Smart Node Suggestions — Validated Port Connections</span>
+              <span class="showcase-title">Smart Node Suggestions &mdash; Validated Port Connections</span>
             </div>
             <span class="badge-tag">Graph Intelligence</span>
           </div>
@@ -1073,7 +881,7 @@
         <h2>Step-by-Step: Assembling the Workflow</h2>
 
         <!-- Step 1: Ingest -->
-        <h3>1. Multi-Source Document Ingestion (`ingest_source`)</h3>
+        <h3>1. Multi-Source Document Ingestion (<code>ingest_source</code>)</h3>
         <p>
           Double-clicking the <strong>Ingest Source</strong> operator opens its dedicated Properties Panel. Rather than writing SDK boilerplate and custom authentication loops, configure your storage provider directly in the UI.
         </p>
@@ -1087,7 +895,7 @@
                 <span class="window-dot dot-yellow"></span>
                 <span class="window-dot dot-green"></span>
               </div>
-              <span class="showcase-title">Properties Panel — Ingest Source Operator</span>
+              <span class="showcase-title">Properties Panel &mdash; Ingest Source Operator</span>
             </div>
             <span class="badge-tag">Ingest Category</span>
           </div>
@@ -1108,7 +916,7 @@
         </div>
 
         <!-- Step 2: Extraction (Docling) -->
-        <h3>2. Deep Layout Extraction with Docling (`extract_operator`)</h3>
+        <h3>2. Deep Layout Extraction with Docling (<code>extract_operator</code>)</h3>
         <p>
           At the core of the pipeline is the <strong>Extract Operator</strong>, powered by IBM's <strong>Docling</strong> foundation engine. Instead of flattening documents into lossy plaintext, Docling performs multi-modal visual layout analysis to extract hierarchy, tables, reading orders, and visual figures.
         </p>
@@ -1122,7 +930,7 @@
                 <span class="window-dot dot-yellow"></span>
                 <span class="window-dot dot-green"></span>
               </div>
-              <span class="showcase-title">Properties Panel — Extract Operator (Docling Settings)</span>
+              <span class="showcase-title">Properties Panel &mdash; Extract Operator (Docling Settings)</span>
             </div>
             <span class="badge-tag">Docling Engine</span>
           </div>
@@ -1141,16 +949,16 @@
         </div>
 
         <!-- Step 3: Quality & Safety Guards -->
-        <h3>3. Governance & Quality Guards (`pii_and_hap` & `doc_quality`)</h3>
+        <h3>3. Governance &amp; Quality Guards (<code>pii_and_hap</code> &amp; <code>doc_quality</code>)</h3>
         <p>
-          Strict data privacy mandates that sensitive personally identifiable information (PII) like Social Security numbers, banking IBANs, and patient identifiers—along with toxic or profane text—never enter shared vector databases.
+          Strict data privacy mandates that sensitive personally identifiable information (PII) like Social Security numbers, banking IBANs, and patient identifiers&mdash;along with toxic or profane text&mdash;never enter shared vector databases.
         </p>
         <p>
-          Docling Pipelines integrates quality and safety as first-class DAG operators. Built on the PyArrow table transport, operators like <code>pii_and_hap</code>, <code>doc_quality</code>, <code>ededup</code> (exact deduplication), and <code>lang_detect</code> inspect document content in-flight. You can configure them to redact sensitive tokens in-place, annotate metadata columns for auditing, or drop non-compliant documents completely—without breaking downstream data lineage.
+          Docling Pipelines integrates quality and safety as first-class DAG operators. Built on the PyArrow table transport, operators like <code>pii_and_hap</code>, <code>doc_quality</code>, <code>ededup</code> (exact deduplication), and <code>lang_detect</code> inspect document content in-flight. You can configure them to redact sensitive tokens in-place, annotate metadata columns for auditing, or drop non-compliant documents completely&mdash;without breaking downstream data lineage.
         </p>
 
         <!-- Step 4: Hybrid Chunking -->
-        <h3>4. Context-Preserving Hybrid Chunking (`chunker`)</h3>
+        <h3>4. Context-Preserving Hybrid Chunking (<code>chunker</code>)</h3>
         <p>
           Naive chunkers split documents based on arbitrary token counts (e.g., every 512 tokens), slicing multi-page tables in half and disconnecting headers from sub-paragraphs.
         </p>
@@ -1167,7 +975,7 @@
                 <span class="window-dot dot-yellow"></span>
                 <span class="window-dot dot-green"></span>
               </div>
-              <span class="showcase-title">Properties Panel — Chunker Operator (Hybrid Settings)</span>
+              <span class="showcase-title">Properties Panel &mdash; Chunker Operator (Hybrid Settings)</span>
             </div>
             <span class="badge-tag">Functional Category</span>
           </div>
@@ -1186,7 +994,7 @@
         </div>
 
         <!-- Step 5: VectorDB Tearsheet Mapping -->
-        <h3>5. VectorDB Schema Mapping Tearsheet (`vectordb`)</h3>
+        <h3>5. VectorDB Schema Mapping Tearsheet (<code>vectordb</code>)</h3>
         <p>
           Schema mismatches between pipeline PyArrow columns and Vector Database collections are the #1 cause of deployment crashes. The Docling Pipelines UI eliminates this with the <strong>VectorDB Feature Mapping Tearsheet</strong>.
         </p>
@@ -1200,9 +1008,9 @@
                 <span class="window-dot dot-yellow"></span>
                 <span class="window-dot dot-green"></span>
               </div>
-              <span class="showcase-title">Visual Schema Tearsheet — VectorDB Operator</span>
+              <span class="showcase-title">Visual Schema Tearsheet &mdash; VectorDB Operator</span>
             </div>
-            <span class="badge-tag">OpenSearch & Milvus</span>
+            <span class="badge-tag">OpenSearch &amp; Milvus</span>
           </div>
           <div class="showcase-media" onclick="openLightbox('assets/Vectordb_feature_mapping.jpg', 'VectorDB Feature Mapping Tearsheet showing source pipeline columns mapped to target vector index fields.')">
             <img src="assets/Vectordb_feature_mapping.jpg" alt="VectorDB Feature Mapping Tearsheet mapping pipeline table features (embeddings, chunk_text, page_number) to target OpenSearch index columns." loading="lazy">
@@ -1221,9 +1029,9 @@
 
       <!-- Section: Real-Time Execution & Observability -->
       <section id="observability">
-        <h2>Live Execution & Observability</h2>
+        <h2>Live Execution &amp; Observability</h2>
         <p>
-          Once your flow is configured, click <strong>Run</strong> in the toolbar. The system compiles the DAG, initializes micro-batch scheduling, and navigates to the <strong>Live Run Details Canvas</strong> (`/flows/:flowId/runs/:runId`).
+          Once your flow is configured, click <strong>Run</strong> in the toolbar. The system compiles the DAG, initializes micro-batch scheduling, and navigates to the <strong>Live Run Details Canvas</strong> (<code>/flows/:flowId/runs/:runId</code>).
         </p>
 
         <!-- Screenshot Card: Run Observability UI -->
@@ -1235,7 +1043,7 @@
                 <span class="window-dot dot-yellow"></span>
                 <span class="window-dot dot-green"></span>
               </div>
-              <span class="showcase-title">Run Details Canvas — Real-time Observability & Node Diagnostics</span>
+              <span class="showcase-title">Run Details Canvas &mdash; Real-time Observability &amp; Node Diagnostics</span>
             </div>
             <span class="badge-tag">Live Run #1042</span>
           </div>
@@ -1254,199 +1062,116 @@
         </div>
 
         <div class="callout callout-tip">
-          <div class="callout-icon">⚡</div>
+          <div class="callout-icon">&#x26A1;</div>
           <div class="callout-content">
             <p><strong>Granular Document Accounting:</strong> If document 37 in a batch of 500 contains an invalid PDF stream, Docling Pipelines does not crash the entire pipeline. The operator records the failure in the metadata, continues processing the batch, and highlights the skipped/failed item in the UI with the exact stack trace.</p>
           </div>
         </div>
       </section>
 
-      <!-- Section: Comparison Matrix -->
-      <section id="comparison">
-        <h2>Why Docling Pipelines Changes the Equation</h2>
-        <p>
-          Compare building a document ingestion architecture with custom Python scripts versus the visual power of Docling Pipelines:
-        </p>
-
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Capability</th>
-                <th>Ad-Hoc Custom Scripts</th>
-                <th>Docling Pipelines (`docpipe`)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><strong>Document Layout</strong></td>
-                <td>Naive text extraction; loses tables and visual structure.</td>
-                <td><strong>Docling Model:</strong> Deep layout analysis, table reconstruction, and VLM multimodal vision.</td>
-              </tr>
-              <tr>
-                <td><strong>Authoring Experience</strong></td>
-                <td>Writing & maintaining thousands of lines of fragile glue code.</td>
-                <td><strong>Visual Canvas:</strong> Drag-and-drop DAG builder with live node suggestions and property panels.</td>
-              </tr>
-              <tr>
-                <td><strong>Multi-Source Ingestion</strong></td>
-                <td>Custom SDK code for S3, SharePoint, Google Drive, Box.</td>
-                <td><strong>Built-in Connectors:</strong> Plug-and-play storage providers with unified filter masks.</td>
-              </tr>
-              <tr>
-                <td><strong>Compliance & PII</strong></td>
-                <td>Ad-hoc regex post-processing; high risk of data leaks.</td>
-                <td><strong>Quality Guards:</strong> Built-in PII redaction, HAP toxicity filters, and language detection.</td>
-              </tr>
-              <tr>
-                <td><strong>Chunking Precision</strong></td>
-                <td>Fixed character slicing that splits tables and sentences.</td>
-                <td><strong>Docling Hybrid Chunker:</strong> Structure-aware chunks preserving headings and table rows.</td>
-              </tr>
-              <tr>
-                <td><strong>Observability</strong></td>
-                <td>Grepping through gigabytes of raw terminal logs.</td>
-                <td><strong>Live Run Canvas:</strong> Per-node document accounting, latency metrics, and error triage.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <!-- Section: Getting Started -->
-      <section id="get-started">
-        <h2>Getting Started</h2>
-        <p>
-          You can run Docling Pipelines and the Web UI locally in under 3 minutes:
-        </p>
-
-        <div class="code-container">
-          <div class="code-header">
-            <span>Terminal (Bash)</span>
-            <button class="code-copy-btn" onclick="copyCode(this)">Copy</button>
-          </div>
-          <pre><code># 1. Clone repository & install backend
-git clone https://github.com/docling-project/docling-pipelines.git
-cd docling-pipelines
-
-python3 -m venv .venv
-source .venv/bin/activate
-uv pip install -e ".[dev]"
-
-# 2. Start the FastAPI backend
-uvicorn docpipe.api.main:app --host 0.0.0.0 --port 8080
-
-# 3. In another terminal, launch the Web UI
-cd frontend
-npm install
-npm run dev</code></pre>
-        </div>
-
-        <p>
-          Open your browser to <a href="http://localhost:3000/ui" target="_blank" rel="noopener" style="color: var(--accent-blue-light); text-decoration: underline;"><code>http://localhost:3000/ui</code></a>. Create a new project, drag your operators onto the canvas, and build your AI knowledge base!
-        </p>
-      </section>
-
     </article>
   </main>
 
-  <!-- CTA & Footer -->
+  <!-- Footer -->
   <footer class="blog-footer">
-    <div class="cta-box">
-      <h3>Transform Your Document Workflows Today</h3>
-      <p>
-        Docling Pipelines is open source under the MIT license. Star our repository, explore sample flows, and join the community.
-      </p>
-      <div class="cta-actions">
-        <a href="https://github.com/docling-project/docling-pipelines" target="_blank" rel="noopener" class="btn-github" style="font-size: 1rem; padding: 0.75rem 1.75rem;">
-          ⭐ Star on GitHub
-        </a>
-      </div>
-    </div>
-
-    <div class="footer-bottom">
-      <span>© 2025 Docling Pipelines Project. Released under open-source license.</span>
-      <span>Built with Docling Engine & Carbon Design</span>
-    </div>
+    <span>Docling Pipelines Visual UI Guide</span>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines" target="_blank" rel="noopener">GitHub</a>
+    <span>&middot;</span>
+    <a href="https://github.com/IBM/docling-pipelines/blob/main/LICENSE" target="_blank" rel="noopener">Apache 2.0</a>
+    <span>&middot;</span>
+    <span>IBM Open Source</span>
   </footer>
 
   <!-- Lightbox Modal -->
   <div class="lightbox-modal" id="lightboxModal" onclick="closeLightbox(event)">
-    <button class="lightbox-close" onclick="closeLightbox(event)" aria-label="Close image lightbox">×</button>
+    <button class="lightbox-close" onclick="closeLightbox(event)" aria-label="Close image lightbox">&times;</button>
     <div class="lightbox-img-wrapper">
       <img id="lightboxImg" src="" alt="Enlarged screenshot">
       <p class="lightbox-caption" id="lightboxCaption"></p>
     </div>
   </div>
 
-  <!-- Interactive JavaScript -->
   <script>
-    // Reading Progress Bar
-    window.addEventListener('scroll', () => {
-      const winScroll = document.documentElement.scrollTop;
-      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
-      const scrolled = (winScroll / height) * 100;
+  (function () {
+    'use strict';
+
+    var html = document.getElementById('html-root');
+    var btn  = document.getElementById('themeToggleBtn');
+    var KEY  = 'dp-theme';
+
+    /* ── Apply a theme ── */
+    function applyTheme(t) {
+      if (t === 'light') html.classList.add('light');
+      else               html.classList.remove('light');
+      try { localStorage.setItem(KEY, t); } catch (e) { /* private browsing */ }
+    }
+
+    /* ── Restore preference on load ── */
+    var saved = null;
+    try { saved = localStorage.getItem(KEY); } catch (e) {}
+    if (saved) {
+      applyTheme(saved);
+    } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+      applyTheme('light');
+    }
+
+    /* ── Toggle button ── */
+    btn.addEventListener('click', function () {
+      applyTheme(html.classList.contains('light') ? 'dark' : 'light');
+    });
+
+    /* ── Reading Progress Bar ── */
+    window.addEventListener('scroll', function () {
+      var winScroll = document.documentElement.scrollTop;
+      var height    = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      var scrolled  = height > 0 ? (winScroll / height) * 100 : 0;
       document.getElementById('reading-progress').style.width = scrolled + '%';
     });
 
-    // Theme Toggle
-    const themeToggleBtn = document.getElementById('themeToggleBtn');
-    const htmlElem = document.documentElement;
+    /* ── Lightbox ── */
+    var lightboxModal   = document.getElementById('lightboxModal');
+    var lightboxImg     = document.getElementById('lightboxImg');
+    var lightboxCaption = document.getElementById('lightboxCaption');
 
-    themeToggleBtn.addEventListener('click', () => {
-      const currentTheme = htmlElem.getAttribute('data-theme');
-      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-      htmlElem.setAttribute('data-theme', newTheme);
-      localStorage.setItem('docpipe-blog-theme', newTheme);
-    });
-
-    // Restore saved theme preference
-    const savedTheme = localStorage.getItem('docpipe-blog-theme');
-    if (savedTheme) {
-      htmlElem.setAttribute('data-theme', savedTheme);
-    }
-
-    // Lightbox Modal for Screenshots
-    const lightboxModal = document.getElementById('lightboxModal');
-    const lightboxImg = document.getElementById('lightboxImg');
-    const lightboxCaption = document.getElementById('lightboxCaption');
-
-    function openLightbox(src, caption) {
+    window.openLightbox = function (src, caption) {
       lightboxImg.src = src;
       lightboxCaption.textContent = caption;
       lightboxModal.classList.add('active');
       document.body.style.overflow = 'hidden';
-    }
+    };
 
-    function closeLightbox(e) {
+    window.closeLightbox = function (e) {
       if (e.target === lightboxModal || e.target.classList.contains('lightbox-close')) {
         lightboxModal.classList.remove('active');
         document.body.style.overflow = '';
       }
-    }
+    };
 
-    document.addEventListener('keydown', (e) => {
+    document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && lightboxModal.classList.contains('active')) {
         lightboxModal.classList.remove('active');
         document.body.style.overflow = '';
       }
     });
 
-    // Code Copy Function
-    function copyCode(btn) {
-      const pre = btn.closest('.code-container').querySelector('pre code');
+    /* ── Code Copy ── */
+    window.copyCode = function (btn) {
+      var pre = btn.closest('.code-container').querySelector('pre code');
       if (pre) {
-        navigator.clipboard.writeText(pre.innerText).then(() => {
-          const originalText = btn.textContent;
+        navigator.clipboard.writeText(pre.innerText).then(function () {
+          var orig = btn.textContent;
           btn.textContent = 'Copied!';
           btn.style.color = 'var(--accent-green)';
-          setTimeout(() => {
-            btn.textContent = originalText;
+          setTimeout(function () {
+            btn.textContent = orig;
             btn.style.color = '';
           }, 2000);
         });
       }
-    }
+    };
+  }());
   </script>
+
 </body>
 </html>
