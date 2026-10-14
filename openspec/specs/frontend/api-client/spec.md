@@ -37,7 +37,7 @@ The API client layer SHALL intercept all outgoing requests, successful responses
 - **THEN** the error interceptor logs a "No response received from server" error with the request method and URL
 
 ### Requirement: Action-encapsulated HTTP communication
-API calls SHALL be organized into domain-specific action modules that encapsulate endpoint paths, attach standard BFF headers (`Accept`, `X-Requested-With`), and return typed responses (standard actions returning `AxiosResponse`, or domain data helpers returning unwrapped response data).
+API calls SHALL be organized into domain-specific action modules that encapsulate endpoint paths and attach standard BFF headers (`Accept`, `X-Requested-With`). Standard actions return `AxiosResponse`, domain data helpers return unwrapped response data, and self-dispatching mount actions (`getOperatorMetadata`) dispatch directly into Redux and return `void`.
 
 #### Scenario: Domain action attaches BFF headers
 - **WHEN** a domain action (such as `createFlow` or `enrichFlowFeatures`) issues a request
@@ -50,6 +50,10 @@ API calls SHALL be organized into domain-specific action modules that encapsulat
 #### Scenario: Data-unwrapping action returns response payload directly
 - **WHEN** an action helper such as `getProviderModels` succeeds
 - **THEN** the promise resolves directly with `response.data` (`ModelsResponse`) rather than the Axios response envelope
+
+#### Scenario: Self-dispatching action updates store directly
+- **WHEN** a self-dispatching action such as `getOperatorMetadata` succeeds
+- **THEN** it dispatches the payload directly to Redux and returns `Promise<void>` instead of returning response data
 
 ### Requirement: Error handling and propagation conventions
 Domain API actions SHALL log operational errors with contextual details and re-throw caught exceptions by default for Redux thunks, with specific mount actions permitted to absorb errors to prevent unhandled rejection loops.
