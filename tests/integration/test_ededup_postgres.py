@@ -13,7 +13,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import create_engine, event, inspect, select, text
 
-from docpipe.core.operators.quality.ededup_storage.adapters.postgres_store import PostgresDedupStore
+from docpipe.core.operators.quality.ededup_storage.adapters.postgres_store import PostgresEdedupStore
 from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 
 _MODULE = "docpipe.core.operators.quality.ededup_storage.adapters.postgres_store"
@@ -22,7 +22,7 @@ pytestmark = pytest.mark.integration
 
 def _store(*, url, schema):
     with patch(f"{_MODULE}.get_postgres_connection_string", return_value=url):
-        return PostgresDedupStore(config={"schema": schema})
+        return PostgresEdedupStore(config={"schema": schema})
 
 
 def _claim_in_process(args):
@@ -64,7 +64,7 @@ def test_concurrent_processes_and_run_node_isolation(database):
             results = list(
                 pool.map(
                     _claim_in_process,
-                    [(url, schema, False, barrier, "dedup", "run-a"), (url, schema, True, barrier, "dedup", "run-a")],
+                    [(url, schema, False, barrier, "ededup", "run-a"), (url, schema, True, barrier, "ededup", "run-a")],
                 )
             )
     assert results[0].isdisjoint(results[1])
@@ -73,7 +73,7 @@ def test_concurrent_processes_and_run_node_isolation(database):
     store = _store(url=url, schema=schema)
     try:
 
-        def claim(*, run="run-a", node="dedup", job="job", doc="renamed.txt"):
+        def claim(*, run="run-a", node="ededup", job="job", doc="renamed.txt"):
             return store.check_and_register_hashes(job_id=job, node_id=node, job_run_id=run, records={"shared-a": doc})
 
         assert claim() == set()

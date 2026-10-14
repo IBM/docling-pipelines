@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 
 
-class DedupStore(ABC):
+class EdedupStore(ABC):
     """Store committed membership per job, node, run, and content hash."""
 
     @abstractmethod
@@ -20,4 +20,4 @@ class DedupStore(ABC):
 
         Implementations return only after commit and propagate storage failures.
         """
-        raise NotImplementedError
+        ...

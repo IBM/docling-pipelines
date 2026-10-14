@@ -8,7 +8,7 @@ from data_processing.utils import TransformUtils
 from docpipe.core.constants.constants import DocpipeConstants, Metrics
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.abstract_operator import AbstractOperator, OperatorCategory
-from docpipe.core.operators.quality.ededup_storage.factory import get_default_factory
+from docpipe.core.operators.quality.ededup_storage.factory import get_default_ededup_factory
 from docpipe.utils.infrastructure.logging import get_logger
 
 logger = get_logger()
@@ -41,7 +41,7 @@ class EdedupOperator(AbstractOperator):
             OperatorConstants.Config.DESCRIPTION: "Exact deduplication operator that removes duplicate documents based on content hash",
         }
 
-    def transform(self, table: pa.Table, *, file_name: str | None = None) -> tuple[list[pa.Table], dict[str, Any]]:
+    def transform(self, table: pa.Table) -> tuple[list[pa.Table], dict[str, Any]]:
         """Keep first local occurrences admitted by the configured shared store.
 
         Hash normalization matches the previous DPK transform. Shared admission
@@ -68,7 +68,7 @@ class EdedupOperator(AbstractOperator):
             if not (self.job_id and self.job_run_id and self.id):
                 raise ValueError("Shared ededup requires job_id, job_run_id and the flow node id")
             accepted = (
-                get_default_factory()
+                get_default_ededup_factory()
                 .get_store()
                 .check_and_register_hashes(
                     job_id=str(self.job_id),
@@ -93,7 +93,7 @@ class EdedupOperator(AbstractOperator):
                     doc_name=names[index],
                     reason="This document was identified as a duplicate and removed.",
                 )
-                metadata[Metrics.External.SKIPPED_DOCS][-1]["document_url"] = paths[index]
+                metadata[Metrics.External.SKIPPED_DOCS][-1][Metrics.External.DOCUMENT_URL] = paths[index]
         metadata[Metrics.External.PROCESSED_DOCS] = len(keep)
         metadata[Metrics.External.REMOVED_DOCUMENTS] = total - len(keep)
         logger.info("Deduplication accepted %s of %s documents", len(keep), total, extra=self.common_log_arguments)

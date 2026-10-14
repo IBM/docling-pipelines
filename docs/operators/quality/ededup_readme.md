@@ -8,7 +8,7 @@ Use this operator after extraction to remove repeated content before downstream 
 Each batch reduces its input to one candidate per content hash. A shared registry then admits only one candidate
 per job, flow node, run, and hash, even when different batches execute in separate processes.
 
-A sequential flow has one dedup node. When extraction is followed by branching, each branch's dedup node
+A sequential flow has one ededup node. When extraction is followed by branching, each branch's ededup node
 admits content independently. Workers executing the same node must use its stable flow node ID.
 Merging branch outputs does not automatically remove duplicates between branches. Later runs can process the same content again.
 
@@ -17,7 +17,7 @@ Merging branch outputs does not automatically remove duplicates between branches
 - Atomic bulk PostgreSQL admission across pods, with no per-document search requests.
 - Filesystem support for instances and processes sharing a local storage directory.
 - Input order and schema preservation, with row-level skipped-document reporting.
-- Independent state for overlapping runs and separate dedup nodes.
+- Independent state for overlapping runs and separate ededup nodes.
 - Existing content normalization preserved; case, spaces, newlines and ASCII punctuation are ignored.
 
 ## Operator Configuration
@@ -54,7 +54,7 @@ ededup:
     type: postgresql
     config:
       postgres:
-        schema: dedup_registry
+        schema: ededup_registry
 ```
 
 Supply connection settings using `DOCPIPE_POSTGRES_HOST`, `DOCPIPE_POSTGRES_PORT`, `DOCPIPE_POSTGRES_DB`,
@@ -69,12 +69,12 @@ Storage selection uses `ededup.storage`, then `global_storage`, then the filesys
 connection environment variables remain supported. Incremental service-specific settings and
 `DOCPIPE_INCREMENTAL_BASE_DIR` do not configure ededup. The PostgreSQL adapter creates only its admission table.
 
-If a previous setup used `incremental_metadata.storage` for dedup, copy its backend and connection/schema settings into
+If a previous setup used `incremental_metadata.storage` for ededup, copy its backend and connection/schema settings into
 `ededup.storage`. For filesystem storage, set `ededup.storage.config.base_dir` to the previous registry's base directory.
-The default PostgreSQL location is `dedup_registry.hashes`. Filesystem registries use
-`<base_dir>/dedup_registry/hashes_<scope_hash>.parquet`, with matching `hashes_<scope_hash>.lock` files.
+The default PostgreSQL location is `ededup_registry.hashes`. Filesystem registries use
+`<base_dir>/ededup_registry/hashes_<scope_hash>.parquet`, with matching `hashes_<scope_hash>.lock` files.
 The scope hash is SHA-256 of the JSON-encoded `[job_id, node_id, job_run_id]`.
-Existing `ededup_hashes` tables and folders are not automatically migrated or read by this layout.
+Existing data under the previous `dedup_registry` namespace and legacy `ededup_hashes` tables/folders are not automatically migrated or read. To keep using PostgreSQL data from the previous default, set the schema to `dedup_registry`. For filesystem storage, move the previous registry directory into the new `ededup_registry` directory under the same base directory.
 
 ### Filesystem and standalone use
 
@@ -100,4 +100,4 @@ See the [branching pipeline sample](../../../sample_flows/advanced/quality_branc
 - Failed batch after admission: its hashes remain registered for that node and run. A same-node retry skips them; a new run can admit them again. This is not a successful-output guarantee.
 - Growing registry: records are retained across runs and source deletion. Apply retention only to runs whose workers
   have stopped; deleting an active run's records can allow duplicates.
-- Custom dedup backends: implement `DedupStore` and register the adapter with `DedupStoreFactory.register`.
+- Custom ededup backends: implement `EdedupStore` and register the adapter with `EdedupStoreFactory.register`.

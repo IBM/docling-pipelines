@@ -1391,22 +1391,22 @@ The legacy `filter` argument is unsupported. The operator uses its dedicated `ed
 storage directory. The orchestrator supplies job, run, and node IDs. Partial execution context is rejected.
 Context-free standalone instances retain an in-memory registry across calls on that instance only.
 
-Configuration precedence is `ededup.storage` over `global_storage` over filesystem defaults; nested dedup config values
+Configuration precedence is `ededup.storage` over `global_storage` over filesystem defaults; nested ededup config values
 override shared values. `incremental_metadata` settings and `DOCPIPE_INCREMENTAL_BASE_DIR` are not consulted. Invalid
 ededup backend settings fail explicitly. PostgreSQL uses common `DOCPIPE_POSTGRES_*` connection settings and creates
-only `hashes`, defaulting to the `dedup_registry` schema when no schema is configured. Filesystem uses
-`<base_dir>/dedup_registry/hashes_<scope_hash>.parquet` and matching `.lock` files, where `base_dir` is
+only `hashes`, defaulting to the `ededup_registry` schema when no schema is configured. Filesystem uses
+`<base_dir>/ededup_registry/hashes_<scope_hash>.parquet` and matching `.lock` files, where `base_dir` is
 `ededup.storage.config.base_dir` or the common data root. The scope hash is SHA-256 of the JSON-encoded
-`[job_id, node_id, job_run_id]`.
+`[job_id, node_id, job_run_id]`. Registry records persist across runs and source deletion.
 When moving from the earlier coupled configuration, copy service-specific storage settings into `ededup.storage`
-before running. Existing `ededup_hashes` tables and folders are not automatically migrated or read.
+before running. Data under the previous `dedup_registry` namespace and legacy `ededup_hashes` tables/folders are not automatically migrated or read. To keep using PostgreSQL data from the previous default, set the schema to `dedup_registry`; move previous filesystem registry files into the new `ededup_registry` directory under the same base directory.
 
 Registration is isolated by `(job_id, node_id, job_run_id, hash_value)`. Within each input table, the first occurrence wins;
 across concurrent batches the winner depends on registration order. Hashes use the existing normalization: remove spaces,
 newlines and ASCII punctuation, lowercase, then SHA-256. This is not a byte-for-byte comparison.
 
 The five stored fields are `job_id`, `node_id`, `job_run_id`, `hash_value`, and `doc_id`; document ID is not part of
-uniqueness. Each branch's dedup node admits independently, while all workers for one node share its stable ID. Merging
+uniqueness. Each branch's ededup node admits independently, while all workers for one node share its stable ID. Merging
 branch outputs adds no automatic cross-branch deduplication. PostgreSQL uses bounded bulk inserts with conflict-ignore
 and returns only newly inserted hashes after the whole call commits; an error rolls back every chunk.
 

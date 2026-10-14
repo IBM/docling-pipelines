@@ -10,11 +10,11 @@ from docpipe.core.job_management.adapters.stores.postgres.database import (
     get_postgres_connection_string,
 )
 from docpipe.core.operators.quality.ededup_storage.adapters.models import EdedupHashPostgresModel
-from docpipe.core.operators.quality.ededup_storage.ports.dedup_store import DedupStore
+from docpipe.core.operators.quality.ededup_storage.ports.ededup_store import EdedupStore
 from docpipe.exceptions.docpipe_exceptions import DocpipeException, FlowExecutionFailedException
 
 
-class PostgresDedupStore(DedupStore):
+class PostgresEdedupStore(EdedupStore):
     """Own only the admission table and its transaction lifecycle."""
 
     def __init__(self, *, config: dict[str, Any] | None = None):
@@ -26,7 +26,7 @@ class PostgresDedupStore(DedupStore):
             raise DocpipeException("PostgreSQL connection not configured for ededup")
         self._engine = create_postgres_engine(connection_string=connection_string, config=wrapped)
         try:
-            schema = postgres.get("schema", "dedup_registry")
+            schema = postgres.get("schema", "ededup_registry")
             metadata = MetaData(schema=schema)
             self._ededup_table = cast(Table, EdedupHashPostgresModel.__table__).to_metadata(metadata)
             with self._engine.begin() as connection:

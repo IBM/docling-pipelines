@@ -1,4 +1,4 @@
-"""File-locked dedup admissions for workers sharing a directory."""
+"""File-locked ededup admissions for workers sharing a directory."""
 
 import hashlib
 import json
@@ -9,13 +9,13 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from filelock import FileLock
 
-from docpipe.core.operators.quality.ededup_storage.ports.dedup_store import DedupStore
+from docpipe.core.operators.quality.ededup_storage.ports.ededup_store import EdedupStore
 from docpipe.exceptions.docpipe_exceptions import FlowExecutionFailedException
 from docpipe.utils.infrastructure.filesystem import get_data_path
 
 
-class FilesystemDedupStore(DedupStore):
-    """Persist only dedup memberships using atomic file replacement."""
+class FilesystemEdedupStore(EdedupStore):
+    """Persist only ededup memberships using atomic file replacement."""
 
     def __init__(self, *, config: dict[str, Any] | None = None):
         config = config or {}
@@ -29,7 +29,7 @@ class FilesystemDedupStore(DedupStore):
         if not records:
             return set()
         scope = hashlib.sha256(json.dumps([job_id, node_id, job_run_id]).encode()).hexdigest()
-        directory = self._base_dir / "dedup_registry"
+        directory = self._base_dir / "ededup_registry"
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / f"hashes_{scope}.parquet"
         temporary = path.with_suffix(".tmp")

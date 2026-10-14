@@ -298,16 +298,16 @@ incremental_metadata:
 #   - Increase lock_timeout to 300.0+ seconds
 #   - Configure PostgreSQL max_connections appropriately
 #   - Monitor database connection pool usage
-# Exact deduplication owns its storage independently of incremental_metadata.
+# Ededup owns its admission storage independently of incremental_metadata.
 # Precedence: ededup.storage > global_storage > filesystem default.
 # Set this explicitly when existing incremental service-specific settings were
-# previously used for dedup; keep the same schema/base_dir to retain admissions.
+# previously used for ededup; filesystem registry files must be moved to ededup_registry.
 # ededup:
 #   storage:
 #     type: postgresql
 #     config:
 #       postgres:
-#         schema: dedup_registry
+#         schema: ededup_registry
 # Common DOCPIPE_POSTGRES_* environment variables supply connection settings.
 # For filesystem instead: type: filesystem, config: {base_dir: ./data}
 # DOCPIPE_INCREMENTAL_BASE_DIR does not configure deduplication.
