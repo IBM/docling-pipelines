@@ -501,6 +501,30 @@ def test_extract_entities_single_with_extraction_format_options(base_config):
     assert "extraction_format_options" in call_kwargs
 
 
+@pytest.mark.unit
+def test_extract_entities_single_reuses_pooled_extractor(base_config):
+    """DocumentExtractor is built once per configuration and reused across documents and adapters."""
+    mock_page = MagicMock(page_no=1, extracted_data={"k": "v"}, raw_text=None, errors=[])
+    mock_extractor_cls = MagicMock(
+        side_effect=lambda **_: MagicMock(
+            extract=MagicMock(return_value=MagicMock(pages=[mock_page])), extraction_format_to_options={}
+        )
+    )
+    mocks = {
+        "docling.document_extractor": MagicMock(DocumentExtractor=mock_extractor_cls),
+        "docling.datamodel.base_models": MagicMock(InputFormat=MagicMock(IMAGE="image", PDF="pdf")),
+        "docling_core.types.io": MagicMock(DocumentStream=MagicMock()),
+    }
+    with patch.dict(sys.modules, mocks):
+        for _ in range(2):  # two adapter instances, e.g. two micro-batches
+            adapter = DoclingEntityAdapter(config=base_config)
+            for idx in range(3):
+                result = adapter.extract_entities_single(doc_id=f"d{idx}", doc_name="x.pdf", content=b"pdf")
+                assert result["success"] is True
+
+    assert mock_extractor_cls.call_count == 1
+
+
 # ---------------------------------------------------------------------------
 # transform
 # ---------------------------------------------------------------------------

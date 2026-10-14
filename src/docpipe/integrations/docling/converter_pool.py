@@ -1,0 +1,500 @@
+"""Process-wide bounded pool of reusable Docling converter/extractor instances.
+
+Why a pool
+----------
+Docling's ``DocumentConverter`` and ``DocumentExtractor`` lazily build their model
+pipelines (layout, TableFormer, OCR, VLM, ...) on first use and cache them per
+*instance*. Building a pipeline loads model weights and Docling serialises that work
+under a module-global lock, so it is by far the most expensive part of converting a
+small batch of documents.
+
+Extraction runs in short-lived worker threads (a fresh executor per ``transform()``
+call, and a fresh operator instance per micro-batch), so any per-thread or
+per-operator cache is thrown away after every batch. This pool keeps instances alive
+for the lifetime of the process instead, so model pipelines are built once per
+configuration and reused by every later batch and operator instance.
+
+Guarantees
+----------
+* **Exclusive use** -- an instance is handed to exactly one caller at a time
+  (``lease()``), so ``convert()``/``extract()`` is never called concurrently on the
+  same instance. This preserves the guarantee of the previous per-thread cache,
+  which existed because concurrent ``convert()`` calls on one instance backed by
+  docling-parse are not safe.
+* **Bounded** -- at most ``max_size`` instances (across all configurations) are
+  alive at any time. When the pool is full, an idle instance of another
+  configuration may be evicted (fair-share rules prevent thrashing between
+  configurations that run side by side); otherwise the caller blocks until an
+  instance is returned instead of constructing more.
+* **Correct keys** -- callers key instances with :func:`options_fingerprint`, which
+  hashes the actual option *values* (recursively, including nested model types),
+  so two configurations that differ in any setting never share an instance.
+* **Bounded idle memory** -- idle instances are dropped after ``idle_ttl_seconds``
+  (default 600 s) by a daemon reaper thread so a long-lived API process does not
+  keep models resident forever after a job finishes.
+
+Configuration (environment variables)
+-------------------------------------
+``DOCPIPE_DOCLING_CONVERTER_POOL_SIZE``
+    Maximum number of live instances in the process. Default:
+    ``min(2 * cpu_count, 16)``, i.e. the default number of text-extraction workers,
+    so a single batch at default settings never waits while concurrent micro-batches
+    share the same set of converters instead of multiplying them.
+``DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS``
+    Seconds an instance may stay idle before it is released. ``0`` keeps idle
+    instances until process exit. Default: ``600``.
+"""
+
+from __future__ import annotations
+
+import atexit
+import enum
+import hashlib
+import json
+import os
+import threading
+import time
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from pathlib import PurePath
+from typing import Any
+
+from docpipe.core.constants.constants import EnvironmentVariables
+from docpipe.utils.infrastructure.logging import get_logger
+
+logger = get_logger()
+
+_DEFAULT_IDLE_TTL_SECONDS = 600.0
+_MAX_SIZE_CEILING = 16
+_REAPER_MAX_INTERVAL_SECONDS = 60.0
+_COLD_IDLE_SECONDS = 30.0
+_MAX_FINGERPRINT_DEPTH = 64
+
+
+# ---------------------------------------------------------------------------
+# Configuration fingerprinting
+# ---------------------------------------------------------------------------
+
+
+def _qualified_name(cls: type) -> str:
+    """Return ``module.QualName`` for a class."""
+    return f"{getattr(cls, '__module__', '?')}.{getattr(cls, '__qualname__', repr(cls))}"
+
+
+def _canonical_sequence(*, values: Any, depth: int, active: set[int]) -> list[Any]:
+    """Canonicalise every element of an iterable."""
+    return [_canonical(value=item, depth=depth + 1, active=active) for item in values]
+
+
+def _canonical_object(*, value: Any, depth: int, active: set[int]) -> Any:
+    """Canonicalise a container or model object (cycle-protected by the caller)."""
+    from pydantic import BaseModel
+
+    if isinstance(value, BaseModel):
+        fields = {name: getattr(value, name, None) for name in type(value).model_fields}
+        fields.update(getattr(value, "__pydantic_extra__", None) or {})
+        return {
+            "__model__": _qualified_name(type(value)),
+            "fields": {name: _canonical(value=fields[name], depth=depth + 1, active=active) for name in sorted(fields)},
+        }
+    if isinstance(value, dict):
+        items = [
+            (
+                json.dumps(_canonical(value=key, depth=depth + 1, active=active), sort_keys=True, default=str),
+                _canonical(value=item, depth=depth + 1, active=active),
+            )
+            for key, item in value.items()
+        ]
+        return {"__dict__": sorted(items, key=lambda pair: pair[0])}
+    if isinstance(value, (set, frozenset)):
+        members = _canonical_sequence(values=value, depth=depth, active=active)
+        return {"__set__": sorted(json.dumps(member, sort_keys=True, default=str) for member in members)}
+    return _canonical_sequence(values=value, depth=depth, active=active)
+
+
+def _canonical(*, value: Any, depth: int, active: set[int]) -> Any:
+    """Convert an option object into a JSON-serialisable, value-based structure.
+
+    Pydantic models are walked field by field (keeping each nested model's concrete
+    type, so e.g. two OCR option subclasses with identical field values still differ).
+    Secrets are represented by a digest of their real value rather than the masked
+    ``**********`` string, so configurations that differ only in a credential never
+    share an instance. Anything unknown falls back to ``type + repr``; for objects whose
+    ``repr`` embeds an address this can only cause an unnecessary cache miss, never a
+    false match.
+    """
+    from pydantic import SecretBytes, SecretStr
+
+    if depth > _MAX_FINGERPRINT_DEPTH:
+        return {"__too_deep__": _qualified_name(type(value))}
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, (SecretStr, SecretBytes)):
+        secret = value.get_secret_value()
+        raw = secret if isinstance(secret, bytes) else str(secret).encode("utf-8")
+        return {"__secret__": hashlib.sha256(raw).hexdigest()}
+    if isinstance(value, bytes):
+        return {"__bytes__": hashlib.sha256(value).hexdigest()}
+    if isinstance(value, enum.Enum):
+        return {
+            "__enum__": _qualified_name(type(value)),
+            "value": _canonical(value=value.value, depth=depth + 1, active=active),
+        }
+    if isinstance(value, type):
+        return {"__class__": _qualified_name(value)}
+    if isinstance(value, PurePath):
+        return {"__path__": str(value)}
+
+    from pydantic import BaseModel
+
+    if not isinstance(value, (BaseModel, dict, list, tuple, set, frozenset)):
+        return {"__repr__": _qualified_name(type(value)), "value": repr(value)}
+
+    marker = id(value)
+    if marker in active:
+        return {"__cycle__": _qualified_name(type(value))}
+    active.add(marker)
+    try:
+        return _canonical_object(value=value, depth=depth, active=active)
+    finally:
+        active.discard(marker)
+
+
+def options_fingerprint(options: Any) -> str:
+    """Return a stable SHA-256 hex digest of the *values* held by ``options``.
+
+    Equal option values always give the same fingerprint within a process; options that
+    differ in any value, nested model type, enum member, class reference or secret give
+    different fingerprints.
+
+    Args:
+        options: Any combination of dicts, lists, pydantic models (e.g. Docling
+            ``PdfFormatOption`` / ``PipelineOptions``), enums, classes and scalars.
+
+    Returns:
+        A 64-character hexadecimal digest.
+    """
+    canonical = _canonical(value=options, depth=0, active=set())
+    payload = json.dumps(canonical, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Pool
+# ---------------------------------------------------------------------------
+
+
+class DoclingInstancePool:
+    """Thread-safe, bounded, keyed pool of expensive Docling objects.
+
+    Use :meth:`lease` to borrow an instance for one operation. Instances are created
+    lazily with the supplied factory and returned to the pool afterwards.
+    """
+
+    def __init__(self, *, max_size: int, idle_ttl_seconds: float) -> None:
+        """Create an empty pool.
+
+        Args:
+            max_size: Maximum number of live instances across all keys (>= 1).
+            idle_ttl_seconds: Idle lifetime of an instance; ``<= 0`` disables expiry.
+        """
+        if max_size < 1:
+            msg = f"max_size must be >= 1, got {max_size}"
+            raise ValueError(msg)
+        self._max_size = max_size
+        self._idle_ttl_seconds = max(0.0, float(idle_ttl_seconds))
+        self._cond = threading.Condition()
+        # key -> stack of (instance, last_released_monotonic); most recently used last
+        self._idle: dict[str, list[tuple[Any, float]]] = {}
+        self._live_per_key: dict[str, int] = {}
+        self._live_total = 0
+        self._constructed_total = 0
+        self._waiting_logged = False
+        self._reaper: threading.Thread | None = None
+        self._reaper_stop = threading.Event()
+
+    @property
+    def max_size(self) -> int:
+        """Maximum number of live instances."""
+        return self._max_size
+
+    @property
+    def idle_ttl_seconds(self) -> float:
+        """Idle lifetime in seconds (0 = never expire)."""
+        return self._idle_ttl_seconds
+
+    def stats(self) -> dict[str, int]:
+        """Return a snapshot of pool counters (for logging, tests and benchmarks)."""
+        with self._cond:
+            return {
+                "max_size": self._max_size,
+                "live": self._live_total,
+                "idle": sum(len(stack) for stack in self._idle.values()),
+                "constructed": self._constructed_total,
+                "keys": len(self._live_per_key),
+            }
+
+    @contextmanager
+    def lease(self, *, key: str, factory: Callable[[], Any]) -> Iterator[Any]:
+        """Borrow an instance for ``key`` exclusively for the duration of the block.
+
+        Args:
+            key: Configuration key; only instances created for the same key are reused.
+            factory: Zero-argument callable that builds a new instance for ``key``.
+
+        Yields:
+            An instance no other caller holds until the block exits.
+        """
+        instance = self._acquire(key=key, factory=factory)
+        try:
+            yield instance
+        finally:
+            self._release(key=key, instance=instance)
+
+    def _acquire(self, *, key: str, factory: Callable[[], Any]) -> Any:
+        """Check out an idle instance for ``key`` or reserve a slot and build one."""
+        with self._cond:
+            while True:
+                stack = self._idle.get(key)
+                if stack:
+                    instance, _ = stack.pop()
+                    if not stack:
+                        del self._idle[key]
+                    return instance
+                if self._live_total < self._max_size or self._evict_lru_idle_locked(requester=key):
+                    self._live_total += 1
+                    self._live_per_key[key] = self._live_per_key.get(key, 0) + 1
+                    break
+                if not self._waiting_logged:
+                    self._waiting_logged = True
+                    logger.info(
+                        "Docling converter pool is at capacity (%s); callers wait for a free instance. "
+                        "Set %s to change the limit.",
+                        self._max_size,
+                        EnvironmentVariables.DOCPIPE_DOCLING_CONVERTER_POOL_SIZE,
+                    )
+                self._cond.wait()
+
+        try:
+            logger.info("Creating pooled Docling instance for key %s", key)
+            instance = factory()
+        except BaseException:
+            with self._cond:
+                self._forget_locked(key=key)
+                self._cond.notify_all()
+            raise
+
+        with self._cond:
+            self._constructed_total += 1
+        return instance
+
+    def _release(self, *, key: str, instance: Any) -> None:
+        """Return a checked-out instance to the idle stack and wake waiters."""
+        with self._cond:
+            self._idle.setdefault(key, []).append((instance, time.monotonic()))
+            self._cond.notify_all()
+        self._ensure_reaper()
+
+    def _forget_locked(self, *, key: str) -> None:
+        """Drop one live-instance reservation for ``key``. Caller holds ``_cond``."""
+        self._live_total -= 1
+        remaining = self._live_per_key.get(key, 0) - 1
+        if remaining > 0:
+            self._live_per_key[key] = remaining
+        else:
+            self._live_per_key.pop(key, None)
+
+    def _evict_lru_idle_locked(self, *, requester: str) -> bool:
+        """Make room for ``requester`` by dropping an idle instance of another key.
+
+        To avoid evict/rebuild thrash when several configurations compete for a full
+        pool (e.g. text conversion and entity extraction running side by side), an idle
+        instance of key ``X`` is only evicted when
+        * ``requester`` has no live instance at all (guarantees progress), or
+        * ``X`` holds at least two more instances than ``requester`` (converges to a
+          fair split and can never ping-pong), or
+        * the instance has been idle for ``_COLD_IDLE_SECONDS`` (its workload is gone).
+        Otherwise the requester waits for one of its own instances. Among eligible
+        instances the least recently used one is dropped. Caller holds ``_cond``.
+
+        Returns:
+            True if an instance was evicted.
+        """
+        own_live = self._live_per_key.get(requester, 0)
+        cold_before = time.monotonic() - _COLD_IDLE_SECONDS
+        oldest_key: str | None = None
+        oldest_time = float("inf")
+        for key, stack in self._idle.items():
+            if key == requester or not stack or stack[0][1] >= oldest_time:
+                continue
+            eligible = own_live == 0 or self._live_per_key.get(key, 0) >= own_live + 2 or stack[0][1] <= cold_before
+            if eligible:
+                oldest_key, oldest_time = key, stack[0][1]
+        if oldest_key is None:
+            return False
+        stack = self._idle[oldest_key]
+        stack.pop(0)
+        if not stack:
+            del self._idle[oldest_key]
+        self._forget_locked(key=oldest_key)
+        logger.debug("Evicted idle Docling instance for key %s to make room", oldest_key)
+        return True
+
+    def evict_expired(self, *, now: float | None = None) -> int:
+        """Drop idle instances that exceeded the idle TTL.
+
+        Args:
+            now: Monotonic timestamp to compare against (defaults to ``time.monotonic()``).
+
+        Returns:
+            Number of instances dropped.
+        """
+        if self._idle_ttl_seconds <= 0:
+            return 0
+        current = time.monotonic() if now is None else now
+        dropped = 0
+        with self._cond:
+            for key in list(self._idle):
+                stack = self._idle[key]
+                keep = [entry for entry in stack if current - entry[1] < self._idle_ttl_seconds]
+                for _ in range(len(stack) - len(keep)):
+                    self._forget_locked(key=key)
+                    dropped += 1
+                if keep:
+                    self._idle[key] = keep
+                else:
+                    del self._idle[key]
+            if dropped:
+                self._cond.notify_all()
+        if dropped:
+            logger.info(
+                "Released %s idle Docling instance(s) after %.0f s of inactivity", dropped, self._idle_ttl_seconds
+            )
+        return dropped
+
+    def clear_idle(self) -> int:
+        """Drop every idle instance (checked-out instances are unaffected).
+
+        Returns:
+            Number of instances dropped.
+        """
+        with self._cond:
+            dropped = 0
+            for key, stack in self._idle.items():
+                for _ in stack:
+                    self._forget_locked(key=key)
+                    dropped += 1
+            self._idle.clear()
+            self._cond.notify_all()
+        return dropped
+
+    def shutdown(self) -> None:
+        """Stop the idle reaper and drop all idle instances. The pool stays usable."""
+        self._reaper_stop.set()
+        reaper = self._reaper
+        if reaper is not None and reaper is not threading.current_thread():
+            reaper.join(timeout=5)
+        self._reaper = None
+        self.clear_idle()
+
+    def _ensure_reaper(self) -> None:
+        """Start the daemon thread that expires idle instances (once, lazily)."""
+        if self._idle_ttl_seconds <= 0 or self._reaper is not None:
+            return
+        with self._cond:
+            if self._reaper is not None:
+                return
+            self._reaper_stop.clear()
+            self._reaper = threading.Thread(target=self._reap_loop, name="docling-converter-pool-reaper", daemon=True)
+            self._reaper.start()
+
+    def _reap_loop(self) -> None:
+        """Periodically drop expired idle instances until shutdown."""
+        interval = min(self._idle_ttl_seconds / 2, _REAPER_MAX_INTERVAL_SECONDS)
+        while not self._reaper_stop.wait(interval):
+            try:
+                self.evict_expired()
+            except Exception:
+                logger.warning("Docling converter pool reaper failed", exc_info=True)
+
+
+# ---------------------------------------------------------------------------
+# Process-wide default pool
+# ---------------------------------------------------------------------------
+
+_default_pool: DoclingInstancePool | None = None
+_default_pool_lock = threading.Lock()
+
+
+def default_pool_size() -> int:
+    """Return the default pool size: the default text-extraction worker count."""
+    return min((os.cpu_count() or 4) * 2, _MAX_SIZE_CEILING)
+
+
+def _read_env_number(*, name: str, default: float, minimum: float) -> float:
+    """Read a numeric environment variable, falling back to ``default`` when invalid."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        value = float(raw)
+    except ValueError:
+        logger.warning("Ignoring invalid value %r for %s; using %s", raw, name, default)
+        return default
+    if value < minimum:
+        logger.warning("Ignoring out-of-range value %r for %s; using %s", raw, name, default)
+        return default
+    return value
+
+
+def get_docling_pool() -> DoclingInstancePool:
+    """Return the process-wide pool, creating it from environment settings on first use."""
+    global _default_pool
+    pool = _default_pool
+    if pool is not None:
+        return pool
+    with _default_pool_lock:
+        if _default_pool is None:
+            size = int(
+                _read_env_number(
+                    name=EnvironmentVariables.DOCPIPE_DOCLING_CONVERTER_POOL_SIZE,
+                    default=default_pool_size(),
+                    minimum=1,
+                )
+            )
+            ttl = _read_env_number(
+                name=EnvironmentVariables.DOCPIPE_DOCLING_CONVERTER_IDLE_TTL_SECONDS,
+                default=_DEFAULT_IDLE_TTL_SECONDS,
+                minimum=0,
+            )
+            _default_pool = DoclingInstancePool(max_size=size, idle_ttl_seconds=ttl)
+            logger.info("Initialised Docling converter pool (max_size=%s, idle_ttl_seconds=%s)", size, ttl)
+        return _default_pool
+
+
+def reset_docling_pool() -> None:
+    """Shut down and discard the process-wide pool; the next use re-reads the environment."""
+    global _default_pool
+    with _default_pool_lock:
+        pool, _default_pool = _default_pool, None
+    if pool is not None:
+        pool.shutdown()
+
+
+def shutdown_docling_pool() -> None:
+    """Process-exit hook: release idle Docling instances and stop the reaper."""
+    pool = _default_pool
+    if pool is not None:
+        pool.shutdown()
+
+
+def _reinit_after_fork() -> None:
+    """Give a forked child a fresh pool: inherited locks/threads are unusable there."""
+    global _default_pool, _default_pool_lock
+    _default_pool = None
+    _default_pool_lock = threading.Lock()
+
+
+atexit.register(shutdown_docling_pool)
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reinit_after_fork)
