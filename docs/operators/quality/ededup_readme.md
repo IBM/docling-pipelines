@@ -100,4 +100,35 @@ See the [branching pipeline sample](../../../sample_flows/advanced/quality_branc
 - Failed batch after admission: its hashes remain registered for that node and run. A same-node retry skips them; a new run can admit them again. This is not a successful-output guarantee.
 - Growing registry: records are retained across runs and source deletion. Apply retention only to runs whose workers
   have stopped; deleting an active run's records can allow duplicates.
+- Registry cleanup: delete records only for completed runs after their workers have stopped. For PostgreSQL, inspect and
+  remove one scope with its complete job, node, and run key:
+
+  ```sql
+  SELECT count(*)
+  FROM ededup_registry.hashes
+  WHERE job_id = 'JOB_ID' AND node_id = 'NODE_ID' AND job_run_id = 'JOB_RUN_ID';
+
+  DELETE FROM ededup_registry.hashes
+  WHERE job_id = 'JOB_ID' AND node_id = 'NODE_ID' AND job_run_id = 'JOB_RUN_ID';
+  ```
+
+  Replace the schema if configured differently. For filesystem storage, the same scope is stored in one file named from
+  `sha256(json.dumps([job_id, node_id, job_run_id]).encode()).hexdigest()`. After workers stop, compute the filename and
+  remove that `.parquet` file and its matching `.lock` file from `<base_dir>/ededup_registry/`:
+
+  ```python
+  import hashlib
+  import json
+  from pathlib import Path
+
+  job_id, node_id, job_run_id = "JOB_ID", "NODE_ID", "JOB_RUN_ID"
+  base_dir = Path("./data")  # Use ededup.storage.config.base_dir if configured.
+  scope = hashlib.sha256(json.dumps([job_id, node_id, job_run_id]).encode()).hexdigest()
+  registry = base_dir / "ededup_registry"
+  (registry / f"hashes_{scope}.parquet").unlink(missing_ok=True)
+  (registry / f"hashes_{scope}.lock").unlink(missing_ok=True)
+  ```
+
+  Verify the job, node, run, schema, and base directory before deleting. Removing a scope permits its content to be
+  admitted again if that same run is retried.
 - Custom ededup backends: implement `EdedupStore` and register the adapter with `EdedupStoreFactory.register`.

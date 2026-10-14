@@ -1386,10 +1386,13 @@ When `display_pii: true`, additional `*_info` columns are appended for each PII 
 | `doc_column` | string | No | `content` | Content column to normalize and hash |
 | `doc_id_hash_column` | string | No | `doc_id_hash` | Required document hash/ID input column; content is hashed independently |
 
-The legacy `filter` argument is unsupported. The operator uses its dedicated `ededup.storage` backend configured in
+The legacy `filter` argument is unsupported. It was a backend-only argument and was not exposed as a user-configurable
+field in the UI. The operator uses its dedicated `ededup.storage` backend configured in
 `docling-pipelines-config.yaml`. PostgreSQL coordinates separate pods; filesystem coordinates callers sharing one local
-storage directory. The orchestrator supplies job, run, and node IDs. Partial execution context is rejected.
-Context-free standalone instances retain an in-memory registry across calls on that instance only.
+storage directory. The orchestrator supplies job, run, and node IDs. Direct callers supplying job/run context must also
+supply the node ID; partial execution context is rejected.
+Call `transform(table)` when invoking the operator directly; the former `transform(table, file_name=...)` form is
+unsupported. Context-free standalone instances retain an in-memory registry across calls on that instance only.
 
 Configuration precedence is `ededup.storage` over `global_storage` over filesystem defaults; nested ededup config values
 override shared values. `incremental_metadata` settings and `DOCPIPE_INCREMENTAL_BASE_DIR` are not consulted. Invalid
