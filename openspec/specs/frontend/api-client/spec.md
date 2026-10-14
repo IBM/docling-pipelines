@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The api-client capability defines the frontend-backend communication boundary, providing base URL resolution (BFF proxy vs direct API), structured request and response logging interceptors, action-encapsulated HTTP communication with BFF headers, and error propagation to Redux thunks.
+The api-client capability defines the frontend-backend communication boundary, providing base URL resolution (BFF proxy vs direct API), structured request and response logging interceptors, action-encapsulated HTTP communication with BFF headers, and error propagation conventions.
 
 ## Requirements
 
@@ -37,19 +37,27 @@ The API client layer SHALL intercept all outgoing requests, successful responses
 - **THEN** the error interceptor logs a "No response received from server" error with the request method and URL
 
 ### Requirement: Action-encapsulated HTTP communication
-API calls SHALL be organized into domain-specific action modules (e.g. `flow-actions`, `project-actions`) that encapsulate endpoint paths, attach standard BFF headers (`Accept`, `X-Requested-With`), and return typed Axios responses.
+API calls SHALL be organized into domain-specific action modules that encapsulate endpoint paths, attach standard BFF headers (`Accept`, `X-Requested-With`), and return typed responses (standard actions returning `AxiosResponse`, or domain data helpers returning unwrapped response data).
 
 #### Scenario: Domain action attaches BFF headers
-- **WHEN** a domain action (such as `createFlow`) issues a mutation request
+- **WHEN** a domain action (such as `createFlow` or `enrichFlowFeatures`) issues a request
 - **THEN** the request sends `Accept: application/json` and `X-Requested-With: XMLHttpRequest` headers to the BFF endpoint
 
-#### Scenario: Domain action returns typed response payload
-- **WHEN** an API action succeeds
+#### Scenario: Standard domain action returns typed Axios response
+- **WHEN** a standard API action succeeds
 - **THEN** the promise resolves with the typed `AxiosResponse` containing the domain payload
 
-### Requirement: Error logging and propagation to Redux thunks
-Domain API actions SHALL log operational errors with contextual details and re-throw caught exceptions so that calling Redux thunks can handle rejections and populate slice error state.
+#### Scenario: Data-unwrapping action returns response payload directly
+- **WHEN** an action helper such as `getProviderModels` succeeds
+- **THEN** the promise resolves directly with `response.data` (`ModelsResponse`) rather than the Axios response envelope
 
-#### Scenario: Action failure logs contextual error and re-throws
-- **WHEN** an API call within an action module fails
-- **THEN** the action logs an error with module-specific context via `logUtil.error` and re-throws the error for the Redux thunk caller
+### Requirement: Error handling and propagation conventions
+Domain API actions SHALL log operational errors with contextual details and re-throw caught exceptions by default for Redux thunks, with specific mount actions permitted to absorb errors to prevent unhandled rejection loops.
+
+#### Scenario: Standard action logs error and re-throws
+- **WHEN** a standard API action (e.g. `createFlow`, `getProviderModels`) fails
+- **THEN** the action logs the error via `logUtil.error` and re-throws the error for caller handling
+
+#### Scenario: Self-dispatching action absorbs error on failure
+- **WHEN** `getOperatorMetadata` fails during canvas initialization
+- **THEN** the action logs the error via `logUtil.error` and absorbs it without throwing, preventing global unhandled rejection cascades
