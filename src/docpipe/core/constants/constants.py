@@ -354,7 +354,7 @@ class LineageConstants:
     DEFAULT_MODE = os.getenv(EnvironmentVariables.DOCPIPE_LINEAGE_MODE, MODE_FLOW)
     DEFAULT_NAMESPACE = os.getenv(EnvironmentVariables.DOCPIPE_LINEAGE_NAMESPACE, "docpipe://local")
     DEFAULT_PRODUCER = os.getenv(
-        EnvironmentVariables.DOCPIPE_LINEAGE_PRODUCER, "https://github.com/IBM/docling-pipelines"
+        EnvironmentVariables.DOCPIPE_LINEAGE_PRODUCER, "https://github.com/docling-project/docling-pipelines"
     )
     DEFAULT_STRICT = os.getenv(EnvironmentVariables.DOCPIPE_LINEAGE_STRICT, "false")
 
@@ -374,13 +374,17 @@ class LineageConstants:
     DOCUMENTATION_JOB_FACET_URL = "https://openlineage.io/spec/facets/1-0-0/DocumentationJobFacet.json"
 
     # Custom facet schema URLs
-    DOCPIPE_STATUS_FACET_URL = "https://github.com/IBM/docling-pipelines/schemas/docpipe-status-facet-1-0-0.json"
-    DOCPIPE_PROGRESS_FACET_URL = "https://github.com/IBM/docling-pipelines/schemas/docpipe-progress-facet-1-0-0.json"
+    DOCPIPE_STATUS_FACET_URL = (
+        "https://github.com/docling-project/docling-pipelines/schemas/docpipe-status-facet-1-0-0.json"
+    )
+    DOCPIPE_PROGRESS_FACET_URL = (
+        "https://github.com/docling-project/docling-pipelines/schemas/docpipe-progress-facet-1-0-0.json"
+    )
     DOCPIPE_NODE_STATS_FACET_URL = (
-        "https://github.com/IBM/docling-pipelines/spec/facets/1-0-0/DocpipeNodeStatsFacet.json"
+        "https://github.com/docling-project/docling-pipelines/spec/facets/1-0-0/DocpipeNodeStatsFacet.json"
     )
     DOCPIPE_NODE_STATUS_FACET_URL = (
-        "https://github.com/IBM/docling-pipelines/spec/facets/1-0-0/DocpipeNodeStatusFacet.json"
+        "https://github.com/docling-project/docling-pipelines/spec/facets/1-0-0/DocpipeNodeStatusFacet.json"
     )
 
 
@@ -471,6 +475,7 @@ class Metrics:
         FAILED_DOCS = "failed_docs"
         SKIPPED_DOCS_COUNT = "skipped_docs_count"
         SKIPPED_DOCS = "skipped_docs"
+        DOCUMENT_URL = "document_url"
         TOTAL_PAGES_CONVERTED = "total_pages_converted"
         NODE_STATUS = "node_status"
         UNPROCESSED_DOC_COUNT = "unprocessed_doc_count"
