@@ -2,7 +2,7 @@
 
 ## Context
 
-See the [proposal](proposal.md) for motivation and [requirements](specs/content-deduplication/spec.md) for the behavioral contract. The working tree already contains atomic bulk admissions, node-scoped PostgreSQL and filesystem storage, and concurrency tests. The active changes contain ededup only. Rename-reuse code, configuration, documentation, and tests are preserved separately in `deferred_work/rename-handling/` for later work.
+See the [proposal](proposal.md) for motivation and [requirements](specs/backend/ededup-operator/spec.md) for the behavioral contract. The working tree already contains atomic bulk admissions, node-scoped PostgreSQL and filesystem storage, and concurrency tests. The active changes contain ededup only. Rename-reuse code, configuration, documentation, and tests are preserved separately in `deferred_work/rename-handling/` for later work.
 
 `EdedupOperator` normalizes content, selects candidate rows, calls its dedicated storage port, and filters by returned hashes. PostgreSQL keys the `hashes` table by job, node, run, and `hash_value` in the `ededup_registry` schema; filesystem scopes also include node identity under the `ededup_registry` directory. The factory defaults to filesystem; configured PostgreSQL supports distributed workers.
 

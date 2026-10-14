@@ -21,11 +21,11 @@ Deduplication must admit content once per operator node in each job run across c
 
 ### New Capabilities
 
-- `content-deduplication`: Atomic content admission per job, run, and operator node across batches, with independent branches, overlapping runs, and retained admission history.
+- `backend/ededup-operator`: Atomic content admission per job, run, and operator node across batches, with independent branches, overlapping runs, and retained admission history.
 
 ### Modified Capabilities
 
-None; the project currently has no main OpenSpec specifications.
+None; the project has no existing Ededup operator specification to modify.
 
 ## Impact
 

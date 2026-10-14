@@ -49,7 +49,7 @@ context: |
   - Frontend Redux Slices:           <name>-slice          (e.g. flows-slice, projects-slice)
   - Backend REST APIs:               <name>-api            (e.g. flows-api, projects-api)
   - Backend Core Engine:             <name> under backend/ (e.g. backend/flow-execution-engine)
-
+  - Backend Operators:               <operator_short_name>-operator  (e.g. backend/ededup-operator)
 rules:
   proposal:
     - Always include a Non-goals section
