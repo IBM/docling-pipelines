@@ -149,6 +149,9 @@ jobs:
             const allPassed =
               dcoFailed.length === 0 && gpgFailed.length === 0 && templateFailed.length === 0;
 
+            // Absolute URL: relative links do not resolve inside PR comments.
+            const repoUrl = `${context.serverUrl}/${owner}/${repo}`;
+
             const commentHeader = "<!-- commit-verification-bot -->";
 
             let body = "";
@@ -203,7 +206,7 @@ jobs:
                   const reason = c.reason || 'unsigned';
                   body += `| \`${c.sha.slice(0,7)}\` | ${sanitizeForTable(c.author)} &lt;${sanitizeForTable(c.email)}&gt; | ${sanitizeForTable(reason)} | ${sanitizeForTable(c.message)} |\n`;
                 }
-                body += "\n**Fix:** You must GPG-sign all commits. See [Verified Commits setup guide](https://github.com/IBM/docling-pipelines/blob/main/CONTRIBUTING.md#verified-commits).\n\n";
+                body += `\n**Fix:** You must GPG-sign all commits. See [Verified Commits setup guide](${repoUrl}/blob/${baseRef}/CONTRIBUTING.md#verified-commits).\n\n`;
                 body += "**Single commit:**\n";
                 body += "```bash\n";
                 body += "git commit --amend --signoff -S\n";
@@ -224,7 +227,7 @@ jobs:
                   body += `- \`${section}\`\n`;
                 }
                 body += "\nPlease fill out all sections of the PR template before requesting review.\n";
-                body += "See the [PR template](.github/pull_request_template.md) for reference.\n";
+                body += `See the [PR template](${repoUrl}/blob/${baseRef}/.github/pull_request_template.md) for reference.\n`;
               }
 
               body += "\n---\n";

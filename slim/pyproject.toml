@@ -135,7 +135,7 @@ telemetry = [
 ]
 
 extract = [
-    "accelerate==1.13.0",
+    "accelerate==1.15.0",
     "docling[rapidocr]==2.132.0",
     "sentence-transformers==5.6.0",
     "transformers>=5.17.0,<5.18.0",
@@ -167,9 +167,8 @@ Source = "https://github.com/docling-project/docling-pipelines"
 docling-pipelines-api = "docpipe.api.main:run"
 docling-pipelines = "docpipe.cli.docpipe_cli:main"
 
-[tool.hatch.build.targets.wheel]
-packages = ["docpipe"]
-sources = {"docpipe" = "../src/docpipe"}
+[tool.hatch.build.targets.wheel.force-include]
+"../src/docpipe" = "docpipe"
 
 [tool.hatch.build.targets.sdist.force-include]
 "../src/docpipe" = "docpipe"
