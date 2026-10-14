@@ -127,7 +127,7 @@ The page SHALL save the current flow by reading the live canvas definition from 
 - **THEN** the pipeline flow snapshot is captured before any await, preserving the canvas state at click time
 
 ### Requirement: Node properties panel
-The page SHALL open a right-flyout properties panel when a user double-clicks an execution node or selects "Edit" from the context menu. The panel SHALL load parameter definitions (cached per operator type), merge any existing node parameter values, and display them via `CommonProperties`. While features are loading asynchronously, the panel SHALL show a loading state. When the panel switches to a different node, the current node's form values SHALL be committed to the canvas model by calling `applyPropertiesEditing(false)` on the Elyra properties controller (this is a canvas-model commit, not a backend network save).
+The page SHALL open a right-flyout properties panel when an execution node is double-clicked or edited from the context menu. The panel SHALL load cached parameter definitions, display properties via `CommonProperties`, show async loading states, and commit form values to the canvas model on node switch.
 
 #### Scenario: Panel opens on double-click
 - **WHEN** the user double-clicks an execution node
@@ -221,7 +221,11 @@ The page SHALL display a contextual node suggestion panel when the user single-c
 - **THEN** the node suggestion panel closes
 
 ### Requirement: Flow run properties writeback
-When the user saves flow run properties from `FlowRunPropertiesTearsheet`, the page SHALL write the values back into the pipeline definition's `global_config` using the inverse of the load-time mappings: `enableIncrementalProcessing → !force_ingest`, `retainRecordsForDeletedDocuments → retain_deleted_docs`, `validateFlow → !disable_validation`, `enableNodeOutputPreview → enable_peekIn`, `intermediateDataStorage → data_storage_type`. It SHALL then dispatch `saveFlow` and update `isDirty` and `lastSavedAt`. Disabling validation SHALL inject a synthetic `'succeeded'` result to clear the notification bar.
+When flow run properties are saved from `FlowRunPropertiesTearsheet`, the page SHALL map values back to pipeline `global_config`, dispatch `saveFlow`, and update dirty and saved timestamps. Disabling validation SHALL apply a synthetic succeeded result to clear notification bars.
+
+#### Scenario: Properties mapped back to global_config fields
+- **WHEN** flow run properties are saved
+- **THEN** values are mapped to `!force_ingest`, `retain_deleted_docs`, `!disable_validation`, `enable_peekIn`, and `data_storage_type` in `global_config`
 
 #### Scenario: Properties saved and flow persisted
 - **WHEN** the user saves flow run properties

@@ -18,7 +18,7 @@ Both endpoints SHALL require a valid JWT bearer token. Requests without a token 
 - **THEN** the response is 401
 
 ### Requirement: Get document by ID with ACL enforcement
-`GET /api/v1/documents/{document_id}` SHALL retrieve a single document from OpenSearch by ID. The query SHALL include an ACL filter that requires the authenticated user's `username` to be present in the document's `allowed_users` field. The response SHALL be a `DocumentResponse` containing `id`, `content`, `metadata`, `created_at`, and `updated_at`. When the document does not exist **or** the user is not in `allowed_users`, the response SHALL be 404 — the same status is returned in both cases to prevent information leakage about document existence.
+`GET /api/v1/documents/{document_id}` SHALL retrieve a single document from OpenSearch by ID, applying a server-side ACL filter requiring the user to be in `allowed_users` and returning 404 for missing or unauthorized documents to prevent information leakage.
 
 #### Scenario: Authorised user retrieves document
 - **WHEN** `GET /api/v1/documents/{document_id}` is called by a user who is listed in the document's `allowed_users`
@@ -37,7 +37,7 @@ Both endpoints SHALL require a valid JWT bearer token. Requests without a token 
 - **THEN** the response is 503 with `detail = "Document service unavailable"`
 
 ### Requirement: Search documents with ACL enforcement
-`POST /api/v1/documents/search` SHALL search documents in OpenSearch using the `DocumentSearchRequest` body. The search SHALL support full-text query across content, title, and metadata fields, field-based exact-match filters, sort configuration, and offset-based pagination via `limit` and `offset`. All results SHALL be automatically restricted to documents where the authenticated user's `username` is present in `allowed_users`. The response SHALL be a `DocumentSearchResponse` containing `documents`, `total`, `limit`, `offset`, and `has_more`.
+`POST /api/v1/documents/search` SHALL execute ACL-restricted document searches across content and metadata in OpenSearch, supporting full-text queries, exact match filters, sorting, and pagination.
 
 #### Scenario: Search returns only documents accessible to the user
 - **WHEN** `POST /api/v1/documents/search` is called with a query that would match documents owned by other users

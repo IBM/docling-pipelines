@@ -7,7 +7,7 @@ The document-sets-api capability manages document sets — named, persistent col
 ## Requirements
 
 ### Requirement: Create or retrieve a document set (idempotent)
-`POST /api/v1/document-sets` SHALL implement a **get-or-create** pattern: if a document set with the given `name` already exists, the existing record SHALL be returned. If it does not exist, a new one SHALL be created with a generated UUID `id`. The response status SHALL always be 201 regardless of whether the record was created or retrieved. This makes the operation safe for repeated calls with the same name. The request body accepts `name` (required), `description` (optional), and `metadata` (optional free-form dict).
+`POST /api/v1/document-sets` SHALL implement an idempotent get-or-create pattern: returning existing records or creating a new record with a generated UUID, always returning status 201 for safe repeated invocations.
 
 #### Scenario: New document set created
 - **WHEN** `POST /api/v1/document-sets` is called with a name that does not yet exist
@@ -63,7 +63,7 @@ The document-sets-api capability manages document sets — named, persistent col
 - **THEN** the response is 404
 
 ### Requirement: Delete a document set
-`DELETE /api/v1/document-sets/{document_set_id}` SHALL delete a document set. The `delete_data` query parameter (boolean, default `true`) controls whether the underlying stored document rows in DuckDB are also removed. When `delete_data=true`, both the metadata record and the stored row data are deleted. When `delete_data=false`, only the metadata record is removed; the DuckDB table data is retained. On success the response SHALL be 204 with no body. An unknown `document_set_id` SHALL return 404.
+`DELETE /api/v1/document-sets/{document_set_id}` SHALL delete a document set metadata record and conditionally remove underlying stored DuckDB rows according to the boolean `delete_data` parameter (defaulting to true), returning 204 on success.
 
 #### Scenario: Delete with data removes metadata and stored rows
 - **WHEN** `DELETE /api/v1/document-sets/{document_set_id}?delete_data=true` is called

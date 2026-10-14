@@ -7,7 +7,7 @@ The custom-operators-api capability is the REST API surface for managing user-su
 ## Requirements
 
 ### Requirement: Create custom operator via file upload
-`POST /api/v1/custom_operators` SHALL accept a multipart form upload containing a `name` string, an optional `description` string, and an `operator_file` `.py` file. The service SHALL statically validate the script against the operator contract before persisting it. On success the response SHALL be 201 with a `FileUploadResponse` containing `operator_id`, `success=true`, and a confirmation message. A duplicate `short_name` SHALL return 409. Files exceeding 512 KB SHALL return 413. Invalid filename, non-`.py` extension, syntax errors, or operator contract violations SHALL return 400.
+`POST /api/v1/custom_operators` SHALL accept a multipart form upload containing `name`, optional `description`, and a `.py` `operator_file`. The service SHALL statically validate the script against the operator contract and persist valid files up to 512 KB, returning 201 with a `FileUploadResponse`.
 
 #### Scenario: Valid operator created and returns 201
 - **WHEN** `POST /api/v1/custom_operators` is called with a valid `.py` file and name

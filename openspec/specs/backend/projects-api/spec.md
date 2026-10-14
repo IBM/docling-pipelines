@@ -89,7 +89,7 @@ The projects-api capability is the REST API surface for project management. It l
 - **THEN** the response is 404
 
 ### Requirement: List project flows with run summary
-`GET /api/v1/projects/{project_id}/flows` SHALL return a paginated list of flows scoped to the project. Each flow item SHALL include identity (`flow_id`, `name`), provenance (`created_on`, `modified_on`, `created_by`, `modified_by`), `tags`, and a `job_run_summary` object. The `job_run_summary` SHALL be `null` for flows that have never been executed. The flow `definition` payload SHALL NOT be included in this response. The same `limit`, `offset`, `name`, `tags`, and `is_hidden` filter parameters as the project list SHALL apply. An unknown `project_id` SHALL return 404.
+`GET /api/v1/projects/{project_id}/flows` SHALL return a paginated list of flows scoped to the project, each enriched with metadata, tags, and execution `job_run_summary` (or null if never run) while omitting flow definitions.
 
 #### Scenario: Flows returned with run summary
 - **WHEN** `GET /api/v1/projects/{project_id}/flows` is called for a project with executed flows

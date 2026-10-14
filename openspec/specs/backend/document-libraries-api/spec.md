@@ -7,7 +7,7 @@ The document-libraries-api capability manages document libraries — named colle
 ## Requirements
 
 ### Requirement: Create a document library
-`POST /api/v1/document-libraries` SHALL create a new library with a generated UUID `library_id`. The request body accepts `name` (required, 3–128 chars, must be unique, must start with a letter, may contain letters/digits/spaces/underscores), `description` (optional, max 2000 chars), `purpose` (optional, max 1024 chars), `original_size` (optional, non-negative integer bytes), `final_size` (optional, non-negative integer bytes), and `tags` (optional list). The response status SHALL be 201. Initial metrics (`total_document_sets`, `total_documents`, `total_size_bytes`) SHALL be zero. A duplicate `name` SHALL return 409. Invalid input SHALL return 400.
+`POST /api/v1/document-libraries` SHALL create a new library with a generated UUID `library_id` and zero initial metrics. The request body accepts unique `name` (3–128 chars starting with a letter), optional `description`, `purpose`, size estimates, and `tags`.
 
 #### Scenario: Library created successfully
 - **WHEN** `POST /api/v1/document-libraries` is called with a valid unique name
@@ -86,7 +86,7 @@ The document-libraries-api capability manages document libraries — named colle
 - **THEN** the response is 404
 
 ### Requirement: Bulk-add document sets to a library
-`PUT /api/v1/document-libraries/{library_id}/document-sets?document_sets_ids=id1,id2,…` SHALL add one or more document sets to a library in a single request. The `document_sets_ids` parameter SHALL be a comma-separated list of document set UUIDs. This creates many-to-many associations: a document set may belong to multiple libraries, and a library may contain multiple document sets. Attempting to add a document set that is already associated SHALL return 400. A referenced document set that does not exist SHALL return 404. On success the response SHALL be 204.
+`PUT /api/v1/document-libraries/{library_id}/document-sets?document_sets_ids=id1,id2,…` SHALL associate one or more document set UUIDs with a library in a single request, supporting many-to-many relationships and returning 204 on success.
 
 #### Scenario: Document sets added to library
 - **WHEN** `PUT /api/v1/document-libraries/{library_id}/document-sets?document_sets_ids=id1,id2` is called with valid IDs
@@ -112,7 +112,7 @@ The document-libraries-api capability manages document libraries — named colle
 - **THEN** the response is 400
 
 ### Requirement: List document sets in a library
-`GET /api/v1/document-libraries/{library_id}/document-sets` SHALL return a `DocumentSetsRetrieved` response containing the full metadata of all document sets currently associated with the library. Each entry SHALL include `id`, `name`, `description`, `container_id`, `container_type`, `documents` (count and size_bytes, or null if none), `tags`, `propagate_source_acls`, `is_derivative_available`, `created_at`, and `updated_at`. An empty association list SHALL return an empty array, not 404. An unknown `library_id` SHALL return 404.
+`GET /api/v1/document-libraries/{library_id}/document-sets` SHALL return a `DocumentSetsRetrieved` response containing metadata for all document sets associated with the library, or an empty list if none are linked.
 
 #### Scenario: Document set metadata returned for each associated set
 - **WHEN** `GET /api/v1/document-libraries/{library_id}/document-sets` is called for a library with associated sets
