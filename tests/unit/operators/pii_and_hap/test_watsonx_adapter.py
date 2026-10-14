@@ -116,3 +116,49 @@ def test_detect_empty_detections_returns_empty_response(adapter, mock_text_detec
     response = adapter.detect(payload={"input": "clean text", "detectors": {}})
     assert response.detections == []
     assert response.input_text == "clean text"
+
+
+# ---------------------------------------------------------------------------
+# Capability-scoped detection (PIIDetectionPort / HAPDetectionPort)
+# ---------------------------------------------------------------------------
+
+_MIXED_DETECTIONS = {
+    "success": True,
+    "detections": [
+        {"detection": "EmailAddress", "detection_type": "pii", "score": 0.9, "start": 0, "end": 16},
+        {"detection": "has_HAP", "detection_type": "hap", "score": 0.9, "start": 17, "end": 30},
+    ],
+}
+
+
+def test_adapter_declares_both_capabilities():
+    assert WatsonxPIIAndHAPAdapter.SUPPORTS_PII is True
+    assert WatsonxPIIAndHAPAdapter.SUPPORTS_HAP is True
+
+
+def test_detect_pii_sends_only_pii_detector(adapter, mock_text_detection_adapter):
+    mock_text_detection_adapter.detect.return_value = _MIXED_DETECTIONS
+    response = adapter.detect_pii(text="some text", threshold=0.6)
+
+    mock_text_detection_adapter.detect.assert_called_once_with(text="some text", detectors={"pii": {"threshold": 0.6}})
+    assert [d.detection for d in response.detections] == ["EmailAddress"]
+
+
+def test_detect_hap_sends_only_hap_detector(adapter, mock_text_detection_adapter):
+    mock_text_detection_adapter.detect.return_value = _MIXED_DETECTIONS
+    response = adapter.detect_hap(text="some text", threshold=0.7)
+
+    mock_text_detection_adapter.detect.assert_called_once_with(text="some text", detectors={"hap": {"threshold": 0.7}})
+    assert [d.detection for d in response.detections] == ["has_HAP"]
+
+
+def test_validate_provider_config_reports_missing_watsonx_keys():
+    errors = WatsonxPIIAndHAPAdapter.validate_provider_config(
+        provider_config={"model_id": "m", "api_key": "k"},  # pragma: allowlist secret
+        config_key="hap_provider_config",
+    )
+    assert len(errors) == 1
+    assert errors[0].startswith(
+        "WatsonX provider requires api_key, url, container_kind, container_id in hap_provider_config"
+    )
+    assert "Missing: url, container_kind, container_id" in errors[0]

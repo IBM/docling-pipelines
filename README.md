@@ -2,8 +2,8 @@
 
 [![PyPI version](https://img.shields.io/pypi/v/docling-pipelines)](https://pypi.org/project/docling-pipelines/)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/release/python-3120/)
-[![License MIT](https://img.shields.io/github/license/IBM/docling-pipelines)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/IBM/docling-pipelines/actions/workflows/ci.yml/badge.svg)](https://github.com/IBM/docling-pipelines/actions/workflows/ci.yml)
+[![License MIT](https://img.shields.io/github/license/docling-project/docling-pipelines)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/docling-project/docling-pipelines/actions/workflows/ci.yml/badge.svg)](https://github.com/docling-project/docling-pipelines/actions/workflows/ci.yml)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![DCO](https://img.shields.io/badge/DCO-required-brightgreen)](https://developercertificate.org/)
@@ -27,6 +27,7 @@ It connects to cloud document sources (S3, OneDrive, SharePoint, Google Drive, B
 - 🔀 **DAG-based flows** — define pipelines as JSON with automatic dependency resolution and parallel execution
 - 🔌 **Extensible** — load custom operators from Python packages, local paths, or S3 without modifying core code
 - 🖥️ **Multiple interfaces** — CLI, Python API (`DocpipeFlowManager`), and REST API (FastAPI)
+- 🌐 **Web UI** *(beta)* — browser-based pipeline builder and run monitor; experimental and not yet recommended for production workloads
 
 ## Installation
 
@@ -75,7 +76,11 @@ result = manager.execute()
 
 Log verbosity is controlled via `DS_LOG_LEVEL` (`DEBUG`, `INFO`, `WARNING`).
 
-## UI
+## UI *(beta)*
+
+> **⚠️ Beta notice:** The web UI is experimental and **not production-ready**. It is under active development and may change significantly between releases. For production workloads, use the CLI, Python API, or REST API.
+
+A browser-based UI for building flows and monitoring runs is included in this repository under [`frontend/`](frontend/).
 
 Docling pipelines includes a React + TypeScript frontend (IBM Carbon Design System) served by the FastAPI backend at `/ui`.
 
@@ -105,7 +110,7 @@ uvicorn docpipe.api.main:app --host 0.0.0.0 --port 8080
 # UI available at http://localhost:8080/ui
 ```
 
-For full details see [FRONTEND_BUILD_INTEGRATION.md](FRONTEND_BUILD_INTEGRATION.md).
+For full details see [FRONTEND_BUILD_INTEGRATION.md](FRONTEND_BUILD_INTEGRATION.md) and the [Frontend README](frontend/README.md).
 
 ## Documentation
 

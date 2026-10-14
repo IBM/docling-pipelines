@@ -11,6 +11,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 
 ### Added
 
+- Unified `Commit Verification` workflow (`.github/workflows/commit-verification.yml`) enforcing DCO sign-off, GPG verification, and PR template completeness on every PR; replaces `dco-advisor.yml` (#188)
 - `docs/integrations/openlineage/OPENLINEAGE_GUIDE.md` — new integration guide covering OpenLineage support: installation, enabling, configuration reference (all env vars, HTTP and File transport), emission modes (flow vs operator), event catalog by mode, custom facets reference, and a step-by-step guide for adding a custom lineage client.
 - React frontend UI with Elyra-based pipeline canvas, per-operator properties panels, project/flow management, and Node.js BFF layer; bundled into the wheel and served at `/ui/` (#58)
 - `StorageOutputOperator` — writes processed documents to a configurable destination with `processed_content`, `refetch_original`, and `comprehensive_export` modes (#58)
@@ -33,6 +34,8 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 - Release process documentation (`RELEASE_PROCESS.md`) (#58)
 
 ### Changed
+
+- `sample_flows/README.md` — synchronize existing JSON flow catalog and storage output examples (#228).
 
 - **Breaking:** `IngestSourceOperator` migrated from `connection_params` + `credentials` to unified `provider_config`; all 8 source adapters and all sample flows updated (#152)
 - `PIIAndHAPAnnotator` provider selection replaced with decorator-based `PIIAndHAPDetectionFactory` registry (#76)
@@ -96,6 +99,6 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/).
 - SonarQube, ruff, mypy, and Mend CI quality gates
 - Comprehensive documentation under `docs/`
 
-[Unreleased]: https://github.com/IBM/docling-pipelines/compare/v1.0.1...HEAD
-[1.0.1]: https://github.com/IBM/docling-pipelines/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/IBM/docling-pipelines/releases/tag/v1.0.0
+[Unreleased]: https://github.com/docling-project/docling-pipelines/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/docling-project/docling-pipelines/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/docling-project/docling-pipelines/releases/tag/v1.0.0

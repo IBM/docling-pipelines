@@ -8,9 +8,11 @@ PIIAndHAPDetectionFactory via the @register_pii_and_hap_detection_adapter decora
 """
 
 from .litellm.adapter import LiteLLMPIIAndHAPAdapter
+from .presidio.adapter import PresidioPIIAdapter
 from .watsonx.adapter import WatsonxPIIAndHAPAdapter
 
 __all__ = [
     "LiteLLMPIIAndHAPAdapter",
+    "PresidioPIIAdapter",
     "WatsonxPIIAndHAPAdapter",
 ]

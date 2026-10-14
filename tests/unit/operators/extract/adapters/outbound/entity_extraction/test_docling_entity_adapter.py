@@ -3,38 +3,19 @@ get_config_schema, _build_vlm_extraction_options, extract_entities_single, and
 the DoclingEntityExtractionService helper class."""
 
 import sys
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Stub heavy Docling VLM imports so they don't need to be installed before
-# importing the adapter under test.
-_docling_mocks = [
-    "docling",
-    "docling.backend",
-    "docling.backend.docling_parse_backend",
-    "docling.backend.pypdfium2_backend",
-    "docling.datamodel",
-    "docling.datamodel.base_models",
-    "docling.datamodel.pipeline_options",
-    "docling.datamodel.pipeline_options_vlm_model",
-    "docling.document_extractor",
-    "docling.pipeline",
-    "docling.pipeline.extraction_vlm_pipeline",
-    "docling_core",
-    "docling_core.types",
-    "docling_core.types.io",
-]
-for _mod in _docling_mocks:
-    if _mod not in sys.modules:
-        sys.modules[_mod] = Mock()
-
-# These imports must follow the sys.modules pre-mocking above.
-
-from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter import (  # noqa: E402
+# Docling is a core dependency and the adapter imports it lazily, so no
+# import-time stubbing is needed. Tests that require fake Docling classes patch
+# them locally via patch.dict(sys.modules, ...), which restores the real modules
+# afterwards. Do not install module-level sys.modules stubs here: they leak into
+# every later test in the session and break real `docling.*` imports.
+from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_adapter import (
     DoclingEntityAdapter,
 )
-from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_config import (  # noqa: E402
+from docpipe.core.operators.extract.adapters.outbound.entity_extraction.docling_entity_config import (
     DoclingEntityConfig,
 )
 

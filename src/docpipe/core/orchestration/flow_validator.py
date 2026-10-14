@@ -202,7 +202,8 @@ class FlowValidator:
             self.operator_metadata.get_operator_metadata(internal_features=True)
         except Exception as e:
             self.logger.warning(
-                f"Some operators failed to load metadata (this is normal if external services are unavailable): {e!s}"
+                "Some operators failed to load metadata (this is normal if external services are unavailable): %s",
+                e,
             )
             # Continue with whatever metadata was successfully loaded
         # Use injected propagator when available to avoid a redundant metadata load.
@@ -415,7 +416,7 @@ class FlowValidator:
                     operators=duplicates,
                 )
             )
-            self.logger.error(f"Duplicate operator names have been found with: {','.join(duplicates)}")
+            self.logger.error("Duplicate operator names have been found with: %s", ",".join(duplicates))
 
         validate_results = ValidateStepResults(available_features={}, errors=errors, warnings=warnings)
         session_info = get_session_info()
@@ -443,9 +444,9 @@ class FlowValidator:
         self.validate_last_operator(dag=dag, validate_results=validate_results)
 
         if validate_results.warnings:
-            self.logger.warning(f"Validation warnings: {validate_results.warnings}")
+            self.logger.warning("Validation warnings: %s", validate_results.warnings)
         if validate_results.errors:
-            self.logger.error(f"Validation errors: {validate_results.errors}")
+            self.logger.error("Validation errors: %s", validate_results.errors)
 
         # Raise exception if there are errors OR warnings (warnings need to be returned to API)
         if validate_results.errors or validate_results.warnings:
@@ -547,7 +548,8 @@ class FlowValidator:
         self._traverse_dag(dag=dag, task=feature_propagation_task)
 
         logger.info(
-            f"Feature propagation complete: {len(propagation_result.available_features)} nodes processed",
+            "Feature propagation complete: %d nodes processed",
+            len(propagation_result.available_features),
             extra=self.common_log_arguments,
         )
 
@@ -1114,6 +1116,66 @@ class FlowValidator:
                     alerts=validate_results.errors,
                 )
 
+    @staticmethod
+    def _find_acl_parent_operators(*, dag: list, acl_node_id: str) -> list[dict]:
+        """Find parent operators of the ACL operator from DAG output edges."""
+        parent_map: dict[str, list[str]] = {n[OperatorConstants.Misc.ID]: [] for n in dag}
+        for node in dag:
+            output_edges = node.get(DocpipeConstants.OUTPUT_EDGES, [])
+            for edge in output_edges:
+                target_id = edge.get("node_id_ref")
+                if target_id and target_id in parent_map:
+                    parent_map[target_id].append(node[OperatorConstants.Misc.ID])
+
+        parent_ids = parent_map.get(acl_node_id, [])
+        return [node for node in dag if node.get(OperatorConstants.Misc.ID) in parent_ids]
+
+    @staticmethod
+    def _validate_acl_ingest_provider(
+        *, acl_node: dict, ingest_source_parent: dict, validate_results: ValidateStepResults
+    ) -> None:
+        """Validate that ingest_source parent uses SharePoint provider."""
+        provider = ingest_source_parent.get(OperatorConstants.Config.CONFIG, {}).get("provider", "").lower()
+        if provider != "sharepoint":
+            add_validation_alert(
+                message=ValidationMessage(
+                    message=ValidationCodeMessages.ACL_INVALID_PROVIDER.value.format(provider=provider),
+                    message_code=ValidationCodeMessages.ACL_INVALID_PROVIDER.name,
+                ),
+                op_def=acl_node,
+                alerts=validate_results.errors,
+            )
+
+    def _validate_acl_parent_operator(
+        self,
+        *,
+        acl_node: dict,
+        parent_operator: dict,
+        validate_results: ValidateStepResults,
+    ) -> None:
+        """Validate single parent operator of ACL operator."""
+        parent_op_name = parent_operator.get(OperatorConstants.Misc.OPERATOR)
+        parent_metadata = self.operator_metadata.operator_metadata.get(parent_op_name, {})
+        parent_category = parent_metadata.get(OperatorConstants.Misc.CATEGORY)
+
+        if parent_category != OperatorCategory.Ingest:
+            add_validation_alert(
+                message=ValidationMessage(
+                    message=ValidationCodeMessages.ACL_OPERATOR_MISPLACED.value.format(
+                        predecessor_operator=parent_op_name or "unknown"
+                    ),
+                    message_code=ValidationCodeMessages.ACL_OPERATOR_MISPLACED.name,
+                ),
+                op_def=acl_node,
+                alerts=validate_results.errors,
+            )
+        elif parent_op_name == OperatorConstants.Operators.INGEST_SOURCE:
+            self._validate_acl_ingest_provider(
+                acl_node=acl_node,
+                ingest_source_parent=parent_operator,
+                validate_results=validate_results,
+            )
+
     def _validate_acl_operator_placement(self, *, dag: list, validate_results: ValidateStepResults):
         """Validate ACL operator placement in the DAG.
 
@@ -1122,9 +1184,8 @@ class FlowValidator:
 
         Args:
             dag: List of operator definitions
-            global_config: Global configuration dictionary
+            validate_results: Step results tracking validation errors/warnings
         """
-        # Early exit if no ACL operator present
         acl_nodes = [
             node
             for node in dag
@@ -1133,7 +1194,6 @@ class FlowValidator:
         if not acl_nodes:
             return
 
-        # Check for multiple ACL operators
         if len(acl_nodes) > 1:
             for acl_node in acl_nodes:
                 add_validation_alert(
@@ -1148,19 +1208,9 @@ class FlowValidator:
 
         acl_node = acl_nodes[0]
         acl_node_id = acl_node.get(OperatorConstants.Misc.ID)
+        parent_operators = self._find_acl_parent_operators(dag=dag, acl_node_id=acl_node_id)
 
-        # Build reverse graph to find parent nodes
-        parent_map: dict[str, list[str]] = {n[OperatorConstants.Misc.ID]: [] for n in dag}
-        for node in dag:
-            output_edges = node.get(DocpipeConstants.OUTPUT_EDGES, [])
-            for edge in output_edges:
-                target_id = edge.get("node_id_ref")
-                if target_id and target_id in parent_map:
-                    parent_map[target_id].append(node[OperatorConstants.Misc.ID])
-
-        # Get parent nodes of ACL operator
-        parent_ids = parent_map.get(acl_node_id, [])
-        if not parent_ids:
+        if not parent_operators:
             add_validation_alert(
                 message=ValidationMessage(
                     message=ValidationCodeMessages.ACL_OPERATOR_NO_INPUT.value,
@@ -1171,10 +1221,6 @@ class FlowValidator:
             )
             return
 
-        # Find parent operator details
-        parent_operators = [node for node in dag if node.get(OperatorConstants.Misc.ID) in parent_ids]
-
-        # ACL operator should have only one parent
         if len(parent_operators) > 1:
             add_validation_alert(
                 message=ValidationMessage(
@@ -1188,46 +1234,11 @@ class FlowValidator:
             )
             return
 
-        # Check if any parent is an ingest_source operator
-        has_valid_parent = False
-        predecessor_operator = None
-        ingest_source_parent = None
-
-        for parent in parent_operators:
-            parent_op_name = parent.get(OperatorConstants.Misc.OPERATOR)
-            parent_metadata = self.operator_metadata.operator_metadata.get(parent_op_name, {})
-            parent_category = parent_metadata.get(OperatorConstants.Misc.CATEGORY)
-            if parent_category == OperatorCategory.Ingest:
-                has_valid_parent = True
-                if parent_op_name == OperatorConstants.Operators.INGEST_SOURCE:
-                    ingest_source_parent = parent
-                break
-            predecessor_operator = parent_op_name
-
-        if not has_valid_parent:
-            add_validation_alert(
-                message=ValidationMessage(
-                    message=ValidationCodeMessages.ACL_OPERATOR_MISPLACED.value.format(
-                        predecessor_operator=predecessor_operator or "unknown"
-                    ),
-                    message_code=ValidationCodeMessages.ACL_OPERATOR_MISPLACED.name,
-                ),
-                op_def=acl_node,
-                alerts=validate_results.errors,
-            )
-        elif ingest_source_parent is not None:
-            # Validate that ingest_source uses SharePoint provider
-            provider = ingest_source_parent.get(OperatorConstants.Config.CONFIG, {}).get("provider", "").lower()
-            if provider != "sharepoint":
-                add_validation_alert(
-                    message=ValidationMessage(
-                        message=ValidationCodeMessages.ACL_INVALID_PROVIDER.value.format(provider=provider),
-                        message_code=ValidationCodeMessages.ACL_INVALID_PROVIDER.name,
-                    ),
-                    op_def=acl_node,
-                    alerts=validate_results.errors,
-                )
-        # Early exit if no ACL operator present
+        self._validate_acl_parent_operator(
+            acl_node=acl_node,
+            parent_operator=parent_operators[0],
+            validate_results=validate_results,
+        )
 
     @staticmethod
     def _validate_storage_output_operator_placement(*, dag: list, validate_results: ValidateStepResults):

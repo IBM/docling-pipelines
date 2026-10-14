@@ -9,6 +9,8 @@ extraction provider and configuration. It supports multiple extraction strategie
 import logging
 from typing import Any, ClassVar
 
+import re2 as re
+
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.extract.domain.models import DoclingServeConfig, TextExtractionMode
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
@@ -405,8 +407,6 @@ class TextExtractionAdapterFactory:
         Raises:
             ValueError: If any GPU constraint is violated
         """
-        import re
-
         gpu_device = adapter_config.get(OperatorConstants.Extraction.DEVICE)
 
         # Normalise and validate device string.

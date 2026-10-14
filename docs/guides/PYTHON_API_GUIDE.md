@@ -289,7 +289,7 @@ uv pip install jupyter
 
 **Step 2: Start Jupyter Notebook Server**
 
-Note: Provide the full path instead of relative path here - https://github.com/IBM/docling-pipelines/blob/main/sample_flows/quickstart/complete_pipeline_ollama.json
+Note: Provide the full path instead of relative path here - https://github.com/docling-project/docling-pipelines/blob/main/sample_flows/quickstart/complete_pipeline_ollama.json
 
 From the project root directory:
 

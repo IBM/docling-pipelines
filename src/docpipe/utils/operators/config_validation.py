@@ -61,7 +61,8 @@ def validate_config_from_metadata(config: dict, attributes: dict, errors: list[s
     3. If required, validates the field exists in config
     4. For nested objects (TYPE="object" with PROPERTIES), recursively validates
     5. For provider_config fields (TYPE="json" with PROVIDERS), validates keys
-       against the active provider's schema
+       against the active provider's schema (selected by the sibling field named in
+       PROVIDER_FIELD, or "provider" by default)
     """
     for attr_key, attr_metadata in attributes.items():
         # Build the full path for error messages
@@ -99,7 +100,13 @@ def validate_config_from_metadata(config: dict, attributes: dict, errors: list[s
             # Validate provider_config keys against the active provider's schema
             provider_schemas = attr_metadata.get(OperatorConstants.Config.PROVIDERS)
             if provider_schemas and isinstance(attr_value, dict):
-                active_provider = config.get(OperatorConstants.Config.PROVIDER)
+                # The sibling field selecting the provider defaults to "provider"; an attribute
+                # can name another one (e.g. "pii_provider") via PROVIDER_FIELD, falling back
+                # to "provider" when that field is unset.
+                provider_field = attr_metadata.get(OperatorConstants.Config.PROVIDER_FIELD)
+                active_provider = (config.get(provider_field) if provider_field else None) or config.get(
+                    OperatorConstants.Config.PROVIDER
+                )
                 if active_provider:
                     _validate_provider_config_keys(
                         provider_config=attr_value,

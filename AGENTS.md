@@ -210,7 +210,7 @@ Never import an `adapters/` class from `domain/` or `application/`. Domain ports
     - Factory/constructor alternatives that use `cls` → `@classmethod`
     - `transform()`, `__init__`, lifecycle hooks, anything reading `self.*` → instance method
     - Never add `self` to a method signature just to satisfy a linter or to match surrounding style
-    - Known violations being tracked in [#127](https://github.com/IBM/docling-pipelines/issues/127)
+    - Known violations being tracked in [#127](https://github.com/docling-project/docling-pipelines/issues/127)
 
 16. **Use `_` and `__` name prefixes correctly** — they have distinct meanings and must not be used interchangeably:
     - `_name` (single underscore) — **internal by convention**: accessible from outside the class but signals "do not use directly". Use for private helpers, internal state, and implementation details that subclasses may legitimately access.
