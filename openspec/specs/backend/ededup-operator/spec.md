@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Admit each normalized content hash once per ededup operator node within a job run across concurrent batches, while preserving independent processing in separate branches, runs, and jobs.
+The Ededup operator removes duplicate documents from pipeline processing by hashing normalized content and admitting one representative per hash at each operator node within a job run. Shared storage coordinates concurrent batches and workers while keeping admissions independent across jobs, runs, and branch nodes; output preserves accepted rows and reports removed documents in metadata. Admissions record deduplication decisions rather than downstream completion, so a same-node, same-run retry skips previously admitted content while a new run can process it again.
 
 ## Requirements
 
