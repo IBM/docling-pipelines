@@ -121,7 +121,7 @@ def _start_bff() -> tuple[subprocess.Popen | None, str]:
         is empty (e.g. external BFF pre-configured via docker-compose or k8s env injection).
     """
     if os.getenv("BFF_URL"):
-        logger.info("BFF_URL already set — skipping sidecar start (external BFF assumed)")
+        logger.info("BFF_URL already set - skipping sidecar start (external BFF assumed)")
         return None, ""
 
     bff_bundle = Path(__file__).parent / "bff" / "server.cjs"
@@ -152,7 +152,7 @@ def _start_bff() -> tuple[subprocess.Popen | None, str]:
     )
     bff_url = f"http://localhost:{bff_port}"
     if not _wait_for_bff(bff_url=bff_url):
-        logger.warning("BFF sidecar did not become healthy within startup budget — continuing anyway")
+        logger.warning("BFF sidecar did not become healthy within startup budget - continuing anyway")
     logger.info("BFF sidecar started (pid=%d)", process.pid)
     return process, bff_url
 
