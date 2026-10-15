@@ -73,6 +73,7 @@ class JobStatsMapper:
             container_kind=job_stats.container_kind,
             container_id=job_stats.container_id,
             flow_id=job_stats.flow_id,
+            flow_name=job_stats.flow_name,
             user_id=job_stats.user_id,
             account_id=job_stats.account_id,
             user_entitlements=job_stats.user_entitlements,

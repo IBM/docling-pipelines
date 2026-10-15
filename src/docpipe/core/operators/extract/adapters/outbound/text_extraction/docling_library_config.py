@@ -94,9 +94,14 @@ class DoclingLibraryConfig(BaseModel):
         default=None,
         description="Automatic Speech Recognition pipeline configuration for audio/video extraction. Provide an empty object {} to enable with defaults, or omit to disable.",
     )
-    additional_formats: list[Literal["html", "json", "text", "doctags", "doclang"]] = Field(
+    additional_formats: list[Literal["markdown", "html", "json", "text", "doctags", "doclang"]] = Field(
         default_factory=list,
-        description="Additional output formats to generate beyond the mandatory markdown format.",
+        description=(
+            "Additional output formats to generate beyond the primary format. "
+            "When doc_format=markdown (default), markdown is already the primary format so including "
+            "it here is a no-op. When doc_format=doclang, add 'markdown' here to also produce a "
+            "markdown column alongside the primary DocLang content column."
+        ),
     )
     standard_pipeline: StandardPipelineConfig | None = Field(
         default=None,

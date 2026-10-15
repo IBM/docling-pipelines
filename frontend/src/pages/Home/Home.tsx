@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Grid, Column, Button } from '@carbon/react';
+import { Grid, Column, Button, InlineNotification } from '@carbon/react';
 import { go } from '@/utils';
 import { RecentlyViewed } from '@carbon/icons-react';
 import {
@@ -9,7 +9,6 @@ import {
   watsonXStaticLight,
   watsonXAnimatedDark,
   watsonXStaticDark,
-  type Tile,
   type TileGroup,
   type AriaLabels,
 } from '@carbon-labs/react-animated-header';
@@ -115,7 +114,7 @@ export function Home(): React.JSX.Element {
               title="See how it works"
               subtitle="View demos and documents"
               buttonLabel="Learn more"
-              href="https://ibm.github.io/docling-pipelines/book/site/docling-pipelines/1.0/index.html"
+              href="https://docling-project.github.io/docling-pipelines/book/site/docling-pipelines/1.0/index.html"
             />
           ),
         },
@@ -125,10 +124,6 @@ export function Home(): React.JSX.Element {
 
   const defaultTileGroup: TileGroup | undefined = headerTiles[0];
   const [selectedTileGroup, setSelectedTileGroup] = useState<TileGroup | undefined>(defaultTileGroup);
-
-  // TODO: wire tileClickHandler for API integration (e.g. analytics or deep-link on tile click)
-  // Navigation is currently driven by the Button inside customContent — tile-level click is unused
-  const handleTileClick = (_tile: Tile): void => {};
 
   return (
     <PageLayout fullBleed>
@@ -157,9 +152,18 @@ export function Home(): React.JSX.Element {
           allTileGroups={headerTiles}
           selectedTileGroup={selectedTileGroup}
           setSelectedTileGroup={setSelectedTileGroup}
-          tileClickHandler={handleTileClick}
         />
       </div>
+
+      {/* Beta notice — full-width banner below the animated header */}
+      <InlineNotification
+        className={styles.betaBanner}
+        kind="warning"
+        title="Beta: "
+        subtitle="The web UI is experimental and not yet production-ready. For production workloads, use the CLI or Python API."
+        lowContrast
+        hideCloseButton
+      />
 
       {/* Zone 2: Recently Visited — hidden when cache is empty */}
       {recentChips.length > 0 && (

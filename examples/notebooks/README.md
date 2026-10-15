@@ -16,6 +16,14 @@ uv sync --extra notebooks
 jupyter notebook examples/notebooks/
 ```
 
+## Validation
+
+Validate notebook Python code cells locally with the same nbQA/Ruff hook used by CI:
+
+```bash
+pre-commit run nbqa-ruff-check --all-files
+```
+
 ## Prerequisites
 
 ### Required Services

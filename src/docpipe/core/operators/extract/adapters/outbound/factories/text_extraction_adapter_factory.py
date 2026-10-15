@@ -9,6 +9,8 @@ extraction provider and configuration. It supports multiple extraction strategie
 import logging
 from typing import Any, ClassVar
 
+import re2 as re
+
 from docpipe.core.constants.operator_constants import OperatorConstants
 from docpipe.core.operators.extract.domain.models import DoclingServeConfig, TextExtractionMode
 from docpipe.core.operators.extract.ports.outbound.text_extraction import TextExtractionPort
@@ -175,30 +177,32 @@ class TextExtractionAdapterFactory:
         # Add mode-specific configuration from provider_config
         if mode == TextExtractionMode.DOCLING_LIBRARY:
             # VLM configuration comes from provider_config.vlm_pipeline
-            vlm_pipeline = provider_config.get(OperatorConstants.Config.VLM_PIPELINE, {})
+            vlm_pipeline = provider_config.get(OperatorConstants.Config.VLM_PIPELINE)
+            vlm_pipeline_config = vlm_pipeline if vlm_pipeline is not None else {}
 
             adapter_config.update(
                 {
-                    OperatorConstants.Config.USE_VLM_PIPELINE: bool(vlm_pipeline),
-                    OperatorConstants.Config.VLM_PRESET: vlm_pipeline.get(
-                        OperatorConstants.Config.PRESET, OperatorConstants.Config.DEFAULT
+                    OperatorConstants.Config.USE_VLM_PIPELINE: vlm_pipeline is not None,
+                    OperatorConstants.Config.VLM_PRESET: vlm_pipeline_config.get(
+                        OperatorConstants.Config.PRESET, OperatorConstants.Config.VLM_PRESET_DEFAULT
                     ),
-                    OperatorConstants.Config.VLM_ENGINE_TYPE: vlm_pipeline.get(
+                    OperatorConstants.Config.VLM_ENGINE_TYPE: vlm_pipeline_config.get(
                         OperatorConstants.Config.ENGINE, OperatorConstants.Config.VLM_ENGINE_TRANSFORMERS
                     ),
-                    OperatorConstants.Config.VLM_PROVIDER_CONFIG: vlm_pipeline.get(
+                    OperatorConstants.Config.VLM_PROVIDER_CONFIG: vlm_pipeline_config.get(
                         OperatorConstants.Config.ENGINE_OPTIONS
                     ),
                 }
             )
 
             # ASR configuration comes from provider_config.asr_pipeline
-            asr_pipeline = provider_config.get(OperatorConstants.Config.ASR_PIPELINE, {})
+            asr_pipeline = provider_config.get(OperatorConstants.Config.ASR_PIPELINE)
+            asr_pipeline_config = asr_pipeline if asr_pipeline is not None else {}
 
             adapter_config.update(
                 {
-                    OperatorConstants.Config.USE_ASR_PIPELINE: bool(asr_pipeline),
-                    OperatorConstants.Config.ASR_MODEL_NAME: asr_pipeline.get(
+                    OperatorConstants.Config.USE_ASR_PIPELINE: asr_pipeline is not None,
+                    OperatorConstants.Config.ASR_MODEL_NAME: asr_pipeline_config.get(
                         OperatorConstants.Config.MODEL_ID, OperatorConstants.Config.ASR_MODEL_DEFAULT
                     ),
                 }
@@ -215,7 +219,7 @@ class TextExtractionAdapterFactory:
             if accelerator and gpu_device is None:
                 gpu_device = TextExtractionAdapterFactory._auto_detect_device()
                 if gpu_device is not None:
-                    logger.info("No accelerator device specified — auto-detected: %s", gpu_device)
+                    logger.info("No accelerator device specified - auto-detected: %s", gpu_device)
                 else:
                     logger.warning(
                         "Accelerator block present but no GPU device found via torch. "
@@ -403,8 +407,6 @@ class TextExtractionAdapterFactory:
         Raises:
             ValueError: If any GPU constraint is violated
         """
-        import re
-
         gpu_device = adapter_config.get(OperatorConstants.Extraction.DEVICE)
 
         # Normalise and validate device string.

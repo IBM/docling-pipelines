@@ -32,7 +32,7 @@ Run the automated setup script to install everything:
 
 ```bash
 # Clone the repository
-git clone https://github.com/IBM/docling-pipelines.git
+git clone https://github.com/docling-project/docling-pipelines.git
 # or, if you forked: git clone https://github.com/<your-username>/docling-pipelines.git
 cd docling-pipelines
 

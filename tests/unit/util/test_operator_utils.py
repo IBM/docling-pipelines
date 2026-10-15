@@ -2203,3 +2203,27 @@ def test_extract_content_no_extension_detects_from_bytes():
         OperatorUtils.extract_content(file_path="doc", binary_content=b"plain text")
 
     mock_detect.assert_called_once()
+
+
+def test_extract_content_doclang_primary_format():
+    """When doc_format='doclang', export_to_doclang is called directly as primary."""
+    from unittest.mock import MagicMock
+
+    mock_doc = MagicMock()
+    mock_doc.export_to_doclang.return_value = "<doc>test</doc>"
+    mock_doc.pages = [1]
+
+    mock_converter = MagicMock()
+    mock_converter.convert.return_value = MagicMock(document=mock_doc)
+
+    result = OperatorUtils.extract_content(
+        file_path="sample.pdf",
+        binary_content=b"%PDFdata",
+        converter=mock_converter,
+        doc_format="doclang",
+    )
+
+    assert result[OperatorConstants.Extraction.SUCCESS] is True
+    assert result[OperatorConstants.Columns.DOC_COLUMN_DEFAULT] == "<doc>test</doc>"
+    mock_doc.export_to_doclang.assert_called_once()
+    mock_doc.export_to_markdown.assert_not_called()

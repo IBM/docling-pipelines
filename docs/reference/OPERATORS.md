@@ -255,7 +255,8 @@ For full details on the priority system, override behaviour, and registering cus
 | `text_extraction`                                             | object |          No | `{"provider": "docling_library", "doc_column": "content"}` | All | Text extraction configuration (see below)                                                          |
 | `text_extraction.provider`                                    | string |          No | `docling_library`       | All                             | Text extraction provider: `docling_library` (local with optional VLM) or `docling_serve` (remote API)  |
 | `text_extraction.doc_column`                                  | string |          No | `content`               | All                             | Column name for storing extracted text content                                                     |
-| `text_extraction.provider_config.additional_formats`          | array  |          No | `[]`                    | All                             | Additional output formats beyond markdown: `html`, `json`, `text`, `doctags`, `doclang`            |
+| `doc_format`                                                  | string |          No | `markdown`              | All                             | Primary content format: `"markdown"` (default) or `"doclang"`. When `"doclang"`, the `content` column contains DocLang XML instead of Markdown. Use `"doclang"` for pipelines that must preserve DocLang's structured element hierarchy through redaction and vector indexing. |
+| `text_extraction.provider_config.additional_formats`          | array  |          No | `[]`                    | All                             | Additional output formats beyond the primary format: `html`, `json`, `text`, `doctags`, `doclang`, `markdown`. When `doc_format=doclang`, add `"markdown"` here to also produce a `content_markdown` column. |
 | `text_extraction.provider_config.vlm_pipeline`                | object |          No | `null`                  | `docling_library`               | VLM (Vision-Language Model) pipeline configuration. When present, VLM processing is enabled. |
 | `text_extraction.provider_config.vlm_pipeline.preset`         | string |          No | `granite_docling`       | `docling_library`               | VLM preset name. Valid presets: `smoldocling`, `granite_docling`, `deepseek_ocr`, `granite_vision`, `pixtral`, `got_ocr`, `phi4`, `qwen`, `nanonets_ocr2`, `gemma_12b`, `gemma_27b`, `dolphin`, `glm_ocr`, `lightonocr`, `falcon_ocr` |
 | `text_extraction.provider_config.vlm_pipeline.engine`         | string |          No | `api_ollama`            | `docling_library`               | VLM engine type. Valid engines: `api_ollama`, `api_openai`, `api_watsonx`, `api_lmstudio`, `api` (generic), `transformers` (local), `mlx` (macOS) |
@@ -304,12 +305,13 @@ For full details on the priority system, override behaviour, and registering cus
 
 **Output Schema**
 
-- `content` (or configured via `doc_column` parameter) - Extracted markdown text (always generated)
+- `content` (or configured via `doc_column` parameter) - Primary extracted content: Markdown when `doc_format=markdown` (default), DocLang XML when `doc_format=doclang`
 - `content_html` - HTML format (if `additional_formats` includes "html")
 - `content_json` - JSON structured format (if `additional_formats` includes "json")
 - `content_text` - Plain text format (if `additional_formats` includes "text")
 - `content_doctags` - Docling's native DocTags format (if `additional_formats` includes "doctags")
-- `content_doclang` - DocLang format (if `additional_formats` includes "doclang")
+- `content_doclang` - DocLang format (if `additional_formats` includes "doclang" and `doc_format=markdown`)
+- `content_markdown` - Markdown format (if `additional_formats` includes "markdown" and `doc_format=doclang`)
 - `entities` (or configured `output_column`) - Extracted entities as JSON string (if entity extraction enabled)
 - `doc_id_hash` - Document hash identifier
 - `pages_processed` - Number of pages in the document. Obtained from Docling extraction metadata when available; otherwise estimated using 3000 characters = 1 page
@@ -1279,6 +1281,7 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 | `regex`             | string |      Yes | -                 | Pattern or literal to redact |
 | `masking_character` | string |       No | `*`               | Replacement character        |
 | `stats_column`      | string |       No | `redaction_stats` | Per-row redaction count      |
+| `doc_format`        | string |       No | `markdown`        | Content format of the input column: `"markdown"` (default) or `"doclang"`. When `"doclang"`, redaction is applied per DOM node using `defusedxml` — XML tags, attributes, and element hierarchy are preserved. Falls back to plain-text redaction if the XML is malformed. |
 
 **Output Schema**
 
@@ -1289,7 +1292,7 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 
 #### PIIAndHAPAnnotator
 
-**Purpose:** Detect Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content using LLM-based detection, with optional redaction.
+**Purpose:** Detect Personally Identifiable Information (PII) and Hate, Abuse, and Profanity (HAP) content, with optional redaction. PII and HAP can use different providers: `litellm` and `watsonx` support both, `presidio` supports PII only.
 
 **Category:** Quality
 
@@ -1299,8 +1302,12 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 
 | Parameter | Type | Required | Default | Description |
 | --- | --- | --- | --- | --- |
-| `provider` | string | No | `litellm` | Detection provider: `litellm` or `watsonx` |
-| `provider_config` | object | No | `{}` | Provider-specific configuration (see below) |
+| `provider` | string | No | `litellm` | Provider for every expected redaction without its own `pii_provider` / `hap_provider`: `litellm`, `watsonx`, `presidio` (PII only) |
+| `provider_config` | object | No | `{}` | Provider-specific configuration (see below); shared with `pii_provider` / `hap_provider` when they name the same provider or `provider` is unset |
+| `pii_provider` | string | No | — | Provider for PII only: `litellm`, `watsonx`, `presidio` |
+| `pii_provider_config` | object | No | `{}` | Configuration for `pii_provider` (falls back to `provider_config` as above) |
+| `hap_provider` | string | No | — | Provider for HAP only: `litellm`, `watsonx` |
+| `hap_provider_config` | object | No | `{}` | Configuration for `hap_provider` (falls back to `provider_config` as above) |
 | `doc_column` | string | No | `content` | Input text column |
 | `expected_redactions` | list | No | `["pii","hap"]` | Detection types to run: any subset of `["pii","hap"]` |
 | `pii_list` | list | No | all 13 types | PII types to detect |
@@ -1331,6 +1338,16 @@ The ExtractOperator uses hexagonal architecture (ports and adapters pattern) wit
 | `container_id` | string | Yes | Project or space UUID |
 | `timeout` | integer | No | Request timeout in seconds (default: `300`) |
 
+**`provider_config` — Presidio (PII only; requires `pip install "docling-pipelines[presidio]"` and a spaCy model):**
+
+| Field | Type | Required | Description |
+| --- | --- | --- | --- |
+| `language` | string | No | Document language code (default: `en`) |
+| `spacy_model` | string | No | spaCy NER model (default: `en_core_web_lg`) |
+| `entity_mapping` | object | No | Presidio entity type to PII type overrides (e.g. `{"DATE_TIME": "DateOfBirth"}`) |
+
+A provider selected for a capability it does not support (e.g. `hap_provider: "presidio"`) fails validation before any document is processed.
+
 **Output Schema:**
 
 | Column | Type | Description |
@@ -1358,17 +1375,54 @@ When `display_pii: true`, additional `*_info` columns are appended for each PII 
 
 #### EdedupOperator
 
-**Purpose:** Remove exact duplicate documents using `dpk_ededup`.
+**Purpose:** Remove repeated normalized content using atomic shared hash registration.
 
 **Category:** Quality
 
 **Class:** `core.operators.quality.ededup.EdedupOperator`
 
-| Parameter     | Type   | Required | Default          | Description               |
-| ------------- | ------ | -------: | ---------------- | ------------------------- |
-| `doc_column`  | string |       No | `content`        | Content column to compare |
-| `doc_id_hash` | string |       No | `doc_id_hash`    | Hash/id column            |
-| `filter`      | object |       No | `HashFilter({})` | Hash filter state/config  |
+| Parameter | Type | Required | Default | Description |
+| --- | --- | ---: | --- | --- |
+| `doc_column` | string | No | `content` | Content column to normalize and hash |
+| `doc_id_hash_column` | string | No | `doc_id_hash` | Required document hash/ID input column; content is hashed independently |
+
+The legacy `filter` argument is unsupported. It was a backend-only argument and was not exposed as a user-configurable
+field in the UI. The operator uses its dedicated `ededup.storage` backend configured in
+`docling-pipelines-config.yaml`. PostgreSQL coordinates separate pods; filesystem coordinates callers sharing one local
+storage directory. The orchestrator supplies job, run, and node IDs. Direct callers supplying job/run context must also
+supply the node ID; partial execution context is rejected.
+Call `transform(table)` when invoking the operator directly; the former `transform(table, file_name=...)` form is
+unsupported. Context-free standalone instances retain an in-memory registry across calls on that instance only.
+
+Configuration precedence is `ededup.storage` over `global_storage` over filesystem defaults; nested ededup config values
+override shared values. `incremental_metadata` settings and `DOCPIPE_INCREMENTAL_BASE_DIR` are not consulted. Invalid
+ededup backend settings fail explicitly. PostgreSQL uses common `DOCPIPE_POSTGRES_*` connection settings and creates
+only `hashes`, defaulting to the `ededup_registry` schema when no schema is configured. Filesystem uses
+`<base_dir>/ededup_registry/hashes_<scope_hash>.parquet` and matching `.lock` files, where `base_dir` is
+`ededup.storage.config.base_dir` or the common data root. The scope hash is SHA-256 of the JSON-encoded
+`[job_id, node_id, job_run_id]`. Registry records persist across runs and source deletion.
+When moving from the earlier coupled configuration, copy service-specific storage settings into `ededup.storage`
+before running. Data under the previous `dedup_registry` namespace and legacy `ededup_hashes` tables/folders are not automatically migrated or read. To keep using PostgreSQL data from the previous default, set the schema to `dedup_registry`; move previous filesystem registry files into the new `ededup_registry` directory under the same base directory.
+
+Registration is isolated by `(job_id, node_id, job_run_id, hash_value)`. Within each input table, the first occurrence wins;
+across concurrent batches the winner depends on registration order. Hashes use the existing normalization: remove spaces,
+newlines and ASCII punctuation, lowercase, then SHA-256. This is not a byte-for-byte comparison.
+
+The five stored fields are `job_id`, `node_id`, `job_run_id`, `hash_value`, and `doc_id`; document ID is not part of
+uniqueness. Each branch's ededup node admits independently, while all workers for one node share its stable ID. Merging
+branch outputs adds no automatic cross-branch deduplication. PostgreSQL uses bounded bulk inserts with conflict-ignore
+and returns only newly inserted hashes after the whole call commits; an error rolls back every chunk.
+
+A renamed document with unchanged content is skipped if the same node/run already admitted its hash; the original
+record is unchanged. A new run, or another branch's node without that hash, can admit the new document ID independently.
+Reopening an existing registry preserves these memberships. A downstream failure does not remove admissions: retrying
+at the same node/run skips the hash, while a new run can accept it.
+
+Records retain the accepted source `doc_id` and are not removed when source documents disappear. Historical runs never
+suppress a new run, including overlapping runs. These records are admissions, not completed-processing history; they are
+retained and require an operational retention policy at scale. No automatic run cleanup is performed.
+
+Deduplication does not perform rename detection, downstream filename updates, or reuse of previously generated outputs.
 
 ---
 
@@ -1977,6 +2031,7 @@ Schemas are defined with `target_tables` specifying field mappings and transform
 | `provider_config`    | object |      Yes | -             | Connection parameters and resource name for the backend (see examples below)|
 | `available_features` | object |       No | -             | Feature definitions for vector DB schema                                    |
 | `feature_mappings`   | object |       No | -             | Mapping of PyArrow columns to vector DB fields                              |
+| `doc_format`         | string |       No | `markdown`    | Content format of the incoming `content` column: `"markdown"` (default) or `"doclang"`. When `"doclang"`, DocLang XML is auto-transcoded to clean Markdown before indexing (both unchunked and chunked modes). Chunk metadata (bounding boxes, page numbers, header paths) is preserved in indexed document payloads. |
 
 **Multi-Model Embeddings Support:**
 
