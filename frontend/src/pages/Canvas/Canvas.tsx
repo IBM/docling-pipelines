@@ -9,7 +9,6 @@ import type { CanvasConfig, ToolbarConfig } from '@elyra/canvas';
 import { IconButton, InlineLoading } from '@carbon/react';
 import { type CanvasController, CommonProperties } from '@elyra/canvas';
 import type { ClickActionSource } from '@elyra/canvas';
-import { IntlProvider } from 'react-intl';
 import { useDateTimeFormatter } from '@/utils/dateTimeUtils';
 import { formatDateTime } from '@/utils/formatters';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
@@ -1441,19 +1440,17 @@ export function Canvas(): React.JSX.Element {
       return undefined;
     }
     return (
-      <IntlProvider locale="en">
-        <CommonProperties
-          propertiesInfo={propertiesInfo as any}
-          propertiesConfig={{ containerType: 'Custom', rightFlyout: true, applyPropertiesWithoutEdit: true }}
-          customPanels={[CommonPropertiesPanelWrapper]}
-          callbacks={{
-            applyPropertyChanges: handleApplyPropertyChanges,
-            closePropertiesDialog: handleClosePropertiesDialog,
-            controllerHandler: handleControllerHandler,
-            propertyListener: handlePropertyListener,
-          }}
-        />
-      </IntlProvider>
+      <CommonProperties
+        propertiesInfo={propertiesInfo as any}
+        propertiesConfig={{ containerType: 'Custom', rightFlyout: true, applyPropertiesWithoutEdit: true }}
+        customPanels={[CommonPropertiesPanelWrapper]}
+        callbacks={{
+          applyPropertyChanges: handleApplyPropertyChanges,
+          closePropertiesDialog: handleClosePropertiesDialog,
+          controllerHandler: handleControllerHandler,
+          propertyListener: handlePropertyListener,
+        }}
+      />
     );
   }, [
     isPanelOpen, selectedNodeId, selectedOperator, propertiesInfo,
