@@ -11,9 +11,12 @@ components, pages, and string-valued display constants. This created several pro
   values without modifying every file that contains them.
 - Unit tests that rendered components containing `intl.formatMessage` calls failed because
   `IntlProvider` was not present in the test environment.
-- String-valued constants used as display labels were duplicated between the constants layer and the components that consumed them.
+- String-valued constants used as display labels were duplicated between the constants
+  layer and the components that consumed them.
 
-The i18n infrastructure, which consists of `IntlProvider` at the app root, `loadMessages` / `messages_en.json` in `frontend/src/i18n/`, and Elyra canvas bundle merging, was already established before this migration. This change completes the migration of all remaining hard-coded user-facing strings into that existing infrastructure.
+The i18n infrastructure (`IntlProvider`, `loadMessages`, `messages_en.json`, Elyra canvas bundle
+merging) was already established before this migration. This change completes the migration
+of all remaining hard-coded user-facing strings into that existing infrastructure.
 
 ## What Changes
 
