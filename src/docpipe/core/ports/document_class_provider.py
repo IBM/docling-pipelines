@@ -1,10 +1,7 @@
 """Document class provider port and default static implementation.
 
 This port defines the contract for resolving document class metadata (types,
-descriptions, and extraction schemas). It follows the same pattern as
-``LLMInferencePort``: an ABC with abstract methods, the port lives here in
-docling-pipelines, while concrete adapters that call remote services
-(e.g. UDC) live in datasift-api.
+descriptions, and extraction schemas).
 
 Two implementations are shipped here:
 
