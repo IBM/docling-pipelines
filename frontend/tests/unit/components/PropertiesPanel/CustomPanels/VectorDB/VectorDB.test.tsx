@@ -1329,8 +1329,10 @@ describe('VectorDBPanelBody', () => {
       getPropertyValue: vi.fn((p: { name: string }) => {
         if (p.name === 'provider') return 'milvus';
         // Start with standalone auth that has username + password already set
-        if (p.name === 'provider_config')
-          return JSON.stringify({ auth_type: 'standalone', username: 'user', password: 'pass', host: 'localhost', port: 19530 }); // pragma: allowlist secret
+        if (p.name === 'provider_config') {
+          const config = { auth_type: 'standalone', username: 'user', host: 'localhost', port: 19530 };
+          return JSON.stringify({ ...config, password: crypto.randomUUID() });
+        }
         return undefined;
       }),
     });

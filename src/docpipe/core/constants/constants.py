@@ -475,6 +475,7 @@ class Metrics:
         FAILED_DOCS = "failed_docs"
         SKIPPED_DOCS_COUNT = "skipped_docs_count"
         SKIPPED_DOCS = "skipped_docs"
+        DOCUMENT_URL = "document_url"
         TOTAL_PAGES_CONVERTED = "total_pages_converted"
         NODE_STATUS = "node_status"
         UNPROCESSED_DOC_COUNT = "unprocessed_doc_count"
