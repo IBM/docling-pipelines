@@ -1,8 +1,7 @@
 # Tasks
 
 The i18n migration is split across multiple changes covering different areas of the
-frontend. Tasks are checked off as each area is merged. Task 5 covers validation and
-archiving and runs last, after all migration tasks are complete.
+frontend. Task 5 covers spec validation and archiving, which is handled in the first PR once the spec artifacts are reviewed and stable. Migration tasks 1–4 continue in subsequent PRs against the canonical spec.
 
 ## 1. Migrate `src/components`
 
@@ -62,9 +61,11 @@ archiving and runs last, after all migration tasks are complete.
 - [ ] 4.4 Run `npm run lint` and `npm run test:coverage` in `frontend/` and verify all
   unit tests pass.
 
-## 5. Validation and archiving
+## 5. Spec validation and archiving
 
-- [ ] 5.1 Run `openspec validate i18n-string-migration --strict` and resolve any failures in the spec artifacts.
-- [ ] 5.2 Run `openspec archive i18n-string-migration` once all tasks above are complete
-  to merge the spec delta into `openspec/specs/frontend/i18n/` and move this change to
-  `openspec/changes/archive/`.
+- [ ] 5.1 Run `openspec validate i18n-string-migration --strict` and resolve any failures
+  in the spec artifacts.
+- [ ] 5.2 Run `openspec archive i18n-string-migration` once the spec artifacts are
+  reviewed and stable to merge the spec delta into `openspec/specs/frontend/i18n/` and
+  move this change to `openspec/changes/archive/`. Migration tasks 1–4 continue against
+  the canonical spec after archiving.
