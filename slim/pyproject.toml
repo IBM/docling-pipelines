@@ -140,7 +140,7 @@ telemetry = [
 extract = [
     "accelerate==1.15.0",
     "docling[rapidocr]==2.132.0",
-    "sentence-transformers==5.6.0",
+    "sentence-transformers==6.1.0",
     "transformers>=5.17.0,<5.18.0",
 ]
 
