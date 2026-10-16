@@ -1,6 +1,7 @@
 """Table storage port — interface for PyArrow table storage."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from typing import Any
 
 import pyarrow as pa
@@ -113,7 +114,7 @@ class TableStoragePort(ABC):
         ...
 
     @abstractmethod
-    def execute_query(self, *, query: str, params: list[Any] | None = None) -> pa.Table:
+    def execute_query(self, *, query: str, params: Mapping[str, Any] | None = None) -> pa.Table:
         """
         Execute a SQL query and return results as PyArrow table.
 
