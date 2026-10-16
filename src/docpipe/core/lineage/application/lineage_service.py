@@ -90,10 +90,12 @@ class LineageService:
         inputs = []
         if context.ingested_table is not None:
             dataset_name = context.ingest_source_name or context.ingest_node_id or "ingest"
+            namespace = context.ingest_source_namespace or self._namespace
             inputs = [
                 self._build_dataset_from_summary(
                     summary=NodeTableSummary.from_table(context.ingested_table),
                     name=dataset_name,
+                    namespace=namespace,
                 )
             ]
         self._publish(event_type=LineageEventType.RUNNING, run=run, job=job, inputs=inputs)
@@ -118,15 +120,45 @@ class LineageService:
             status=context.status,
             facets=run_facets,
         )
-        base_name = context.ingest_dataset_name or context.flow_name or "output"
-        outputs = [
-            self._build_dataset_from_summary(
-                summary=NodeTableSummary.from_table(t),
-                name=f"{base_name}/output_{i}",
-            )
-            for i, t in enumerate(context.output_tables)
-            if t is not None
-        ]
+        outputs = []
+        if context.sink_datasets:
+            for i, (sink_ns, sink_name) in enumerate(context.sink_datasets):
+                table = (
+                    context.output_tables[i]
+                    if i < len(context.output_tables)
+                    else (context.output_tables[0] if context.output_tables else None)
+                )
+                if table is not None:
+                    outputs.append(
+                        self._build_dataset_from_summary(
+                            summary=NodeTableSummary.from_table(table),
+                            name=sink_name,
+                            namespace=sink_ns,
+                        )
+                    )
+        elif context.sink_dataset_name:
+            sink_ns = context.sink_dataset_namespace or self._namespace
+            for i, t in enumerate(context.output_tables):
+                if t is not None:
+                    name = context.sink_dataset_name if i == 0 else f"{context.sink_dataset_name}_{i}"
+                    outputs.append(
+                        self._build_dataset_from_summary(
+                            summary=NodeTableSummary.from_table(t),
+                            name=name,
+                            namespace=sink_ns,
+                        )
+                    )
+        else:
+            base_name = context.flow_name or "output"
+            outputs = [
+                self._build_dataset_from_summary(
+                    summary=NodeTableSummary.from_table(t),
+                    name=f"{base_name}/output_{i}" if len(context.output_tables) > 1 else f"{base_name}/output",
+                    namespace=LineageConstants.NAMESPACE_INMEMORY,
+                )
+                for i, t in enumerate(context.output_tables)
+                if t is not None
+            ]
         self._publish(event_type=LineageEventType.COMPLETE, run=run, job=job, outputs=outputs)
 
     def emit_flow_fail(self, *, context: FlowFailContext) -> None:
@@ -169,19 +201,23 @@ class LineageService:
         )
         inputs = []
         if context.input_summary is not None:
-            # Ingest nodes carry their source path as the input dataset name
-            # (e.g. filesystem://./tests/fixtures/customer_support_docs) so the
-            # Marquez graph shows where data originates.  All other nodes use the
-            # predecessor's output dataset name to stitch the chain together.
             if context.ingest_source_dataset_name:
                 input_name = context.ingest_source_dataset_name
+                namespace = context.ingest_source_dataset_namespace or self._namespace
             else:
                 input_name = self._build_node_input_dataset_name(
                     flow_name=context.flow_name,
                     predecessor_node_ids=context.predecessor_node_ids,
                     node_name=context.node_name,
                 )
-            inputs = [self._build_dataset_from_summary(summary=context.input_summary, name=input_name)]
+                namespace = LineageConstants.NAMESPACE_INMEMORY
+            inputs = [
+                self._build_dataset_from_summary(
+                    summary=context.input_summary,
+                    name=input_name,
+                    namespace=namespace,
+                )
+            ]
         self._publish(event_type=LineageEventType.START, run=run, job=job, inputs=inputs)
 
     def emit_node_complete(self, *, context: NodeCompleteContext) -> None:
@@ -199,17 +235,31 @@ class LineageService:
                 **self._build_node_stats_facet(metadata=context.metadata),
             },
         )
-        outputs = [
-            self._build_dataset_from_summary(
-                summary=s,
-                name=self._build_node_output_dataset_name(
-                    flow_name=context.flow_name,
-                    node_name=context.node_name,
-                    index=i,
-                ),
-            )
-            for i, s in enumerate(context.output_summaries)
-        ]
+        outputs = []
+        if context.sink_dataset_name:
+            sink_ns = context.sink_dataset_namespace or self._namespace
+            for i, s in enumerate(context.output_summaries):
+                name = context.sink_dataset_name if i == 0 else f"{context.sink_dataset_name}_{i}"
+                outputs.append(
+                    self._build_dataset_from_summary(
+                        summary=s,
+                        name=name,
+                        namespace=sink_ns,
+                    )
+                )
+        else:
+            outputs = [
+                self._build_dataset_from_summary(
+                    summary=s,
+                    name=self._build_node_output_dataset_name(
+                        flow_name=context.flow_name,
+                        node_name=context.node_name,
+                        index=i,
+                    ),
+                    namespace=LineageConstants.NAMESPACE_INMEMORY,
+                )
+                for i, s in enumerate(context.output_summaries)
+            ]
         self._publish(event_type=LineageEventType.COMPLETE, run=run, job=job, outputs=outputs)
 
     def emit_node_fail(self, *, context: NodeFailContext) -> None:
@@ -237,7 +287,13 @@ class LineageService:
                 predecessor_node_ids=context.predecessor_node_ids,
                 node_name=context.node_name,
             )
-            inputs = [self._build_dataset_from_summary(summary=context.input_summary, name=input_name)]
+            inputs = [
+                self._build_dataset_from_summary(
+                    summary=context.input_summary,
+                    name=input_name,
+                    namespace=LineageConstants.NAMESPACE_INMEMORY,
+                )
+            ]
         self._publish(event_type=LineageEventType.FAIL, run=run, job=job, inputs=inputs)
 
     def emit_node_skip(self, *, context: NodeSkipContext) -> None:
@@ -356,10 +412,16 @@ class LineageService:
             return f"{flow_name}/{node_name}/output"
         return f"{flow_name}/{node_name}/output_{index}"
 
-    def _build_dataset_from_summary(self, *, summary: NodeTableSummary, name: str) -> LineageDataset:
+    def _build_dataset_from_summary(
+        self,
+        *,
+        summary: NodeTableSummary,
+        name: str,
+        namespace: str | None = None,
+    ) -> LineageDataset:
         """Build a dataset from a lightweight NodeTableSummary (no live Arrow data required)."""
         return LineageDataset(
-            namespace=self._namespace,
+            namespace=namespace or self._namespace,
             name=name,
             facets={
                 "schema": {

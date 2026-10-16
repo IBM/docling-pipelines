@@ -117,6 +117,26 @@ class TestEmitFlowComplete:
         call_kwargs = mock_publisher.publish.call_args[1]
         assert call_kwargs["event_type"] == LineageEventType.COMPLETE
         assert len(call_kwargs["outputs"]) == 1
+        assert call_kwargs["outputs"][0].namespace == "inmemory://"
+        assert call_kwargs["outputs"][0].name == "test-flow/output"
+
+    def test_publishes_complete_event_with_sink_dataset(
+        self, service: LineageService, mock_publisher: MagicMock, sample_table: pa.Table
+    ) -> None:
+        context = FlowCompleteContext(
+            flow_id="flow-1",
+            flow_name="test-flow",
+            job_run_id="run-1",
+            flow_def={},
+            output_tables=[sample_table],
+            sink_datasets=[("opensearch://localhost:9200", "my_index")],
+        )
+        service.emit_flow_complete(context=context)
+        call_kwargs = mock_publisher.publish.call_args[1]
+        assert call_kwargs["event_type"] == LineageEventType.COMPLETE
+        assert len(call_kwargs["outputs"]) == 1
+        assert call_kwargs["outputs"][0].namespace == "opensearch://localhost:9200"
+        assert call_kwargs["outputs"][0].name == "my_index"
 
 
 class TestEmitFlowFail:
@@ -244,13 +264,33 @@ class TestEmitNodeComplete:
         call_kwargs = mock_publisher.publish.call_args[1]
         assert call_kwargs["event_type"] == LineageEventType.COMPLETE
         assert len(call_kwargs["outputs"]) == 1
-        # output dataset name uses chained pattern: flow_name/node_name/output
+        # in-memory dataset
+        assert call_kwargs["outputs"][0].namespace == "inmemory://"
         assert call_kwargs["outputs"][0].name == "test-flow/chunker/output"
         assert call_kwargs["outputs"][0].facets["outputStatistics"]["rowCount"] == 2
         # operator surfaced in job facet
         jt = call_kwargs["job"].facets["jobType"]
         assert jt["operator"] == "chunker"
         assert jt["operatorCategory"] == "Functional"
+
+    def test_publishes_node_complete_with_sink_dataset(
+        self, service: LineageService, mock_publisher: MagicMock, sample_summary: NodeTableSummary
+    ) -> None:
+        context = NodeCompleteContext(
+            flow_id="flow-1",
+            flow_name="test-flow",
+            job_run_id="run-1",
+            node_id="n1",
+            node_name="vectordb",
+            operator_type="vectordb",
+            output_summaries=[sample_summary],
+            sink_dataset_namespace="opensearch://localhost:9200",
+            sink_dataset_name="kb_index",
+        )
+        service.emit_node_complete(context=context)
+        call_kwargs = mock_publisher.publish.call_args[1]
+        assert call_kwargs["outputs"][0].namespace == "opensearch://localhost:9200"
+        assert call_kwargs["outputs"][0].name == "kb_index"
 
     def test_node_complete_end_time_populated(
         self, service: LineageService, mock_publisher: MagicMock, sample_summary: NodeTableSummary
