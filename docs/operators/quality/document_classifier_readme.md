@@ -17,7 +17,7 @@ reasoning text. Unsupported file formats are skipped, not failed.
 
 ## Key Features
 
-- Multi-provider: LiteLLM (100+ providers including Ollama) and IBM WatsonX
+- Multi-provider: LiteLLM (100+ providers including Ollama), IBM WatsonX
 - Confidence scoring on a 1–10 scale
 - Optional reasoning output
 - Configurable document type lists (simple list or detailed descriptions)
@@ -28,63 +28,75 @@ reasoning text. Unsupported file formats are skipped, not failed.
 
 ## Architecture
 
-### Simplified Service-Based Architecture
+### Hexagonal (Ports and Adapters) Architecture
 
-The operator uses a streamlined architecture that leverages shared LLM infrastructure:
+The operator depends only on the `ClassificationPort` interface. A registry-based
+`ClassificationAdapterFactory` resolves the flow `provider` string to a concrete adapter and
+calls its `from_config()` classmethod, which validates the config and builds its own
+dependencies.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                   DocumentClassifierOperator                 │
-│                     (Main Operator)                          │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│                  ClassificationService                       │
-│              (Business Logic Layer)                          │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │  Domain Models:                                       │  │
-│  │  - ClassificationRequest                              │  │
-│  │  - ClassificationResponse                             │  │
-│  │  - build_classification_prompt()                      │  │
-│  └──────────────────────────────────────────────────────┘  │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Shared LLM Adapter Infrastructure               │
-│                  (LLMAdapterFactory)                         │
-└────────────────────────┬────────────────────────────────────┘
-                         │
-        ┌────────────────┼────────────────┐
-        ▼                ▼                ▼
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│   LiteLLM    │  │  Watsonx.ai  │  │ HuggingFace  │
-│   Client     │  │   Client     │  │   Client     │
-└──────────────┘  └──────────────┘  └──────────────┘
+```mermaid
+graph TD
+    OP[DocumentClassifierOperator] -->|classify_document| PORT[ClassificationPort]
+    OP -->|create_adapter| FACTORY[ClassificationAdapterFactory]
+    FACTORY -->|from_config| STD[StandardLLMClassificationAdapter]
+    STD -.implements.-> PORT
+    STD -->|uses| LLMPORT[LLMInferencePort]
+    LLMPORT --> LITE[LiteLLM adapter]
+    LLMPORT --> WX[WatsonX adapter]
 ```
 
 ### Component Responsibilities
 
-#### 1. **Operator Layer** ([`document_classifier.py`](../../../src/docpipe/core/operators/quality/classification/document_classifier.py))
+#### 1. Operator ([`document_classifier.py`](../../../src/docpipe/core/operators/quality/classification/document_classifier.py))
 - Handles PyArrow table processing and orchestration
 - Manages parallel document classification
 - Integrates with job tracking and progress reporting
+- Calls only `ClassificationPort`; never imports concrete adapters
+- Does not extract text itself: it passes `existing_text` (from the `content` column) and/or the raw `binary_content` to the adapter, which decides what it needs
+- Writes the `_temp_content_for_extract` / `_temp_pages_processed` reuse columns only when the adapter reports `extracted_content` (see [Content reuse](#content-reuse-by-the-extract-operator))
 
-#### 2. **Service Layer** ([`classification_service.py`](../../../src/docpipe/core/operators/quality/classification/classification_service.py))
-- Contains business logic for document classification
-- Validates configuration parameters
-- Manages LLM adapter lifecycle
+#### 2. Port ([`classification_port.py`](../../../src/docpipe/core/operators/quality/classification/ports/outbound/classification_port.py))
+- Defines `classify_document()` and the `from_config()` classmethod contract
+- `ClassificationResponse` may carry optional `extracted_content` and `extraction_metadata` for adapters that extract text as a by-product
 
-#### 3. **Domain Layer** ([`domain/models.py`](../../../src/docpipe/core/operators/quality/classification/domain/models.py))
+#### 3. Factory ([`classification_adapter_factory.py`](../../../src/docpipe/core/operators/quality/classification/adapters/outbound/factories/classification_adapter_factory.py))
+- Registry of adapters keyed by `ADAPTER_NAME`
+- Alias table (`litellm`, `watsonx` resolve to the `standard` adapter)
+- Rejects deprecated providers (`ollama`) with migration guidance
+
+#### 4. Adapter ([`standard_llm_adapter.py`](../../../src/docpipe/core/operators/quality/classification/adapters/outbound/standard_llm_adapter.py))
+- `StandardLLMClassificationAdapter` builds an `LLMInferencePort` through `LLMAdapterFactory` and performs prompt building, LLM call and response parsing
+- Classifies from text: uses `existing_text` when given, otherwise extracts text from `binary_content` with Docling and returns it as `extracted_content` / `extraction_metadata`
+
+#### 5. Domain ([`domain/models.py`](../../../src/docpipe/core/operators/quality/classification/domain/models.py))
 - Pure domain models: `ClassificationRequest`, `ClassificationResponse`
 - Provider-agnostic prompt building logic
 - No infrastructure dependencies
 
-#### 4. **Infrastructure Layer** (Shared `LLMAdapterFactory`)
-- Creates provider-specific LLM adapters (LiteLLM, Watsonx)
-- Manages adapter configuration and initialization
-- Provides unified `LLMInferencePort` interface
+### Adding a new adapter
+
+Implement `ClassificationPort` (set `ADAPTER_NAME`, implement `from_config()` and
+`classify_document()`), then call `ClassificationAdapterFactory.register(MyAdapter)`.
+
+Adapters that do not need Docling text (for example, ones that classify from raw bytes) simply
+leave `extracted_content` and `extraction_metadata` as `None`; the operator then never runs
+Docling and does not write the reuse columns.
+
+### Content reuse by the Extract operator
+
+When the input table has no `content` column and the adapter had to extract text itself (the
+standard adapter does), the operator adds two temporary columns so a downstream
+[Extract Operator](../extract/extract_operator_readme.md) can skip a second Docling pass:
+
+| Column | Description |
+|---|---|
+| `_temp_content_for_extract` | Text extracted by the adapter |
+| `_temp_pages_processed` | Native Docling `page_count`, or an estimate from character count |
+
+The columns are written only when every document was extracted. If any document is skipped
+(unsupported extension, blank extraction) or fails to fetch, neither column is added, so Extract
+never sees mixed content.
 
 ---
 
@@ -178,7 +190,7 @@ The operator uses a streamlined architecture that leverages shared LLM infrastru
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `provider` | string | LLM provider: `"litellm"` or `"watsonx"` |
-| `model_id` | string | Model identifier in `<provider>/<model_id>` format for LiteLLM (e.g., `"openai/granite3.1-dense:8b"`, `"openai/gpt-4o-mini"`, `"anthropic/claude-3-sonnet"`), or plain format for Watsonx (e.g., `"ibm/granite-13b-chat-v2"`) |
+| `model_id` | string | Text model identifier (inside `provider_config`). For LiteLLM: `"openai/granite3.1-dense:8b"`; for WatsonX: `"ibm/granite-13b-chat-v2"` |
 
 ### Optional Parameters
 
@@ -306,7 +318,7 @@ The operator validates file extensions and only processes documents with the fol
 
 - PyArrow Table with document content
 - Required: `name` column containing filename (used for extension validation)
-- Optional: `content` column (if not present, will be fetched from binary content)
+- Optional: `content` column (if not present, the raw document bytes are fetched and passed to the adapter, which extracts text when it needs to)
 
 ## Output Columns
 
@@ -317,7 +329,8 @@ All input columns are preserved. The operator appends:
 | `document_type` | `string` | Classified document type label |
 | `document_type_confidence` | `float32` | Confidence score (1–10); present when `include_confidence: true` |
 | `document_type_reasoning` | `string` | Explanation for the classification; present when `include_reasoning: true` |
-| `content` | `string` | Document text content; added only if not already in the input table |
+| `_temp_content_for_extract` | `string` | Internal reuse column for the Extract operator; added only when no `content` column was supplied and the adapter extracted text for every document |
+| `_temp_pages_processed` | `int` | Internal reuse column; added together with `_temp_content_for_extract` |
 
 **Note:** Documents with unsupported file extensions are not removed — they remain in the output table with `None` values in the classification columns and are tracked in `skipped_docs` metadata.
 
@@ -328,7 +341,7 @@ All input columns are preserved. The operator appends:
 | Column | Type | Required | Description |
 |---|---|---|---|
 | `name` | string | Yes | Filename — used for file extension validation |
-| `content` | string | No | Document text; fetched from binary content if absent |
+| `content` | string | No | Document text; if absent, binary content is fetched and the adapter extracts text from it |
 
 ---
 
@@ -341,7 +354,8 @@ The operator adds the following columns to the output table:
 | `document_type` | string | Classified document type | Yes |
 | `document_type_confidence` | float | Confidence score (1-10) | If `include_confidence=true` |
 | `document_type_reasoning` | string | Classification explanation | If `include_reasoning=true` |
-| `content` | string | Document content (if fetched) | If not already present |
+| `_temp_content_for_extract` | string | Text extracted by the adapter, for reuse by Extract | Only when adapter extracted all documents |
+| `_temp_pages_processed` | int | Page count for the extracted text | Only with `_temp_content_for_extract` |
 
 ### Metadata
 
@@ -636,12 +650,38 @@ class ClassificationService:
         self,
         *,
         model_id: str | None = None,
-        provider_name: str,
+        provider_name: str | None = None,
         provider_config: dict[str, Any] | None = None,
         temperature: float = 0.0,
         max_tokens: int = 500,
+        llm_adapter: LLMInferencePort | None = None,
+        document_class_provider: DocumentClassProvider | None = None,
     ) -> None:
-        """Initialize classification service."""
+        """Initialize classification service.
+
+        At least one of ``llm_adapter`` or ``provider_name`` must be supplied.
+
+        * When ``llm_adapter`` is given it is used directly and ``LLMAdapterFactory``
+          is **not** called. ``model_id`` and ``provider_name`` are then optional
+          (stored only for informational purposes).
+        * When only ``provider_name`` is given the ``LLMAdapterFactory`` path is
+          used (requires ``model_id``).
+
+        Args:
+            model_id: Model identifier for the provider. Required when
+                ``llm_adapter`` is not provided.
+            provider_name: Provider name ('watsonx' or 'litellm'). Required
+                when ``llm_adapter`` is not provided.
+            provider_config: Provider-specific configuration dictionary.
+            temperature: Temperature for LLM generation (default: 0.0).
+            max_tokens: Maximum tokens for LLM response (default: 500).
+            llm_adapter: Pre-built ``LLMInferencePort`` instance. When
+                supplied, ``model_id`` / ``provider_name`` / ``provider_config``
+                are ignored for adapter construction.
+            document_class_provider: Provider for resolving document class
+                metadata (types, schemas, Docling templates). Defaults to
+                ``StaticDocumentClassProvider`` which reads from local JSON files.
+        """
         pass
 
     def classify_document(self, *, request: ClassificationRequest) -> ClassificationResponse:
@@ -704,6 +744,8 @@ class ClassificationResponse:
     reasoning: str
     success: bool
     error: str | None = None
+    extracted_content: str | None = None  # text the adapter extracted itself (e.g. via Docling)
+    extraction_metadata: dict[str, Any] | None = None  # e.g. Docling page_count
 
 @dataclass
 class ModelInfo:
@@ -726,6 +768,11 @@ class ModelInfo:
 
 ## Version History
 
+- **v2.1.0** : Dependency injection and pluggable document class provider
+  - `ClassificationService` now accepts an optional pre-built `LLMInferencePort` via `llm_adapter=`, bypassing `LLMAdapterFactory`
+  - `provider_name` is now optional when a pre-built adapter is injected
+  - Added `DocumentClassProvider` port; default `StaticDocumentClassProvider` preserves existing local-file behaviour
+  - `ClassificationService` and entity extraction adapters accept `document_class_provider=` for injecting custom metadata sources
 - **v2.0.0** : Simplified architecture
   - Removed hexagonal architecture (ports/adapters) in favor of simplified service-based design
   - Leverages shared LLM infrastructure (`LLMAdapterFactory`)
