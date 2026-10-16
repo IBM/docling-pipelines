@@ -108,7 +108,7 @@ dev = [
     "flake8==7.3.0",
     "httpx==0.28.1",  # For testing FastAPI
     "interrogate==1.7.0",
-    "mypy==2.1.0",
+    "mypy==2.4.0",
     "pre-commit==4.5.1",
     "pytest==9.0.3",
     "pytest-asyncio==1.4.0",
