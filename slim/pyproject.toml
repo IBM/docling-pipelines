@@ -57,7 +57,7 @@ dependencies = [
     "o365==2.1.9",
     "ollama==0.6.1",
     "openai==2.33.0",
-    "opensearch-py==3.1.0",
+    "opensearch-py==3.2.0",
     "orjson==3.13.0",
     "pandas==2.3.3",
     "passlib[bcrypt]==1.7.4",
